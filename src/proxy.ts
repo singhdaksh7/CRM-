@@ -12,7 +12,11 @@ export default auth((req) => {
     pathname.startsWith("/api/integrations") ||
     pathname.startsWith("/api/auth") ||
     pathname === "/api/system/health" ||
-    pathname === "/api/system/readiness";
+    pathname === "/api/system/readiness" ||
+    // Vercel Cron (and manual/administrative triggers) call this without a
+    // user session - it does its own CRON_SECRET bearer-token check inside
+    // the route handler, same pattern as /api/integrations above.
+    pathname === "/api/internal/notifications/sweep";
 
   if (isPublic) return NextResponse.next();
 
