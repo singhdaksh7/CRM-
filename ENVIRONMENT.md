@@ -53,6 +53,17 @@ Full reference for every variable the app reads. See `.env.example` for a ready-
 | `RATE_LIMIT_DOCUMENT_MAX` / `_WINDOW_SECONDS` | Optional | Default 100 per 60s. |
 | `RATE_LIMIT_PAYMENT_MAX` / `_WINDOW_SECONDS` | Optional | Default 30 per 60s. |
 
+## Production Admin bootstrap (one-time)
+
+| Variable | When needed | Notes |
+|---|---|---|
+| `BOOTSTRAP_ADMIN_NAME` | Running `npm run bootstrap:production` | Admin's display name. |
+| `BOOTSTRAP_ADMIN_EMAIL` | Same | Must not already belong to a non-Admin user. |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Same | 12+ chars, upper+lower+digit+symbol; known dev/demo passwords are rejected. Never logged. |
+| `BOOTSTRAP_ORGANIZATION_NAME` | Optional | Defaults to `"Delhi Broker CRM"`. Only used if `org_default` doesn't already exist. |
+
+Never run `npm run db:seed` against production — see `DEPLOYMENT.md` §12. Unset these four variables from the deployment environment after the bootstrap script has run once.
+
 ## Monitoring (optional)
 
 | Variable | When needed | Notes |

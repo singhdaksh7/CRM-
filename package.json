@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
+    "bootstrap:production": "tsx scripts/bootstrap-admin.ts",
     "test": "vitest run"
   },
   "prisma": {

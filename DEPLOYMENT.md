@@ -161,7 +161,7 @@ After both fixes: the container started cleanly, applied migrations against the 
 - [ ] `npx prisma migrate deploy` previewed (review `prisma/migrations/*/migration.sql` since the last deploy)
 - [ ] `npx vitest run` green (165/165 at time of writing)
 - [ ] `npm run build` succeeds
-- [ ] Admin bootstrap: at least one ADMIN user exists (seed or manual insert) — no self-serve admin signup
+- [ ] Admin bootstrap: run `npm run bootstrap:production` (§12) — never run `npm run db:seed` against production, it creates demo data and hardcoded passwords
 - [ ] Storage bucket reachable, IAM credentials scoped correctly (§2.3)
 - [ ] `REDIS_URL` set and reachable (rate limiting fails open without it — deploying without Redis is *allowed* but means limits aren't enforced)
 - [ ] Public catalogue URL resolves from outside the deploy network
@@ -181,3 +181,19 @@ See `OPERATIONS.md` "Post-deployment smoke tests" for the full checklist (login,
 
 ### Rollback
 See `RESTORE.md`.
+
+---
+
+## 12. Production Admin bootstrap
+
+`prisma/seed.ts` creates demo employees/properties/leads/deals with hardcoded passwords (`Admin@123`, etc.) — it exists purely for local development and **must never be run against production**.
+
+`scripts/bootstrap-admin.ts` (`npm run bootstrap:production`) is the production-safe alternative:
+- Creates the default organization (`org_default`) only if it doesn't already exist (it normally does — the baseline migration seeds it).
+- Creates exactly one Admin account only if no Admin exists anywhere; never overwrites an existing Admin.
+- Reads `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`, and optional `BOOTSTRAP_ORGANIZATION_NAME` from the environment — see `.env.example`.
+- Hashes the password with the same `bcryptjs` used by `auth.ts`; enforces a minimum-strength password (12+ chars, upper/lower/digit/symbol) and rejects known dev/demo passwords outright.
+- Never logs the password. Records a `CREATE` audit log entry for the organization (if created) and the Admin user.
+- Safe to run repeatedly — a second run is a no-op once the Admin exists.
+
+Run it once after `prisma migrate deploy`, then unset/remove the `BOOTSTRAP_ADMIN_*` variables from the deployment environment.
