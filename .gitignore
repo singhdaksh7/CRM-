@@ -44,6 +44,8 @@ next-env.d.ts
 /prisma/dev.db
 /prisma/dev.db-journal
 /prisma/backups/
+prisma/**/*.db
+prisma/**/*.db-journal
 
 # local document uploads (Phase 2 document vault, local storage provider)
 /public/uploads/
