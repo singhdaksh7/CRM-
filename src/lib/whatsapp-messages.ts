@@ -1,0 +1,228 @@
+import { prisma } from "./prisma";
+import { ApiError } from "./api-auth";
+import { getOrganizationId } from "./organization";
+import { logActivity } from "./activity";
+import { createNotification } from "./notifications";
+import { recalculateLeadScore } from "./scoring";
+import { findOrCreateConversation, touchConversationTimestamps } from "./whatsapp-conversations";
+import { getWhatsAppProvider } from "@/integrations/whatsapp";
+import { WhatsAppProviderError } from "@/integrations/whatsapp/whatsapp-errors";
+import type { WhatsAppMessageStatus, WhatsAppMessageType } from "@prisma/client";
+
+interface SendMessageParams {
+  leadId: string;
+  sentByUserId: string;
+  content: string;
+  messageType?: WhatsAppMessageType;
+  templateName?: string;
+  catalogueUrl?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Sends an outbound message through whichever provider is configured, persisting every state transition. */
+export async function sendOutboundMessage(params: SendMessageParams) {
+  if (!params.content?.trim()) throw new ApiError(400, "Message content is required");
+
+  const conversation = await findOrCreateConversation(params.leadId);
+  const organizationId = getOrganizationId();
+  const provider = getWhatsAppProvider();
+  const messageType = params.messageType ?? "TEXT";
+
+  const message = await prisma.whatsAppMessage.create({
+    data: {
+      organizationId,
+      conversationId: conversation.id,
+      direction: "OUTBOUND",
+      messageType,
+      provider: provider.name,
+      content: params.content,
+      templateName: params.templateName,
+      status: "QUEUED",
+      sentByUserId: params.sentByUserId,
+      metadata: params.metadata ? JSON.stringify(params.metadata) : null,
+    },
+  });
+
+  try {
+    const result = await (async () => {
+      if (messageType === "TEMPLATE" && params.templateName) {
+        return provider.sendTemplateMessage({ to: conversation.phoneNumber, templateName: params.templateName, body: params.content });
+      }
+      if (messageType === "CATALOGUE" && params.catalogueUrl) {
+        return provider.sendCatalogueMessage({ to: conversation.phoneNumber, body: params.content, catalogueUrl: params.catalogueUrl });
+      }
+      return provider.sendTextMessage({ to: conversation.phoneNumber, body: params.content });
+    })();
+
+    const updated = await prisma.whatsAppMessage.update({
+      where: { id: message.id },
+      data: {
+        providerMessageId: result.providerMessageId,
+        status: result.status,
+        sentAt: result.status === "SENT" ? new Date() : null,
+      },
+    });
+
+    await touchConversationTimestamps(conversation.id, "OUTBOUND");
+    await logActivity({
+      leadId: params.leadId,
+      type: "WHATSAPP_MESSAGE_SENT",
+      description: `${messageType === "CATALOGUE" ? "Catalogue" : "WhatsApp"} message sent (${provider.name.replace(/_/g, " ")})`,
+      actorId: params.sentByUserId,
+    });
+
+    return { message: updated, clickToChatUrl: result.clickToChatUrl };
+  } catch (err) {
+    const errorMessage = err instanceof WhatsAppProviderError ? err.message : "Failed to send message";
+    const failed = await prisma.whatsAppMessage.update({
+      where: { id: message.id },
+      data: { status: "FAILED", errorMessage, failedAt: new Date() },
+    });
+    await notifyMessageFailed(params.leadId, organizationId, errorMessage);
+    return { message: failed, clickToChatUrl: undefined };
+  }
+}
+
+/**
+ * Click-to-chat never confirms delivery on its own - this is the explicit,
+ * application-side action taken after the UI opens the wa.me link, per the
+ * documented status policy in click-to-chat-provider.ts.
+ */
+export async function markClickToChatOpened(messageId: string) {
+  const message = await prisma.whatsAppMessage.findUnique({ where: { id: messageId }, include: { conversation: true } });
+  if (!message) throw new ApiError(404, "Message not found");
+  if (message.provider !== "CLICK_TO_CHAT") throw new ApiError(400, "Only click-to-chat messages can be marked as opened");
+
+  const updated = await prisma.whatsAppMessage.update({ where: { id: messageId }, data: { status: "SENT", sentAt: new Date() } });
+  await touchConversationTimestamps(message.conversationId, "OUTBOUND");
+  return updated;
+}
+
+export async function retryMessage(messageId: string, sentByUserId: string) {
+  const message = await prisma.whatsAppMessage.findUnique({ where: { id: messageId }, include: { conversation: true } });
+  if (!message) throw new ApiError(404, "Message not found");
+  if (message.status !== "FAILED") throw new ApiError(400, "Only failed messages can be retried");
+
+  return sendOutboundMessage({
+    leadId: message.conversation.leadId,
+    sentByUserId,
+    content: message.content,
+    messageType: message.messageType,
+    templateName: message.templateName ?? undefined,
+  });
+}
+
+const SIMULATED_REPLIES = [
+  "I like the second property.",
+  "Can we visit tomorrow?",
+  "Do you have anything closer to the metro?",
+  "My budget is only ₹20,000.",
+  "Please call me after 6 PM.",
+  "I am not interested in these options.",
+] as const;
+
+export { SIMULATED_REPLIES };
+
+/** Mock-mode only: simulates the client replying, running the exact same pipeline a real inbound webhook would trigger. */
+export async function simulateReply(leadId: string, text: string) {
+  const provider = getWhatsAppProvider();
+  if (provider.name !== "MOCK") throw new ApiError(400, "Simulated replies are only available when WHATSAPP_PROVIDER=MOCK");
+
+  const conversation = await findOrCreateConversation(leadId);
+  const organizationId = getOrganizationId();
+
+  const message = await prisma.whatsAppMessage.create({
+    data: {
+      organizationId,
+      conversationId: conversation.id,
+      direction: "INBOUND",
+      messageType: "TEXT",
+      provider: provider.name,
+      providerMessageId: `mock_in_${Date.now()}`,
+      content: text,
+      status: "RECEIVED",
+    },
+  });
+
+  await touchConversationTimestamps(conversation.id, "INBOUND");
+  await handleInboundReplyEffects(leadId, text);
+
+  return message;
+}
+
+/** Mock-mode only: transitions a previously-sent outbound message through DELIVERED / READ / FAILED. */
+export async function simulateStatus(messageId: string, targetStatus: Extract<WhatsAppMessageStatus, "DELIVERED" | "READ" | "FAILED">) {
+  const provider = getWhatsAppProvider();
+  if (provider.name !== "MOCK") throw new ApiError(400, "Simulated status transitions are only available when WHATSAPP_PROVIDER=MOCK");
+
+  const message = await prisma.whatsAppMessage.findUnique({ where: { id: messageId }, include: { conversation: true } });
+  if (!message) throw new ApiError(404, "Message not found");
+  if (message.direction !== "OUTBOUND") throw new ApiError(400, "Only outbound messages have delivery/read status");
+
+  const now = new Date();
+  const data: Record<string, unknown> = { status: targetStatus };
+  if (targetStatus === "DELIVERED") data.deliveredAt = now;
+  if (targetStatus === "READ") data.readAt = now;
+  if (targetStatus === "FAILED") {
+    data.failedAt = now;
+    data.errorMessage = "Simulated failure";
+  }
+
+  const updated = await prisma.whatsAppMessage.update({ where: { id: messageId }, data });
+
+  if (targetStatus === "FAILED") {
+    await notifyMessageFailed(message.conversation.leadId, message.organizationId, "Simulated failure");
+  }
+
+  return updated;
+}
+
+/** Shared side-effects for any inbound reply, whether simulated or from a real webhook. */
+export async function handleInboundReplyEffects(leadId: string, text: string) {
+  await logActivity({
+    leadId,
+    type: "CLIENT_REPLY_RECEIVED",
+    // Per Phase 2B.10 guidance: keep sensitive content out of notification
+    // titles - this is the lead activity description, which is only ever
+    // shown inside the authenticated lead workspace, not a notification title.
+    description: `Inbound WhatsApp reply received: "${truncate(text, 120)}"`,
+  });
+
+  const lead = await prisma.lead.update({
+    where: { id: leadId },
+    data: { lastContactedAt: new Date() },
+  });
+
+  if (lead.assignedToId) {
+    await createNotification({
+      organizationId: lead.organizationId,
+      userId: lead.assignedToId,
+      type: "CLIENT_REPLY_RECEIVED",
+      title: "Client replied on WhatsApp",
+      message: `${lead.clientName} sent a new WhatsApp message.`,
+      leadId,
+    });
+  }
+
+  await recalculateLeadScore(leadId, "WHATSAPP_REPLY_RECEIVED");
+}
+
+async function notifyMessageFailed(leadId: string, organizationId: string, errorMessage: string) {
+  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+  if (!lead) return;
+  await logActivity({ leadId, type: "WHATSAPP_MESSAGE_FAILED", description: `WhatsApp message failed to send: ${errorMessage}` });
+  if (lead.assignedToId) {
+    await createNotification({
+      organizationId,
+      userId: lead.assignedToId,
+      type: "WHATSAPP_MESSAGE_FAILED",
+      title: "WhatsApp message failed",
+      message: `A message to ${lead.clientName} could not be sent.`,
+      leadId,
+    });
+  }
+}
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}

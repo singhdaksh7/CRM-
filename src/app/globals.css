@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #0D1017;
+    --bg-sidebar: #11151F;
+    --bg-header: #121722;
+    --card-primary: #181E2A;
+    --card-secondary: #1E2533;
+    --surface-elevated: #252D3D;
+    --surface-hover: #2B3446;
+
+    --primary-blue: #4F8CFF;
+    --primary-blue-hover: #6BA0FF;
+    --whatsapp-green: #25D366;
+    --color-success: #22C55E;
+    --color-warning: #F59E0B;
+    --color-error: #EF4444;
+    --color-info: #38BDF8;
+    --purple-accent: #A78BFA;
+
+    --text-primary: #F8FAFC;
+    --text-secondary: #CBD5E1;
+    --text-muted: #94A3B8;
+    --text-disabled: #64748B;
+
+    --border-main: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.14);
+    --border-divider: rgba(255, 255, 255, 0.06);
+  }
+}
+
+@theme {
+  --color-bg-main: var(--bg-main);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-header: var(--bg-header);
+  --color-card-primary: var(--card-primary);
+  --color-card-secondary: var(--card-secondary);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-primary-blue: var(--primary-blue);
+  --color-primary-blue-hover: var(--primary-blue-hover);
+  --color-whatsapp-green: var(--whatsapp-green);
+  --color-crm-success: var(--color-success);
+  --color-crm-warning: var(--color-warning);
+  --color-crm-error: var(--color-error);
+  --color-crm-info: var(--color-info);
+  --color-purple-accent: var(--purple-accent);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+
+  --color-border-main: var(--border-main);
+  --color-border-strong: var(--border-strong);
+  --color-border-divider: var(--border-divider);
+
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar for Dark System */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-elevated);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-hover);
+}
+
+/* Global keyboard-focus visibility - most interactive elements in this app
+   have no per-component focus ring, so without this a keyboard user tabbing
+   through the UI cannot see where focus is. */
+:focus-visible {
+  outline: 2px solid var(--primary-blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
