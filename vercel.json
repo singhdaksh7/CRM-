@@ -3,8 +3,7 @@
   "crons": [
     {
       "path": "/api/internal/notifications/sweep",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 3 * * *"
     }
-  ],
-  "regions": ["hnd1"]
+  ]
 }
