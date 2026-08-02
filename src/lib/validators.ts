@@ -256,6 +256,7 @@ export const documentMetadataSchema = z.object({
   fileType: z.string().min(1).max(100),
   fileSizeBytes: z.number().int().nonnegative().optional().nullable(),
   expiresAt: z.string().optional().nullable(),
+  category: z.enum(["GENERAL", "AADHAAR", "PAN", "REGISTRY", "OWNERSHIP_PROOF", "RENT_AGREEMENT", "SALE_AGREEMENT", "BROKERAGE_AGREEMENT", "DEAL_DOCUMENT", "PAYMENT_RECEIPT", "OWNER_IDENTITY"]).default("GENERAL"),
 }).refine((data) => !!data.storageKey || !!data.fileUrl, { message: "Either storageKey or fileUrl is required" });
 
 export const importColumnMappingSchema = z.record(z.string(), z.string());

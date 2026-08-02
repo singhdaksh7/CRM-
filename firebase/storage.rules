@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Delhi Broker CRM - Firebase Storage security rules.
+//
+// This app does NOT use Firebase Auth or any Firebase client SDK - every
+// request to this bucket comes from the Next.js server via the Firebase
+// Admin SDK (src/lib/firebase-admin.ts), which bypasses these rules
+// entirely (Admin SDK requests are always allowed, regardless of what's
+// written here). These rules exist purely as a defense-in-depth backstop
+// against direct client access - e.g. if a Firebase client SDK config or
+// API key ever leaked, or someone tried to hit the bucket's public REST
+// API directly.
+//
+// All real authorization (role checks, organization isolation, per-document
+// category rules, short-lived signed URLs) happens server-side in:
+//   - src/lib/document-access.ts
+//   - src/lib/documents.ts
+//   - src/lib/property-images.ts
+//   - src/app/api/documents/**, src/app/api/property-images/**
+//
+// Do not weaken this to allow direct client reads/writes "for convenience" -
+// see the task's explicit instruction: "Do not rely on Firebase client
+// authentication because the CRM uses NextAuth and server-side RBAC."
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

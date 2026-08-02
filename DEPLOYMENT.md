@@ -68,6 +68,31 @@ Full lifecycle tested end-to-end with the local MinIO container from `docker-com
 ### 2.3 Production setup
 Provision a private S3 bucket (or MinIO/R2/B2 equivalent), create an IAM user/access key scoped to just that bucket (`s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, `s3:HeadObject`), and set `STORAGE_BUCKET`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` (leave `STORAGE_ENDPOINT` unset for real AWS). See `.env.example`.
 
+### 2.4 Firebase Storage provider (Phase 1 — backend implemented, not yet live-tested against a real bucket)
+
+`STORAGE_PROVIDER` selects which provider backs the Document Vault and property images: `S3`, `FIREBASE`, or `DISABLED` (default — upload endpoints fail safely with a clear 503 "not configured" response; every other CRM page keeps working). The provider is chosen once via `src/lib/storage-providers/index.ts`; `src/lib/storage.ts` is the single stable entry point every route/service imports from, so switching providers is a config change, not a code change.
+
+**Firebase is server-mediated, not presigned-PUT.** The browser never talks to Firebase directly and never sees Admin credentials — an upload route (`POST /api/documents/upload` or `POST /api/properties/[id]/images`) receives the file bytes as multipart form data, then the server pushes them to the bucket via the Firebase Admin SDK. This is deliberately the "Preferred MVP approach" (server-side RBAC, no client Firebase SDK, simpler audit logging).
+
+**Object keys never contain identifying text.** `organizations/{organizationId}/{properties|leads|owners|deals|payments}/{entityId}/{documents|receipts|images|floor-plans}/{uuid}.{extension}` — no owner/client names, phone numbers, Aadhaar/PAN, or the original file name. The original file name is stored only in `Document.originalFilename` in Postgres.
+
+**Downloads are always short-lived signed URLs** (5 minute default, configurable up to 15 per request) — never a permanent Firebase public download-token URL, even for catalogue-safe property images.
+
+**Setting up a real Firebase project** (do this in the Firebase Console, not in code):
+1. Create or select a Firebase project.
+2. Enable **Cloud Storage** for that project (Build → Storage → Get started).
+3. Choose a bucket region close to Vercel/Supabase — this deployment runs Vercel Functions in `hnd1` (Tokyo) next to Supabase's `ap-northeast-1`, so prefer an `asia-northeast1` (Tokyo) bucket if available.
+4. Confirm the project is on a plan that supports Cloud Storage billing (Blaze pay-as-you-go — Storage isn't available on the free Spark plan beyond a small trial quota).
+5. Project Settings → Service Accounts → **Generate new private key**. This downloads a JSON file — **never commit it**.
+6. From that JSON, copy `project_id` → `FIREBASE_PROJECT_ID`, `client_email` → `FIREBASE_CLIENT_EMAIL`, `private_key` → `FIREBASE_PRIVATE_KEY` (paste with the literal `\n` sequences intact — `src/lib/firebase-admin.ts` un-escapes them; Vercel's env var UI stores multi-line values this way).
+7. Set `FIREBASE_STORAGE_BUCKET` to the bucket name shown in Storage → Files (usually `{project-id}.appspot.com` or `{project-id}.firebasestorage.app`).
+8. Deploy `firebase/storage.rules` (`allow read, write: if false;` — all real access goes through the Admin SDK server-side, never direct client access) via the Firebase Console's Storage → Rules tab, or `firebase deploy --only storage` if using the Firebase CLI.
+9. **Delete the downloaded service-account JSON from your Downloads folder** once its three values are safely in Vercel's environment variable UI — it should not persist on any local disk longer than needed to copy the values out.
+10. In Vercel: Project Settings → Environment Variables → add `STORAGE_PROVIDER=FIREBASE`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET` for the Production environment (Preview only if a separate, safe preview bucket exists) — never as `NEXT_PUBLIC_*`. Redeploy after saving.
+11. Verify: `GET /api/system/status` should report `storage: "ok"` with `[FIREBASE] ...`; as Admin, `POST /api/system/storage-health` runs a full upload/read/download-authorize/delete round trip against a tiny synthetic object and reports each step.
+
+See `SECURITY.md` "File storage" for the access-control model (category-based permissions, organization isolation, audit events).
+
 ---
 
 ## 3. Rate limiting — implemented and verified

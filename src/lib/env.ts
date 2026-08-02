@@ -22,9 +22,22 @@ const envSchema = z
     WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
     WHATSAPP_VERIFY_TOKEN: z.string().optional(),
 
+    // STORAGE_PROVIDER selects which lib/storage/* provider backs the
+    // Document Vault and property images. DISABLED (default) means no
+    // file storage is configured - upload endpoints fail safely with a
+    // clear "not configured" response; existing CRM pages that don't
+    // touch files keep working regardless.
+    STORAGE_PROVIDER: z.enum(["S3", "FIREBASE", "DISABLED"]).default("DISABLED"),
+
     STORAGE_BUCKET: z.string().optional(),
     STORAGE_ACCESS_KEY_ID: z.string().optional(),
     STORAGE_SECRET_ACCESS_KEY: z.string().optional(),
+
+    // Firebase Admin SDK (server-only) - required when STORAGE_PROVIDER=FIREBASE.
+    FIREBASE_PROJECT_ID: z.string().optional(),
+    FIREBASE_CLIENT_EMAIL: z.string().optional(),
+    FIREBASE_PRIVATE_KEY: z.string().optional(),
+    FIREBASE_STORAGE_BUCKET: z.string().optional(),
 
     SMTP_HOST: z.string().optional(),
     EMAIL_FROM: z.string().optional(),
@@ -46,10 +59,25 @@ const envSchema = z
         if (!data[key]) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required when WHATSAPP_PROVIDER=META_CLOUD` });
       }
     }
-    const storageFields = [data.STORAGE_BUCKET, data.STORAGE_ACCESS_KEY_ID, data.STORAGE_SECRET_ACCESS_KEY];
-    const storagePartial = storageFields.some(Boolean) && !storageFields.every(Boolean);
-    if (storagePartial) {
-      ctx.addIssue({ code: "custom", path: ["STORAGE_BUCKET"], message: "STORAGE_BUCKET, STORAGE_ACCESS_KEY_ID, and STORAGE_SECRET_ACCESS_KEY must all be set together, or all left empty" });
+    if (data.STORAGE_PROVIDER === "S3") {
+      const storageFields = [data.STORAGE_BUCKET, data.STORAGE_ACCESS_KEY_ID, data.STORAGE_SECRET_ACCESS_KEY];
+      if (!storageFields.every(Boolean)) {
+        ctx.addIssue({ code: "custom", path: ["STORAGE_BUCKET"], message: "STORAGE_BUCKET, STORAGE_ACCESS_KEY_ID, and STORAGE_SECRET_ACCESS_KEY are all required when STORAGE_PROVIDER=S3" });
+      }
+    } else {
+      // Still flag an inconsistent partial S3 config even when S3 isn't the
+      // active provider - a half-set credential trio is almost always a
+      // mistake worth surfacing rather than silently ignoring.
+      const storageFields = [data.STORAGE_BUCKET, data.STORAGE_ACCESS_KEY_ID, data.STORAGE_SECRET_ACCESS_KEY];
+      const storagePartial = storageFields.some(Boolean) && !storageFields.every(Boolean);
+      if (storagePartial) {
+        ctx.addIssue({ code: "custom", path: ["STORAGE_BUCKET"], message: "STORAGE_BUCKET, STORAGE_ACCESS_KEY_ID, and STORAGE_SECRET_ACCESS_KEY must all be set together, or all left empty" });
+      }
+    }
+    if (data.STORAGE_PROVIDER === "FIREBASE") {
+      for (const key of ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY", "FIREBASE_STORAGE_BUCKET"] as const) {
+        if (!data[key]) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required when STORAGE_PROVIDER=FIREBASE` });
+      }
     }
     if (process.env.NODE_ENV === "production" && data.NEXTAUTH_URL.startsWith("http://")) {
       ctx.addIssue({ code: "custom", path: ["NEXTAUTH_URL"], message: "NEXTAUTH_URL must be https:// in production" });

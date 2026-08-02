@@ -32,13 +32,15 @@ Full reference for every variable the app reads. See `.env.example` for a ready-
 | `ACRES_99_API_KEY` | Recommended in production | If set, `POST /api/integrations/leads/99acres` requires this exact value in the `x-api-key` header. Unset = endpoint stays open (mock-mode default). |
 | `MAGICBRICKS_API_KEY` | Recommended in production | Same, for `/api/integrations/leads/magicbricks`. |
 
-## File storage (Document Vault)
+## File storage (Document Vault + property images)
 
 | Variable | When needed | Notes |
 |---|---|---|
-| `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` | To enable real file storage | Must be set together (validated) or all left empty. Empty = legacy mode, `Document.fileUrl` must be a pre-hosted external URL. |
+| `STORAGE_PROVIDER` | Always (has a default) | `DISABLED` (default) \| `S3` \| `FIREBASE`. Selects the provider in `src/lib/storage-providers/`. `DISABLED` means upload endpoints return a clear 503; every other page keeps working. |
+| `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` | `STORAGE_PROVIDER=S3` | Required together when S3 is selected. |
 | `STORAGE_REGION` | With the above | Defaults to `us-east-1`. |
 | `STORAGE_ENDPOINT` | S3-compatible non-AWS host (MinIO, R2, B2) | Leave unset for real AWS S3. Local dev default: `http://localhost:9002` (MinIO via `docker-compose.yml`). |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET` | `STORAGE_PROVIDER=FIREBASE` | Required together (validated) when Firebase is selected. From a Firebase service-account JSON - see DEPLOYMENT.md "2.4 Firebase Storage provider". `FIREBASE_PRIVATE_KEY` keeps its literal `\n` sequences; `src/lib/firebase-admin.ts` un-escapes them. Never prefix with `NEXT_PUBLIC_`. |
 
 ## Rate limiting
 
@@ -52,6 +54,11 @@ Full reference for every variable the app reads. See `.env.example` for a ready-
 | `RATE_LIMIT_UPLOAD_MAX` / `_WINDOW_SECONDS` | Optional | Default 30 per 60s. |
 | `RATE_LIMIT_DOCUMENT_MAX` / `_WINDOW_SECONDS` | Optional | Default 100 per 60s. |
 | `RATE_LIMIT_PAYMENT_MAX` / `_WINDOW_SECONDS` | Optional | Default 30 per 60s. |
+| `RATE_LIMIT_DOCUMENT_DOWNLOAD_MAX` / `_WINDOW_SECONDS` | Optional | Default 60 per 60s. |
+| `RATE_LIMIT_DOCUMENT_REPLACE_MAX` / `_WINDOW_SECONDS` | Optional | Default 20 per 60s. |
+| `RATE_LIMIT_DOCUMENT_DELETE_MAX` / `_WINDOW_SECONDS` | Optional | Default 20 per 60s. |
+| `RATE_LIMIT_PROPERTY_IMAGE_UPLOAD_MAX` / `_WINDOW_SECONDS` | Optional | Default 30 per 60s. |
+| `RATE_LIMIT_PROPERTY_IMAGE_ACCESS_MAX` / `_WINDOW_SECONDS` | Optional | Default 120 per 60s. |
 
 ## Production Admin bootstrap (one-time)
 

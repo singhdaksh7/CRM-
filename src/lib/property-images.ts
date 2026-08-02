@@ -1,0 +1,212 @@
+import { prisma } from "./prisma";
+import { ApiError } from "./api-auth";
+import { getOrganizationId } from "./organization";
+import { recordAudit } from "./audit";
+import { logger } from "./logger";
+import {
+  buildPropertyImageObjectKey,
+  uploadFileBuffer,
+  activeStorageProviderName,
+  assertFileAllowed,
+  assertMagicBytesMatch,
+  createDownloadUrl,
+  deleteObject,
+  StorageValidationError,
+} from "./storage";
+import type { PropertyImagePurpose, Role } from "@prisma/client";
+
+/** Field Executives may only upload IMAGE (property visit photos), never floor plans - see role matrix in the task spec. */
+function canUploadPropertyImage(role: Role, purpose: PropertyImagePurpose): boolean {
+  if (role === "ADMIN" || role === "DATA_MANAGER") return true;
+  if (role === "FIELD_EXECUTIVE") return purpose === "IMAGE";
+  return false;
+}
+
+async function assertPropertyExists(propertyId: string, organizationId: string) {
+  const property = await prisma.property.findFirst({ where: { id: propertyId, organizationId }, select: { id: true } });
+  if (!property) throw new ApiError(404, "Property not found");
+}
+
+export async function uploadPropertyImage(params: {
+  actorId: string;
+  role: Role;
+  propertyId: string;
+  fileName: string;
+  mimeType: string;
+  buffer: Buffer;
+  purpose?: PropertyImagePurpose;
+  caption?: string | null;
+  isCover?: boolean;
+}) {
+  const organizationId = getOrganizationId(params.actorId);
+  const purpose = params.purpose ?? "IMAGE";
+
+  if (!canUploadPropertyImage(params.role, purpose)) {
+    throw new ApiError(403, `Role ${params.role} is not permitted to upload ${purpose === "FLOOR_PLAN" ? "floor plans" : "property images"}`);
+  }
+  await assertPropertyExists(params.propertyId, organizationId);
+
+  try {
+    assertFileAllowed({ category: "PROPERTY_IMAGE", fileName: params.fileName, mimeType: params.mimeType, sizeBytes: params.buffer.byteLength });
+    assertMagicBytesMatch(params.mimeType, params.buffer);
+  } catch (err) {
+    if (err instanceof StorageValidationError) {
+      await recordAudit({
+        userId: params.actorId,
+        action: "OTHER",
+        entityType: "PropertyImage",
+        newValues: { event: "upload_verification_failed", propertyId: params.propertyId, reason: err.message },
+        result: "FAILURE",
+        errorMessage: err.message,
+      });
+      throw new ApiError(400, err.message);
+    }
+    throw err;
+  }
+
+  const objectKey = buildPropertyImageObjectKey({ organizationId, propertyId: params.propertyId, fileName: params.fileName, purpose });
+
+  await recordAudit({
+    userId: params.actorId,
+    action: "OTHER",
+    entityType: "PropertyImage",
+    newValues: { event: "upload_requested", propertyId: params.propertyId, purpose },
+  });
+
+  const stored = await uploadFileBuffer(objectKey, params.buffer, params.mimeType);
+
+  if (params.isCover) {
+    // Only one cover image per property - clear any existing cover flag first.
+    await prisma.propertyImage.updateMany({ where: { propertyId: params.propertyId, status: "ACTIVE", isCover: true }, data: { isCover: false } });
+  }
+
+  const maxSortOrder = await prisma.propertyImage.aggregate({
+    where: { propertyId: params.propertyId, status: "ACTIVE" },
+    _max: { sortOrder: true },
+  });
+
+  const image = await prisma.propertyImage.create({
+    data: {
+      organizationId,
+      propertyId: params.propertyId,
+      purpose,
+      storageProvider: activeStorageProviderName(),
+      storageKey: objectKey,
+      mimeType: params.mimeType,
+      sizeBytes: stored.sizeBytes,
+      caption: params.caption ?? null,
+      sortOrder: (maxSortOrder._max.sortOrder ?? -1) + 1,
+      isCover: !!params.isCover,
+      uploadedById: params.actorId,
+    },
+  });
+
+  await recordAudit({
+    userId: params.actorId,
+    action: "CREATE",
+    entityType: "PropertyImage",
+    entityId: image.id,
+    newValues: { event: "upload_completed", propertyId: params.propertyId, purpose, isCover: image.isCover },
+  });
+  if (image.isCover) {
+    await recordAudit({ userId: params.actorId, action: "UPDATE", entityType: "PropertyImage", entityId: image.id, newValues: { event: "property_image_made_public", propertyId: params.propertyId } });
+  }
+  logger.info("property_image_uploaded", { imageId: image.id, propertyId: params.propertyId, purpose, actorId: params.actorId });
+
+  return image;
+}
+
+/** Active (non-deleted) images for a property, in display order. Every role that can see the property may see its listing images - no category restriction the way private documents have one. */
+export async function listPropertyImages(propertyId: string, organizationId: string) {
+  return prisma.propertyImage.findMany({
+    where: { propertyId, organizationId, status: "ACTIVE" },
+    orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }],
+  });
+}
+
+/** Short-lived, controlled-delivery URL - never a permanent public link, even for catalogue-safe images. */
+export async function getPropertyImageUrl(storageKey: string, expiresInSeconds?: number): Promise<string> {
+  return createDownloadUrl(storageKey, expiresInSeconds);
+}
+
+export async function softDeletePropertyImage(params: { imageId: string; actorId: string; role: Role }) {
+  const organizationId = getOrganizationId(params.actorId);
+  const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
+  if (!existing) throw new ApiError(404, "Property image not found");
+  if (params.role !== "ADMIN" && params.role !== "DATA_MANAGER") throw new ApiError(403, "You do not have permission to delete property images");
+
+  const image = await prisma.propertyImage.update({ where: { id: params.imageId }, data: { status: "DELETED", deletedAt: new Date(), isCover: false } });
+
+  await recordAudit({
+    userId: params.actorId,
+    action: "DELETE",
+    entityType: "PropertyImage",
+    entityId: image.id,
+    oldValues: { event: existing.isCover ? "public_image_removed" : "document_soft_deleted", propertyId: existing.propertyId },
+  });
+  logger.info("property_image_deleted", { imageId: image.id, propertyId: existing.propertyId, actorId: params.actorId });
+
+  return image;
+}
+
+/** Admin-only permanent deletion of the physical object - the DB row stays soft-deleted regardless of whether this succeeds. */
+export async function physicalDeletePropertyImage(params: { imageId: string; actorId: string; role: Role }) {
+  if (params.role !== "ADMIN") throw new ApiError(403, "Only Admins may permanently delete a stored object");
+  const organizationId = getOrganizationId(params.actorId);
+  const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
+  if (!existing) throw new ApiError(404, "Property image not found");
+
+  await deleteObject(existing.storageKey);
+
+  await recordAudit({
+    userId: params.actorId,
+    action: "DELETE",
+    entityType: "PropertyImage",
+    entityId: existing.id,
+    oldValues: { event: "physical_object_deleted", storageKey: existing.storageKey },
+  });
+  logger.info("property_image_physical_delete", { imageId: existing.id, actorId: params.actorId });
+}
+
+/**
+ * Replace: uploads and verifies the new image first, only then soft-deletes
+ * the old row - a failed replacement never touches the original, and the
+ * old physical object is left in place (not actively deleted) until the
+ * new version is confirmed live.
+ */
+export async function replacePropertyImage(params: {
+  imageId: string;
+  actorId: string;
+  role: Role;
+  fileName: string;
+  mimeType: string;
+  buffer: Buffer;
+}) {
+  const organizationId = getOrganizationId(params.actorId);
+  const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
+  if (!existing) throw new ApiError(404, "Property image not found");
+  if (existing.status === "DELETED") throw new ApiError(409, "Cannot replace a deleted image");
+
+  const next = await uploadPropertyImage({
+    actorId: params.actorId,
+    role: params.role,
+    propertyId: existing.propertyId,
+    fileName: params.fileName,
+    mimeType: params.mimeType,
+    buffer: params.buffer,
+    purpose: existing.purpose,
+    caption: existing.caption,
+    isCover: existing.isCover,
+  });
+
+  await prisma.propertyImage.update({ where: { id: existing.id }, data: { status: "DELETED", deletedAt: new Date(), isCover: false } });
+  await recordAudit({
+    userId: params.actorId,
+    action: "UPDATE",
+    entityType: "PropertyImage",
+    entityId: existing.id,
+    newValues: { event: "document_replaced", replacedBy: next.id },
+  });
+
+  return next;
+}

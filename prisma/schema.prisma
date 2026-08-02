@@ -468,6 +468,7 @@ model Organization {
   brokerageCalculations BrokerageCalculation[]
   payments              Payment[]
   documents             Document[]
+  propertyImages        PropertyImage[]
   importJobs            ImportJob[]
   auditLogs             AuditLog[]
   backupRecords         BackupRecord[]
@@ -522,6 +523,7 @@ model User {
   brokerageIncentives       BrokerageCalculation[] @relation("BrokerageIncentiveEmployee")
   paymentsRecorded          Payment[]              @relation("PaymentRecordedBy")
   documentsUploaded         Document[]             @relation("DocumentUploadedBy")
+  propertyImagesUploaded    PropertyImage[]        @relation("PropertyImageUploadedBy")
   importJobsCreated         ImportJob[]            @relation("ImportJobCreatedBy")
   auditLogs                 AuditLog[]
   backupsTriggered          BackupRecord[]         @relation("BackupTriggeredBy")
@@ -676,6 +678,7 @@ model Property {
   catalogueInteractions    CatalogueInteraction[]
   deals                    Deal[]
   documents                Document[]
+  propertyImages           PropertyImage[]
 
   @@index([ownerId])
   @@index([organizationId, status])
@@ -1226,13 +1229,18 @@ model Document {
   paymentId  String?
   payment    Payment?  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
-  fileName      String
-  fileUrl       String  // legacy/external mode: a pre-uploaded URL the caller already hosts elsewhere
-  storageKey    String? // Phase 3B: object key in our S3-compatible bucket (org/{orgId}/{entityType}/{entityId}/{uuid}-{fileName}); when set, fileUrl is ignored and a signed URL is generated per-request instead
-  fileType      String
-  fileSizeBytes Int?
-  status        DocumentStatus @default(ACTIVE)
-  expiresAt     DateTime?
+  fileName         String
+  fileUrl          String  // legacy/external mode: a pre-uploaded URL the caller already hosts elsewhere
+  storageKey       String? // object key in the active storage provider's bucket; when set, fileUrl is ignored and a signed/authorized URL is generated per-request instead
+  storageProvider  String? // "S3" | "FIREBASE" - null for legacy fileUrl-only rows predating the provider abstraction
+  storageBucket    String? // bucket name at time of upload, for traceability if the configured bucket is later rotated
+  checksum         String? // optional content hash, populated when the provider/verification step can compute one
+  originalFilename String? // the caller-supplied file name, kept here (not in the object key) so the key itself never leaks identifying text
+  category         DocumentCategory @default(GENERAL)
+  fileType         String
+  fileSizeBytes    Int?
+  status           DocumentStatus @default(ACTIVE)
+  expiresAt        DateTime?
 
   version            Int       @default(1)
   previousDocumentId String?   @unique
@@ -1251,6 +1259,70 @@ model Document {
   @@index([ownerId])
   @@index([dealId])
   @@map("documents")
+}
+
+/**
+ * Structured property media (Phase 1 Firebase Storage). Additive alongside
+ * Property.images/coverImage/floorPlanImage (legacy JSON-array-of-URLs
+ * fields, kept as-is and still what existing property pages/catalogue
+ * rendering read) - this table is the provider-backed upload path going
+ * forward; wiring it into the property-detail/catalogue UI is a follow-up,
+ * not part of this backend-only pass.
+ */
+model PropertyImage {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  purpose PropertyImagePurpose @default(IMAGE)
+  status  PropertyImageStatus  @default(ACTIVE)
+
+  storageProvider String
+  storageBucket   String?
+  storageKey      String
+  mimeType        String
+  sizeBytes       Int
+  width           Int?
+  height          Int?
+  caption         String?
+  sortOrder       Int     @default(0)
+  isCover         Boolean @default(false)
+
+  uploadedById String?
+  uploadedBy   User?     @relation("PropertyImageUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([organizationId, propertyId])
+  @@index([propertyId, status, sortOrder])
+  @@map("property_images")
+}
+
+enum PropertyImagePurpose {
+  IMAGE
+  FLOOR_PLAN
+}
+
+enum PropertyImageStatus {
+  ACTIVE
+  DELETED
+}
+
+enum DocumentCategory {
+  GENERAL
+  AADHAAR
+  PAN
+  REGISTRY
+  OWNERSHIP_PROOF
+  RENT_AGREEMENT
+  SALE_AGREEMENT
+  BROKERAGE_AGREEMENT
+  DEAL_DOCUMENT
+  PAYMENT_RECEIPT
+  OWNER_IDENTITY
 }
 
 // ---------------------------------------------------------------------------

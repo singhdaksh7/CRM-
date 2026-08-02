@@ -4,9 +4,10 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { documentMetadataSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
 import { assertDocumentEntityExists, documentEntityField } from "@/lib/documents";
+import { canUploadDocumentCategory } from "@/lib/document-access";
 import { recordAudit } from "@/lib/audit";
 import { readTake, readSkip } from "@/lib/pagination";
-import { verifyUploadedObject } from "@/lib/storage";
+import { verifyUploadedObject, activeStorageProviderName } from "@/lib/storage";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
@@ -55,6 +56,9 @@ export async function POST(req: NextRequest) {
     const field = documentEntityField(data.entityType);
     const entityId = data[field];
     if (!entityId) throw new ApiError(400, `${field} is required for entityType ${data.entityType}`);
+    if (!canUploadDocumentCategory(session.user.role, data.category)) {
+      throw new ApiError(403, `Role ${session.user.role} is not permitted to upload documents in category ${data.category}`);
+    }
     await assertDocumentEntityExists(data.entityType, entityId, organizationId);
 
     // If this document was uploaded through our storage flow (storageKey
@@ -65,7 +69,15 @@ export async function POST(req: NextRequest) {
       try {
         const verified = await verifyUploadedObject(data.storageKey);
         fileSizeBytes = verified.sizeBytes;
-      } catch {
+      } catch (err) {
+        await recordAudit({
+          userId: session.user.id,
+          action: "OTHER",
+          entityType: "Document",
+          newValues: { event: "upload_verification_failed", entityType_: data.entityType, entityId_: entityId, storageKey: data.storageKey },
+          result: "FAILURE",
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
         throw new ApiError(400, "Upload not found in storage - the presigned upload may not have completed");
       }
     }
@@ -82,6 +94,9 @@ export async function POST(req: NextRequest) {
         fileName: data.fileName,
         fileUrl: data.fileUrl ?? "",
         storageKey: data.storageKey ?? null,
+        storageProvider: data.storageKey ? activeStorageProviderName() : null,
+        originalFilename: data.fileName,
+        category: data.category,
         fileType: data.fileType,
         fileSizeBytes,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
@@ -100,7 +115,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    await recordAudit({ userId: session.user.id, action: "CREATE", entityType: "Document", entityId: document.id, newValues: data });
+    await recordAudit({ userId: session.user.id, action: "CREATE", entityType: "Document", entityId: document.id, newValues: { event: "upload_completed", ...data } });
     logger.info("document_uploaded", { documentId: document.id, entityType: data.entityType, entityId, storageKey: data.storageKey ?? null, actorId: session.user.id });
 
     return NextResponse.json({ document }, { status: 201 });

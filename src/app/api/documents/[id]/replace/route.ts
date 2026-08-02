@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession, handleApiError } from "@/lib/api-auth";
+import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { getOrganizationId } from "@/lib/organization";
 import { replaceDocument } from "@/lib/documents";
+import { canAccessDocument } from "@/lib/document-access";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const replaceSchema = z.object({
   fileName: z.string().min(1).max(255),
@@ -15,6 +19,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
+
+    const limitResult = await checkRateLimit("documentReplace", session.user.id);
+    if (!limitResult.allowed) return rateLimitResponse(limitResult);
+
+    const organizationId = getOrganizationId(session.user.id);
+    const existing = await prisma.document.findFirst({ where: { id, organizationId } });
+    if (!existing) throw new ApiError(404, "Document not found");
+    const allowed = await canAccessDocument(session.user.role, session.user.id, existing);
+    if (!allowed) throw new ApiError(403, "You do not have permission to replace this document");
+
     const body = await req.json();
     const data = replaceSchema.parse(body);
 

@@ -1,110 +1,95 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { randomUUID } from "crypto";
+import { getStorageProvider } from "./storage-providers";
+import { StorageConfigError, StorageValidationError } from "./storage-providers/types";
+import { MAX_DOCUMENT_BYTES, DOCUMENT_MIME_TYPES } from "./storage-providers/validation";
+import type { StorageHealthResult } from "./storage-providers/types";
 
 /**
- * S3-compatible storage adapter for the Document Vault (Phase 3B). Works
- * against real AWS S3 in production and against a local MinIO container
- * (docker-compose.yml) in development - both speak the same S3 API, so this
- * one client works unmodified in either environment; only STORAGE_ENDPOINT
- * differs (unset -> real AWS, set -> MinIO/any S3-compatible host).
+ * Stable, provider-independent storage entry point - every call site
+ * (Document Vault routes, lib/documents.ts, system-status.ts) imports from
+ * here, never from a specific provider. Which provider actually runs
+ * (S3, Firebase, or Disabled) is chosen once via STORAGE_PROVIDER and
+ * dispatched through src/lib/storage-providers/index.ts.
  *
  * Server-only. Never import from a "use client" component - credentials
  * must never reach the browser bundle.
  */
 
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
-export const ALLOWED_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
-const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes
+export { StorageConfigError, StorageValidationError };
+export { buildObjectKey, buildDocumentObjectKey, buildPropertyImageObjectKey, sanitizeExtension } from "./storage-providers/object-key";
+export { assertFileAllowed, assertMagicBytesMatch, detectMimeFromMagicBytes, MAX_PROPERTY_IMAGE_BYTES, MAX_DOCUMENT_BYTES, IMAGE_MIME_TYPES, DOCUMENT_MIME_TYPES } from "./storage-providers/validation";
+export type { FileCategory } from "./storage-providers/validation";
+export type { StorageHealthResult } from "./storage-providers/types";
 
-export class StorageConfigError extends Error {}
-export class StorageValidationError extends Error {}
-
-export interface StorageConfig {
-  bucket: string;
-  region: string;
-  endpoint?: string;
-  forcePathStyle: boolean;
-}
-
-let cachedClient: S3Client | null = null;
-let cachedConfig: StorageConfig | null = null;
+// Legacy aliases kept for anything still importing the pre-provider-abstraction names.
+export const MAX_UPLOAD_BYTES = MAX_DOCUMENT_BYTES;
+export const ALLOWED_MIME_TYPES = DOCUMENT_MIME_TYPES;
 
 export function isStorageConfigured(): boolean {
-  return !!(process.env.STORAGE_BUCKET && process.env.STORAGE_ACCESS_KEY_ID && process.env.STORAGE_SECRET_ACCESS_KEY);
+  return getStorageProvider().name !== "DISABLED";
 }
 
-function loadConfig(): StorageConfig {
-  if (cachedConfig) return cachedConfig;
-  const bucket = process.env.STORAGE_BUCKET;
-  const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY;
-  if (!bucket || !accessKeyId || !secretAccessKey) {
-    throw new StorageConfigError("Storage is not configured - set STORAGE_BUCKET, STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY (see .env.example)");
+export function activeStorageProviderName(): "S3" | "FIREBASE" | "DISABLED" {
+  return getStorageProvider().name;
+}
+
+export function assertUploadAllowed(params: { fileType: string; fileSizeBytes?: number | null }): void {
+  if (!DOCUMENT_MIME_TYPES.has(params.fileType)) {
+    throw new StorageValidationError(`File type "${params.fileType}" is not allowed. Allowed: ${[...DOCUMENT_MIME_TYPES].join(", ")}`);
   }
-  cachedConfig = {
-    bucket,
-    region: process.env.STORAGE_REGION || "us-east-1",
-    endpoint: process.env.STORAGE_ENDPOINT || undefined,
-    forcePathStyle: !!process.env.STORAGE_ENDPOINT, // MinIO/most S3-compatible hosts need path-style; real AWS does not
-  };
-  return cachedConfig;
-}
-
-function getClient(): S3Client {
-  if (cachedClient) return cachedClient;
-  const config = loadConfig();
-  cachedClient = new S3Client({
-    region: config.region,
-    endpoint: config.endpoint,
-    forcePathStyle: config.forcePathStyle,
-    credentials: {
-      accessKeyId: process.env.STORAGE_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY!,
-    },
-  });
-  return cachedClient;
-}
-
-/** org/{organizationId}/{entityType}/{entityId}/{uuid}-{fileName} - bakes org isolation into the key itself. */
-export function buildObjectKey(params: { organizationId: string; entityType: string; entityId: string; fileName: string }): string {
-  const safeFileName = params.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-150);
-  return `org/${params.organizationId}/${params.entityType.toLowerCase()}/${params.entityId}/${randomUUID()}-${safeFileName}`;
-}
-
-export function assertUploadAllowed(params: { fileType: string; fileSizeBytes?: number | null }) {
-  if (!ALLOWED_MIME_TYPES.has(params.fileType)) {
-    throw new StorageValidationError(`File type "${params.fileType}" is not allowed. Allowed: ${[...ALLOWED_MIME_TYPES].join(", ")}`);
-  }
-  if (params.fileSizeBytes !== undefined && params.fileSizeBytes !== null && params.fileSizeBytes > MAX_UPLOAD_BYTES) {
-    throw new StorageValidationError(`File is ${params.fileSizeBytes} bytes, exceeding the ${MAX_UPLOAD_BYTES} byte limit`);
+  if (params.fileSizeBytes !== undefined && params.fileSizeBytes !== null && params.fileSizeBytes > MAX_DOCUMENT_BYTES) {
+    throw new StorageValidationError(`File is ${params.fileSizeBytes} bytes, exceeding the ${MAX_DOCUMENT_BYTES} byte limit`);
   }
 }
 
-/** A presigned PUT URL the browser uploads directly to - the file bytes never pass through our server. */
-export async function createUploadUrl(params: { key: string; fileType: string; fileSizeBytes?: number | null }): Promise<{ uploadUrl: string; key: string; expiresIn: number }> {
+/**
+ * Step 1 of the S3 upload flow: a presigned PUT URL the browser uploads
+ * directly to (`method: "PUT"`). For a server-mediated provider (Firebase),
+ * there is no uploadUrl - the caller must instead send the file bytes to a
+ * server route that calls `uploadFileBuffer` (`method: "SERVER_MEDIATED"`).
+ */
+export async function createUploadUrl(params: { key: string; fileType: string; fileSizeBytes?: number | null }): Promise<{ method: "PUT" | "SERVER_MEDIATED"; uploadUrl?: string; key: string; expiresIn: number }> {
   assertUploadAllowed(params);
-  const config = loadConfig();
-  const command = new PutObjectCommand({ Bucket: config.bucket, Key: params.key, ContentType: params.fileType });
-  const uploadUrl = await getSignedUrl(getClient(), command, { expiresIn: SIGNED_URL_TTL_SECONDS });
-  return { uploadUrl, key: params.key, expiresIn: SIGNED_URL_TTL_SECONDS };
+  const provider = getStorageProvider();
+  const auth = await provider.createUploadAuthorization({
+    objectKey: params.key,
+    mimeType: params.fileType,
+    maxSizeBytes: params.fileSizeBytes ?? MAX_DOCUMENT_BYTES,
+  });
+  return { method: auth.method, uploadUrl: auth.uploadUrl, key: auth.objectKey, expiresIn: auth.expiresInSeconds };
 }
 
-/** A short-TTL presigned GET URL - documents are never served from a permanently public URL. */
-export async function createDownloadUrl(key: string): Promise<string> {
-  const config = loadConfig();
-  const command = new GetObjectCommand({ Bucket: config.bucket, Key: key });
-  return getSignedUrl(getClient(), command, { expiresIn: SIGNED_URL_TTL_SECONDS });
+/** Server-mediated upload path (Firebase, or S3 via a server route instead of a presigned PUT) - pushes bytes the server already received to the bucket. */
+export async function uploadFileBuffer(key: string, buffer: Buffer, mimeType: string) {
+  const provider = getStorageProvider();
+  if (!provider.uploadBuffer) {
+    throw new StorageConfigError(`Provider "${provider.name}" does not support server-mediated upload`);
+  }
+  return provider.uploadBuffer(key, buffer, mimeType);
+}
+
+/** A short-TTL signed GET URL - documents are never served from a permanently public URL. Default 5 minutes; callers may request up to 15 per the Phase 1 spec. */
+export async function createDownloadUrl(key: string, expiresInSeconds?: number): Promise<string> {
+  const provider = getStorageProvider();
+  const auth = await provider.createDownloadAuthorization({ objectKey: key, expiresInSeconds });
+  return auth.url;
 }
 
 /** Verifies the object actually exists and matches the claimed size/type before a Document row is marked ACTIVE - catches a client that lied about the upload or never finished it. */
 export async function verifyUploadedObject(key: string): Promise<{ sizeBytes: number; contentType: string | undefined }> {
-  const config = loadConfig();
-  const result = await getClient().send(new HeadObjectCommand({ Bucket: config.bucket, Key: key }));
-  return { sizeBytes: result.ContentLength ?? 0, contentType: result.ContentType };
+  const provider = getStorageProvider();
+  const result = await provider.verifyUpload({ objectKey: key });
+  return { sizeBytes: result.sizeBytes, contentType: result.contentType };
 }
 
 export async function deleteObject(key: string): Promise<void> {
-  const config = loadConfig();
-  await getClient().send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
+  const provider = getStorageProvider();
+  await provider.deleteObject(key);
+}
+
+export async function checkStorageHealth(): Promise<StorageHealthResult> {
+  return getStorageProvider().checkHealth();
+}
+
+export async function getObjectMetadata(key: string) {
+  return getStorageProvider().getMetadata(key);
 }

@@ -50,3 +50,10 @@ prisma/**/*.db-journal
 
 # local document uploads (Phase 2 document vault, local storage provider)
 /public/uploads/
+
+# Firebase service-account keys - never commit these (see DEPLOYMENT.md
+# "2.4 Firebase Storage provider"). Credentials go in FIREBASE_PRIVATE_KEY
+# etc. env vars, not a JSON file in the repo.
+*firebase-adminsdk*.json
+serviceAccountKey.json
+firebase-service-account*.json

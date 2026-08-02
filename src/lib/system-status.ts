@@ -26,13 +26,17 @@ export function checkEnvironment(): StatusCheck {
   return { name: "environment", status: "ok", detail: "All required environment variables are set" };
 }
 
-function checkStorage(): StatusCheck {
-  const hasCreds = !!(process.env.STORAGE_BUCKET && process.env.STORAGE_ACCESS_KEY_ID && process.env.STORAGE_SECRET_ACCESS_KEY);
-  if (hasCreds) {
-    const endpoint = process.env.STORAGE_ENDPOINT ? `custom endpoint (${process.env.STORAGE_ENDPOINT})` : "AWS S3";
-    return { name: "storage", status: "ok", detail: `S3-compatible storage configured - bucket "${process.env.STORAGE_BUCKET}" via ${endpoint}` };
-  }
-  return { name: "storage", status: "not_configured", detail: "No file storage provider configured - Document.fileUrl must be pre-uploaded elsewhere (legacy mode)" };
+/**
+ * Cheap config-existence check only - no bucket round trip, so this is safe
+ * to run on every /api/system/status request. See
+ * GET /api/system/storage-health for the Admin-only deep test that
+ * actually reads/writes/deletes a temporary object.
+ */
+async function checkStorage(): Promise<StatusCheck> {
+  const { checkStorageHealth, activeStorageProviderName } = await import("./storage");
+  const result = await checkStorageHealth();
+  const provider = activeStorageProviderName();
+  return { name: "storage", status: result.status, detail: `[${provider}] ${result.detail}` };
 }
 
 function checkEmail(): StatusCheck {
@@ -57,7 +61,7 @@ export function checkWhatsApp(): StatusCheck {
 }
 
 export async function getSystemStatus(): Promise<{ checks: StatusCheck[]; overall: CheckStatus }> {
-  const checks = [await checkDatabase(), checkEnvironment(), checkStorage(), checkEmail(), checkWhatsApp()];
+  const checks = [await checkDatabase(), checkEnvironment(), await checkStorage(), checkEmail(), checkWhatsApp()];
   const overall: CheckStatus = checks.some((c) => c.status === "error") ? "error" : checks.some((c) => c.status === "warn") ? "warn" : "ok";
   return { checks, overall };
 }

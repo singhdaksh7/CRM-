@@ -48,6 +48,14 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   upload: { limit: Number(process.env.RATE_LIMIT_UPLOAD_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_UPLOAD_WINDOW_SECONDS ?? 60) },
   document: { limit: Number(process.env.RATE_LIMIT_DOCUMENT_MAX ?? 100), windowSeconds: Number(process.env.RATE_LIMIT_DOCUMENT_WINDOW_SECONDS ?? 60) },
   payment: { limit: Number(process.env.RATE_LIMIT_PAYMENT_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_PAYMENT_WINDOW_SECONDS ?? 60) },
+  // Storage (Phase 1 Firebase integration) - upload-authorization and
+  // verification reuse `upload`/`document` above; these cover the
+  // operations that don't have an existing bucket.
+  documentDownload: { limit: Number(process.env.RATE_LIMIT_DOCUMENT_DOWNLOAD_MAX ?? 60), windowSeconds: Number(process.env.RATE_LIMIT_DOCUMENT_DOWNLOAD_WINDOW_SECONDS ?? 60) },
+  documentReplace: { limit: Number(process.env.RATE_LIMIT_DOCUMENT_REPLACE_MAX ?? 20), windowSeconds: Number(process.env.RATE_LIMIT_DOCUMENT_REPLACE_WINDOW_SECONDS ?? 60) },
+  documentDelete: { limit: Number(process.env.RATE_LIMIT_DOCUMENT_DELETE_MAX ?? 20), windowSeconds: Number(process.env.RATE_LIMIT_DOCUMENT_DELETE_WINDOW_SECONDS ?? 60) },
+  propertyImageUpload: { limit: Number(process.env.RATE_LIMIT_PROPERTY_IMAGE_UPLOAD_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_PROPERTY_IMAGE_UPLOAD_WINDOW_SECONDS ?? 60) },
+  propertyImageAccess: { limit: Number(process.env.RATE_LIMIT_PROPERTY_IMAGE_ACCESS_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_PROPERTY_IMAGE_ACCESS_WINDOW_SECONDS ?? 60) },
 };
 
 /**

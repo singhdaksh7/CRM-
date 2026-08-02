@@ -12,7 +12,7 @@ Summary of the security posture as of Phase 3. See `DEPLOYMENT.md` for infra-lev
 - Three roles: `ADMIN`, `DATA_MANAGER`, `FIELD_EXECUTIVE`.
 - Every mutating API route calls `requireSession(allowedRoles)`; every org-scoped read/write filters by `organizationId`.
 - `FIELD_EXECUTIVE` is restricted to records assigned to them (leads, deals, visits) — enforced server-side, not just hidden in the UI.
-- Employees, Payments, Documents, Audit Logs, Backups, and System Status are ADMIN/DATA_MANAGER-only (or ADMIN-only) at the API level.
+- Employees, Payments, Audit Logs, Backups, and System Status are ADMIN/DATA_MANAGER-only (or ADMIN-only) at the API level. Document upload/replace/list stays ADMIN/DATA_MANAGER-only; document *download* is open to any authenticated role but gated per-document by the category + entity-relationship policy above (`document-access.ts`) — a Field Executive reaching the download endpoint for a document they can't access gets a 403, not the document.
 - Employee list/detail responses explicitly `select` fields — `passwordHash` is never serialized into a response (a real leak found and fixed during the Phase 2A audit).
 
 ## Data privacy
@@ -21,10 +21,19 @@ Summary of the security posture as of Phase 3. See `DEPLOYMENT.md` for infra-lev
 - Structured logs (`logger.ts`) redact the same category of fields by key name.
 - Documents (identity proofs, agreements, receipts) are never served from a public URL — always a short-TTL (5 min) signed GET generated per-request.
 
+## File storage (Document Vault + property images — S3 and Firebase)
+- Provider-independent: `src/lib/storage.ts` dispatches to whichever of `S3`/`FIREBASE`/`DISABLED` is active (`src/lib/storage-providers/`) — no call site or API route hardcodes a specific vendor.
+- **Firebase is server-mediated only** — the browser never holds a Firebase client SDK config or Admin credentials; it POSTs file bytes to a Next.js route, which pushes them to the bucket via the Admin SDK. `firebase/storage.rules` denies all direct client read/write (`allow read, write: if false;`) as a defense-in-depth backstop, since real authorization is entirely server-side.
+- **Object keys never contain identifying text** — `organizations/{orgId}/{entity-segment}/{entityId}/{documents|receipts|images|floor-plans}/{uuid}.{ext}`. No owner/client names, phone numbers, Aadhaar/PAN, emails, or the original file name (kept only in `Document.originalFilename` in Postgres, never in the storage path).
+- **Category-based access control** (`src/lib/document-access.ts`): `AADHAAR`, `PAN`, `REGISTRY`, `OWNERSHIP_PROOF`, `OWNER_IDENTITY`, and `PAYMENT_RECEIPT` are Admin-only; Data Manager gets everything else; Field Executive gets only `GENERAL`-category documents, and only when linked to a lead assigned to them or a property they have an assigned visit for. Enforced server-side on every download/replace/delete call, not just hidden in the UI.
+- Property listing images have no category restriction (any authenticated role that can see the property can see its images) but are still never permanently public — even catalogue-safe images are served via short-lived signed URLs, generated fresh per request.
+- Every upload is verified post-upload: declared size/MIME against the category's limits, extension/MIME consistency (rejects e.g. a `.pdf` declaring `image/png`), a denylist of dangerous extensions (executables, scripts, HTML, unsanitized SVG, archives, double extensions like `resume.pdf.exe`), and a magic-byte signature check against the actual file bytes (never trusts the client's declared `Content-Type` alone).
+- Soft delete is the default (`status: DELETED` / `PropertyImage.status: DELETED`, object left in place); physical deletion of the underlying object is a separate, explicit, Admin-only action (`?physical=true`) and never blocks on a failed cleanup (the DB record change always commits first).
+
 ## Input validation
 - Every mutating API route validates its body with a Zod schema before touching Prisma — no route spreads raw `req.json()` into a `data:` object.
 - CSV imports sanitize formula-injection payloads (`=`, `+`, `-`, `@`, tab, CR at the start of a cell get a leading `'` prefix) before any value is persisted or could later be exported into a spreadsheet.
-- File uploads are MIME-allowlisted (`application/pdf`, `image/jpeg`, `image/png`, `image/webp`) and size-capped (25 MB) at presign time; the uploaded object is HEAD-verified server-side (real size/content-type, not just what the client claimed) before its `Document` row is marked usable.
+- File uploads are MIME-allowlisted per category (property images: JPEG/PNG/WebP, 10 MB; documents: PDF/JPEG/PNG, 25 MB) and size-capped before the upload is even authorized; the uploaded object is verified server-side (real size/content-type/magic-bytes, not just what the client claimed) before its `Document`/`PropertyImage` row is marked usable.
 
 ## Webhooks
 - The Meta WhatsApp webhook verifies `x-hub-signature-256` (HMAC) and enforces idempotency via a dedicated `IntegrationWebhookEvent` table before any processing.
