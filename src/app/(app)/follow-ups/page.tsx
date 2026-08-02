@@ -5,6 +5,8 @@ import { AddFollowUpModal } from "@/components/followups/add-followup-modal";
 import { FollowUpRow } from "@/components/followups/followup-row";
 import { EmptyState } from "@/components/ui/states";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
+import { withTiming } from "@/lib/perf";
 import { AlertTriangle, CalendarClock, CalendarDays } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 
@@ -12,6 +14,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
   const session = await auth();
   const sp = await searchParams;
   const bucket = sp.bucket ?? "today";
+  const page = parsePage(sp.page);
 
   const scoped: Prisma.FollowUpWhereInput = {
     leadId: { not: null },
@@ -22,20 +25,22 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
   const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(now); endOfToday.setHours(23, 59, 59, 999);
 
-  const [overdueCount, todayCount, upcomingCount, leads, employees] = await Promise.all([
-    prisma.followUp.count({ where: { ...scoped, status: { not: "COMPLETED" }, dueDate: { lt: startOfToday } } }),
-    prisma.followUp.count({ where: { ...scoped, dueDate: { gte: startOfToday, lte: endOfToday } } }),
-    prisma.followUp.count({ where: { ...scoped, dueDate: { gt: endOfToday } } }),
-    prisma.lead.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
-    prisma.user.findMany({ where: { status: "ACTIVE" } }),
-  ]);
-
   const where: Prisma.FollowUpWhereInput = { ...scoped };
   if (bucket === "overdue") { where.status = { not: "COMPLETED" }; where.dueDate = { lt: startOfToday }; }
   else if (bucket === "today") where.dueDate = { gte: startOfToday, lte: endOfToday };
   else if (bucket === "upcoming") where.dueDate = { gt: endOfToday };
 
-  const followUps = await prisma.followUp.findMany({ where, include: { lead: true, owner: true }, orderBy: { dueDate: "asc" } });
+  const [overdueCount, todayCount, upcomingCount, leads, employees, followUps, followUpsTotal] = await withTiming("followUpsPageQuery", "/follow-ups", () =>
+    Promise.all([
+      prisma.followUp.count({ where: { ...scoped, status: { not: "COMPLETED" }, dueDate: { lt: startOfToday } } }),
+      prisma.followUp.count({ where: { ...scoped, dueDate: { gte: startOfToday, lte: endOfToday } } }),
+      prisma.followUp.count({ where: { ...scoped, dueDate: { gt: endOfToday } } }),
+      prisma.lead.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+      prisma.user.findMany({ where: { status: "ACTIVE" } }),
+      prisma.followUp.findMany({ where, include: { lead: true, owner: true }, orderBy: { dueDate: "asc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
+      prisma.followUp.count({ where }),
+    ])
+  );
 
   return (
     <div className="space-y-4">
@@ -54,7 +59,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-2 text-sm font-semibold capitalize text-slate-800">{bucket} Follow-ups ({followUps.length})</h3>
+        <h3 className="mb-2 text-sm font-semibold capitalize text-slate-800">{bucket} Follow-ups ({followUpsTotal})</h3>
         {followUps.length === 0 ? (
           <EmptyState title="No follow-ups in this bucket" />
         ) : (
@@ -63,6 +68,8 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           </div>
         )}
       </div>
+
+      <Pagination basePath="/follow-ups" currentParams={sp} page={page} pageSize={DEFAULT_PAGE_SIZE} totalCount={followUpsTotal} />
     </div>
   );
 }

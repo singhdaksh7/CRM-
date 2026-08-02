@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { LinkButton } from "@/components/ui/button";
 import { Badge, LEAD_STATUS_TONE, LEAD_PRIORITY_TONE } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/states";
+import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
+import { withTiming } from "@/lib/perf";
 import { LeadFilters } from "@/components/leads/lead-filters";
 import { BulkAutoAssignButton } from "@/components/leads/bulk-auto-assign-button";
 import { getOrganizationId } from "@/lib/organization";
@@ -15,6 +17,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const session = await auth();
   const sp = await searchParams;
   const organizationId = getOrganizationId(session!.user.id);
+  const page = parsePage(sp.page);
 
   const where: Prisma.LeadWhereInput = { organizationId };
   if (session!.user.role === "FIELD_EXECUTIVE") where.assignedToId = session!.user.id;
@@ -25,11 +28,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   if (sp.assignedToId) where.assignedToId = sp.assignedToId === "unassigned" ? null : sp.assignedToId;
   if (sp.requirementType) where.requirementType = sp.requirementType as never;
 
-  const [leads, employees, unassignedCount] = await Promise.all([
-    prisma.lead.findMany({ where, include: { assignedTo: true }, orderBy: { createdAt: "desc" } }),
-    prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" } }),
-    prisma.lead.count({ where: { organizationId, assignedToId: null, status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"] } } }),
-  ]);
+  const [leads, totalCount, employees, unassignedCount] = await withTiming("leadsPageQuery", "/leads", () =>
+    Promise.all([
+      prisma.lead.findMany({ where, include: { assignedTo: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
+      prisma.lead.count({ where }),
+      prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" } }),
+      prisma.lead.count({ where: { organizationId, assignedToId: null, status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"] } } }),
+    ])
+  );
 
   const canCreate = session!.user.role !== "FIELD_EXECUTIVE";
   const canManage = session!.user.role === "ADMIN" || session!.user.role === "DATA_MANAGER";
@@ -39,7 +45,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[rgba(255,255,255,0.08)] pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Leads Pipeline</h1>
-          <p className="mt-1 text-sm text-[#94A3B8]">{leads.length} leads {session!.user.role === "FIELD_EXECUTIVE" ? "assigned to you" : "in organization pipeline"}</p>
+          <p className="mt-1 text-sm text-[#94A3B8]">{totalCount} leads {session!.user.role === "FIELD_EXECUTIVE" ? "assigned to you" : "in organization pipeline"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canManage && <BulkAutoAssignButton unassignedCount={unassignedCount} />}
@@ -94,6 +100,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           </table>
         </div>
       )}
+
+      <Pagination basePath="/leads" currentParams={sp} page={page} pageSize={DEFAULT_PAGE_SIZE} totalCount={totalCount} />
     </div>
   );
 }

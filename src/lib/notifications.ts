@@ -1,5 +1,8 @@
+import Redis from "ioredis";
 import { prisma } from "./prisma";
 import { DEFAULT_ORGANIZATION_ID } from "./organization";
+import { withTiming } from "./perf";
+import { logger } from "./logger";
 import type { Notification, NotificationType, Role } from "@prisma/client";
 
 interface CreateNotificationParams {
@@ -49,20 +52,25 @@ export function notificationVisibilityWhere(userId: string, role: Role) {
 }
 
 export async function getUnreadCount(userId: string, role: Role): Promise<number> {
-  return prisma.notification.count({
-    where: { ...notificationVisibilityWhere(userId, role), isRead: false },
-  });
+  return withTiming("getUnreadCount", "notifications", () =>
+    prisma.notification.count({
+      where: { ...notificationVisibilityWhere(userId, role), isRead: false },
+    })
+  );
 }
 
 /**
- * Application-level "cron" for due/overdue follow-up notifications.
+ * Due/overdue follow-up notification sweep. Previously invoked lazily on
+ * every authenticated page load via the (app) layout - that blocked every
+ * navigation on an N+1 loop (one findFirst + optional update per due
+ * follow-up) and has been moved to POST /api/internal/notifications/sweep,
+ * run on a schedule (see vercel.json). Idempotent: a notification is only
+ * created once per follow-up per type, so re-running it never duplicates
+ * alerts - safe to call from a cron, a throttled lazy trigger, or a test.
  *
- * There is no background worker in this MVP, so this sweep runs lazily -
- * called from the (app) layout on every authenticated page load. It is
- * idempotent: a notification is only created once per follow-up per type
- * (checked via the followUpId foreign key), so re-running it on every
- * request never duplicates alerts. A real cron worker can call this same
- * function on a schedule with no other changes required.
+ * The existing-notification check is now one batched findMany instead of
+ * one findFirst per follow-up, so a sweep with many due follow-ups no
+ * longer issues 2 queries per row.
  */
 export async function generateDueFollowUpNotifications(organizationId = DEFAULT_ORGANIZATION_ID) {
   const now = new Date();
@@ -77,13 +85,21 @@ export async function generateDueFollowUpNotifications(organizationId = DEFAULT_
     include: { lead: true, owner: true },
   });
 
+  if (dueFollowUps.length === 0) return { checked: 0, created: 0 };
+
+  const existing = await prisma.notification.findMany({
+    where: { followUpId: { in: dueFollowUps.map((f) => f.id) } },
+    select: { followUpId: true, type: true },
+  });
+  const existingKeys = new Set(existing.map((n) => `${n.followUpId}:${n.type}`));
+
+  let created = 0;
   for (const followUp of dueFollowUps) {
     if (!followUp.lead) continue;
     const isOverdue = followUp.status === "OVERDUE" || followUp.dueDate < startOfToday(now);
     const type: NotificationType = isOverdue ? "FOLLOW_UP_OVERDUE" : "FOLLOW_UP_DUE";
 
-    const existing = await prisma.notification.findFirst({ where: { followUpId: followUp.id, type } });
-    if (existing) continue;
+    if (existingKeys.has(`${followUp.id}:${type}`)) continue;
 
     await createNotification({
       organizationId,
@@ -95,6 +111,7 @@ export async function generateDueFollowUpNotifications(organizationId = DEFAULT_
       leadId: followUp.leadId,
       followUpId: followUp.id,
     });
+    created++;
 
     // Keep the FollowUp row's own status in sync so /follow-ups buckets and
     // the notification agree with each other.
@@ -102,10 +119,50 @@ export async function generateDueFollowUpNotifications(organizationId = DEFAULT_
       await prisma.followUp.update({ where: { id: followUp.id }, data: { status: "OVERDUE" } });
     }
   }
+
+  return { checked: dueFollowUps.length, created };
 }
 
 function startOfToday(d: Date): Date {
   const s = new Date(d);
   s.setHours(0, 0, 0, 0);
   return s;
+}
+
+let sweepLockClient: Redis | null | undefined;
+function getSweepLockClient(): Redis | null {
+  if (sweepLockClient !== undefined) return sweepLockClient;
+  const url = process.env.REDIS_URL;
+  if (!url) {
+    sweepLockClient = null;
+    return null;
+  }
+  sweepLockClient = new Redis(url, { maxRetriesPerRequest: 1 });
+  sweepLockClient.on("error", (err) => logger.error("redis_sweep_lock_error", { message: err.message }));
+  return sweepLockClient;
+}
+
+const SWEEP_LOCK_KEY = "lock:notifications-sweep";
+
+/**
+ * Runs the due-follow-up sweep, but skips if another sweep (the Vercel Cron
+ * trigger, or this same throttled fallback from a different request)
+ * already ran within `lockTtlSeconds`. Shared by both callers so whichever
+ * one wins the lock executes and the other yields - no duplicate work, no
+ * duplicate notifications (generateDueFollowUpNotifications is itself
+ * idempotent regardless, so this is an efficiency guard, not a correctness
+ * requirement). Falls open (always runs) if Redis is unavailable.
+ */
+export async function runThrottledSweep(organizationId: string, lockTtlSeconds: number): Promise<{ ran: boolean }> {
+  const redis = getSweepLockClient();
+  if (redis) {
+    try {
+      const acquired = await redis.set(SWEEP_LOCK_KEY, "1", "EX", lockTtlSeconds, "NX");
+      if (!acquired) return { ran: false };
+    } catch (err) {
+      logger.warn("sweep_lock_failed", { message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  await generateDueFollowUpNotifications(organizationId);
+  return { ran: true };
 }

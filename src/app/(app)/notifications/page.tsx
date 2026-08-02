@@ -5,6 +5,8 @@ import { notificationVisibilityWhere } from "@/lib/notifications";
 import { getOrganizationId } from "@/lib/organization";
 import { NotificationList } from "@/components/notifications/notification-list";
 import { NOTIFICATION_LABELS } from "@/components/notifications/notification-meta";
+import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
+import { withTiming } from "@/lib/perf";
 import { cn } from "@/lib/utils";
 import type { NotificationType, Prisma } from "@prisma/client";
 
@@ -13,6 +15,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const sp = await searchParams;
   const typeFilter = sp.type as NotificationType | undefined;
   const unreadOnly = sp.unread === "true";
+  const page = parsePage(sp.page);
 
   const where: Prisma.NotificationWhereInput = {
     organizationId: getOrganizationId(session!.user.id),
@@ -21,7 +24,12 @@ export default async function NotificationsPage({ searchParams }: { searchParams
     ...(unreadOnly ? { isRead: false } : {}),
   };
 
-  const notifications = await prisma.notification.findMany({ where, orderBy: { createdAt: "desc" }, take: 200 });
+  const [notifications, totalCount] = await withTiming("notificationsPageQuery", "/notifications", () =>
+    Promise.all([
+      prisma.notification.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
+      prisma.notification.count({ where }),
+    ])
+  );
   const types = Object.keys(NOTIFICATION_LABELS) as NotificationType[];
 
   return (
@@ -42,6 +50,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-2 shadow-sm">
         <NotificationList notifications={notifications} />
       </div>
+
+      <Pagination basePath="/notifications" currentParams={sp} page={page} pageSize={DEFAULT_PAGE_SIZE} totalCount={totalCount} />
     </div>
   );
 }

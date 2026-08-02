@@ -5,7 +5,9 @@ import { PropertyCard } from "@/components/properties/property-card";
 import { EmptyState } from "@/components/ui/states";
 import { LinkButton } from "@/components/ui/button";
 import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
+import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
+import { withTiming } from "@/lib/perf";
 import { Plus, Building2 } from "lucide-react";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
@@ -15,6 +17,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const view = sp.view === "table" ? "table" : "card";
   const canCreate = session?.user?.role === "ADMIN" || session?.user?.role === "DATA_MANAGER";
+  const page = parsePage(sp.page);
 
   const where: Prisma.PropertyWhereInput = {};
   if (sp.q) {
@@ -34,14 +37,19 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   const orderBy: Prisma.PropertyOrderByWithRelationInput =
     sp.sort === "oldest" ? { createdAt: "asc" } : sp.sort === "price_low" ? { monthlyRent: "asc" } : sp.sort === "price_high" ? { monthlyRent: "desc" } : { createdAt: "desc" };
 
-  const properties = await prisma.property.findMany({ where, orderBy });
+  const [properties, totalCount] = await withTiming("propertiesPageQuery", "/properties", () =>
+    Promise.all([
+      prisma.property.findMany({ where, orderBy, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
+      prisma.property.count({ where }),
+    ])
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[rgba(255,255,255,0.08)] pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Property Inventory</h1>
-          <p className="mt-1 text-sm text-[#94A3B8]">{properties.length} active listings in Delhi-NCR portfolio</p>
+          <p className="mt-1 text-sm text-[#94A3B8]">{totalCount} active listings in Delhi-NCR portfolio</p>
         </div>
         {canCreate && (
           <LinkButton href="/properties/new" className="w-full sm:w-auto">
@@ -100,6 +108,8 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
           </table>
         </div>
       )}
+
+      <Pagination basePath="/properties" currentParams={sp} page={page} pageSize={DEFAULT_PAGE_SIZE} totalCount={totalCount} />
     </div>
   );
 }

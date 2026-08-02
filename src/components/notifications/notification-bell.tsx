@@ -7,11 +7,25 @@ import { timeAgo } from "@/lib/utils";
 import { NOTIFICATION_ICONS, notificationHref } from "./notification-meta";
 import type { Notification } from "@prisma/client";
 
-export function NotificationBell({ initialUnreadCount }: { initialUnreadCount: number }) {
+const UNREAD_COUNT_POLL_MS = 30_000;
+
+export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
+  // Starts at 0 and is filled in by the first client-side fetch below - the
+  // shell (sidebar/header) renders immediately without waiting on a
+  // database round trip; see (app)/layout.tsx for why the server no longer
+  // computes this before render.
+  const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[] | null>(null);
   const [loading, setLoading] = useState(false);
+
+  async function loadCount() {
+    const res = await fetch("/api/notifications/unread-count");
+    if (res.ok) {
+      const data = await res.json();
+      setUnreadCount(data.unreadCount);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -23,6 +37,18 @@ export function NotificationBell({ initialUnreadCount }: { initialUnreadCount: n
     }
     setLoading(false);
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch of the unread count once the shell has already rendered
+    loadCount();
+    const interval = setInterval(loadCount, UNREAD_COUNT_POLL_MS);
+    const onFocus = () => loadCount();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loads dropdown contents lazily the first time it's opened

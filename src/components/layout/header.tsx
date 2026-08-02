@@ -11,10 +11,8 @@ import Link from "next/link";
 
 export function Header({
   user,
-  notificationCount,
 }: {
   user: { name: string; role: Role };
-  notificationCount: number;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -75,7 +73,7 @@ export function Header({
           )}
         </div>
 
-        <NotificationBell initialUnreadCount={notificationCount} />
+        <NotificationBell />
 
         {/* User Menu */}
         <div className="relative">

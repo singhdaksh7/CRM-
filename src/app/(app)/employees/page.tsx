@@ -4,21 +4,40 @@ import { ROLE_LABELS } from "@/lib/permissions";
 import { AddEmployeeModal } from "@/components/employees/employee-modal";
 import { StatusToggle } from "@/components/employees/status-toggle";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
 import { getOrganizationId } from "@/lib/organization";
+import { withTiming } from "@/lib/perf";
+import { cached } from "@/lib/cache";
 
-export default async function EmployeesPage() {
-  const employees = await prisma.user.findMany({
-    where: { organizationId: getOrganizationId() },
-    include: { _count: { select: { assignedLeads: true, assignedVisits: true, followUps: true } } },
-    orderBy: { createdAt: "asc" },
-  });
+export default async function EmployeesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const sp = await searchParams;
+  const page = parsePage(sp.page);
+  const organizationId = getOrganizationId();
+
+  // Directory listing is a good short-lived cache candidate (30s) - it's
+  // not used for any permission or financial decision, just display.
+  // Invalidated immediately on create/update (see /api/employees routes).
+  const { employees, totalCount } = await withTiming("employeesPageQuery", "/employees", () =>
+    cached(`employees:list:${organizationId}:${page}`, 30, () =>
+      Promise.all([
+        prisma.user.findMany({
+          where: { organizationId },
+          include: { _count: { select: { assignedLeads: true, assignedVisits: true, followUps: true } } },
+          orderBy: { createdAt: "asc" },
+          skip: (page - 1) * DEFAULT_PAGE_SIZE,
+          take: DEFAULT_PAGE_SIZE,
+        }),
+        prisma.user.count({ where: { organizationId } }),
+      ]).then(([employees, totalCount]) => ({ employees, totalCount }))
+    )
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[rgba(255,255,255,0.08)] pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Team & Operations Directory</h1>
-          <p className="mt-1 text-sm text-[#94A3B8]">{employees.length} team members in NCR brokerage network</p>
+          <p className="mt-1 text-sm text-[#94A3B8]">{totalCount} team members in NCR brokerage network</p>
         </div>
         <AddEmployeeModal />
       </div>
@@ -62,6 +81,8 @@ export default async function EmployeesPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination basePath="/employees" currentParams={sp} page={page} pageSize={DEFAULT_PAGE_SIZE} totalCount={totalCount} />
     </div>
   );
 }

@@ -4,7 +4,9 @@ import { ScheduleVisitModal } from "@/components/visits/schedule-visit-modal";
 import { VisitRowActions } from "@/components/visits/visit-row-actions";
 import { EmptyState } from "@/components/ui/states";
 import { Badge, VISIT_STATUS_TONE } from "@/components/ui/badge";
+import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
 import { formatDate, enumToLabel } from "@/lib/utils";
+import { withTiming } from "@/lib/perf";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 
@@ -17,10 +19,16 @@ const TABS = [
   { key: "employee", label: "Employee-wise" },
 ];
 
+// today/upcoming are naturally date-bounded; employee-wise groups visits
+// client-side so isn't paginated yet (see report "known limitations") but
+// still gets a safety cap so a very large history can't load unbounded.
+const SAFETY_CAP = 300;
+
 export default async function VisitsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const session = await auth();
   const sp = await searchParams;
   const tab = sp.tab ?? "today";
+  const page = parsePage(sp.page);
   const canManage = session!.user.role !== "FIELD_EXECUTIVE";
 
   const where: Prisma.VisitWhereInput = {};
@@ -34,12 +42,23 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
   else if (tab === "upcoming") where.visitDate = { gt: endOfToday };
   if (tab === "employee" && sp.employeeId) where.assignedToId = sp.employeeId;
 
-  const [visits, leads, properties, employees] = await Promise.all([
-    prisma.visit.findMany({ where, include: { lead: true, property: true, assignedTo: true }, orderBy: { visitDate: tab === "upcoming" ? "asc" : "desc" } }),
-    prisma.lead.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
-    prisma.property.findMany({ where: { status: "AVAILABLE" } }),
-    prisma.user.findMany({ where: { role: "FIELD_EXECUTIVE", status: "ACTIVE" } }),
-  ]);
+  const isAllTab = tab === "all";
+
+  const [visits, totalCount, leads, properties, employees] = await withTiming("visitsPageQuery", "/visits", () =>
+    Promise.all([
+      prisma.visit.findMany({
+        where,
+        include: { lead: true, property: true, assignedTo: true },
+        orderBy: { visitDate: tab === "upcoming" ? "asc" : "desc" },
+        skip: isAllTab ? (page - 1) * DEFAULT_PAGE_SIZE : 0,
+        take: isAllTab ? DEFAULT_PAGE_SIZE : SAFETY_CAP,
+      }),
+      isAllTab ? prisma.visit.count({ where }) : Promise.resolve(null),
+      prisma.lead.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+      prisma.property.findMany({ where: { status: "AVAILABLE" }, take: 200 }),
+      prisma.user.findMany({ where: { role: "FIELD_EXECUTIVE", status: "ACTIVE" } }),
+    ])
+  );
 
   const grouped = new Map<string, VisitWithRelations[]>();
   if (tab === "employee") {
@@ -54,7 +73,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Property Visits</h1>
-          <p className="text-sm text-slate-500">{visits.length} visits</p>
+          <p className="text-sm text-slate-500">{isAllTab ? totalCount : visits.length} visits</p>
         </div>
         {canManage && <ScheduleVisitModal leads={leads} properties={properties} employees={employees} />}
       </div>
@@ -82,6 +101,10 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <VisitTable visits={visits} canManage={canManage} />
         </div>
+      )}
+
+      {isAllTab && totalCount !== null && (
+        <Pagination basePath="/visits" currentParams={sp} page={page} pageSize={DEFAULT_PAGE_SIZE} totalCount={totalCount} />
       )}
     </div>
   );

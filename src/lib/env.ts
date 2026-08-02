@@ -33,6 +33,12 @@ const envSchema = z
 
     ACRES_99_API_KEY: z.string().optional(),
     MAGICBRICKS_API_KEY: z.string().optional(),
+
+    // Authorizes POST /api/internal/notifications/sweep (Vercel Cron sends
+    // `Authorization: Bearer $CRON_SECRET` automatically when this is set -
+    // see vercel.json). Left unset, the sweep endpoint refuses all requests
+    // rather than running unauthenticated.
+    CRON_SECRET: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.WHATSAPP_PROVIDER === "META_CLOUD") {

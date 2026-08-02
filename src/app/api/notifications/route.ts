@@ -2,18 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-auth";
 import { notificationVisibilityWhere } from "@/lib/notifications";
-import { generateDueFollowUpNotifications } from "@/lib/notifications";
 import { getOrganizationId } from "@/lib/organization";
 
+// The due/overdue follow-up sweep previously ran synchronously on every call
+// to this endpoint (it backs the header bell dropdown). It's now handled by
+// Vercel Cron + a throttled lazy fallback - see
+// src/app/api/internal/notifications/sweep/route.ts and (app)/layout.tsx -
+// so this endpoint only ever reads.
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
     const organizationId = getOrganizationId(session.user.id);
-
-    // Application-level "cron": generate any due/overdue follow-up
-    // notifications lazily before returning the list (idempotent - see
-    // lib/notifications.ts for why this is safe to run on every request).
-    await generateDueFollowUpNotifications(organizationId);
 
     const sp = req.nextUrl.searchParams;
     const type = sp.get("type");

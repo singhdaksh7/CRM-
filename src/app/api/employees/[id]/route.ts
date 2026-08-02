@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { employeeSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
+import { invalidateCache } from "@/lib/cache";
 
 // Never include passwordHash in an API response.
 const EMPLOYEE_DETAIL_SELECT = {
@@ -57,6 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    await invalidateCache(`employees:list:${organizationId}`);
     return NextResponse.json({ employee });
   } catch (err) {
     return handleApiError(err);

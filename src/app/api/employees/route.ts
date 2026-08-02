@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { employeeSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
+import { invalidateCache } from "@/lib/cache";
 import bcrypt from "bcryptjs";
 
 // Never include passwordHash in an API response - select every other User
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
       },
       select: EMPLOYEE_SELECT,
     });
+    await invalidateCache(`employees:list:${organizationId}`);
     return NextResponse.json({ employee }, { status: 201 });
   } catch (err) {
     return handleApiError(err);

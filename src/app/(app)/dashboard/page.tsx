@@ -1,16 +1,18 @@
+import { Suspense } from "react";
 import { auth } from "@/lib/auth";
-import { getDashboardData } from "@/lib/dashboard-data";
+import { getDashboardCriticalData, getDashboardSecondaryData } from "@/lib/dashboard-data";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { BarChartCard, PieChartCard, TrendChartCard } from "@/components/dashboard/charts";
 import { Badge, LEAD_STATUS_TONE } from "@/components/ui/badge";
 import { timeAgo, enumToLabel } from "@/lib/utils";
 import { Building2, Home, Landmark, Users, UserX, BellRing, CalendarClock, Trophy, ArrowRight } from "lucide-react";
+import type { Role } from "@prisma/client";
 import Link from "next/link";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session) return null;
-  const data = await getDashboardData(session.user.role, session.user.id);
+  const data = await getDashboardCriticalData(session.user.role, session.user.id);
   const firstName = session.user.name.split(" ")[0];
 
   return (
@@ -41,7 +43,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - critical data, awaited directly so it's in the first flush */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         <KpiCard label="Active Properties" value={data.totalActiveProperties} icon={Building2} tone="blue" />
         <KpiCard label="For Rent" value={data.propertiesForRent} icon={Home} tone="indigo" />
@@ -53,7 +55,20 @@ export default async function DashboardPage() {
         <KpiCard label="Deals Closed (Month)" value={data.dealsClosedThisMonth} icon={Trophy} tone="green" />
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts, trends, recent activity, employee workload - streamed in
+          independently so one slow panel never delays the KPIs above. */}
+      <Suspense fallback={<DashboardSecondarySkeleton />}>
+        <DashboardSecondary role={session.user.role} userId={session.user.id} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function DashboardSecondary({ role, userId }: { role: Role; userId: string }) {
+  const data = await getDashboardSecondaryData(role, userId);
+
+  return (
+    <>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PieChartCard title="Leads by Source" data={data.leadsBySource} />
         <PieChartCard title="Leads by Status" data={data.leadsByStatus} />
@@ -92,6 +107,20 @@ export default async function DashboardPage() {
           ))}
         </div>
       </div>
+    </>
+  );
+}
+
+function DashboardSecondarySkeleton() {
+  return (
+    <div className="animate-pulse space-y-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-64 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />
+        ))}
+      </div>
+      <div className="h-72 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />
+      <div className="h-56 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />
     </div>
   );
 }
