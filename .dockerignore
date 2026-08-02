@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+prisma/dev.db
+prisma/dev.db.bak*
+prisma/backups
+.env
+.env.sqlite-backup
+*.log
+npm-debug.log*
