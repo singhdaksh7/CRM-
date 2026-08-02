@@ -1,0 +1,1374 @@
+// Delhi Broker CRM - Database Schema
+// PostgreSQL (Phase 3A migration). Previously SQLite for local MVP dev - see
+// DEPLOYMENT.md "PostgreSQL Migration" and prisma/migrations.sqlite-archive/
+// for the pre-migration history. Local dev now runs Postgres via
+// `docker compose up -d` (docker-compose.yml) instead of a SQLite file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  DATA_MANAGER
+  FIELD_EXECUTIVE
+}
+
+enum ListingType {
+  RENT
+  SALE
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  RESERVED
+  RENTED
+  SOLD
+  INACTIVE
+}
+
+enum PropertyType {
+  APARTMENT
+  INDEPENDENT_HOUSE
+  VILLA
+  BUILDER_FLOOR
+  PLOT
+  COMMERCIAL_SHOP
+  COMMERCIAL_OFFICE
+  PG
+}
+
+enum FurnishingStatus {
+  FURNISHED
+  SEMI_FURNISHED
+  UNFURNISHED
+}
+
+enum Facing {
+  NORTH
+  SOUTH
+  EAST
+  WEST
+  NORTH_EAST
+  NORTH_WEST
+  SOUTH_EAST
+  SOUTH_WEST
+}
+
+enum TenantPreference {
+  FAMILY
+  BACHELOR_MALE
+  BACHELOR_FEMALE
+  COMPANY
+  ANY
+}
+
+enum LeadSource {
+  ACRES_99
+  MAGICBRICKS
+  HOUSING_COM
+  WEBSITE
+  WHATSAPP
+  PHONE_CALL
+  REFERRAL
+  WALK_IN
+  MANUAL
+}
+
+enum RequirementType {
+  RENT
+  BUY
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPERTIES_SHARED
+  VISIT_SCHEDULED
+  VISIT_COMPLETED
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+  NOT_INTERESTED
+  INVALID
+}
+
+enum LeadPriority {
+  HOT
+  WARM
+  COLD
+}
+
+enum VisitStatus {
+  SCHEDULED
+  CONFIRMED
+  CLIENT_REACHED
+  EMPLOYEE_REACHED
+  COMPLETED
+  RESCHEDULED
+  CANCELLED
+  CLIENT_NO_SHOW
+}
+
+enum VisitOutcome {
+  HIGHLY_INTERESTED
+  INTERESTED
+  NEEDS_TIME
+  NOT_INTERESTED
+  WANTS_ANOTHER_PROPERTY
+  READY_FOR_NEGOTIATION
+}
+
+enum FollowUpType {
+  PHONE_CALL
+  WHATSAPP
+  PROPERTY_SHARING
+  VISIT_CONFIRMATION
+  NEGOTIATION
+  DOCUMENTATION
+  PAYMENT_REMINDER
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  RESCHEDULED
+  OVERDUE
+}
+
+enum ActivityType {
+  LEAD_RECEIVED
+  LEAD_ASSIGNED
+  LEAD_TRANSFERRED
+  PHONE_CALL_MADE
+  WHATSAPP_SENT
+  PROPERTIES_SHARED
+  FOLLOW_UP_SCHEDULED
+  FOLLOW_UP_COMPLETED
+  VISIT_SCHEDULED
+  VISIT_COMPLETED
+  STATUS_CHANGED
+  NOTE_ADDED
+  DEAL_CLOSED
+  LEAD_CREATED
+  LEAD_UPDATED
+  // Phase 2B - WhatsApp + Catalogue
+  WHATSAPP_CONVERSATION_CREATED
+  WHATSAPP_MESSAGE_SENT
+  WHATSAPP_MESSAGE_FAILED
+  CLIENT_REPLY_RECEIVED
+  CATALOGUE_CREATED
+  CATALOGUE_SENT
+  CATALOGUE_VIEWED
+  CATALOGUE_REVOKED
+  PROPERTY_INTERESTED
+  PROPERTY_NOT_INTERESTED
+  VISIT_REQUESTED
+  QUESTION_ASKED
+  // Phase 1 backend completion - Owner CRM / Deals / Payments / Documents
+  OWNER_CREATED
+  OWNER_UPDATED
+  OWNER_VERIFIED
+  OWNER_NOTE_ADDED
+  OWNER_DOCUMENT_ADDED
+  DEAL_CREATED
+  DEAL_STAGE_CHANGED
+  DEAL_WON
+  DEAL_LOST
+  PAYMENT_RECORDED
+  PAYMENT_RECEIVED
+  DOCUMENT_UPLOADED
+  DOCUMENT_DELETED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EmployeeSpeciality {
+  RENT
+  SALE
+  COMMERCIAL
+  RESIDENTIAL
+  ALL
+}
+
+enum AssignmentStrategy {
+  ROUND_ROBIN
+  LOWEST_WORKLOAD
+  LOCATION_BASED
+  SPECIALITY
+  MANUAL_ONLY
+}
+
+enum NotificationType {
+  NEW_LEAD
+  LEAD_ASSIGNED
+  LEAD_TRANSFERRED
+  FOLLOW_UP_DUE
+  FOLLOW_UP_OVERDUE
+  VISIT_SCHEDULED
+  VISIT_RESCHEDULED
+  VISIT_CANCELLED
+  PROPERTY_SHARED
+  CLIENT_REPLY_RECEIVED
+  DEAL_WON
+  PAYMENT_PENDING
+  EMPLOYEE_CAPACITY_REACHED
+  // Phase 2B - WhatsApp + Catalogue engagement
+  CATALOGUE_VIEWED
+  PROPERTY_INTERESTED
+  PROPERTY_NOT_INTERESTED
+  VISIT_REQUESTED
+  QUESTION_ASKED
+  WHATSAPP_MESSAGE_FAILED
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp + Catalogue enums (Phase 2B)
+// ---------------------------------------------------------------------------
+
+enum WhatsAppProviderName {
+  MOCK
+  CLICK_TO_CHAT
+  META_CLOUD
+}
+
+enum WhatsAppConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum WhatsAppDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum WhatsAppMessageType {
+  TEXT
+  TEMPLATE
+  IMAGE
+  DOCUMENT
+  CATALOGUE
+  SYSTEM
+}
+
+enum WhatsAppMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED
+}
+
+enum CatalogueStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum CatalogueInteractionType {
+  VIEWED
+  PROPERTY_VIEWED
+  INTERESTED
+  NOT_INTERESTED
+  VISIT_REQUESTED
+  QUESTION_ASKED
+  CALL_REQUESTED
+  WHATSAPP_REQUESTED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// Owner CRM / Deals / Brokerage / Payments / Documents / Imports / Audit /
+// Backup enums (Phase 1 backend completion)
+// ---------------------------------------------------------------------------
+
+enum OwnerVerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DealStage {
+  INQUIRY
+  NEGOTIATION
+  AGREEMENT
+  TOKEN_RECEIVED
+  DOCUMENTATION
+  REGISTRATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+  CANCELLED
+}
+
+enum BrokerageType {
+  RENTAL
+  SALE
+}
+
+enum PaymentDirection {
+  RECEIVABLE
+  PAYABLE
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CHEQUE
+  CARD
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum DocumentEntityType {
+  PROPERTY
+  LEAD
+  OWNER
+  DEAL
+  PAYMENT
+}
+
+enum DocumentStatus {
+  ACTIVE
+  EXPIRED
+  DELETED
+}
+
+enum ImportEntityType {
+  PROPERTIES
+  LEADS
+  OWNERS
+  EMPLOYEES
+}
+
+enum ImportStatus {
+  PENDING
+  VALIDATING
+  VALIDATED
+  IMPORTING
+  COMPLETED
+  FAILED
+  ROLLED_BACK
+}
+
+enum ImportRecordStatus {
+  VALID
+  INVALID
+  IMPORTED
+  DUPLICATE
+  SKIPPED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+  OTHER
+}
+
+enum AuditResult {
+  SUCCESS
+  FAILURE
+}
+
+enum BackupType {
+  FULL
+  INCREMENTAL
+}
+
+enum BackupStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+// ---------------------------------------------------------------------------
+// Multi-tenant foundation (Phase 2A)
+//
+// Every major record is scoped to an Organization so the product can become
+// multi-tenant SaaS later without another data migration. For this single-
+// brokerage installation, all existing + new rows default to `org_default`,
+// backfilled automatically by the literal @default below (see README
+// "Migrating to multi-tenant" section for how a second org would be added).
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  phone     String?
+  email     String?
+  address   String?
+  timezone  String   @default("Asia/Kolkata")
+  currency  String   @default("INR")
+  settings  String   @default("{}") // JSON blob: assignment defaults, branding, etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users                 User[]
+  properties            Property[]
+  leads                 Lead[]
+  leadTransfers         LeadTransfer[]
+  sharedPropertyLogs    SharedPropertyLog[]
+  visits                Visit[]
+  followUps             FollowUp[]
+  activities            Activity[]
+  notifications         Notification[]
+  assignmentRules       LeadAssignmentRule[]
+  employeeServiceAreas  EmployeeServiceArea[]
+  leadScoreHistory      LeadScoreHistory[]
+  whatsappConversations WhatsAppConversation[]
+  whatsappMessages      WhatsAppMessage[]
+  catalogueShares       CatalogueShare[]
+  catalogueInteractions CatalogueInteraction[]
+  webhookEvents         IntegrationWebhookEvent[]
+  owners                Owner[]
+  deals                 Deal[]
+  brokerageCalculations BrokerageCalculation[]
+  payments              Payment[]
+  documents             Document[]
+  importJobs            ImportJob[]
+  auditLogs             AuditLog[]
+  backupRecords         BackupRecord[]
+  restoreValidations    RestoreValidation[]
+
+  @@map("organizations")
+}
+
+// ---------------------------------------------------------------------------
+// Auth / Employees
+// ---------------------------------------------------------------------------
+
+model User {
+  id             String         @id @default(cuid())
+  organizationId String         @default("org_default")
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String         @unique
+  passwordHash   String
+  phone          String?
+  role           Role
+  status         EmployeeStatus @default(ACTIVE)
+  notes          String?
+
+  // Auto-assignment profile (Phase 2A)
+  maxActiveLeads    Int                @default(20)
+  isAvailable       Boolean            @default(true)
+  speciality        EmployeeSpeciality @default(ALL)
+  autoAssignEnabled Boolean            @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedLeads             Lead[]                 @relation("AssignedEmployee")
+  assignedVisits            Visit[]                @relation("AssignedFieldExecutive")
+  followUps                 FollowUp[]             @relation("FollowUpOwner")
+  activities                Activity[]             @relation("ActivityActor")
+  sharedProperties          SharedPropertyLog[]    @relation("SharedBy")
+  leadTransfersFrom         LeadTransfer[]         @relation("TransferFrom")
+  leadTransfersTo           LeadTransfer[]         @relation("TransferTo")
+  propertiesAdded           Property[]             @relation("PropertyCreatedBy")
+  serviceAreas              EmployeeServiceArea[]
+  assignmentRules           LeadAssignmentRule[]   @relation("AssignmentRuleEmployee")
+  notifications             Notification[]
+  whatsappMessagesSent      WhatsAppMessage[]
+  cataloguesCreated         CatalogueShare[]
+  ownersCreated             Owner[]                @relation("OwnerCreatedBy")
+  ownersVerified            Owner[]                @relation("OwnerVerifiedBy")
+  dealsAssigned             Deal[]                 @relation("DealAssignedTo")
+  dealsCreated              Deal[]                 @relation("DealCreatedBy")
+  brokerageCalculationsMade BrokerageCalculation[] @relation("BrokerageCalculatedBy")
+  brokerageIncentives       BrokerageCalculation[] @relation("BrokerageIncentiveEmployee")
+  paymentsRecorded          Payment[]              @relation("PaymentRecordedBy")
+  documentsUploaded         Document[]             @relation("DocumentUploadedBy")
+  importJobsCreated         ImportJob[]            @relation("ImportJobCreatedBy")
+  auditLogs                 AuditLog[]
+  backupsTriggered          BackupRecord[]         @relation("BackupTriggeredBy")
+  restoreValidationsDone    RestoreValidation[]    @relation("RestoreValidatedBy")
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Automatic lead assignment (Phase 2A)
+// ---------------------------------------------------------------------------
+
+model LeadAssignmentRule {
+  id              String             @id @default(cuid())
+  organizationId  String             @default("org_default")
+  organization    Organization       @relation(fields: [organizationId], references: [id])
+  name            String
+  strategy        AssignmentStrategy
+  source          LeadSource?
+  requirementType RequirementType?
+  locality        String?
+  employeeId      String?
+  employee        User?              @relation("AssignmentRuleEmployee", fields: [employeeId], references: [id])
+  priority        Int                @default(0)
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@map("lead_assignment_rules")
+}
+
+model EmployeeServiceArea {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  employeeId     String
+  employee       User         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  locality       String
+  city           String       @default("Delhi")
+  priority       Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@unique([employeeId, locality])
+  @@map("employee_service_areas")
+}
+
+// ---------------------------------------------------------------------------
+// Notification Centre (Phase 2A)
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id             String           @id @default(cuid())
+  organizationId String           @default("org_default")
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  userId         String?
+  user           User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role?
+  type           NotificationType
+  title          String
+  message        String
+  leadId         String?
+  visitId        String?
+  propertyId     String?
+  followUpId     String?
+  isRead         Boolean          @default(false)
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([role, isRead])
+  @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Property Inventory
+// ---------------------------------------------------------------------------
+
+model Property {
+  id             String         @id @default(cuid())
+  organizationId String         @default("org_default")
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  propertyCode   String         @unique
+  title          String
+  propertyType   PropertyType
+  listingType    ListingType
+  status         PropertyStatus @default(AVAILABLE)
+  description    String
+
+  // Location
+  city      String  @default("Delhi")
+  area      String
+  address   String
+  landmark  String?
+  latitude  Float?
+  longitude Float?
+
+  // Rental pricing
+  monthlyRent       Int?
+  securityDeposit   Int?
+  maintenanceCharge Int?
+  rentBrokerage     Int?
+
+  // Sale pricing
+  salePrice           Int?
+  pricePerSqft        Int?
+  saleBrokeragePct    Float?
+  saleBrokerageAmount Int?
+
+  negotiable Boolean @default(false)
+
+  // Property details
+  bhk              Int
+  bathrooms        Int
+  balconies        Int               @default(0)
+  furnishing       FurnishingStatus
+  floorNumber      Int?
+  totalFloors      Int?
+  propertyAgeYears Int?
+  builtUpAreaSqft  Int
+  carpetAreaSqft   Int?
+  facing           Facing?
+  parkingAvailable Boolean           @default(false)
+  tenantPreference TenantPreference?
+  availableFrom    DateTime?
+  amenities        String            @default("[]") // JSON array of strings
+
+  // Media
+  images         String  @default("[]") // JSON array of URLs
+  coverImage     String?
+  videoUrl       String?
+  virtualTourUrl String?
+  floorPlanImage String?
+
+  // Owner (private - never exposed on public page)
+  // ownerName/ownerPhone remain the source of truth for legacy properties;
+  // ownerId links to a full Owner CRM record when one exists (Phase 1).
+  ownerName           String
+  ownerPhone          String
+  ownerAlternatePhone String?
+  ownerNotes          String?
+  ownerId             String?
+  owner               Owner?  @relation(fields: [ownerId], references: [id])
+
+  createdById String?
+  createdBy   User?    @relation("PropertyCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sharedIn                 SharedPropertyLog[]
+  visits                   Visit[]
+  catalogueShareProperties CatalogueShareProperty[]
+  catalogueInteractions    CatalogueInteraction[]
+  deals                    Deal[]
+  documents                Document[]
+
+  @@index([ownerId])
+  @@index([organizationId, status])
+  @@map("properties")
+}
+
+// ---------------------------------------------------------------------------
+// Leads
+// ---------------------------------------------------------------------------
+
+model Lead {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadCode       String       @unique
+  clientName     String
+  phone          String
+  email          String?
+  source         LeadSource
+  externalLeadId String?      @unique // dedupe key for webhook leads
+
+  requirementType        RequirementType
+  preferredLocation      String
+  minBudget              Int
+  maxBudget              Int
+  preferredBhk           Int?
+  furnishingPref         FurnishingStatus?
+  moveInDate             DateTime?
+  additionalRequirements String?
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedEmployee", fields: [assignedToId], references: [id])
+
+  status   LeadStatus   @default(NEW)
+  priority LeadPriority @default(WARM)
+
+  // Auto-assignment (Phase 2A)
+  assignmentStrategy AssignmentStrategy?
+  assignmentReason   String?
+  autoAssignedAt     DateTime?
+
+  // Lead scoring (Phase 2A)
+  score            Int       @default(0)
+  scoreExplanation String? // JSON array of {label, delta, reason}
+  scoreUpdatedAt   DateTime?
+
+  lastContactedAt DateTime?
+  nextFollowUpAt  DateTime?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities            Activity[]
+  followUps             FollowUp[]
+  visits                Visit[]
+  sharedProperties      SharedPropertyLog[]
+  transfers             LeadTransfer[]
+  scoreHistory          LeadScoreHistory[]
+  whatsappConversations WhatsAppConversation[]
+  catalogueShares       CatalogueShare[]
+  deals                 Deal[]
+  documents             Document[]
+
+  @@index([organizationId, phone])
+  @@index([organizationId, assignedToId])
+  @@map("leads")
+}
+
+model LeadScoreHistory {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  score          Int
+  priority       LeadPriority
+  factors        String // JSON array of {label, delta, reason}
+  trigger        String // e.g. "LEAD_CREATED", "STATUS_CHANGED", "VISIT_SCHEDULED"
+  createdAt      DateTime     @default(now())
+
+  @@map("lead_score_history")
+}
+
+model LeadTransfer {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  fromUserId     String?
+  fromUser       User?        @relation("TransferFrom", fields: [fromUserId], references: [id])
+  toUserId       String
+  toUser         User         @relation("TransferTo", fields: [toUserId], references: [id])
+  reason         String?
+  createdAt      DateTime     @default(now())
+
+  @@map("lead_transfers")
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp Sharing
+// ---------------------------------------------------------------------------
+
+model SharedPropertyLog {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyIds    String // JSON array of property ids included in this share
+  message        String
+  sharedById     String?
+  sharedBy       User?        @relation("SharedBy", fields: [sharedById], references: [id])
+  whatsappLink   String
+  createdAt      DateTime     @default(now())
+
+  Property   Property? @relation(fields: [propertyId], references: [id])
+  propertyId String?
+
+  @@map("shared_property_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Visits
+// ---------------------------------------------------------------------------
+
+model Visit {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id])
+  assignedToId   String?
+  assignedTo     User?        @relation("AssignedFieldExecutive", fields: [assignedToId], references: [id])
+
+  visitDate       DateTime
+  visitTime       String
+  meetingLocation String?
+  status          VisitStatus   @default(SCHEDULED)
+  clientFeedback  String?
+  employeeNotes   String?
+  outcome         VisitOutcome?
+  followUpAction  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("visits")
+}
+
+// ---------------------------------------------------------------------------
+// Follow-ups
+// ---------------------------------------------------------------------------
+
+model FollowUp {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String?
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  crmOwnerId     String?
+  crmOwner       Owner?       @relation(fields: [crmOwnerId], references: [id], onDelete: Cascade)
+  ownerId        String?
+  owner          User?        @relation("FollowUpOwner", fields: [ownerId], references: [id])
+
+  type        FollowUpType
+  dueDate     DateTime
+  notes       String?
+  status      FollowUpStatus @default(PENDING)
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("follow_ups")
+}
+
+// ---------------------------------------------------------------------------
+// Activity Timeline
+// ---------------------------------------------------------------------------
+
+model Activity {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String?
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  crmOwnerId     String?
+  crmOwner       Owner?       @relation(fields: [crmOwnerId], references: [id], onDelete: Cascade)
+  dealId         String?
+  deal           Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  actorId        String?
+  actor          User?        @relation("ActivityActor", fields: [actorId], references: [id])
+  type           ActivityType
+  description    String
+  metadata       String? // JSON blob for extra context
+  createdAt      DateTime     @default(now())
+
+  @@index([crmOwnerId])
+  @@index([dealId])
+  @@map("activities")
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp conversations + messages (Phase 2B)
+//
+// Provider-agnostic: MOCK and CLICK_TO_CHAT need no credentials and are the
+// default locally; META_CLOUD is structurally complete but inert without
+// real Meta credentials (see src/integrations/whatsapp/). SharedPropertyLog
+// (Phase 1) remains the lightweight historical record on the lead's "Shared"
+// tab; CatalogueShare below is the newer, richer, publicly-trackable
+// equivalent - creating a catalogue also writes a SharedPropertyLog row so
+// both stay in sync and no history is lost. See README "WhatsApp & Catalogue
+// Sharing" section for the full relationship writeup.
+// ---------------------------------------------------------------------------
+
+model WhatsAppConversation {
+  id             String                     @id @default(cuid())
+  organizationId String                     @default("org_default")
+  organization   Organization               @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead                       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  phoneNumber    String
+  provider       WhatsAppProviderName
+  status         WhatsAppConversationStatus @default(OPEN)
+  lastMessageAt  DateTime?
+  lastInboundAt  DateTime?
+  lastOutboundAt DateTime?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  messages        WhatsAppMessage[]
+  catalogueShares CatalogueShare[]
+
+  @@unique([leadId, phoneNumber])
+  @@index([organizationId, status])
+  @@map("whatsapp_conversations")
+}
+
+model WhatsAppMessage {
+  id                String                @id @default(cuid())
+  organizationId    String                @default("org_default")
+  organization      Organization          @relation(fields: [organizationId], references: [id])
+  conversationId    String
+  conversation      WhatsAppConversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction         WhatsAppDirection
+  messageType       WhatsAppMessageType   @default(TEXT)
+  provider          WhatsAppProviderName
+  providerMessageId String?               @unique
+  content           String
+  mediaUrl          String?
+  templateName      String?
+  status            WhatsAppMessageStatus @default(QUEUED)
+  errorMessage      String?
+  metadata          String? // JSON blob - e.g. { catalogueShareId }
+  sentByUserId      String?
+  sentBy            User?                 @relation(fields: [sentByUserId], references: [id])
+  replyToMessageId  String?
+  replyToMessage    WhatsAppMessage?      @relation("MessageReply", fields: [replyToMessageId], references: [id])
+  repliesTo         WhatsAppMessage[]     @relation("MessageReply")
+  createdAt         DateTime              @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+
+  @@index([conversationId, createdAt])
+  @@index([organizationId, status])
+  @@map("whatsapp_messages")
+}
+
+// ---------------------------------------------------------------------------
+// Property Catalogue Sharing (Phase 2B)
+// ---------------------------------------------------------------------------
+
+model CatalogueShare {
+  id               String                @id @default(cuid())
+  organizationId   String                @default("org_default")
+  organization     Organization          @relation(fields: [organizationId], references: [id])
+  token            String                @unique
+  leadId           String
+  lead             Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  conversationId   String?
+  conversation     WhatsAppConversation? @relation(fields: [conversationId], references: [id])
+  createdByUserId  String?
+  createdBy        User?                 @relation(fields: [createdByUserId], references: [id])
+  title            String
+  introMessage     String?
+  includePrice     Boolean               @default(true)
+  includeAddress   Boolean               @default(false)
+  includeBrokerage Boolean               @default(false)
+  status           CatalogueStatus       @default(ACTIVE)
+  expiresAt        DateTime?
+  viewCount        Int                   @default(0)
+  lastViewedAt     DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  properties   CatalogueShareProperty[]
+  interactions CatalogueInteraction[]
+
+  @@index([organizationId, leadId])
+  @@map("catalogue_shares")
+}
+
+model CatalogueShareProperty {
+  id               String         @id @default(cuid())
+  catalogueShareId String
+  catalogueShare   CatalogueShare @relation(fields: [catalogueShareId], references: [id], onDelete: Cascade)
+  propertyId       String
+  property         Property       @relation(fields: [propertyId], references: [id])
+  sortOrder        Int            @default(0)
+  customNote       String?
+  priceVisible     Boolean        @default(true)
+  addressVisible   Boolean        @default(false)
+  brokerageVisible Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+
+  @@unique([catalogueShareId, propertyId])
+  @@map("catalogue_share_properties")
+}
+
+model CatalogueInteraction {
+  id               String                   @id @default(cuid())
+  organizationId   String                   @default("org_default")
+  organization     Organization             @relation(fields: [organizationId], references: [id])
+  catalogueShareId String
+  catalogueShare   CatalogueShare           @relation(fields: [catalogueShareId], references: [id], onDelete: Cascade)
+  propertyId       String?
+  property         Property?                @relation(fields: [propertyId], references: [id])
+  type             CatalogueInteractionType
+  message          String?
+  clientName       String?
+  clientPhone      String?
+  metadata         String? // JSON blob - e.g. { dedupeKey, preferredDate, preferredWindow }
+  createdAt        DateTime                 @default(now())
+
+  @@index([catalogueShareId, type])
+  @@map("catalogue_interactions")
+}
+
+// ---------------------------------------------------------------------------
+// Inbound webhook idempotency (Phase 2B)
+// ---------------------------------------------------------------------------
+
+model IntegrationWebhookEvent {
+  id              String             @id @default(cuid())
+  organizationId  String             @default("org_default")
+  organization    Organization       @relation(fields: [organizationId], references: [id])
+  provider        String // e.g. "META_CLOUD"
+  externalEventId String
+  eventType       String
+  payloadHash     String
+  processedAt     DateTime?
+  status          WebhookEventStatus @default(RECEIVED)
+  errorMessage    String?
+  createdAt       DateTime           @default(now())
+
+  @@unique([provider, externalEventId])
+  @@map("integration_webhook_events")
+}
+
+// ---------------------------------------------------------------------------
+// Owner CRM (Phase 1, Module 1)
+// ---------------------------------------------------------------------------
+
+model Owner {
+  id                 String                  @id @default(cuid())
+  organizationId     String                  @default("org_default")
+  organization       Organization            @relation(fields: [organizationId], references: [id])
+  ownerCode          String                  @unique
+  name               String
+  phone              String
+  alternatePhone     String?
+  email              String?
+  address            String?
+  city               String                  @default("Delhi")
+  verificationStatus OwnerVerificationStatus @default(UNVERIFIED)
+  verifiedAt         DateTime?
+  verifiedById       String?
+  verifiedBy         User?                   @relation("OwnerVerifiedBy", fields: [verifiedById], references: [id])
+  notes              String?
+
+  createdById String?
+  createdBy   User?    @relation("OwnerCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  properties Property[]
+  deals      Deal[]
+  documents  Document[]
+  followUps  FollowUp[]
+  activities Activity[]
+
+  @@index([organizationId, verificationStatus])
+  @@index([organizationId, phone])
+  @@map("owners")
+}
+
+// ---------------------------------------------------------------------------
+// Deals (Phase 1, Module 2)
+// ---------------------------------------------------------------------------
+
+model Deal {
+  id             String        @id @default(cuid())
+  organizationId String        @default("org_default")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  dealCode       String        @unique
+  dealType       BrokerageType
+  stage          DealStage     @default(INQUIRY)
+  status         DealStatus    @default(OPEN)
+
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id])
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+  ownerId    String?
+  owner      Owner?    @relation(fields: [ownerId], references: [id])
+
+  agreedAmount    Int?
+  brokeragePct    Float?
+  brokerageAmount Int?
+
+  assignedToId String?
+  assignedTo   User?   @relation("DealAssignedTo", fields: [assignedToId], references: [id])
+
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+  lostReason        String?
+  notes             String?
+
+  createdById String?
+  createdBy   User?    @relation("DealCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  brokerageCalculations BrokerageCalculation[]
+  payments              Payment[]
+  documents             Document[]
+  activities            Activity[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, stage])
+  @@index([assignedToId])
+  @@index([leadId])
+  @@index([ownerId])
+  @@index([propertyId])
+  @@map("deals")
+}
+
+// ---------------------------------------------------------------------------
+// Brokerage Engine (Phase 1, Module 3)
+// ---------------------------------------------------------------------------
+
+model BrokerageCalculation {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  type           BrokerageType
+  baseAmount     Int
+  brokeragePct   Float?
+  grossBrokerage Int
+
+  splitPct        Float?
+  splitWithUserId String?
+  splitAmount     Int?
+
+  discountPct    Float?
+  discountAmount Int?
+
+  taxPct    Float?
+  taxAmount Int?
+
+  netBrokerage Int
+
+  employeeIncentivePct    Float?
+  employeeIncentiveAmount Int?
+  employeeId              String?
+  employee                User?   @relation("BrokerageIncentiveEmployee", fields: [employeeId], references: [id])
+
+  notes String?
+
+  calculatedById String?
+  calculatedBy   User?    @relation("BrokerageCalculatedBy", fields: [calculatedById], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, dealId])
+  @@map("brokerage_calculations")
+}
+
+// ---------------------------------------------------------------------------
+// Payments (Phase 1, Module 4)
+// ---------------------------------------------------------------------------
+
+model Payment {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  direction PaymentDirection @default(RECEIVABLE)
+  amount    Int
+  method    PaymentMethod    @default(CASH)
+  status    PaymentStatus    @default(PENDING)
+
+  dueDate       DateTime?
+  paidAt        DateTime?
+  receiptNumber String?   @unique
+  referenceNote String?
+
+  recordedById String?
+  recordedBy   User?    @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  documents Document[]
+
+  @@index([organizationId, dealId])
+  @@index([organizationId, status])
+  @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// Documents (Phase 1, Module 5)
+// ---------------------------------------------------------------------------
+
+model Document {
+  id             String             @id @default(cuid())
+  organizationId String             @default("org_default")
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  entityType     DocumentEntityType
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  ownerId    String?
+  owner      Owner?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  dealId     String?
+  deal       Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  paymentId  String?
+  payment    Payment?  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  fileName      String
+  fileUrl       String  // legacy/external mode: a pre-uploaded URL the caller already hosts elsewhere
+  storageKey    String? // Phase 3B: object key in our S3-compatible bucket (org/{orgId}/{entityType}/{entityId}/{uuid}-{fileName}); when set, fileUrl is ignored and a signed URL is generated per-request instead
+  fileType      String
+  fileSizeBytes Int?
+  status        DocumentStatus @default(ACTIVE)
+  expiresAt     DateTime?
+
+  version            Int       @default(1)
+  previousDocumentId String?   @unique
+  previousDocument   Document? @relation("DocumentVersion", fields: [previousDocumentId], references: [id])
+  nextDocument       Document? @relation("DocumentVersion")
+
+  uploadedById String?
+  uploadedBy   User?     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([organizationId, entityType])
+  @@index([propertyId])
+  @@index([leadId])
+  @@index([ownerId])
+  @@index([dealId])
+  @@map("documents")
+}
+
+// ---------------------------------------------------------------------------
+// Imports (Phase 1, Module 6)
+// ---------------------------------------------------------------------------
+
+model ImportJob {
+  id             String           @id @default(cuid())
+  organizationId String           @default("org_default")
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  entityType     ImportEntityType
+  fileName       String
+  status         ImportStatus     @default(PENDING)
+
+  totalRows     Int @default(0)
+  validRows     Int @default(0)
+  invalidRows   Int @default(0)
+  importedRows  Int @default(0)
+  duplicateRows Int @default(0)
+
+  columnMapping String // JSON: { targetField: sourceColumn }
+  errorLog      String? // JSON array of { row, error }
+
+  createdById String?
+  createdBy   User?     @relation("ImportJobCreatedBy", fields: [createdById], references: [id])
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  records ImportRecord[]
+
+  @@index([organizationId, entityType])
+  @@map("import_jobs")
+}
+
+model ImportRecord {
+  id           String             @id @default(cuid())
+  importJobId  String
+  importJob    ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  rowNumber    Int
+  status       ImportRecordStatus
+  rawData      String // JSON of the source row
+  errorMessage String?
+  entityId     String? // id of the created record, if imported
+  createdAt    DateTime           @default(now())
+
+  @@index([importJobId, status])
+  @@map("import_records")
+}
+
+// ---------------------------------------------------------------------------
+// Audit Logs (Phase 1, Module 7)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id])
+
+  action       AuditAction
+  entityType   String
+  entityId     String?
+  oldValues    String? // JSON
+  newValues    String? // JSON
+  ipAddress    String? // placeholder - not collected without infra support
+  device       String? // placeholder - not collected without infra support
+  result       AuditResult @default(SUCCESS)
+  errorMessage String?
+  createdAt    DateTime    @default(now())
+
+  @@index([organizationId, entityType, entityId])
+  @@index([organizationId, userId, createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Backup foundation (Phase 1, Module 9) - metadata + restore validation only,
+// no automated backup execution is implemented here.
+// ---------------------------------------------------------------------------
+
+model BackupRecord {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  type           BackupType   @default(FULL)
+  status         BackupStatus @default(PENDING)
+
+  triggeredById String?
+  triggeredBy   User?     @relation("BackupTriggeredBy", fields: [triggeredById], references: [id])
+  startedAt     DateTime?
+  completedAt   DateTime?
+  sizeBytes     Int?
+  location      String?
+  checksum      String?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+
+  restoreValidations RestoreValidation[]
+
+  @@index([organizationId, status])
+  @@map("backup_records")
+}
+
+model RestoreValidation {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  backupRecordId String
+  backupRecord   BackupRecord @relation(fields: [backupRecordId], references: [id], onDelete: Cascade)
+  status         BackupStatus @default(PENDING)
+
+  validatedById String?
+  validatedBy   User?     @relation("RestoreValidatedBy", fields: [validatedById], references: [id])
+  validatedAt   DateTime?
+  issuesFound   String? // JSON array of strings
+
+  createdAt DateTime @default(now())
+
+  @@map("restore_validations")
+}
