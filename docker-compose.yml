@@ -1,0 +1,61 @@
+name: delhi-broker-crm
+
+# Local development infra: Postgres + Redis + MinIO (S3-compatible), so the
+# app can be developed/tested against the same kind of services production
+# uses, without needing real AWS/Upstash credentials. The Next.js app itself
+# runs on the host via `npm run dev` in normal day-to-day development -
+# see docker-compose.prod.yml for the containerized application image.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: crm_dev_password
+      POSTGRES_DB: delhi_broker_crm
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d delhi_broker_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: crm_minio
+      MINIO_ROOT_PASSWORD: crm_minio_password
+    ports:
+      - "9002:9000" # S3 API
+      - "9003:9001" # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
