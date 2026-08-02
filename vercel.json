@@ -5,5 +5,6 @@
       "path": "/api/internal/notifications/sweep",
       "schedule": "0 3 * * *"
     }
-  ]
+  ],
+  "regions": ["hnd1"]
 }
