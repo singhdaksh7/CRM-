@@ -1,4 +1,5 @@
 import { S3StorageProvider } from "./s3";
+import { R2StorageProvider } from "./r2";
 import { FirebaseStorageProvider } from "./firebase";
 import { DisabledStorageProvider } from "./disabled";
 import type { StorageProvider } from "./types";
@@ -20,6 +21,9 @@ export function getStorageProvider(): StorageProvider {
   switch (selected) {
     case "S3":
       cachedProvider = new S3StorageProvider();
+      break;
+    case "R2":
+      cachedProvider = new R2StorageProvider();
       break;
     case "FIREBASE":
       cachedProvider = new FirebaseStorageProvider();

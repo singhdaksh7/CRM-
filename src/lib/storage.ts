@@ -28,7 +28,7 @@ export function isStorageConfigured(): boolean {
   return getStorageProvider().name !== "DISABLED";
 }
 
-export function activeStorageProviderName(): "S3" | "FIREBASE" | "DISABLED" {
+export function activeStorageProviderName(): "S3" | "R2" | "FIREBASE" | "DISABLED" {
   return getStorageProvider().name;
 }
 

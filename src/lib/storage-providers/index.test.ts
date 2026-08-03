@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { getStorageProvider, _resetStorageProviderCacheForTests } from "./index";
 import { S3StorageProvider } from "./s3";
+import { R2StorageProvider } from "./r2";
 import { FirebaseStorageProvider } from "./firebase";
 import { DisabledStorageProvider } from "./disabled";
 
@@ -22,6 +23,17 @@ describe("getStorageProvider", () => {
     process.env.STORAGE_PROVIDER = "S3";
     expect(getStorageProvider()).toBeInstanceOf(S3StorageProvider);
     expect(getStorageProvider().name).toBe("S3");
+  });
+
+  it("selects R2 when STORAGE_PROVIDER=R2", () => {
+    process.env.STORAGE_PROVIDER = "R2";
+    expect(getStorageProvider()).toBeInstanceOf(R2StorageProvider);
+    expect(getStorageProvider().name).toBe("R2");
+  });
+
+  it("R2 is also an instance of S3StorageProvider (reuses the S3-compatible client)", () => {
+    process.env.STORAGE_PROVIDER = "R2";
+    expect(getStorageProvider()).toBeInstanceOf(S3StorageProvider);
   });
 
   it("selects Firebase when STORAGE_PROVIDER=FIREBASE", () => {
@@ -87,6 +99,19 @@ describe("S3StorageProvider.checkHealth", () => {
     delete process.env.STORAGE_ACCESS_KEY_ID;
     delete process.env.STORAGE_SECRET_ACCESS_KEY;
     const provider = new S3StorageProvider();
+    const result = await provider.checkHealth();
+    expect(result.status).toBe("not_configured");
+  });
+});
+
+describe("R2StorageProvider.checkHealth (config-existence only)", () => {
+  it("reports not_configured when no R2 env vars are set", async () => {
+    delete process.env.R2_ACCOUNT_ID;
+    delete process.env.R2_ACCESS_KEY_ID;
+    delete process.env.R2_SECRET_ACCESS_KEY;
+    delete process.env.R2_BUCKET_NAME;
+    delete process.env.R2_ENDPOINT;
+    const provider = new R2StorageProvider();
     const result = await provider.checkHealth();
     expect(result.status).toBe("not_configured");
   });

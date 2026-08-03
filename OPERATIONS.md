@@ -38,7 +38,10 @@ Docker-only. The non-root container user doesn't own the copied files. Confirm e
 Set `AUTH_TRUST_HOST=true` — required whenever a reverse proxy/load balancer terminates TLS in front of the app container (confirmed necessary in local Docker testing).
 
 ### `/api/system/status` shows `storage: "not_configured"`
-Expected unless `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, and `STORAGE_SECRET_ACCESS_KEY` are all set (see `ENVIRONMENT.md`). Documents still work in "legacy mode" (external `fileUrl`) without them.
+Expected unless a full provider's variables are set: `STORAGE_PROVIDER=R2` needs `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, and either `R2_ACCOUNT_ID` or `R2_ENDPOINT`; `STORAGE_PROVIDER=S3` needs `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` (see `ENVIRONMENT.md`). Documents still work in "legacy mode" (external `fileUrl`) without any provider configured.
+
+### `/api/system/status` shows `storage: "error"` with `STORAGE_PROVIDER=R2`
+The config-existence check passed (all `R2_*` variables are set) but something else is wrong. Common causes: the Cloudflare API token was revoked or scoped to the wrong bucket, `R2_BUCKET_NAME` doesn't match the bucket the token is scoped to, or `R2_ACCOUNT_ID`/`R2_ENDPOINT` points at the wrong Cloudflare account. Run the Admin-only deep test (`POST /api/system/storage-health`) for a real upload/HEAD/signed-URL/delete round trip — its per-step breakdown pinpoints which operation is failing without ever exposing the credentials themselves.
 
 ### Rate limit `429` responses under normal use
 Check `REDIS_URL` connectivity and whether the default limits (`ENVIRONMENT.md` "Rate limiting") fit your actual usage pattern — they're deliberately conservative defaults and fully env-overridable per rule.

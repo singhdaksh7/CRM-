@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 export interface StorageCapabilities {
-  provider: "FIREBASE" | "S3" | "DISABLED";
+  provider: "FIREBASE" | "S3" | "R2" | "DISABLED";
   configured: boolean;
   uploadsEnabled: boolean;
   propertyImages: { enabled: boolean; maxSizeBytes: number; allowedMimeTypes: string[] };

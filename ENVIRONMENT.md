@@ -36,11 +36,15 @@ Full reference for every variable the app reads. See `.env.example` for a ready-
 
 | Variable | When needed | Notes |
 |---|---|---|
-| `STORAGE_PROVIDER` | Always (has a default) | `DISABLED` (default) \| `S3` \| `FIREBASE`. Selects the provider in `src/lib/storage-providers/`. `DISABLED` means upload endpoints return a clear 503; every other page keeps working. |
-| `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` | `STORAGE_PROVIDER=S3` | Required together when S3 is selected. |
+| `STORAGE_PROVIDER` | Always (has a default) | `DISABLED` (default) \| `R2` \| `S3` \| `FIREBASE`. Selects the provider in `src/lib/storage-providers/`. `DISABLED` means upload endpoints return a clear 503; every other page keeps working. `R2` (Cloudflare R2) is the preferred production provider. |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | `STORAGE_PROVIDER=R2` | Required together when R2 is selected. See DEPLOYMENT.md "2.5 Cloudflare R2 storage provider". |
+| `R2_ENDPOINT` | Optional with R2 | Overrides the derived `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com` endpoint. Either this or `R2_ACCOUNT_ID` is required when `STORAGE_PROVIDER=R2`. |
+| `R2_SIGNED_URL_EXPIRY_SECONDS` | Optional with R2 | Defaults to `300` (5 minutes). Applies to both upload and download presigned URLs. |
+| `R2_PUBLIC_BASE_URL` | Not used yet | Reserved for a future public-asset delivery path. Leave empty - the bucket stays private and all delivery is via short-lived signed URLs. Never used for presigning. |
+| `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` | `STORAGE_PROVIDER=S3` | Required together when the generic S3 provider (real AWS S3, or MinIO locally) is selected. |
 | `STORAGE_REGION` | With the above | Defaults to `us-east-1`. |
-| `STORAGE_ENDPOINT` | S3-compatible non-AWS host (MinIO, R2, B2) | Leave unset for real AWS S3. Local dev default: `http://localhost:9002` (MinIO via `docker-compose.yml`). |
-| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET` | `STORAGE_PROVIDER=FIREBASE` | Required together (validated) when Firebase is selected. From a Firebase service-account JSON - see DEPLOYMENT.md "2.4 Firebase Storage provider". `FIREBASE_PRIVATE_KEY` keeps its literal `\n` sequences; `src/lib/firebase-admin.ts` un-escapes them. Never prefix with `NEXT_PUBLIC_`. |
+| `STORAGE_ENDPOINT` | S3-compatible non-AWS host (MinIO, Backblaze B2) | Leave unset for real AWS S3. Local dev default: `http://localhost:9002` (MinIO via `docker-compose.yml`). Use the dedicated `R2` provider (not this one) for Cloudflare R2. |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET` | `STORAGE_PROVIDER=FIREBASE` | Required together (validated) when Firebase is selected. Optional fallback provider only - never activated in this deployment (billing was not completed). From a Firebase service-account JSON - see DEPLOYMENT.md "2.4 Firebase Storage provider". `FIREBASE_PRIVATE_KEY` keeps its literal `\n` sequences; `src/lib/firebase-admin.ts` un-escapes them. Never prefix with `NEXT_PUBLIC_`. |
 
 ## Rate limiting
 

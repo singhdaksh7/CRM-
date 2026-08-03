@@ -46,7 +46,7 @@ SQLITE_SOURCE_PATH=./prisma/dev.db npx tsx scripts/migrate-sqlite-to-postgres.ts
 
 ## 2. File storage (Document Vault) — implemented and verified
 
-`src/lib/storage.ts` is a real S3-compatible client (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`) — not a stub. It works unmodified against both real AWS S3 and any S3-compatible host (MinIO, Cloudflare R2, Backblaze B2); only `STORAGE_ENDPOINT` differs (unset → real AWS; set → the alternate host).
+`src/lib/storage.ts` is a real S3-compatible client (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`) — not a stub. The generic `S3` provider works unmodified against both real AWS S3 and any other S3-compatible host (MinIO, Backblaze B2); only `STORAGE_ENDPOINT` differs (unset → real AWS; set → the alternate host). **Cloudflare R2 has its own dedicated `R2` provider** (section 2.5) rather than going through the generic `S3` provider's env vars — it reuses the same AWS SDK client/commands but with R2-specific configuration (forced `region: "auto"`, `R2_*` env vars).
 
 ### 2.1 How it works
 ```
@@ -65,10 +65,12 @@ Later:   GET /api/documents/[id] --(presigned GET, 5 min TTL, generated fresh ev
 ### 2.2 Verified locally against MinIO
 Full lifecycle tested end-to-end with the local MinIO container from `docker-compose.yml`: presigned PUT → real file upload → server-side HEAD verification (confirmed real size/content-type) → presigned GET returning the exact uploaded bytes → delete → subsequent GET correctly 404s. `GET /api/system/status` reports `storage: "ok"` with the configured bucket/endpoint once `STORAGE_BUCKET`/`STORAGE_ACCESS_KEY_ID`/`STORAGE_SECRET_ACCESS_KEY` are set, `"not_configured"` otherwise (legacy `fileUrl` mode).
 
-### 2.3 Production setup
-Provision a private S3 bucket (or MinIO/R2/B2 equivalent), create an IAM user/access key scoped to just that bucket (`s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, `s3:HeadObject`), and set `STORAGE_BUCKET`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` (leave `STORAGE_ENDPOINT` unset for real AWS). See `.env.example`.
+### 2.3 Production setup (generic S3 provider)
+Provision a private S3 bucket (or MinIO/B2 equivalent), create an IAM user/access key scoped to just that bucket (`s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, `s3:HeadObject`), and set `STORAGE_BUCKET`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY` (leave `STORAGE_ENDPOINT` unset for real AWS). See `.env.example`. For Cloudflare R2 specifically, use the dedicated `R2` provider instead (section 2.5) — do not point the generic `S3` provider at R2's endpoint.
 
-### 2.4 Firebase Storage provider (Phase 1 — backend implemented, not yet live-tested against a real bucket)
+### 2.4 Firebase Storage provider (optional fallback — implemented, never activated)
+
+Firebase Storage was never activated in this deployment because Google Cloud billing (Blaze plan) could not be completed for the project. It remains available as an optional, non-preferred fallback provider — the code below is kept working and tested, but **R2 (section 2.5) is the preferred production storage provider** going forward.
 
 `STORAGE_PROVIDER` selects which provider backs the Document Vault and property images: `S3`, `FIREBASE`, or `DISABLED` (default — upload endpoints fail safely with a clear 503 "not configured" response; every other CRM page keeps working). The provider is chosen once via `src/lib/storage-providers/index.ts`; `src/lib/storage.ts` is the single stable entry point every route/service imports from, so switching providers is a config change, not a code change.
 
@@ -90,6 +92,41 @@ Provision a private S3 bucket (or MinIO/R2/B2 equivalent), create an IAM user/ac
 9. **Delete the downloaded service-account JSON from your Downloads folder** once its three values are safely in Vercel's environment variable UI — it should not persist on any local disk longer than needed to copy the values out.
 10. In Vercel: Project Settings → Environment Variables → add `STORAGE_PROVIDER=FIREBASE`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET` for the Production environment (Preview only if a separate, safe preview bucket exists) — never as `NEXT_PUBLIC_*`. Redeploy after saving.
 11. Verify: `GET /api/system/status` should report `storage: "ok"` with `[FIREBASE] ...`; as Admin, `POST /api/system/storage-health` runs a full upload/read/download-authorize/delete round trip against a tiny synthetic object and reports each step.
+
+### 2.5 Cloudflare R2 storage provider (preferred production storage)
+
+R2 exposes an S3-compatible API, so `src/lib/storage-providers/r2.ts` subclasses the existing S3 provider and reuses every upload/download/HEAD/DELETE command unmodified — only the configuration source differs (`R2_*` env vars, forced `region: "auto"`, endpoint derived from the account ID). No new AWS SDK dependency is required (`@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` are already installed).
+
+**Creating the bucket and API token** (Cloudflare dashboard, not code):
+1. Sign in to the Cloudflare dashboard.
+2. Open **R2 Object Storage** in the left sidebar.
+3. **Create bucket** — name it e.g. `delhi-broker-crm-files`. Leave **public access disabled** (default) — the bucket stays private; all delivery is via short-lived signed URLs generated by the app, exactly like the S3/Firebase providers.
+4. **Manage R2 API tokens** → **Create API token**.
+5. Scope the token to **this bucket only** (not "all buckets").
+6. Grant only the permissions actually needed: **Object Read & Write** (this covers PUT/GET/HEAD/DELETE; no separate "delete" permission exists in R2's token model).
+7. Copy the four values shown once: **Account ID**, **Access Key ID**, **Secret Access Key**, and confirm the **bucket name** — these cannot be re-displayed after leaving the page. Store them in your password manager, not in a text file.
+8. Do not share these values over chat/email; do not commit them anywhere in this repository.
+
+**Configuring the app** — set these in Vercel (Project Settings → Environment Variables, Production environment only unless a separate preview bucket exists), never as `NEXT_PUBLIC_*`:
+
+```env
+STORAGE_PROVIDER=R2
+R2_ACCOUNT_ID=<account id from step 7>
+R2_ACCESS_KEY_ID=<access key id from step 7>
+R2_SECRET_ACCESS_KEY=<secret access key from step 7>
+R2_BUCKET_NAME=delhi-broker-crm-files
+R2_SIGNED_URL_EXPIRY_SECONDS=300
+```
+
+`R2_ENDPOINT` and `R2_PUBLIC_BASE_URL` are optional and should be left unset for the initial pilot (endpoint is derived automatically from `R2_ACCOUNT_ID`; the bucket stays private, so there is no public base URL). Redeploy after saving — the deployment must stay in the `hnd1` (Tokyo) Vercel region (`vercel.json`); this does not change with a storage-provider switch.
+
+**Rotating credentials**: create a new API token in the Cloudflare dashboard scoped the same way, update `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` in Vercel, redeploy, then revoke the old token from **Manage R2 API tokens**. Never reuse a revoked token's values.
+
+**CORS**: not required for the current implementation — all uploads are server-mediated (the browser POSTs file bytes to a Next.js route, which pushes them to R2; the browser never talks to R2 directly). If a future presigned-PUT upload path is added for large images, configure the bucket's CORS policy to allow only `https://crm-kappa-five-28.vercel.app` (and `http://localhost:3000` for local testing) with methods `PUT, GET, HEAD`, header `Content-Type`, and exposed header `ETag` — never a wildcard origin in production.
+
+**Bucket separation**: one private bucket is used for both public-safe property images and private documents, separated by object-key path (`.../images/`, `.../floor-plans/` vs `.../documents/`, `.../receipts/`) — the same model already used for S3/Firebase. A separate public-image bucket or custom-domain delivery path is a later optimization, not needed for this pilot.
+
+**Verify**: `GET /api/system/status` should report `storage: "ok"` with `[R2] ...`; as Admin, `POST /api/system/storage-health` runs a full upload/HEAD/signed-GET/delete round trip against a tiny synthetic object and reports each step without exposing credentials, the object key, or the signed URL.
 
 See `SECURITY.md` "File storage" for the access-control model (category-based permissions, organization isolation, audit events).
 

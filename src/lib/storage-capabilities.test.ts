@@ -33,6 +33,14 @@ describe("getStorageCapabilitiesDTO", () => {
     expect(dto.uploadsEnabled).toBe(true);
   });
 
+  it("reports uploads enabled when STORAGE_PROVIDER=R2", async () => {
+    process.env.STORAGE_PROVIDER = "R2";
+    const dto = await freshDTO();
+    expect(dto.provider).toBe("R2");
+    expect(dto.configured).toBe(true);
+    expect(dto.uploadsEnabled).toBe(true);
+  });
+
   it("never leaks bucket/project/credential fields", async () => {
     process.env.STORAGE_PROVIDER = "FIREBASE";
     const dto = await freshDTO();

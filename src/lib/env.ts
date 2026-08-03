@@ -26,14 +26,35 @@ const envSchema = z
     // Document Vault and property images. DISABLED (default) means no
     // file storage is configured - upload endpoints fail safely with a
     // clear "not configured" response; existing CRM pages that don't
-    // touch files keep working regardless.
-    STORAGE_PROVIDER: z.enum(["S3", "FIREBASE", "DISABLED"]).default("DISABLED"),
+    // touch files keep working regardless. R2 is the preferred production
+    // provider (Cloudflare R2, S3-compatible) - see r2.ts.
+    STORAGE_PROVIDER: z.enum(["S3", "R2", "FIREBASE", "DISABLED"]).default("DISABLED"),
 
     STORAGE_BUCKET: z.string().optional(),
     STORAGE_ACCESS_KEY_ID: z.string().optional(),
     STORAGE_SECRET_ACCESS_KEY: z.string().optional(),
 
+    // Cloudflare R2 (server-only) - required when STORAGE_PROVIDER=R2.
+    // Region is always "auto" (never read from env - see r2.ts). Either
+    // R2_ACCOUNT_ID (endpoint derived as https://<id>.r2.cloudflarestorage.com)
+    // or an explicit R2_ENDPOINT must be present.
+    R2_ACCOUNT_ID: z.string().optional(),
+    R2_ACCESS_KEY_ID: z.string().optional(),
+    R2_SECRET_ACCESS_KEY: z.string().optional(),
+    R2_BUCKET_NAME: z.string().optional(),
+    R2_ENDPOINT: z.string().url("R2_ENDPOINT must be a valid URL").optional(),
+    // Left as a plain string (not z.coerce.number()) since env vars are
+    // always strings and a coerced schema would accept "" as 0 - validated
+    // as a positive integer string in the refine below instead.
+    R2_SIGNED_URL_EXPIRY_SECONDS: z.string().regex(/^\d+$/, "R2_SIGNED_URL_EXPIRY_SECONDS must be a positive integer").optional(),
+    // Not read anywhere yet - reserved for a future public-asset delivery
+    // path (see DEPLOYMENT.md "2.5 Cloudflare R2 storage provider" - Bucket
+    // separation). Never used for presigning.
+    R2_PUBLIC_BASE_URL: z.string().url("R2_PUBLIC_BASE_URL must be a valid URL").optional(),
+
     // Firebase Admin SDK (server-only) - required when STORAGE_PROVIDER=FIREBASE.
+    // Firebase has never been activated in this deployment (billing was not
+    // completed) - kept only as an optional, non-preferred fallback provider.
     FIREBASE_PROJECT_ID: z.string().optional(),
     FIREBASE_CLIENT_EMAIL: z.string().optional(),
     FIREBASE_PRIVATE_KEY: z.string().optional(),
@@ -72,6 +93,21 @@ const envSchema = z
       const storagePartial = storageFields.some(Boolean) && !storageFields.every(Boolean);
       if (storagePartial) {
         ctx.addIssue({ code: "custom", path: ["STORAGE_BUCKET"], message: "STORAGE_BUCKET, STORAGE_ACCESS_KEY_ID, and STORAGE_SECRET_ACCESS_KEY must all be set together, or all left empty" });
+      }
+    }
+    if (data.STORAGE_PROVIDER === "R2") {
+      for (const key of ["R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"] as const) {
+        if (!data[key]) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required when STORAGE_PROVIDER=R2` });
+      }
+      if (!data.R2_ACCOUNT_ID && !data.R2_ENDPOINT) {
+        ctx.addIssue({ code: "custom", path: ["R2_ACCOUNT_ID"], message: "Either R2_ACCOUNT_ID or R2_ENDPOINT is required when STORAGE_PROVIDER=R2" });
+      }
+    } else {
+      // Same "half-set is almost always a mistake" check as S3 above.
+      const r2Fields = [data.R2_ACCESS_KEY_ID, data.R2_SECRET_ACCESS_KEY, data.R2_BUCKET_NAME];
+      const r2Partial = r2Fields.some(Boolean) && !r2Fields.every(Boolean);
+      if (r2Partial) {
+        ctx.addIssue({ code: "custom", path: ["R2_BUCKET_NAME"], message: "R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME must all be set together, or all left empty" });
       }
     }
     if (data.STORAGE_PROVIDER === "FIREBASE") {

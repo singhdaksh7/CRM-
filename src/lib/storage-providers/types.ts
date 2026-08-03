@@ -65,7 +65,7 @@ export interface StorageHealthResult {
 }
 
 export interface StorageProvider {
-  readonly name: "S3" | "FIREBASE" | "DISABLED";
+  readonly name: "S3" | "R2" | "FIREBASE" | "DISABLED";
   createUploadAuthorization(input: UploadAuthorizationInput): Promise<UploadAuthorization>;
   /** Only implemented by server-mediated providers (Firebase MVP path) - pushes bytes the server already received to the bucket. */
   uploadBuffer?(objectKey: string, buffer: Buffer, mimeType: string): Promise<StoredObject>;

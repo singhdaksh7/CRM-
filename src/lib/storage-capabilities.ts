@@ -1,7 +1,7 @@
 import { isStorageConfigured, activeStorageProviderName, MAX_PROPERTY_IMAGE_BYTES, MAX_DOCUMENT_BYTES, IMAGE_MIME_TYPES, DOCUMENT_MIME_TYPES } from "./storage";
 
 export interface StorageCapabilitiesDTO {
-  provider: "FIREBASE" | "S3" | "DISABLED";
+  provider: "FIREBASE" | "S3" | "R2" | "DISABLED";
   configured: boolean;
   uploadsEnabled: boolean;
   propertyImages: { enabled: boolean; maxSizeBytes: number; allowedMimeTypes: string[] };
