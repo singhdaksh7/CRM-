@@ -5,13 +5,14 @@ import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { formatINR, enumToLabel } from "@/lib/utils";
 import { MapPin, BedDouble, Bath, Maximize2 } from "lucide-react";
 
-export function PropertyCard({ property }: { property: Property }) {
+export function PropertyCard({ property, coverImageUrl }: { property: Property; coverImageUrl?: string | null }) {
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
+  const src = coverImageUrl ?? property.coverImage;
   return (
     <Link href={`/properties/${property.id}`} className="group overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] shadow-sm transition-all duration-200 hover:border-[rgba(255,255,255,0.18)] hover:bg-[#1E2533]">
       <div className="relative h-44 w-full bg-[#11151F]">
-        {property.coverImage ? (
-          <Image src={property.coverImage} alt={property.title} fill sizes="(max-width: 768px) 100vw, 320px" className="object-cover transition-transform duration-300 group-hover:scale-105" unoptimized />
+        {src ? (
+          <Image src={src} alt={property.title} fill sizes="(max-width: 768px) 100vw, 320px" className="object-cover transition-transform duration-300 group-hover:scale-105" unoptimized />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-[#64748B]">No photo available</div>
         )}

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Property } from "@prisma/client";
 import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { PropertyGallery } from "@/components/properties/property-gallery";
 
 const AREAS = ["Janakpuri", "Dwarka", "Rajouri Garden", "Uttam Nagar", "Rohini", "Pitampura", "Vasant Kunj", "Saket", "Greater Kailash", "Lajpat Nagar", "Karol Bagh", "Paschim Vihar"];
 const AMENITIES_POOL = ["Lift", "Power Backup", "24x7 Security", "Swimming Pool", "Gym", "Club House", "Children's Play Area", "Covered Parking", "CCTV", "Park Facing", "Modular Kitchen", "Water Storage"];
@@ -293,12 +294,20 @@ export function PropertyForm({ property }: { property?: Property }) {
 
       <Section title="Media">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Cover Image URL" hint="Paste image URL">
+          <Field label="Cover Image URL (legacy, optional)" hint="Only used as a fallback when no uploaded photos exist">
             <Input {...register("coverImage")} placeholder="https://..." />
           </Field>
           <Field label="Video URL"><Input {...register("videoUrl")} placeholder="https://youtube.com/..." /></Field>
           <Field label="Virtual Tour URL"><Input {...register("virtualTourUrl")} placeholder="https://..." /></Field>
         </div>
+      </Section>
+
+      <Section title="Property Photos">
+        {isEdit ? (
+          <PropertyGallery propertyId={property!.id} propertyTitle={property!.title} legacyCoverImage={property!.coverImage} />
+        ) : (
+          <p className="text-sm text-[#94A3B8]">Save the property first, then you&apos;ll be able to upload and manage photos from its detail page.</p>
+        )}
       </Section>
 
       <Section title="Owner Details (private, never shown publicly)">

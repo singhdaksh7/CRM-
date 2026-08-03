@@ -3,6 +3,8 @@ import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { formatINR, enumToLabel } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { getCoverImageUrls } from "@/lib/property-images";
+import { getOrganizationId } from "@/lib/organization";
 import { Building, MapPin, BedDouble, Bath, Ruler, Phone, CalendarCheck } from "lucide-react";
 
 /**
@@ -13,6 +15,9 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
   const { id } = await params;
   const property = await prisma.property.findUnique({ where: { id } });
   if (!property) notFound();
+
+  const coverUrls = await getCoverImageUrls([property.id], getOrganizationId());
+  const coverImage = coverUrls[property.id] ?? property.coverImage;
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
@@ -28,7 +33,7 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
 
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
         <div className="relative h-64 w-full overflow-hidden rounded-xl bg-slate-200 sm:h-96">
-          {property.coverImage && <Image src={property.coverImage} alt={property.title} fill className="object-cover" unoptimized />}
+          {coverImage && <Image src={coverImage} alt={property.title} fill className="object-cover" unoptimized />}
           <div className="absolute left-3 top-3 flex gap-2">
             <Badge tone={property.listingType === "RENT" ? "blue" : "purple"}>{property.listingType === "RENT" ? "For Rent" : "For Sale"}</Badge>
           </div>

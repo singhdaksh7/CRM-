@@ -8,6 +8,8 @@ import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { withTiming } from "@/lib/perf";
+import { getCoverImageUrls } from "@/lib/property-images";
+import { getOrganizationId } from "@/lib/organization";
 import { Plus, Building2 } from "lucide-react";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
@@ -44,6 +46,9 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
     ])
   );
 
+  const coverImageUrls =
+    view === "card" && properties.length > 0 ? await getCoverImageUrls(properties.map((p) => p.id), getOrganizationId()) : {};
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[rgba(255,255,255,0.08)] pb-4">
@@ -65,7 +70,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
       ) : view === "card" ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {properties.map((p) => (
-            <PropertyCard key={p.id} property={p} />
+            <PropertyCard key={p.id} property={p} coverImageUrl={coverImageUrls[p.id]} />
           ))}
         </div>
       ) : (

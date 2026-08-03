@@ -6,6 +6,7 @@ export const NAV_ITEMS = [
   { href: "/leads", label: "Leads", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/visits", label: "Visits", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/follow-ups", label: "Follow-ups", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
+  { href: "/documents", label: "Documents", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },
   { href: "/notifications", label: "Notifications", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/employees", label: "Employees", roles: ["ADMIN"] as Role[] },
   { href: "/reports", label: "Reports", roles: ["ADMIN"] as Role[] },

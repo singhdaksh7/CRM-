@@ -7,6 +7,7 @@ const propertyImageUpdate = vi.fn();
 const propertyImageUpdateMany = vi.fn();
 const propertyImageAggregate = vi.fn();
 const propertyFindFirst = vi.fn();
+const transactionMock = vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]));
 
 vi.mock("./prisma", () => ({
   prisma: {
@@ -19,6 +20,7 @@ vi.mock("./prisma", () => ({
       aggregate: (...a: unknown[]) => propertyImageAggregate(...a),
     },
     property: { findFirst: (...a: unknown[]) => propertyFindFirst(...a) },
+    $transaction: (...a: [unknown[]]) => transactionMock(...a),
   },
 }));
 
@@ -40,17 +42,19 @@ vi.mock("./api-auth", () => ({
 
 const uploadFileBuffer = vi.fn();
 const deleteObjectMock = vi.fn();
+const createDownloadUrlMock = vi.fn(async (key: string) => `https://signed.example/${key}`);
 vi.mock("./storage", async () => {
   const actual = await vi.importActual<typeof import("./storage")>("./storage");
   return {
     ...actual,
     uploadFileBuffer: (...a: unknown[]) => uploadFileBuffer(...a),
     deleteObject: (...a: unknown[]) => deleteObjectMock(...a),
+    createDownloadUrl: (...a: [string]) => createDownloadUrlMock(...a),
     activeStorageProviderName: () => "FIREBASE",
   };
 });
 
-const { uploadPropertyImage, softDeletePropertyImage, physicalDeletePropertyImage, replacePropertyImage } = await import("./property-images");
+const { uploadPropertyImage, softDeletePropertyImage, physicalDeletePropertyImage, replacePropertyImage, updatePropertyImage, reorderPropertyImages, getCoverImageUrls } = await import("./property-images");
 const { ApiError } = await import("./api-auth");
 
 const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0]);
@@ -173,5 +177,66 @@ describe("replacePropertyImage", () => {
     ).rejects.toThrow();
     expect(propertyImageUpdate).not.toHaveBeenCalled();
     expect(uploadFileBuffer).not.toHaveBeenCalled();
+  });
+});
+
+describe("updatePropertyImage", () => {
+  it("Data Manager can set a caption and cover flag", async () => {
+    propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "ACTIVE", caption: null, isCover: false });
+    propertyImageUpdate.mockResolvedValue({ id: "img1", caption: "Living room", isCover: true });
+
+    const image = await updatePropertyImage({ imageId: "img1", actorId: "dm1", role: "DATA_MANAGER", caption: "Living room", isCover: true });
+    expect(image.caption).toBe("Living room");
+    expect(propertyImageUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ propertyId: "prop1", isCover: true }) }));
+  });
+
+  it("Field Executive is denied editing captions/cover", async () => {
+    await expect(updatePropertyImage({ imageId: "img1", actorId: "fe1", role: "FIELD_EXECUTIVE", caption: "x" })).rejects.toThrow(ApiError);
+    expect(propertyImageUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to edit a deleted image", async () => {
+    propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "DELETED" });
+    await expect(updatePropertyImage({ imageId: "img1", actorId: "admin1", role: "ADMIN", caption: "x" })).rejects.toThrow(ApiError);
+  });
+});
+
+describe("reorderPropertyImages", () => {
+  it("applies the new order as a single transaction when the id set matches exactly", async () => {
+    propertyImageFindMany
+      .mockResolvedValueOnce([{ id: "a" }, { id: "b" }, { id: "c" }]) // existing-set validation
+      .mockResolvedValueOnce([{ id: "b" }, { id: "a" }, { id: "c" }]); // listPropertyImages after reorder
+
+    await reorderPropertyImages({ propertyId: "prop1", actorId: "admin1", role: "ADMIN", order: ["b", "a", "c"] });
+
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(propertyImageUpdate).toHaveBeenCalledTimes(3);
+    expect(propertyImageUpdate).toHaveBeenNthCalledWith(1, { where: { id: "b" }, data: { sortOrder: 0 } });
+  });
+
+  it("rejects an order that doesn't match the current active id set", async () => {
+    propertyImageFindMany.mockResolvedValueOnce([{ id: "a" }, { id: "b" }]);
+    await expect(reorderPropertyImages({ propertyId: "prop1", actorId: "admin1", role: "ADMIN", order: ["a", "z"] })).rejects.toThrow(ApiError);
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("Field Executive is denied reordering", async () => {
+    await expect(reorderPropertyImages({ propertyId: "prop1", actorId: "fe1", role: "FIELD_EXECUTIVE", order: [] })).rejects.toThrow(ApiError);
+    expect(propertyImageFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("getCoverImageUrls", () => {
+  it("returns a signed URL only for properties with an ACTIVE cover image", async () => {
+    propertyImageFindMany.mockResolvedValueOnce([{ propertyId: "prop1", storageKey: "orgs/org/prop1/cover.jpg" }]);
+    const urls = await getCoverImageUrls(["prop1", "prop2"], "org_default");
+    expect(urls).toEqual({ prop1: "https://signed.example/orgs/org/prop1/cover.jpg" });
+    expect(urls.prop2).toBeUndefined();
+  });
+
+  it("returns an empty object for an empty id list without querying the database", async () => {
+    const urls = await getCoverImageUrls([], "org_default");
+    expect(urls).toEqual({});
+    expect(propertyImageFindMany).not.toHaveBeenCalled();
   });
 });

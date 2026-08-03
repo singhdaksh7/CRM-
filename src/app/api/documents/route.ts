@@ -25,6 +25,30 @@ export async function GET(req: NextRequest) {
       if (entityId) where[documentEntityField(entityType as never)] = entityId;
     }
 
+    // Additive filters for the Document Vault UI - all optional, none change
+    // the shape of an existing call site that omits them.
+    const category = sp.get("category");
+    if (category) where.category = category;
+    const status = sp.get("status");
+    if (status) where.status = status; // overrides the default "not DELETED" scoping above when explicitly requested
+    const q = sp.get("q");
+    if (q) where.fileName = { contains: q };
+
+    // expiringWithinDays: documents whose expiry falls within N days from now (for the "Expiring Soon" KPI).
+    const expiringWithinDays = sp.get("expiringWithinDays");
+    if (expiringWithinDays) {
+      const days = Number(expiringWithinDays);
+      if (Number.isFinite(days) && days > 0) {
+        where.expiresAt = { gte: new Date(), lte: new Date(Date.now() + days * 86400000) };
+      }
+    }
+    // createdAfter: ISO date string (for the "Recently Uploaded" KPI).
+    const createdAfter = sp.get("createdAfter");
+    if (createdAfter) {
+      const date = new Date(createdAfter);
+      if (!Number.isNaN(date.getTime())) where.createdAt = { gte: date };
+    }
+
     const take = readTake(sp);
     const skip = readSkip(sp);
     const [documents, total] = await Promise.all([

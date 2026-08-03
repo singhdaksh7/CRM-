@@ -17,7 +17,8 @@ import {
   Settings,
   Building,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from "lucide-react";
 import { useState } from "react";
 
@@ -27,6 +28,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/leads": Users,
   "/visits": CalendarClock,
   "/follow-ups": BellRing,
+  "/documents": FileText,
   "/notifications": Bell,
   "/employees": UserCog,
   "/reports": BarChart3,

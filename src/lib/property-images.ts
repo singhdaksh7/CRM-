@@ -129,6 +129,22 @@ export async function getPropertyImageUrl(storageKey: string, expiresInSeconds?:
   return createDownloadUrl(storageKey, expiresInSeconds);
 }
 
+/**
+ * Batch cover-image lookup for list/grid views (property cards, public
+ * catalogue) - one query for every property id instead of N, returning a
+ * signed URL only for properties that actually have an ACTIVE cover
+ * PropertyImage. Callers fall back to the legacy Property.coverImage scalar
+ * when a given id is absent from the returned map.
+ */
+export async function getCoverImageUrls(propertyIds: string[], organizationId: string): Promise<Record<string, string>> {
+  if (propertyIds.length === 0) return {};
+  const covers = await prisma.propertyImage.findMany({
+    where: { propertyId: { in: propertyIds }, organizationId, status: "ACTIVE", purpose: "IMAGE", isCover: true },
+  });
+  const entries = await Promise.all(covers.map(async (c) => [c.propertyId, await getPropertyImageUrl(c.storageKey)] as const));
+  return Object.fromEntries(entries);
+}
+
 export async function softDeletePropertyImage(params: { imageId: string; actorId: string; role: Role }) {
   const organizationId = getOrganizationId(params.actorId);
   const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
@@ -166,6 +182,67 @@ export async function physicalDeletePropertyImage(params: { imageId: string; act
     oldValues: { event: "physical_object_deleted", storageKey: existing.storageKey },
   });
   logger.info("property_image_physical_delete", { imageId: existing.id, actorId: params.actorId });
+}
+
+/** Updates caption and/or cover flag on an existing image. Reordering (sortOrder) is bulk via reorderPropertyImages below. */
+export async function updatePropertyImage(params: {
+  imageId: string;
+  actorId: string;
+  role: Role;
+  caption?: string | null;
+  isCover?: boolean;
+}) {
+  if (params.role !== "ADMIN" && params.role !== "DATA_MANAGER") throw new ApiError(403, "You do not have permission to edit property images");
+  const organizationId = getOrganizationId(params.actorId);
+  const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
+  if (!existing) throw new ApiError(404, "Property image not found");
+  if (existing.status === "DELETED") throw new ApiError(409, "Cannot edit a deleted image");
+
+  if (params.isCover) {
+    await prisma.propertyImage.updateMany({ where: { propertyId: existing.propertyId, status: "ACTIVE", isCover: true }, data: { isCover: false } });
+  }
+
+  const image = await prisma.propertyImage.update({
+    where: { id: params.imageId },
+    data: {
+      ...(params.caption !== undefined ? { caption: params.caption } : {}),
+      ...(params.isCover !== undefined ? { isCover: params.isCover } : {}),
+    },
+  });
+
+  await recordAudit({
+    userId: params.actorId,
+    action: "UPDATE",
+    entityType: "PropertyImage",
+    entityId: image.id,
+    oldValues: { caption: existing.caption, isCover: existing.isCover },
+    newValues: { event: "property_image_updated", caption: image.caption, isCover: image.isCover },
+  });
+
+  return image;
+}
+
+/** Bulk sortOrder update for drag/keyboard reordering - applied as a single transaction so a partial failure never leaves the gallery in a half-reordered state. */
+export async function reorderPropertyImages(params: { propertyId: string; actorId: string; role: Role; order: string[] }) {
+  if (params.role !== "ADMIN" && params.role !== "DATA_MANAGER") throw new ApiError(403, "You do not have permission to reorder property images");
+  const organizationId = getOrganizationId(params.actorId);
+
+  const existing = await prisma.propertyImage.findMany({ where: { propertyId: params.propertyId, organizationId, status: "ACTIVE" }, select: { id: true } });
+  const existingIds = new Set(existing.map((e) => e.id));
+  if (params.order.length !== existing.length || !params.order.every((id) => existingIds.has(id))) {
+    throw new ApiError(400, "Order must include exactly the current set of active image ids");
+  }
+
+  await prisma.$transaction(params.order.map((id, index) => prisma.propertyImage.update({ where: { id }, data: { sortOrder: index } })));
+
+  await recordAudit({
+    userId: params.actorId,
+    action: "UPDATE",
+    entityType: "PropertyImage",
+    newValues: { event: "property_images_reordered", propertyId: params.propertyId, order: params.order },
+  });
+
+  return listPropertyImages(params.propertyId, organizationId);
 }
 
 /**

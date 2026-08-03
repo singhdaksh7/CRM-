@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Building, Phone } from "lucide-react";
-import { getCatalogueByToken, toPublicCatalogueDTO } from "@/lib/catalogues";
+import { getCatalogueByToken, toPublicCatalogueDTO, withResolvedCoverImages } from "@/lib/catalogues";
 import { PublicCatalogueView } from "@/components/catalogues/public-catalogue-view";
 
 /**
@@ -22,7 +22,7 @@ export default async function PublicCataloguePage({ params }: { params: Promise<
     notFound();
   }
 
-  const dto = toPublicCatalogueDTO(catalogue);
+  const dto = await withResolvedCoverImages(toPublicCatalogueDTO(catalogue));
 
   return (
     <div className="min-h-screen bg-slate-50">

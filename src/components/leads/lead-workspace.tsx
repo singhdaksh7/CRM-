@@ -12,6 +12,7 @@ import { formatDate, formatDateTime, enumToLabel, timeAgo } from "@/lib/utils";
 import { ArrowRightLeft, Send, Sparkles, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge } from "lucide-react";
 import { ConversationPanel } from "@/components/whatsapp/conversation-panel";
 import { CataloguesTab } from "@/components/catalogues/catalogues-tab";
+import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
 
 interface ScoreFactor {
   label: string;
@@ -44,12 +45,13 @@ type LeadWithRelations = {
   sharedProperties: { id: string; propertyIds: string; createdAt: Date; whatsappLink: string }[];
 };
 
-const TABS = ["overview", "whatsapp", "catalogues", "activity", "followups", "visits", "shared"] as const;
+const TABS = ["overview", "whatsapp", "catalogues", "documents", "activity", "followups", "visits", "shared"] as const;
 type LeadTab = (typeof TABS)[number];
 const TAB_LABELS: Record<LeadTab, string> = {
   overview: "Overview",
   whatsapp: "WhatsApp",
   catalogues: "Catalogues",
+  documents: "Documents",
   activity: "Activity",
   followups: "Follow-ups",
   visits: "Visits",
@@ -79,6 +81,7 @@ export function LeadWorkspace({ lead, employees, role }: { lead: LeadWithRelatio
       {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} />}
       {tab === "whatsapp" && <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} />}
       {tab === "catalogues" && <CataloguesTab leadId={lead.id} canManage={canManage} canSend={true} />}
+      {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
       {tab === "activity" && <ActivityTab activities={lead.activities} />}
       {tab === "followups" && <FollowUpsTab leadId={lead.id} followUps={lead.followUps} employees={employees} />}
       {tab === "visits" && <VisitsTab leadId={lead.id} visits={lead.visits} canManage={canManage} />}

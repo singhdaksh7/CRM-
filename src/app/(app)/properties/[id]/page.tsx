@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { PropertyActions } from "@/components/properties/property-actions";
+import { PropertyGallery } from "@/components/properties/property-gallery";
+import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
 import { MapPin, Home, Phone, ShieldCheck, CheckCircle2 } from "lucide-react";
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,14 +37,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Main Details & Gallery Column */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Gallery Container */}
-          <div className="relative h-72 w-full overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#11151F] sm:h-96">
-            {property.coverImage ? (
-              <Image src={property.coverImage} alt={property.title} fill className="object-cover" unoptimized />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm text-[#64748B]">No photo uploaded for this property</div>
-            )}
-          </div>
+          {/* Gallery */}
+          <PropertyGallery propertyId={property.id} propertyTitle={property.title} legacyCoverImage={property.coverImage} />
 
           {/* Description */}
           <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
@@ -95,6 +90,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               </div>
             </div>
           )}
+
+          {/* Documents */}
+          <EntityDocumentPanel entityType="PROPERTY" entityId={property.id} title="Property Documents" />
         </div>
 
         {/* Pricing & Owner Info Column */}

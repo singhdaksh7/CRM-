@@ -110,7 +110,12 @@ function PropertyCard({ property, token }: { property: PublicCatalogueProperty; 
   return (
     <div className={`overflow-hidden rounded-xl border bg-white shadow-sm ${isAvailable ? "border-slate-200" : "border-slate-200 opacity-75"}`}>
       <div className="relative h-56 w-full bg-slate-100">
-        {property.coverImage && <img src={property.coverImage} alt={property.title} className="h-full w-full object-cover" />}
+        {property.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element -- external signed/legacy URLs, loaded lazily
+          <img src={property.coverImage} alt={`${property.bhk} BHK in ${property.area}`} loading="lazy" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No photo available</div>
+        )}
         {!isAvailable && (
           <div className="absolute left-2 top-2">
             <Badge tone="slate">{property.status === "RENTED" ? "Already Rented" : property.status === "SOLD" ? "Already Sold" : "No Longer Available"}</Badge>

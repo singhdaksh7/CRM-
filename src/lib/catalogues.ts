@@ -6,6 +6,8 @@ import { logActivity } from "./activity";
 import { sendOutboundMessage } from "./whatsapp-messages";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
 import { getPublicCatalogueUrl, buildCatalogueMessageText, toPublicCatalogueDTO } from "./catalogue-dto";
+import { getCoverImageUrls } from "./property-images";
+import type { PublicCatalogueDTO } from "./catalogue-dto";
 
 // Re-exported so existing call sites (API routes, components) can keep
 // importing everything catalogue-related from "@/lib/catalogues" - the
@@ -213,6 +215,20 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
   }
 
   return { message: sentMessage, clickToChatUrl, catalogueUrl };
+}
+
+/**
+ * Overlays uploaded PropertyImage cover URLs onto the pure DTO (which only
+ * knows about the legacy Property.coverImage scalar) - kept out of
+ * toPublicCatalogueDTO itself so that function stays I/O-free and
+ * unit-testable per the comment at the top of catalogue-dto.ts. Removed or
+ * never-uploaded images fall back to whatever coverImage the DTO already has.
+ */
+export async function withResolvedCoverImages(dto: PublicCatalogueDTO): Promise<PublicCatalogueDTO> {
+  if (dto.properties.length === 0) return dto;
+  const urls = await getCoverImageUrls(dto.properties.map((p) => p.id), getOrganizationId());
+  if (Object.keys(urls).length === 0) return dto;
+  return { ...dto, properties: dto.properties.map((p) => ({ ...p, coverImage: urls[p.id] ?? p.coverImage })) };
 }
 
 export async function getCatalogueByToken(token: string) {
