@@ -9,6 +9,9 @@ const ENV_KEYS = [
   "WHATSAPP_ACCESS_TOKEN",
   "WHATSAPP_VERIFY_TOKEN",
   "WHATSAPP_APP_SECRET",
+  "WHATSAPP_DEFAULT_COUNTRY_CODE",
+  "WHATSAPP_WEBHOOK_ENABLED",
+  "WHATSAPP_TEST_RECIPIENT",
 ] as const;
 
 let snapshot: Record<string, string | undefined>;
@@ -58,14 +61,37 @@ describe("loadWhatsAppConfig - provider selection", () => {
     expect(() => loadWhatsAppConfig()).toThrow(/WHATSAPP_VERIFY_TOKEN/);
   });
 
+  it("throws WhatsAppConfigError when META_CLOUD is missing only businessAccountId/appSecret", () => {
+    process.env.WHATSAPP_PROVIDER = "META_CLOUD";
+    process.env.WHATSAPP_PHONE_NUMBER_ID = "123";
+    process.env.WHATSAPP_ACCESS_TOKEN = "token";
+    process.env.WHATSAPP_VERIFY_TOKEN = "verify";
+    expect(() => loadWhatsAppConfig()).toThrow(/WHATSAPP_BUSINESS_ACCOUNT_ID/);
+    expect(() => loadWhatsAppConfig()).toThrow(/WHATSAPP_APP_SECRET/);
+  });
+
   it("succeeds when META_CLOUD has all required credentials", () => {
     process.env.WHATSAPP_PROVIDER = "META_CLOUD";
     process.env.WHATSAPP_PHONE_NUMBER_ID = "123";
     process.env.WHATSAPP_ACCESS_TOKEN = "token";
     process.env.WHATSAPP_VERIFY_TOKEN = "verify";
+    process.env.WHATSAPP_BUSINESS_ACCOUNT_ID = "waba123";
+    process.env.WHATSAPP_APP_SECRET = "shh";
     const config = loadWhatsAppConfig();
     expect(config.provider).toBe("META_CLOUD");
     expect(config.phoneNumberId).toBe("123");
+  });
+
+  it("defaultCountryCode falls back to 91 and can be overridden", () => {
+    expect(loadWhatsAppConfig().defaultCountryCode).toBe("91");
+    process.env.WHATSAPP_DEFAULT_COUNTRY_CODE = "1";
+    expect(loadWhatsAppConfig().defaultCountryCode).toBe("1");
+  });
+
+  it("webhookEnabled defaults to true and is disabled only by the literal string \"false\"", () => {
+    expect(loadWhatsAppConfig().webhookEnabled).toBe(true);
+    process.env.WHATSAPP_WEBHOOK_ENABLED = "false";
+    expect(loadWhatsAppConfig().webhookEnabled).toBe(false);
   });
 });
 
@@ -94,5 +120,23 @@ describe("getWhatsAppConfigStatus", () => {
     process.env.WHATSAPP_PROVIDER = "NOT_A_REAL_PROVIDER";
     const status = getWhatsAppConfigStatus();
     expect(status.provider).toBe("MOCK");
+  });
+
+  it("metaReady requires businessAccountId and appSecret too, not just the original three", () => {
+    process.env.WHATSAPP_PROVIDER = "META_CLOUD";
+    process.env.WHATSAPP_PHONE_NUMBER_ID = "123";
+    process.env.WHATSAPP_ACCESS_TOKEN = "token";
+    process.env.WHATSAPP_VERIFY_TOKEN = "verify";
+    expect(getWhatsAppConfigStatus().metaReady).toBe(false);
+    process.env.WHATSAPP_BUSINESS_ACCOUNT_ID = "waba123";
+    process.env.WHATSAPP_APP_SECRET = "shh";
+    expect(getWhatsAppConfigStatus().metaReady).toBe(true);
+  });
+
+  it("never leaks the app secret value, only presence", () => {
+    process.env.WHATSAPP_APP_SECRET = "super-secret-app-secret";
+    const status = getWhatsAppConfigStatus();
+    expect(status.appSecret).toBe("configured");
+    expect(JSON.stringify(status)).not.toContain("super-secret-app-secret");
   });
 });

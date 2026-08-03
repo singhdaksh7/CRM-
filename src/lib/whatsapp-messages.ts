@@ -4,9 +4,12 @@ import { getOrganizationId } from "./organization";
 import { logActivity } from "./activity";
 import { createNotification } from "./notifications";
 import { recalculateLeadScore } from "./scoring";
+import { recordAudit } from "./audit";
 import { findOrCreateConversation, touchConversationTimestamps } from "./whatsapp-conversations";
 import { getWhatsAppProvider } from "@/integrations/whatsapp";
-import { WhatsAppProviderError } from "@/integrations/whatsapp/whatsapp-errors";
+import { WhatsAppProviderError, WhatsAppConfigError } from "@/integrations/whatsapp/whatsapp-errors";
+import { isWithinCustomerCareWindow } from "@/integrations/whatsapp/whatsapp-window";
+import { assertTemplateApproved } from "@/integrations/whatsapp/whatsapp-templates";
 import type { WhatsAppMessageStatus, WhatsAppMessageType } from "@prisma/client";
 
 interface SendMessageParams {
@@ -27,6 +30,26 @@ export async function sendOutboundMessage(params: SendMessageParams) {
   const organizationId = getOrganizationId();
   const provider = getWhatsAppProvider();
   const messageType = params.messageType ?? "TEXT";
+
+  // Meta's customer-service-window and template-approval rules only apply
+  // to the real Meta Cloud API - Mock and Click-to-Chat have no such
+  // restriction (there is no Meta session to be inside or outside of).
+  if (provider.name === "META_CLOUD") {
+    if (messageType === "TEMPLATE") {
+      if (!params.templateName) throw new ApiError(400, "templateName is required for a TEMPLATE message");
+      try {
+        assertTemplateApproved(params.templateName);
+      } catch (err) {
+        if (err instanceof WhatsAppConfigError) throw new ApiError(400, err.message);
+        throw err;
+      }
+    } else if (!isWithinCustomerCareWindow(conversation.lastInboundAt)) {
+      throw new ApiError(
+        400,
+        "This client hasn't messaged in the last 24 hours, so Meta only allows an approved template message (not free text) - use a template instead."
+      );
+    }
+  }
 
   const message = await prisma.whatsAppMessage.create({
     data: {
@@ -70,6 +93,13 @@ export async function sendOutboundMessage(params: SendMessageParams) {
       description: `${messageType === "CATALOGUE" ? "Catalogue" : "WhatsApp"} message sent (${provider.name.replace(/_/g, " ")})`,
       actorId: params.sentByUserId,
     });
+    await recordAudit({
+      userId: params.sentByUserId,
+      action: "CREATE",
+      entityType: "WhatsAppMessage",
+      entityId: updated.id,
+      newValues: { event: "whatsapp_message_sent", leadId: params.leadId, messageType, provider: provider.name, status: updated.status },
+    });
 
     return { message: updated, clickToChatUrl: result.clickToChatUrl };
   } catch (err) {
@@ -77,6 +107,15 @@ export async function sendOutboundMessage(params: SendMessageParams) {
     const failed = await prisma.whatsAppMessage.update({
       where: { id: message.id },
       data: { status: "FAILED", errorMessage, failedAt: new Date() },
+    });
+    await recordAudit({
+      userId: params.sentByUserId,
+      action: "OTHER",
+      entityType: "WhatsAppMessage",
+      entityId: failed.id,
+      newValues: { event: "whatsapp_message_failed", leadId: params.leadId, messageType, provider: provider.name },
+      result: "FAILURE",
+      errorMessage,
     });
     await notifyMessageFailed(params.leadId, organizationId, errorMessage);
     return { message: failed, clickToChatUrl: undefined };
@@ -98,18 +137,45 @@ export async function markClickToChatOpened(messageId: string) {
   return updated;
 }
 
+/**
+ * Re-runs the send pipeline for a failed message - creates a brand-new
+ * message row (never mutates the original, preserving history) linked back
+ * via metadata.retryOf. Re-validates the customer-care window and template
+ * approval exactly as a fresh send would (both can have changed since the
+ * original attempt failed) - sendOutboundMessage enforces both already, so
+ * this never bypasses them.
+ */
 export async function retryMessage(messageId: string, sentByUserId: string) {
   const message = await prisma.whatsAppMessage.findUnique({ where: { id: messageId }, include: { conversation: true } });
   if (!message) throw new ApiError(404, "Message not found");
   if (message.status !== "FAILED") throw new ApiError(400, "Only failed messages can be retried");
 
-  return sendOutboundMessage({
+  const existingMetadata = message.metadata ? JSON.parse(message.metadata) : {};
+
+  const result = await sendOutboundMessage({
     leadId: message.conversation.leadId,
     sentByUserId,
     content: message.content,
     messageType: message.messageType,
     templateName: message.templateName ?? undefined,
+    metadata: { ...existingMetadata, retryOf: message.id },
   });
+
+  await logActivity({
+    leadId: message.conversation.leadId,
+    type: "WHATSAPP_MESSAGE_SENT",
+    description: "WhatsApp message retried after a previous failure",
+    actorId: sentByUserId,
+  });
+  await recordAudit({
+    userId: sentByUserId,
+    action: "OTHER",
+    entityType: "WhatsAppMessage",
+    entityId: result.message.id,
+    newValues: { event: "whatsapp_message_retried", retryOf: message.id, status: result.message.status },
+  });
+
+  return result;
 }
 
 const SIMULATED_REPLIES = [

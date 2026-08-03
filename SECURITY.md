@@ -39,7 +39,10 @@ Summary of the security posture as of Phase 3. See `DEPLOYMENT.md` for infra-lev
 - File uploads are MIME-allowlisted per category (property images: JPEG/PNG/WebP, 10 MB; documents: PDF/JPEG/PNG, 25 MB) and size-capped before the upload is even authorized; the uploaded object is verified server-side (real size/content-type/magic-bytes, not just what the client claimed) before its `Document`/`PropertyImage` row is marked usable.
 
 ## Webhooks
-- The Meta WhatsApp webhook verifies `x-hub-signature-256` (HMAC) and enforces idempotency via a dedicated `IntegrationWebhookEvent` table before any processing.
+- The Meta WhatsApp webhook verifies `x-hub-signature-256` (HMAC, constant-time comparison) and enforces idempotency via a dedicated `IntegrationWebhookEvent` table before any processing. Signature verification **fails closed**: if `WHATSAPP_APP_SECRET` isn't configured, every webhook is rejected rather than silently accepted (`meta-whatsapp-provider.ts`).
+- Outbound WhatsApp session (non-template) messages are blocked outside Meta's 24-hour customer-service window (`whatsapp-window.ts`); template messages are blocked unless their exact Meta template name is confirmed approved via `WHATSAPP_APPROVED_TEMPLATE_NAMES` (`whatsapp-templates.ts`) — neither ever silently falls back to an unapproved send.
+- A webhook status update can only move a message's status forward (`QUEUED → SENT → DELIVERED → READ`, `FAILED` terminal) — a stale/out-of-order regression (e.g. a delayed "sent" arriving after "read") is detected and ignored, never applied.
+- An inbound WhatsApp message from a phone number matching zero or more than one lead's conversation is never guessed onto a lead — it's flagged and Admin/Data Manager are notified for manual resolution.
 - The 99acres/Magicbricks mock lead-ingestion webhooks support an optional shared-secret (`x-api-key`, checked against `ACRES_99_API_KEY`/`MAGICBRICKS_API_KEY`) — **set these in production**; left unset, those two routes stay open (documented mock-mode default, not an oversight).
 - All three webhook routes are rate-limited (120 req/min per IP by default).
 

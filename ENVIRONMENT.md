@@ -19,11 +19,18 @@ Full reference for every variable the app reads. See `.env.example` for a ready-
 
 ## WhatsApp
 
+See `WHATSAPP_SETUP.md` for the full Meta dashboard walkthrough and production hardening details (customer-care window, template approval, webhook signature, retry semantics).
+
 | Variable | When needed | Notes |
 |---|---|---|
 | `WHATSAPP_PROVIDER` | Always | `MOCK` \| `CLICK_TO_CHAT` \| `META_CLOUD`. Defaults to `MOCK`. |
-| `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | `META_CLOUD` only | All four required together — validated at startup. |
-| `WHATSAPP_API_VERSION` | Optional | Defaults to `v20.0`. |
+| `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | `META_CLOUD` only | All five required together — validated at startup. `WHATSAPP_APP_SECRET` gates webhook signature verification (`meta-whatsapp-provider.ts` fails closed - rejects every webhook - if it's missing). |
+| `WHATSAPP_API_VERSION` | Optional | Defaults to `v20.0`. Must look like `v20.0` if set. |
+| `WHATSAPP_DEFAULT_COUNTRY_CODE` | Optional | Defaults to `91`. Prefix `phone.ts#normalizeIndianPhone` applies to a bare local mobile number. |
+| `WHATSAPP_TEST_RECIPIENT` | Optional | Only used by the Admin-only "Send Test Message" diagnostic action (`/api/system/whatsapp-test-send`) - never for any automatic send. |
+| `WHATSAPP_WEBHOOK_ENABLED` | Optional | Defaults to `true`. Set to the literal string `"false"` to take the webhook endpoint offline (503) even while `META_CLOUD` is selected - e.g. mid-setup. |
+| `WHATSAPP_APPROVED_TEMPLATE_NAMES` | `META_CLOUD` template sends | Comma-separated list of exact Meta template names confirmed **Approved** in Meta Business Manager. A template not in this list is refused with a clear config error - see `whatsapp-templates.ts`. Empty by default (nothing approved without a live check). |
+| `WHATSAPP_TEMPLATE_NAME_<USE_CASE>` | Optional | Overrides a registered template's real Meta name per use case (`VISIT_CONFIRMATION`, `VISIT_REMINDER`, `FOLLOW_UP_REMINDER`, `CATALOGUE_SHARED`, `PRICE_UPDATED`, `VISIT_RESCHEDULED`). |
 
 ## Lead-ingestion webhooks
 

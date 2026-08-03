@@ -18,6 +18,9 @@ import {
   CalendarPlus,
   HelpCircle,
   XCircle,
+  UserX,
+  Users2,
+  Settings2,
   type LucideIcon,
 } from "lucide-react";
 import type { Notification, NotificationType } from "@prisma/client";
@@ -42,6 +45,9 @@ export const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   VISIT_REQUESTED: CalendarPlus,
   QUESTION_ASKED: HelpCircle,
   WHATSAPP_MESSAGE_FAILED: XCircle,
+  WHATSAPP_UNKNOWN_CONTACT: UserX,
+  WHATSAPP_MULTIPLE_LEAD_MATCH: Users2,
+  WHATSAPP_TEMPLATE_CONFIG_ISSUE: Settings2,
 };
 
 export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
@@ -64,6 +70,9 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   VISIT_REQUESTED: "Visit Requested",
   QUESTION_ASKED: "Question Asked",
   WHATSAPP_MESSAGE_FAILED: "Message Failed",
+  WHATSAPP_UNKNOWN_CONTACT: "Unknown WhatsApp Contact",
+  WHATSAPP_MULTIPLE_LEAD_MATCH: "Multiple Lead Match",
+  WHATSAPP_TEMPLATE_CONFIG_ISSUE: "Template Configuration Issue",
 };
 
 export function notificationHref(n: Notification): string | null {

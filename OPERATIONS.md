@@ -26,7 +26,7 @@ Run after every deployment (see `DEPLOYMENT.md` §11 for the full pre/deploy/pos
 ## Troubleshooting
 
 ### Server won't start: "Invalid environment configuration"
-Read the listed variables in the error — it's an aggregated list of every problem found, not just the first one. Check `ENVIRONMENT.md`. Common causes: `AUTH_SECRET` too short, `NEXTAUTH_URL` not `https://` in production, `WHATSAPP_PROVIDER=META_CLOUD` missing one of its three required credentials.
+Read the listed variables in the error — it's an aggregated list of every problem found, not just the first one. Check `ENVIRONMENT.md`. Common causes: `AUTH_SECRET` too short, `NEXTAUTH_URL` not `https://` in production, `WHATSAPP_PROVIDER=META_CLOUD` missing one of its five required credentials (access token, phone number ID, business account ID, verify token, app secret).
 
 ### "Prisma Client could not locate the Query Engine for runtime ..."
 Only relevant to a self-built Docker image. Means the `builder` and `runner` stages detected different OpenSSL versions at build vs. runtime. The shipped `Dockerfile` installs `openssl` in both stages specifically to prevent this (found and fixed during Phase 3 Docker verification) — if you've modified the Dockerfile's base image, make sure both stages still install matching OpenSSL.

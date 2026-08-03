@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
 import { getOrganizationId } from "./organization";
 import { logActivity } from "./activity";
-import { normalizeIndianPhone, getWhatsAppProvider } from "@/integrations/whatsapp";
+import { normalizeIndianPhone, getWhatsAppProvider, loadWhatsAppConfig } from "@/integrations/whatsapp";
 import type { WhatsAppDirection } from "@prisma/client";
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -16,7 +16,7 @@ const DEFAULT_PAGE_SIZE = 50;
  */
 export async function findOrCreateConversation(leadId: string) {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
-  const phoneNumber = normalizeIndianPhone(lead.phone);
+  const phoneNumber = normalizeIndianPhone(lead.phone, loadWhatsAppConfig().defaultCountryCode);
   if (!phoneNumber) {
     throw new ApiError(400, `Lead's phone number "${lead.phone}" is not a valid Indian number - cannot start a WhatsApp conversation.`);
   }

@@ -16,6 +16,12 @@ export interface WhatsAppConfig {
   appSecret?: string;
   apiVersion: string;
   appUrl: string;
+  /** Prefix applied to a bare local mobile number by phone.ts - see WHATSAPP_DEFAULT_COUNTRY_CODE. */
+  defaultCountryCode: string;
+  /** Escape hatch to take the webhook endpoint offline (503) even while META_CLOUD is selected. */
+  webhookEnabled: boolean;
+  /** Only used by the explicit Admin test-send diagnostic action - never for automatic sends. */
+  testRecipient?: string;
 }
 
 function resolveProviderName(): WhatsAppProviderName {
@@ -36,10 +42,13 @@ export function loadWhatsAppConfig(): WhatsAppConfig {
     appSecret: process.env.WHATSAPP_APP_SECRET,
     apiVersion: process.env.WHATSAPP_API_VERSION ?? "v20.0",
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    defaultCountryCode: process.env.WHATSAPP_DEFAULT_COUNTRY_CODE || "91",
+    webhookEnabled: process.env.WHATSAPP_WEBHOOK_ENABLED !== "false",
+    testRecipient: process.env.WHATSAPP_TEST_RECIPIENT,
   };
 
   if (provider === "META_CLOUD") {
-    const missing = (["phoneNumberId", "accessToken", "verifyToken"] as const).filter((k) => !config[k]);
+    const missing = (["phoneNumberId", "accessToken", "verifyToken", "businessAccountId", "appSecret"] as const).filter((k) => !config[k]);
     if (missing.length > 0) {
       throw new WhatsAppConfigError(
         `WHATSAPP_PROVIDER=META_CLOUD requires ${missing.map((k) => envVarNameFor(k)).join(", ")}. Set these in your environment, or switch WHATSAPP_PROVIDER to MOCK or CLICK_TO_CHAT for local development.`
@@ -81,8 +90,17 @@ export function getWhatsAppConfigStatus() {
     verifyToken: presence(process.env.WHATSAPP_VERIFY_TOKEN),
     appSecret: presence(process.env.WHATSAPP_APP_SECRET),
     apiVersion: process.env.WHATSAPP_API_VERSION ?? "v20.0",
+    defaultCountryCode: process.env.WHATSAPP_DEFAULT_COUNTRY_CODE || "91",
+    webhookEnabled: process.env.WHATSAPP_WEBHOOK_ENABLED !== "false",
+    testRecipientConfigured: presence(process.env.WHATSAPP_TEST_RECIPIENT),
     metaReady:
       provider === "META_CLOUD" &&
-      Boolean(process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_VERIFY_TOKEN),
+      Boolean(
+        process.env.WHATSAPP_PHONE_NUMBER_ID &&
+          process.env.WHATSAPP_ACCESS_TOKEN &&
+          process.env.WHATSAPP_VERIFY_TOKEN &&
+          process.env.WHATSAPP_BUSINESS_ACCOUNT_ID &&
+          process.env.WHATSAPP_APP_SECRET
+      ),
   };
 }

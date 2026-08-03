@@ -56,6 +56,14 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   documentDelete: { limit: Number(process.env.RATE_LIMIT_DOCUMENT_DELETE_MAX ?? 20), windowSeconds: Number(process.env.RATE_LIMIT_DOCUMENT_DELETE_WINDOW_SECONDS ?? 60) },
   propertyImageUpload: { limit: Number(process.env.RATE_LIMIT_PROPERTY_IMAGE_UPLOAD_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_PROPERTY_IMAGE_UPLOAD_WINDOW_SECONDS ?? 60) },
   propertyImageAccess: { limit: Number(process.env.RATE_LIMIT_PROPERTY_IMAGE_ACCESS_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_PROPERTY_IMAGE_ACCESS_WINDOW_SECONDS ?? 60) },
+  // WhatsApp Cloud API production hardening - deliberately generous limits
+  // for normal brokerage usage (a busy agent sending to many leads a day is
+  // normal); "webhook" above already covers Meta's own redelivery traffic
+  // and is intentionally left untouched/not tightened further.
+  whatsappSend: { limit: Number(process.env.RATE_LIMIT_WHATSAPP_SEND_MAX ?? 60), windowSeconds: Number(process.env.RATE_LIMIT_WHATSAPP_SEND_WINDOW_SECONDS ?? 60) },
+  whatsappRetry: { limit: Number(process.env.RATE_LIMIT_WHATSAPP_RETRY_MAX ?? 20), windowSeconds: Number(process.env.RATE_LIMIT_WHATSAPP_RETRY_WINDOW_SECONDS ?? 60) },
+  whatsappTestConnection: { limit: Number(process.env.RATE_LIMIT_WHATSAPP_TEST_CONNECTION_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_WHATSAPP_TEST_CONNECTION_WINDOW_SECONDS ?? 300) },
+  whatsappTestSend: { limit: Number(process.env.RATE_LIMIT_WHATSAPP_TEST_SEND_MAX ?? 3), windowSeconds: Number(process.env.RATE_LIMIT_WHATSAPP_TEST_SEND_WINDOW_SECONDS ?? 3600) },
 };
 
 /**

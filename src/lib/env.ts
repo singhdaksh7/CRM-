@@ -20,7 +20,26 @@ const envSchema = z
     WHATSAPP_PROVIDER: z.enum(["MOCK", "CLICK_TO_CHAT", "META_CLOUD"]).default("MOCK"),
     WHATSAPP_ACCESS_TOKEN: z.string().optional(),
     WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+    WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional(),
     WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+    // Required when META_CLOUD is selected - gates webhook signature
+    // verification (whatsapp-signature.ts). Without it, meta-whatsapp-provider.ts
+    // fails closed (rejects every webhook) rather than silently skipping the check.
+    WHATSAPP_APP_SECRET: z.string().optional(),
+    WHATSAPP_API_VERSION: z.string().regex(/^v\d+\.\d+$/, 'WHATSAPP_API_VERSION must look like "v20.0"').optional(),
+    // Used by phone.ts's normalizeIndianPhone as the prefix applied to bare
+    // 10-digit mobile numbers. 1-3 digits, matching real ITU country-code lengths.
+    WHATSAPP_DEFAULT_COUNTRY_CODE: z.string().regex(/^\d{1,3}$/, "WHATSAPP_DEFAULT_COUNTRY_CODE must be 1-3 digits").default("91"),
+    // Only meaningful for the explicit test-send diagnostic action - never
+    // used for any automatic/bulk send. Must be a plausible Indian mobile number.
+    WHATSAPP_TEST_RECIPIENT: z.string().optional(),
+    // Escape hatch to take the webhook endpoint offline (returns 503) even
+    // while WHATSAPP_PROVIDER=META_CLOUD - e.g. mid-setup, before the Meta
+    // app's webhook subscription has actually been configured.
+    WHATSAPP_WEBHOOK_ENABLED: z
+      .string()
+      .optional()
+      .transform((v) => v !== "false"), // undefined (unset) -> true; only the literal string "false" disables it
 
     // STORAGE_PROVIDER selects which lib/storage/* provider backs the
     // Document Vault and property images. DISABLED (default) means no
@@ -76,7 +95,7 @@ const envSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.WHATSAPP_PROVIDER === "META_CLOUD") {
-      for (const key of ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN"] as const) {
+      for (const key of ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_APP_SECRET"] as const) {
         if (!data[key]) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required when WHATSAPP_PROVIDER=META_CLOUD` });
       }
     }

@@ -10,6 +10,7 @@ import type {
   WhatsAppSendResult,
   MessageStatusResult,
   ParsedWebhookPayload,
+  WhatsAppDiagnosticsResult,
 } from "./whatsapp-types";
 
 /**
@@ -27,8 +28,10 @@ import type {
 export class ClickToChatWhatsAppProvider implements WhatsAppProviderClient {
   readonly name = "CLICK_TO_CHAT" as const;
 
+  constructor(private defaultCountryCode: string = "91") {}
+
   private buildLink(to: string, text: string): string {
-    const normalized = normalizeIndianPhone(to);
+    const normalized = normalizeIndianPhone(to, this.defaultCountryCode);
     if (!normalized) throw new WhatsAppProviderError(this.name, `Cannot build a click-to-chat link: "${to}" is not a valid Indian phone number.`);
     return `https://wa.me/${normalized}?text=${encodeURIComponent(text)}`;
   }
@@ -90,5 +93,13 @@ export class ClickToChatWhatsAppProvider implements WhatsAppProviderClient {
 
   parseInboundWebhook(_payload: unknown): ParsedWebhookPayload {
     return { messages: [], statuses: [] };
+  }
+
+  async markAsRead(_providerMessageId: string): Promise<void> {
+    // No-op - click-to-chat has no API session to mark anything read on.
+  }
+
+  async getDiagnostics(): Promise<WhatsAppDiagnosticsResult> {
+    return { ok: true, details: { provider: "CLICK_TO_CHAT", note: "wa.me links only - no external dependency to check" } };
   }
 }

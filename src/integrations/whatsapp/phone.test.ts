@@ -34,6 +34,18 @@ describe("normalizeIndianPhone", () => {
   it("returns null for a non-Indian country code", () => {
     expect(normalizeIndianPhone("+14155552671")).toBeNull();
   });
+
+  it("accepts a configurable default country code for bare local numbers", () => {
+    expect(normalizeIndianPhone("9876543210", "1")).toBe("19876543210");
+  });
+
+  it("accepts a configurable default country code when the number is already prefixed", () => {
+    expect(normalizeIndianPhone("19876543210", "1")).toBe("19876543210");
+  });
+
+  it("still defaults to 91 when no country code argument is given", () => {
+    expect(normalizeIndianPhone("9876543210")).toBe("919876543210");
+  });
 });
 
 describe("isValidIndianPhone", () => {

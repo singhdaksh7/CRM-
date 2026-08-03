@@ -3,12 +3,16 @@ import { requireSession, handleApiError } from "@/lib/api-auth";
 import { assertLeadAccessible } from "@/lib/lead-access";
 import { sendWhatsAppMessageSchema } from "@/lib/validators";
 import { sendOutboundMessage } from "@/lib/whatsapp-messages";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"]);
     const { id } = await params;
     await assertLeadAccessible(session, id);
+
+    const limitResult = await checkRateLimit("whatsappSend", session.user.id);
+    if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
     const body = await req.json();
     const data = sendWhatsAppMessageSchema.parse(body);

@@ -234,6 +234,10 @@ enum NotificationType {
   VISIT_REQUESTED
   QUESTION_ASKED
   WHATSAPP_MESSAGE_FAILED
+  // WhatsApp Cloud API production hardening
+  WHATSAPP_UNKNOWN_CONTACT
+  WHATSAPP_MULTIPLE_LEAD_MATCH
+  WHATSAPP_TEMPLATE_CONFIG_ISSUE
 }
 
 // ---------------------------------------------------------------------------

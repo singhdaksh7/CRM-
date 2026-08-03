@@ -1,17 +1,23 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Building, MessageCircle, Sparkles, Users, Database, Workflow } from "lucide-react";
 import { AssignmentRulesPanel } from "@/components/settings/assignment-rules-panel";
+import { WhatsAppDiagnosticsPanel } from "@/components/settings/whatsapp-diagnostics-panel";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
+import { listWhatsAppTemplates } from "@/integrations/whatsapp/whatsapp-templates";
 
 export default async function SettingsPage() {
-  const [propertyCount, leadCount, userCount] = await Promise.all([
+  const [propertyCount, leadCount, userCount, session] = await Promise.all([
     prisma.property.count(),
     prisma.lead.count(),
     prisma.user.count(),
+    auth(),
   ]);
   const whatsapp = getWhatsAppConfigStatus();
+  const templates = listWhatsAppTemplates();
+  const isAdmin = session?.user?.role === "ADMIN";
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -41,9 +47,33 @@ export default async function SettingsPage() {
         <ConfigRow label="Verify Token" status={whatsapp.verifyToken} />
         <ConfigRow label="App Secret" status={whatsapp.appSecret} />
         <Row label="API Version" value={whatsapp.apiVersion} />
-        <p className="mt-3 text-xs text-[#94A3B8] border-t border-[rgba(255,255,255,0.06)] pt-2.5">
+        <Row label="Default Country Code" value={`+${whatsapp.defaultCountryCode}`} />
+        <Row
+          label="Webhook"
+          value={
+            whatsapp.provider !== "META_CLOUD" ? (
+              <Badge tone="slate">Not applicable</Badge>
+            ) : whatsapp.webhookEnabled ? (
+              <Badge tone="green">Enabled (not independently verified)</Badge>
+            ) : (
+              <Badge tone="red">Disabled</Badge>
+            )
+          }
+        />
+        <div>
+          <p className="mb-1.5 text-xs font-semibold text-[#94A3B8]">Templates</p>
+          <div className="flex flex-wrap gap-1.5">
+            {templates.map((t) => (
+              <Badge key={t.useCase} tone={t.approved ? "green" : "slate"}>
+                {t.name} {t.approved ? "· Approved" : "· Not confirmed"}
+              </Badge>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-[#94A3B8] border-t border-[rgba(255,255,255,0.06)] pt-2.5">
           🔒 Secrets are securely validated server-side and never exposed to the client browser.
         </p>
+        {isAdmin && <WhatsAppDiagnosticsPanel />}
       </SettingsSection>
 
       <SettingsSection icon={Sparkles} title="Property Matching Engine">

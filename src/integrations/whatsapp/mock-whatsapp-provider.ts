@@ -8,6 +8,7 @@ import type {
   WhatsAppSendResult,
   MessageStatusResult,
   ParsedWebhookPayload,
+  WhatsAppDiagnosticsResult,
 } from "./whatsapp-types";
 
 /**
@@ -62,5 +63,13 @@ export class MockWhatsAppProvider implements WhatsAppProviderClient {
 
   parseInboundWebhook(_payload: unknown): ParsedWebhookPayload {
     return { messages: [], statuses: [] };
+  }
+
+  async markAsRead(_providerMessageId: string): Promise<void> {
+    // No-op - mock mode has no real client-side read receipt to trigger.
+  }
+
+  async getDiagnostics(): Promise<WhatsAppDiagnosticsResult> {
+    return { ok: true, details: { provider: "MOCK", note: "Demo provider - no external dependency to check" } };
   }
 }

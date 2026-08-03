@@ -39,12 +39,29 @@ export interface MessageStatusResult {
   status: WhatsAppMessageStatus;
 }
 
+/**
+ * "text" - a normal free-form message body.
+ * "button_reply"/"interactive_reply" - the client tapped a quick-reply/list
+ * option; `text` holds the button/option label so it still displays sensibly
+ * in the conversation UI without any special-casing there.
+ * "unsupported" - a media type this app doesn't process (image/video/audio/
+ * document/location/etc.); `text` is a safe placeholder, never raw media data.
+ */
+export type InboundMessageKind = "text" | "button_reply" | "interactive_reply" | "unsupported";
+
 export interface InboundWebhookMessage {
   externalEventId: string;
   providerMessageId: string;
   from: string;
   text: string;
+  kind: InboundMessageKind;
   timestamp: Date;
+}
+
+export interface WhatsAppDiagnosticsResult {
+  ok: boolean;
+  /** Safe, human-readable details only - never credentials, tokens, or signed content. */
+  details: Record<string, string>;
 }
 
 export interface StatusWebhookEvent {
@@ -72,9 +89,13 @@ export interface WhatsAppProviderClient {
   sendMediaMessage(params: SendMediaParams): Promise<WhatsAppSendResult>;
   sendCatalogueMessage(params: SendCatalogueParams): Promise<WhatsAppSendResult>;
   getMessageStatus(providerMessageId: string): Promise<MessageStatusResult | null>;
+  /** Marks an inbound message as read on the client's side (blue ticks). A no-op for providers with no such concept. */
+  markAsRead(providerMessageId: string): Promise<void>;
   /** GET webhook verification (Meta hub.challenge handshake). Non-Meta providers never receive calls to this. */
   verifyWebhook(query: URLSearchParams): string | null;
   /** Validates the raw request signature before any parsing happens. Providers without signatures return true. */
   verifyWebhookSignature(rawBody: string, signatureHeader: string | null): boolean;
   parseInboundWebhook(payload: unknown): ParsedWebhookPayload;
+  /** Safe, credential-free connectivity check for the Admin health endpoint - never sends a real message. */
+  getDiagnostics(): Promise<WhatsAppDiagnosticsResult>;
 }

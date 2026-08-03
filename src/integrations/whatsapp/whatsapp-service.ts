@@ -21,7 +21,7 @@ export function getWhatsAppProvider(): WhatsAppProviderClient {
       cachedProvider = new MockWhatsAppProvider();
       break;
     case "CLICK_TO_CHAT":
-      cachedProvider = new ClickToChatWhatsAppProvider();
+      cachedProvider = new ClickToChatWhatsAppProvider(config.defaultCountryCode);
       break;
     case "META_CLOUD":
       cachedProvider = new MetaWhatsAppProvider(config);

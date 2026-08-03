@@ -52,7 +52,13 @@ export function checkWhatsApp(): StatusCheck {
     return { name: "whatsapp", status: "ok", detail: `Provider ${provider} active (no credentials required)` };
   }
   if (provider === "META_CLOUD") {
-    const hasCreds = !!(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_VERIFY_TOKEN);
+    const hasCreds = !!(
+      process.env.WHATSAPP_ACCESS_TOKEN &&
+      process.env.WHATSAPP_PHONE_NUMBER_ID &&
+      process.env.WHATSAPP_BUSINESS_ACCOUNT_ID &&
+      process.env.WHATSAPP_VERIFY_TOKEN &&
+      process.env.WHATSAPP_APP_SECRET
+    );
     return hasCreds
       ? { name: "whatsapp", status: "ok", detail: "META_CLOUD provider configured" }
       : { name: "whatsapp", status: "error", detail: "META_CLOUD selected but missing credentials" };

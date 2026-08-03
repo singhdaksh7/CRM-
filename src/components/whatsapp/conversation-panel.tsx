@@ -240,6 +240,11 @@ function MessageBubble({
           isOutbound ? "rounded-br-sm bg-[#4F8CFF] text-white" : "rounded-bl-sm bg-[#1E2533] text-[#F8FAFC] border border-[rgba(255,255,255,0.08)]"
         }`}
       >
+        {message.messageType !== "TEXT" && (
+          <span className={`mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${isOutbound ? "bg-white/20 text-white" : "bg-[#25D366]/15 text-[#25D366]"}`}>
+            {message.messageType === "CATALOGUE" ? "Catalogue" : message.messageType === "TEMPLATE" ? "Template" : message.messageType}
+          </span>
+        )}
         <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
         <div className={`mt-1 flex items-center justify-end gap-1.5 text-[11px] ${isOutbound ? "text-[#d9e2ff]" : "text-[#94A3B8]"}`}>
           <span>{formatDateTime(message.createdAt)}</span>

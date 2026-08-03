@@ -1,7 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { checkEnvironment, checkWhatsApp } from "./system-status";
 
-const ENV_KEYS = ["DATABASE_URL", "AUTH_SECRET", "NEXTAUTH_URL", "NEXT_PUBLIC_APP_URL", "WHATSAPP_PROVIDER", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN"];
+const ENV_KEYS = [
+  "DATABASE_URL",
+  "AUTH_SECRET",
+  "NEXTAUTH_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "WHATSAPP_PROVIDER",
+  "WHATSAPP_ACCESS_TOKEN",
+  "WHATSAPP_PHONE_NUMBER_ID",
+  "WHATSAPP_BUSINESS_ACCOUNT_ID",
+  "WHATSAPP_VERIFY_TOKEN",
+  "WHATSAPP_APP_SECRET",
+];
 let savedEnv: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -50,7 +61,19 @@ describe("checkWhatsApp", () => {
     process.env.WHATSAPP_PROVIDER = "META_CLOUD";
     delete process.env.WHATSAPP_ACCESS_TOKEN;
     delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+    delete process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
     delete process.env.WHATSAPP_VERIFY_TOKEN;
+    delete process.env.WHATSAPP_APP_SECRET;
+    expect(checkWhatsApp().status).toBe("error");
+  });
+
+  it("errors for META_CLOUD missing only businessAccountId/appSecret", () => {
+    process.env.WHATSAPP_PROVIDER = "META_CLOUD";
+    process.env.WHATSAPP_ACCESS_TOKEN = "token";
+    process.env.WHATSAPP_PHONE_NUMBER_ID = "id";
+    process.env.WHATSAPP_VERIFY_TOKEN = "verify";
+    delete process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+    delete process.env.WHATSAPP_APP_SECRET;
     expect(checkWhatsApp().status).toBe("error");
   });
 
@@ -58,7 +81,9 @@ describe("checkWhatsApp", () => {
     process.env.WHATSAPP_PROVIDER = "META_CLOUD";
     process.env.WHATSAPP_ACCESS_TOKEN = "token";
     process.env.WHATSAPP_PHONE_NUMBER_ID = "id";
+    process.env.WHATSAPP_BUSINESS_ACCOUNT_ID = "waba123";
     process.env.WHATSAPP_VERIFY_TOKEN = "verify";
+    process.env.WHATSAPP_APP_SECRET = "shh";
     expect(checkWhatsApp().status).toBe("ok");
   });
 
