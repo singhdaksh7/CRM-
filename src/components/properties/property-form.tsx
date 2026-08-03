@@ -8,6 +8,7 @@ import type { Property } from "@prisma/client";
 import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { PropertyGallery } from "@/components/properties/property-gallery";
+import { PropertyAddressSearch, type AppliedLocation } from "@/components/properties/property-address-search";
 
 const AREAS = ["Janakpuri", "Dwarka", "Rajouri Garden", "Uttam Nagar", "Rohini", "Pitampura", "Vasant Kunj", "Saket", "Greater Kailash", "Lajpat Nagar", "Karol Bagh", "Paschim Vihar"];
 const AMENITIES_POOL = ["Lift", "Power Backup", "24x7 Security", "Swimming Pool", "Gym", "Club House", "Children's Play Area", "Covered Parking", "CCTV", "Park Facing", "Modular Kitchen", "Water Storage"];
@@ -43,6 +44,11 @@ type FormValues = {
   tenantPreference: string;
   availableFrom: string;
   amenities: string[];
+  pincode: string;
+  latitude: number | null;
+  longitude: number | null;
+  formattedAddress: string;
+  placeId: string;
   coverImage: string;
   videoUrl: string;
   virtualTourUrl: string;
@@ -84,6 +90,11 @@ function toFormValues(p?: Property): FormValues {
     tenantPreference: p?.tenantPreference ?? "",
     availableFrom: p?.availableFrom ? new Date(p.availableFrom).toISOString().slice(0, 10) : "",
     amenities: p?.amenities ? JSON.parse(p.amenities) : [],
+    pincode: p?.pincode ?? "",
+    latitude: p?.latitude ?? null,
+    longitude: p?.longitude ?? null,
+    formattedAddress: p?.formattedAddress ?? "",
+    placeId: p?.placeId ?? "",
     coverImage: p?.coverImage ?? "",
     videoUrl: p?.videoUrl ?? "",
     virtualTourUrl: p?.virtualTourUrl ?? "",
@@ -130,6 +141,11 @@ export function PropertyForm({ property }: { property?: Property }) {
       availableFrom: values.availableFrom || null,
       images: values.coverImage ? [values.coverImage] : [],
       landmark: values.landmark || null,
+      pincode: values.pincode || null,
+      latitude: values.latitude,
+      longitude: values.longitude,
+      formattedAddress: values.formattedAddress || null,
+      placeId: values.placeId || null,
       ownerAlternatePhone: values.ownerAlternatePhone || null,
       ownerNotes: values.ownerNotes || null,
     };
@@ -189,6 +205,24 @@ export function PropertyForm({ property }: { property?: Property }) {
       </Section>
 
       <Section title="Location">
+        <Field label="Search Address" hint="Find and confirm a location - this never overwrites the fields below until you click &quot;Use this address&quot;.">
+          <PropertyAddressSearch
+            hasExistingLocation={watch("latitude") !== null}
+            onApply={(location: AppliedLocation) => {
+              setValue("latitude", location.latitude);
+              setValue("longitude", location.longitude);
+              setValue("formattedAddress", location.formattedAddress);
+              setValue("placeId", location.placeId);
+              toast.success("Location confirmed - review the address fields below before saving.");
+            }}
+            onClear={() => {
+              setValue("latitude", null);
+              setValue("longitude", null);
+              setValue("formattedAddress", "");
+              setValue("placeId", "");
+            }}
+          />
+        </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Area / Locality" required>
             <Select {...register("area")}>
@@ -201,9 +235,19 @@ export function PropertyForm({ property }: { property?: Property }) {
             <Input {...register("landmark")} placeholder="Near Metro Station" />
           </Field>
         </div>
-        <Field label="Complete Address" required error={errors.address ? "Address is required" : undefined}>
-          <Input {...register("address", { required: true })} placeholder="House/Flat No, Street, Delhi" />
-        </Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Complete Address" required error={errors.address ? "Address is required" : undefined}>
+            <Input {...register("address", { required: true })} placeholder="House/Flat No, Street, Delhi" />
+          </Field>
+          <Field label="Pincode">
+            <Input {...register("pincode")} placeholder="110058" maxLength={10} />
+          </Field>
+        </div>
+        {watch("latitude") !== null && (
+          <p className="flex items-center gap-1.5 text-xs text-[#22C55E]">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22C55E]" /> Location confirmed ({watch("latitude")!.toFixed(5)}, {watch("longitude")!.toFixed(5)})
+          </p>
+        )}
       </Section>
 
       <Section title="Pricing">

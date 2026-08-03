@@ -51,6 +51,13 @@ function property(overrides: Partial<Property> = {}): Property {
     ownerAlternatePhone: "+918888888888",
     ownerNotes: "Owner is difficult to reach after 8pm",
     createdById: null,
+    pincode: null,
+    formattedAddress: null,
+    placeId: null,
+    geocodeStatus: "NOT_ATTEMPTED",
+    geocodedAt: null,
+    locationPrecision: "APPROXIMATE",
+    publicLocationMode: "LOCALITY_ONLY",
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -183,5 +190,65 @@ describe("toPublicCatalogueDTO - privacy", () => {
     const dto = toPublicCatalogueDTO(fakeCatalogue());
     expect(dto.properties[0].customNote).toBe("Great natural light");
     expect(dto.clientFirstName).toBe("Rahul");
+  });
+});
+
+describe("toPublicCatalogueDTO - location privacy", () => {
+  it("hides coordinates entirely when publicLocationMode is LOCALITY_ONLY (the default)", () => {
+    const dto = toPublicCatalogueDTO(fakeCatalogue());
+    expect(dto.properties[0].latitude).toBeNull();
+    expect(dto.properties[0].longitude).toBeNull();
+    expect(dto.properties[0].locationDisclosure).toBe("HIDDEN");
+  });
+
+  it("hides coordinates entirely when publicLocationMode is HIDDEN, even with address visible", () => {
+    const base = fakeCatalogue();
+    base.properties[0].addressVisible = true;
+    base.properties[0].property = property({ publicLocationMode: "HIDDEN" });
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ includeAddress: true, properties: base.properties }));
+    expect(dto.properties[0].latitude).toBeNull();
+    expect(dto.properties[0].locationDisclosure).toBe("HIDDEN");
+  });
+
+  it("reveals a fuzzed (reduced-precision) pin for APPROXIMATE mode, regardless of address visibility", () => {
+    const base = fakeCatalogue();
+    base.properties[0].property = property({ publicLocationMode: "APPROXIMATE", latitude: 28.612945, longitude: 77.229467 });
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties[0].locationDisclosure).toBe("APPROXIMATE");
+    expect(dto.properties[0].latitude).toBe(28.61);
+    expect(dto.properties[0].longitude).toBe(77.23);
+  });
+
+  it("never reveals the exact coordinate for APPROXIMATE mode even if address visibility is on", () => {
+    const base = fakeCatalogue();
+    base.properties[0].addressVisible = true;
+    base.properties[0].property = property({ publicLocationMode: "APPROXIMATE", latitude: 28.612945, longitude: 77.229467 });
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ includeAddress: true, properties: base.properties }));
+    expect(dto.properties[0].latitude).not.toBe(28.612945);
+  });
+
+  it("reveals the exact coordinate for EXACT mode only when address visibility is also on", () => {
+    const base = fakeCatalogue();
+    base.properties[0].addressVisible = true;
+    base.properties[0].property = property({ publicLocationMode: "EXACT", latitude: 28.612945, longitude: 77.229467 });
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ includeAddress: true, properties: base.properties }));
+    expect(dto.properties[0].latitude).toBe(28.612945);
+    expect(dto.properties[0].locationDisclosure).toBe("EXACT");
+  });
+
+  it("falls back to a fuzzed pin for EXACT mode when address visibility is off - never a silent full reveal", () => {
+    const base = fakeCatalogue();
+    base.properties[0].property = property({ publicLocationMode: "EXACT", latitude: 28.612945, longitude: 77.229467 });
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ properties: base.properties })); // addressVisible stays false
+    expect(dto.properties[0].latitude).not.toBe(28.612945);
+    expect(dto.properties[0].locationDisclosure).toBe("APPROXIMATE");
+  });
+
+  it("hides coordinates when the property has none geocoded, regardless of mode", () => {
+    const base = fakeCatalogue();
+    base.properties[0].property = property({ publicLocationMode: "EXACT", latitude: null, longitude: null });
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties[0].latitude).toBeNull();
+    expect(dto.properties[0].locationDisclosure).toBe("HIDDEN");
   });
 });

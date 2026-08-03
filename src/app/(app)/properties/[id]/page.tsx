@@ -4,6 +4,8 @@ import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { PropertyActions } from "@/components/properties/property-actions";
 import { PropertyGallery } from "@/components/properties/property-gallery";
+import { PropertyMapPanel } from "@/components/properties/property-map-panel";
+import { NearbyPropertiesPanel } from "@/components/properties/nearby-properties-panel";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
 import { MapPin, Home, Phone, ShieldCheck, CheckCircle2 } from "lucide-react";
 
@@ -39,6 +41,21 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         <div className="space-y-6 lg:col-span-2">
           {/* Gallery */}
           <PropertyGallery propertyId={property.id} propertyTitle={property.title} legacyCoverImage={property.coverImage} />
+
+          {/* Location & Map */}
+          <PropertyMapPanel
+            propertyId={property.id}
+            address={property.address}
+            area={property.area}
+            landmark={property.landmark}
+            pincode={property.pincode}
+            latitude={property.latitude}
+            longitude={property.longitude}
+            formattedAddress={property.formattedAddress}
+            geocodeStatus={property.geocodeStatus}
+            locationPrecision={property.locationPrecision}
+            publicLocationMode={property.publicLocationMode}
+          />
 
           {/* Description */}
           <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
@@ -90,6 +107,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               </div>
             </div>
           )}
+
+          {/* Nearby properties */}
+          <NearbyPropertiesPanel propertyId={property.id} />
 
           {/* Documents */}
           <EntityDocumentPanel entityType="PROPERTY" entityId={property.id} title="Property Documents" />

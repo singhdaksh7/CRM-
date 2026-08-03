@@ -41,6 +41,19 @@ const envSchema = z
       .optional()
       .transform((v) => v !== "false"), // undefined (unset) -> true; only the literal string "false" disables it
 
+    // MAPS_PROVIDER selects which src/integrations/maps/* provider backs
+    // geocoding/directions/places. DISABLED (default) means every maps
+    // panel renders a clear "not configured" state; Property/Visit CRUD
+    // never depend on this. Server key stays server-only; the browser key
+    // is intentionally public (must be domain-restricted in Google Cloud).
+    MAPS_PROVIDER: z.enum(["GOOGLE", "DISABLED"]).default("DISABLED"),
+    GOOGLE_MAPS_SERVER_API_KEY: z.string().optional(),
+    NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_API_KEY: z.string().optional(),
+    GOOGLE_MAPS_MAP_ID: z.string().optional(),
+    GOOGLE_MAPS_DEFAULT_REGION: z.string().regex(/^[A-Za-z]{2}$/, "GOOGLE_MAPS_DEFAULT_REGION must be a 2-letter region code").default("IN"),
+    GOOGLE_MAPS_DEFAULT_LANGUAGE: z.string().regex(/^[a-z]{2}(-[A-Za-z]{2})?$/, "GOOGLE_MAPS_DEFAULT_LANGUAGE must look like \"en\" or \"en-IN\"").default("en"),
+    GOOGLE_MAPS_DEFAULT_CITY: z.string().default("Delhi"),
+
     // STORAGE_PROVIDER selects which lib/storage/* provider backs the
     // Document Vault and property images. DISABLED (default) means no
     // file storage is configured - upload endpoints fail safely with a
@@ -98,6 +111,9 @@ const envSchema = z
       for (const key of ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_APP_SECRET"] as const) {
         if (!data[key]) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required when WHATSAPP_PROVIDER=META_CLOUD` });
       }
+    }
+    if (data.MAPS_PROVIDER === "GOOGLE" && !data.GOOGLE_MAPS_SERVER_API_KEY) {
+      ctx.addIssue({ code: "custom", path: ["GOOGLE_MAPS_SERVER_API_KEY"], message: "GOOGLE_MAPS_SERVER_API_KEY is required when MAPS_PROVIDER=GOOGLE" });
     }
     if (data.STORAGE_PROVIDER === "S3") {
       const storageFields = [data.STORAGE_BUCKET, data.STORAGE_ACCESS_KEY_ID, data.STORAGE_SECRET_ACCESS_KEY];

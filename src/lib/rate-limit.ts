@@ -64,6 +64,21 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   whatsappRetry: { limit: Number(process.env.RATE_LIMIT_WHATSAPP_RETRY_MAX ?? 20), windowSeconds: Number(process.env.RATE_LIMIT_WHATSAPP_RETRY_WINDOW_SECONDS ?? 60) },
   whatsappTestConnection: { limit: Number(process.env.RATE_LIMIT_WHATSAPP_TEST_CONNECTION_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_WHATSAPP_TEST_CONNECTION_WINDOW_SECONDS ?? 300) },
   whatsappTestSend: { limit: Number(process.env.RATE_LIMIT_WHATSAPP_TEST_SEND_MAX ?? 3), windowSeconds: Number(process.env.RATE_LIMIT_WHATSAPP_TEST_SEND_WINDOW_SECONDS ?? 3600) },
+  // Maps, Localities & Visit Routing - generous enough for normal brokerage
+  // use (address search while typing, viewing a property map, planning a
+  // day's visits) while still bounding worst-case Google Maps API spend.
+  mapsAutocomplete: { limit: Number(process.env.RATE_LIMIT_MAPS_AUTOCOMPLETE_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_AUTOCOMPLETE_WINDOW_SECONDS ?? 60) },
+  mapsGeocode: { limit: Number(process.env.RATE_LIMIT_MAPS_GEOCODE_MAX ?? 60), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_GEOCODE_WINDOW_SECONDS ?? 60) },
+  mapsReverseGeocode: { limit: Number(process.env.RATE_LIMIT_MAPS_REVERSE_GEOCODE_MAX ?? 60), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_REVERSE_GEOCODE_WINDOW_SECONDS ?? 60) },
+  mapsDirections: { limit: Number(process.env.RATE_LIMIT_MAPS_DIRECTIONS_MAX ?? 60), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_DIRECTIONS_WINDOW_SECONDS ?? 60) },
+  mapsDistanceMatrix: { limit: Number(process.env.RATE_LIMIT_MAPS_DISTANCE_MATRIX_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_DISTANCE_MATRIX_WINDOW_SECONDS ?? 60) },
+  mapsRouteSuggestion: { limit: Number(process.env.RATE_LIMIT_MAPS_ROUTE_SUGGESTION_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_ROUTE_SUGGESTION_WINDOW_SECONDS ?? 60) },
+  mapsReverify: { limit: Number(process.env.RATE_LIMIT_MAPS_REVERIFY_MAX ?? 20), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_REVERIFY_WINDOW_SECONDS ?? 60) },
+  mapsTestConnection: { limit: Number(process.env.RATE_LIMIT_MAPS_TEST_CONNECTION_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_TEST_CONNECTION_WINDOW_SECONDS ?? 300) },
+  // Organization-wide daily safety net across every maps operation combined -
+  // a last line of defense against a runaway loop/bug racking up API cost,
+  // independent of any single per-user limit above.
+  mapsOrgDaily: { limit: Number(process.env.RATE_LIMIT_MAPS_ORG_DAILY_MAX ?? 2000), windowSeconds: Number(process.env.RATE_LIMIT_MAPS_ORG_DAILY_WINDOW_SECONDS ?? 86400) },
 };
 
 /**
@@ -87,6 +102,20 @@ export async function checkRateLimit(ruleName: keyof typeof RATE_LIMITS, identif
     // Redis unreachable - fail open rather than taking the whole app down over a limiter outage.
     return { allowed: true, limit: rule.limit, remaining: rule.limit, resetSeconds: rule.windowSeconds };
   }
+}
+
+/**
+ * Checks a per-user maps rate limit together with the organization-wide
+ * daily safety cap (`mapsOrgDaily`) - whichever is hit first wins. Used by
+ * every maps route so a single runaway caller can't be worked around by
+ * simply switching users, and normal per-user limits still apply
+ * independently of the org-wide net.
+ */
+export async function checkMapsQuota(ruleName: keyof typeof RATE_LIMITS, userId: string, organizationId: string): Promise<RateLimitResult> {
+  const perUser = await checkRateLimit(ruleName, userId);
+  if (!perUser.allowed) return perUser;
+  const orgWide = await checkRateLimit("mapsOrgDaily", organizationId);
+  return orgWide.allowed ? perUser : orgWide;
 }
 
 /** Best-effort client identifier for unauthenticated routes - real deployments should sit behind a proxy that sets x-forwarded-for. */

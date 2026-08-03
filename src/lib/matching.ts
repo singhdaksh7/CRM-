@@ -157,3 +157,21 @@ export function matchPropertiesToLead(properties: Property[], lead: Lead, maxOve
     .filter((r): r is MatchResult => r !== null)
     .sort((a, b) => b.score - a.score);
 }
+
+const MAX_PROXIMITY_BONUS = 5; // small relative to the 100-point scale - a tiebreaker, not a rework of the existing weights
+const PROXIMITY_BONUS_RADIUS_METERS = 5000;
+
+/**
+ * Optional, additive proximity refinement - never changes the core scoring
+ * above. Only applied when the caller explicitly has both a real property
+ * coordinate and a reference point for the lead's preferred locality (see
+ * src/lib/locality.ts#getLocalityCentroid); a lead with no resolvable
+ * locality centroid, or a property with no geocoded coordinate, is
+ * completely unaffected - existing match results/tests for properties
+ * without coordinates are unchanged.
+ */
+export function applyProximityBonus(result: MatchResult, distanceMeters: number | null): MatchResult {
+  if (distanceMeters === null || distanceMeters > PROXIMITY_BONUS_RADIUS_METERS) return result;
+  const bonus = MAX_PROXIMITY_BONUS * (1 - distanceMeters / PROXIMITY_BONUS_RADIUS_METERS);
+  return { ...result, score: Math.round(Math.min(100, result.score + bonus)) };
+}

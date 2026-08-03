@@ -303,6 +303,38 @@ enum WebhookEventStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Maps, Localities & Visit Routing enums
+// ---------------------------------------------------------------------------
+
+enum GeocodeStatus {
+  NOT_ATTEMPTED
+  PENDING
+  SUCCESS
+  FAILED
+  MANUAL // coordinates set by hand, never geocoded
+}
+
+/** Used for both Property.locationPrecision (how good the stored coordinate actually is) and Property.publicLocationMode (what the public catalogue is allowed to reveal). */
+enum LocationPrecision {
+  EXACT
+  APPROXIMATE
+  LOCALITY_ONLY
+  HIDDEN
+}
+
+enum VisitConflictStatus {
+  NONE
+  WARNING
+  OVERRIDDEN
+}
+
+enum RouteSource {
+  GOOGLE // a real Directions/Distance Matrix API result
+  ESTIMATED // fallback fixed buffer used because Maps was disabled or the API call failed - never presented as a real measurement
+  NONE
+}
+
+// ---------------------------------------------------------------------------
 // Owner CRM / Deals / Brokerage / Payments / Documents / Imports / Audit /
 // Backup enums (Phase 1 backend completion)
 // ---------------------------------------------------------------------------
@@ -508,6 +540,7 @@ model User {
 
   assignedLeads             Lead[]                 @relation("AssignedEmployee")
   assignedVisits            Visit[]                @relation("AssignedFieldExecutive")
+  visitConflictOverrides    Visit[]                @relation("VisitConflictOverrideBy")
   followUps                 FollowUp[]             @relation("FollowUpOwner")
   activities                Activity[]             @relation("ActivityActor")
   sharedProperties          SharedPropertyLog[]    @relation("SharedBy")
@@ -623,6 +656,17 @@ model Property {
   landmark  String?
   latitude  Float?
   longitude Float?
+
+  // Maps & Localities phase - additive location metadata. None of this is
+  // populated automatically; geocoding only ever runs on an explicit user
+  // action (address search / "Re-geocode"), never silently in the background.
+  pincode            String?
+  formattedAddress   String?             // Google's canonical formatted_address, kept separate from the user-entered `address`
+  placeId            String?             // Google Place ID - lets a re-geocode reuse the exact same place instead of a fresh text search
+  geocodeStatus      GeocodeStatus       @default(NOT_ATTEMPTED)
+  geocodedAt         DateTime?
+  locationPrecision  LocationPrecision   @default(APPROXIMATE) // how precise the stored lat/lng actually is
+  publicLocationMode LocationPrecision   @default(LOCALITY_ONLY) // what the public catalogue is allowed to reveal - independent of locationPrecision, defaults to the safest option
 
   // Rental pricing
   monthlyRent       Int?
@@ -829,6 +873,19 @@ model Visit {
   employeeNotes   String?
   outcome         VisitOutcome?
   followUpAction  String?
+
+  // Maps & Localities phase - route/conflict metadata. Populated only when
+  // conflict detection actually runs (on schedule/update); never guessed.
+  travelDurationMinutes    Int?
+  travelDistanceMeters     Int?
+  routeCheckedAt           DateTime?
+  routeSource              RouteSource          @default(NONE)
+  conflictStatus           VisitConflictStatus  @default(NONE)
+  conflictDetail           String? // short, non-sensitive description (e.g. "18 min travel needed, only 10 min available") - never a full address dump
+  conflictOverrideReason   String?
+  conflictOverrideByUserId String?
+  conflictOverrideBy       User?                @relation("VisitConflictOverrideBy", fields: [conflictOverrideByUserId], references: [id])
+  conflictOverrideAt       DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

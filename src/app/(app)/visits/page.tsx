@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ScheduleVisitModal } from "@/components/visits/schedule-visit-modal";
 import { VisitRowActions } from "@/components/visits/visit-row-actions";
+import { VisitFieldActions } from "@/components/visits/visit-field-actions";
+import { SuggestedRoutePanel } from "@/components/visits/suggested-route-panel";
 import { EmptyState } from "@/components/ui/states";
 import { Badge, VISIT_STATUS_TONE } from "@/components/ui/badge";
 import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
@@ -78,6 +80,10 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
         {canManage && <ScheduleVisitModal leads={leads} properties={properties} employees={employees} />}
       </div>
 
+      {tab === "today" && (session!.user.role === "FIELD_EXECUTIVE" || sp.employeeId) && (
+        <SuggestedRoutePanel employeeId={session!.user.role === "FIELD_EXECUTIVE" ? session!.user.id : sp.employeeId!} />
+      )}
+
       <div className="flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 text-sm w-fit">
         {TABS.map((t) => (
           <Link key={t.key} href={`/visits?tab=${t.key}`} className={`whitespace-nowrap rounded-md px-3 py-1.5 font-medium ${tab === t.key ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"}`}>
@@ -93,13 +99,13 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
           {[...grouped.entries()].map(([name, vs]) => (
             <div key={name} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="mb-3 text-sm font-semibold text-slate-800">{name} ({vs.length})</h3>
-              <VisitTable visits={vs} canManage={canManage} />
+              <VisitTable visits={vs} canManage={canManage} role={session!.user.role} />
             </div>
           ))}
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <VisitTable visits={visits} canManage={canManage} />
+          <VisitTable visits={visits} canManage={canManage} role={session!.user.role} />
         </div>
       )}
 
@@ -110,7 +116,8 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
   );
 }
 
-function VisitTable({ visits, canManage }: { visits: VisitWithRelations[]; canManage: boolean }) {
+function VisitTable({ visits, canManage, role }: { visits: VisitWithRelations[]; canManage: boolean; role: string }) {
+  const canSeeOwnerPhone = role !== "FIELD_EXECUTIVE";
   return (
     <div className="space-y-3">
       {visits.map((v) => (
@@ -122,6 +129,22 @@ function VisitTable({ visits, canManage }: { visits: VisitWithRelations[]; canMa
               <p className="text-xs text-slate-400">{formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"} &middot; {v.meetingLocation}</p>
             </div>
             <Badge tone={VISIT_STATUS_TONE[v.status]}>{enumToLabel(v.status)}</Badge>
+          </div>
+          {v.conflictStatus === "OVERRIDDEN" && (
+            <p className="mt-1.5 text-xs font-medium text-amber-600">⚠ Scheduling conflict overridden{v.conflictDetail ? `: ${v.conflictDetail}` : ""}</p>
+          )}
+          <div className="mt-2">
+            <VisitFieldActions
+              visitId={v.id}
+              status={v.status}
+              propertyAddress={`${v.property.address}, ${v.property.area}, Delhi`}
+              latitude={v.property.latitude}
+              longitude={v.property.longitude}
+              clientName={v.lead.clientName}
+              clientPhone={v.lead.phone}
+              ownerPhone={v.property.ownerPhone}
+              canSeeOwnerPhone={canSeeOwnerPhone}
+            />
           </div>
           {canManage && <div className="mt-2"><VisitRowActions visitId={v.id} status={v.status} outcome={v.outcome} /></div>}
         </div>

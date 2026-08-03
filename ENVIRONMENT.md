@@ -53,6 +53,16 @@ See `WHATSAPP_SETUP.md` for the full Meta dashboard walkthrough and production h
 | `STORAGE_ENDPOINT` | S3-compatible non-AWS host (MinIO, Backblaze B2) | Leave unset for real AWS S3. Local dev default: `http://localhost:9002` (MinIO via `docker-compose.yml`). Use the dedicated `R2` provider (not this one) for Cloudflare R2. |
 | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET` | `STORAGE_PROVIDER=FIREBASE` | Required together (validated) when Firebase is selected. Optional fallback provider only - never activated in this deployment (billing was not completed). From a Firebase service-account JSON - see DEPLOYMENT.md "2.4 Firebase Storage provider". `FIREBASE_PRIVATE_KEY` keeps its literal `\n` sequences; `src/lib/firebase-admin.ts` un-escapes them. Never prefix with `NEXT_PUBLIC_`. |
 
+## Maps & Localities
+
+| Variable | When needed | Notes |
+|---|---|---|
+| `MAPS_PROVIDER` | Always (has a default) | `DISABLED` (default) \| `GOOGLE`. Selects the provider in `src/integrations/maps/`. `DISABLED` means address search/map panels show a clear "not configured" state; manual address entry, property forms, visit scheduling, and external "Open in Google Maps"/directions/call/WhatsApp links all keep working with zero configuration. See GOOGLE_MAPS_SETUP.md. |
+| `GOOGLE_MAPS_SERVER_API_KEY` | `MAPS_PROVIDER=GOOGLE` | Server-only, never prefix with `NEXT_PUBLIC_`. Restrict by API (Geocoding/Places/Directions/Distance Matrix only) in Google Cloud Console - never give it an HTTP-referrer restriction. |
+| `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_API_KEY` | Optional with `MAPS_PROVIDER=GOOGLE` | Intentionally public (used by the browser for the embedded map preview). MUST be HTTP-referrer restricted to this app's domain. Leave empty to disable only the embed preview - external "Open in Google Maps" links still work either way. |
+| `GOOGLE_MAPS_MAP_ID` | Optional | Only needed for Advanced Markers on a future interactive JS map - not used by the current Embed API preview. |
+| `GOOGLE_MAPS_DEFAULT_REGION`, `GOOGLE_MAPS_DEFAULT_LANGUAGE`, `GOOGLE_MAPS_DEFAULT_CITY` | Always (have defaults) | Bias address search/geocoding toward Delhi-NCR (`IN` / `en` / `Delhi`). |
+
 ## Rate limiting
 
 | Variable | When needed | Notes |

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchPropertyToLead, matchPropertiesToLead } from "./matching";
+import { matchPropertyToLead, matchPropertiesToLead, applyProximityBonus } from "./matching";
 import type { Property, Lead } from "@prisma/client";
 
 function property(overrides: Partial<Property> = {}): Property {
@@ -153,5 +153,32 @@ describe("matchPropertiesToLead - sorting", () => {
     ];
     const results = matchPropertiesToLead(properties, lead());
     expect(results[0].property.id).toBe("perfect");
+  });
+});
+
+describe("applyProximityBonus", () => {
+  it("adds a small bonus for a very close property", () => {
+    const base = matchPropertyToLead(property({ furnishing: "UNFURNISHED" }), lead({ furnishingPref: "FURNISHED" }))!;
+    const withBonus = applyProximityBonus(base, 100); // 100m away
+    expect(withBonus.score).toBeGreaterThan(base.score);
+  });
+
+  it("adds no bonus beyond the proximity radius", () => {
+    const base = matchPropertyToLead(property({ furnishing: "UNFURNISHED" }), lead({ furnishingPref: "FURNISHED" }))!;
+    const withBonus = applyProximityBonus(base, 10_000); // 10km away
+    expect(withBonus.score).toBe(base.score);
+  });
+
+  it("adds no bonus when distance is null (no coordinates available)", () => {
+    const base = matchPropertyToLead(property(), lead())!;
+    const withBonus = applyProximityBonus(base, null);
+    expect(withBonus).toEqual(base);
+  });
+
+  it("never pushes the score above 100", () => {
+    const base = matchPropertyToLead(property(), lead())!;
+    const maxed = { ...base, score: 98 };
+    const withBonus = applyProximityBonus(maxed, 0);
+    expect(withBonus.score).toBeLessThanOrEqual(100);
   });
 });

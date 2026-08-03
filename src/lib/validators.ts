@@ -12,6 +12,9 @@ export const propertySchema = z.object({
   landmark: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
+  pincode: z.string().max(10).optional().nullable(),
+  formattedAddress: z.string().optional().nullable(),
+  placeId: z.string().optional().nullable(),
   monthlyRent: z.number().int().positive().optional().nullable(),
   securityDeposit: z.number().int().nonnegative().optional().nullable(),
   maintenanceCharge: z.number().int().nonnegative().optional().nullable(),
@@ -92,6 +95,11 @@ export const visitSchema = z.object({
   employeeNotes: z.string().optional().nullable(),
   outcome: z.enum(["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION"]).optional().nullable(),
   followUpAction: z.string().optional().nullable(),
+  // Route-aware conflict override (Maps & Localities phase) - set only when
+  // the caller has already seen a WARNING conflict response and explicitly
+  // chooses to proceed anyway. See src/lib/visit-conflict.ts.
+  overrideConflict: z.boolean().optional(),
+  overrideReason: z.string().min(3).optional(),
 });
 
 export const followUpSchema = z.object({

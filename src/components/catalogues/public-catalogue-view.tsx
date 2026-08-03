@@ -155,7 +155,7 @@ function PropertyCard({ property, token }: { property: PublicCatalogueProperty; 
             <div className="mt-3 flex flex-wrap gap-2">
               {mapsUrl && (
                 <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
-                  <Navigation className="h-3.5 w-3.5" /> Open in Maps
+                  <Navigation className="h-3.5 w-3.5" /> {property.locationDisclosure === "APPROXIMATE" ? "Open Approximate Area" : "Open in Maps"}
                 </a>
               )}
               <ActionButton icon={ThumbsUp} label="Interested" done={done.has("INTERESTED")} onClick={() => interact("INTERESTED")} loading={submitting} tone="green" />

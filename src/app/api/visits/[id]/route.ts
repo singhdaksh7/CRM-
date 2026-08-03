@@ -6,6 +6,8 @@ import { logActivity } from "@/lib/activity";
 import { recalculateLeadScore } from "@/lib/scoring";
 import { createNotification } from "@/lib/notifications";
 import { getOrganizationId } from "@/lib/organization";
+import { checkVisitConflict } from "@/lib/visit-conflict";
+import { recordAudit } from "@/lib/audit";
 import type { LeadStatus, VisitOutcome } from "@prisma/client";
 
 // Visit outcome -> lead status mapping (a small, low-risk slice of the
@@ -29,11 +31,54 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const body = await req.json();
-    const data = visitSchema.partial().parse(body);
+    const { overrideConflict, overrideReason, ...data } = visitSchema.partial().parse(body);
+
+    const reschedule = data.visitDate !== undefined || data.visitTime !== undefined || data.assignedToId !== undefined || data.propertyId !== undefined;
+    let conflictData: Record<string, unknown> = {};
+
+    if (reschedule) {
+      const nextEmployeeId = data.assignedToId !== undefined ? data.assignedToId : existing.assignedToId;
+      const nextVisitDate = data.visitDate ? new Date(data.visitDate) : existing.visitDate;
+      const nextVisitTime = data.visitTime ?? existing.visitTime;
+      const nextPropertyId = data.propertyId ?? existing.propertyId;
+
+      if (nextEmployeeId) {
+        const conflict = await checkVisitConflict({
+          visitId: existing.id,
+          employeeId: nextEmployeeId,
+          organizationId,
+          visitDate: nextVisitDate,
+          visitTime: nextVisitTime,
+          propertyId: nextPropertyId,
+        });
+
+        if (conflict.status === "WARNING" && !overrideConflict) {
+          await recordAudit({ userId: session.user.id, action: "OTHER", entityType: "Visit", entityId: existing.id, newValues: { event: "visit_conflict_detected", detail: conflict.detail } });
+          return NextResponse.json({ conflict, requiresOverride: true }, { status: 409 });
+        }
+        if (conflict.status === "WARNING" && overrideConflict) {
+          if (session.user.role === "FIELD_EXECUTIVE") throw new ApiError(403, "Only an Admin or Data Manager can override a scheduling conflict");
+          if (!overrideReason) throw new ApiError(400, "overrideReason is required to proceed despite a detected conflict");
+          await recordAudit({ userId: session.user.id, action: "OTHER", entityType: "Visit", entityId: existing.id, newValues: { event: "visit_conflict_overridden", reason: overrideReason, detail: conflict.detail } });
+        }
+
+        conflictData = {
+          travelDurationMinutes: conflict.travelDurationMinutes,
+          travelDistanceMeters: conflict.travelDistanceMeters,
+          routeCheckedAt: conflict.routeSource !== "NONE" ? new Date() : null,
+          routeSource: conflict.routeSource,
+          conflictStatus: conflict.status === "WARNING" ? "OVERRIDDEN" : "NONE",
+          conflictDetail: conflict.detail,
+          conflictOverrideReason: conflict.status === "WARNING" ? overrideReason : null,
+          conflictOverrideByUserId: conflict.status === "WARNING" ? session.user.id : null,
+          conflictOverrideAt: conflict.status === "WARNING" ? new Date() : null,
+        };
+      }
+    }
 
     const visit = await prisma.visit.update({
       where: { id },
-      data: { ...data, visitDate: data.visitDate ? new Date(data.visitDate) : undefined },
+      data: { ...data, visitDate: data.visitDate ? new Date(data.visitDate) : undefined, ...conflictData },
     });
 
     if (data.status === "COMPLETED" && existing.status !== "COMPLETED") {

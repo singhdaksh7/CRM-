@@ -6,6 +6,13 @@ const MANAGED_KEYS = [
   "AUTH_SECRET",
   "NEXTAUTH_URL",
   "NEXT_PUBLIC_APP_URL",
+  "MAPS_PROVIDER",
+  "GOOGLE_MAPS_SERVER_API_KEY",
+  "NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_API_KEY",
+  "GOOGLE_MAPS_MAP_ID",
+  "GOOGLE_MAPS_DEFAULT_REGION",
+  "GOOGLE_MAPS_DEFAULT_LANGUAGE",
+  "GOOGLE_MAPS_DEFAULT_CITY",
   "STORAGE_PROVIDER",
   "R2_ACCOUNT_ID",
   "R2_ACCESS_KEY_ID",
@@ -127,5 +134,44 @@ describe("validateEnv - STORAGE_PROVIDER=R2", () => {
 describe("validateEnv - STORAGE_PROVIDER=DISABLED (default)", () => {
   it("passes with no storage variables set at all", () => {
     expect(() => validateEnv()).not.toThrow();
+  });
+});
+
+describe("validateEnv - MAPS_PROVIDER", () => {
+  it("passes with no maps variables set at all (defaults to DISABLED)", () => {
+    expect(() => validateEnv()).not.toThrow();
+  });
+
+  it("rejects GOOGLE with no server key", () => {
+    process.env.MAPS_PROVIDER = "GOOGLE";
+    expect(() => validateEnv()).toThrow(/GOOGLE_MAPS_SERVER_API_KEY/);
+  });
+
+  it("passes with GOOGLE and a server key", () => {
+    process.env.MAPS_PROVIDER = "GOOGLE";
+    process.env.GOOGLE_MAPS_SERVER_API_KEY = "key";
+    expect(() => validateEnv()).not.toThrow();
+  });
+
+  it("rejects an invalid GOOGLE_MAPS_DEFAULT_REGION", () => {
+    process.env.GOOGLE_MAPS_DEFAULT_REGION = "India";
+    expect(() => validateEnv()).toThrow(/GOOGLE_MAPS_DEFAULT_REGION/);
+  });
+
+  it("rejects an invalid GOOGLE_MAPS_DEFAULT_LANGUAGE", () => {
+    process.env.GOOGLE_MAPS_DEFAULT_LANGUAGE = "english";
+    expect(() => validateEnv()).toThrow(/GOOGLE_MAPS_DEFAULT_LANGUAGE/);
+  });
+
+  it("never surfaces the actual server key value in a thrown validation error", () => {
+    process.env.MAPS_PROVIDER = "GOOGLE";
+    process.env.GOOGLE_MAPS_DEFAULT_REGION = "India"; // trigger a failure while the (unused) key below is set
+    process.env.GOOGLE_MAPS_SERVER_API_KEY = "super-secret-maps-key";
+    try {
+      validateEnv();
+      throw new Error("expected validateEnv to throw");
+    } catch (err) {
+      expect((err as Error).message).not.toContain("super-secret-maps-key");
+    }
   });
 });

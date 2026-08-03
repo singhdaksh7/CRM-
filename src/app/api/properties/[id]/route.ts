@@ -28,6 +28,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(amenities ? { amenities: JSON.stringify(amenities) } : {}),
         ...(images ? { images: JSON.stringify(images) } : {}),
         ...(availableFrom !== undefined ? { availableFrom: availableFrom ? new Date(availableFrom) : null } : {}),
+        // A coordinate submitted alongside a placeId came from the address
+        // search's confirmed geocode result (see property-address-search.tsx).
+        ...(data.latitude != null && data.placeId ? { geocodeStatus: "SUCCESS" as const, geocodedAt: new Date() } : {}),
       },
     });
     return NextResponse.json({ property });

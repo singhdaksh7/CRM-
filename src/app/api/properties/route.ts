@@ -71,6 +71,10 @@ export async function POST(req: NextRequest) {
         images: JSON.stringify(data.images),
         availableFrom: data.availableFrom ? new Date(data.availableFrom) : null,
         createdById: session.user.id,
+        // A coordinate submitted alongside a placeId came from the address
+        // search's confirmed geocode result (see property-address-search.tsx)
+        // - record it the same way the dedicated /geocode route would.
+        ...(data.latitude != null && data.placeId ? { geocodeStatus: "SUCCESS" as const, geocodedAt: new Date() } : {}),
       },
     });
     return NextResponse.json({ property }, { status: 201 });

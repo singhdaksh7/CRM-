@@ -2,11 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
-import { Building, MessageCircle, Sparkles, Users, Database, Workflow } from "lucide-react";
+import { Building, MessageCircle, Sparkles, Users, Database, Workflow, Map } from "lucide-react";
 import { AssignmentRulesPanel } from "@/components/settings/assignment-rules-panel";
 import { WhatsAppDiagnosticsPanel } from "@/components/settings/whatsapp-diagnostics-panel";
+import { MapsDiagnosticsPanel } from "@/components/settings/maps-diagnostics-panel";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
 import { listWhatsAppTemplates } from "@/integrations/whatsapp/whatsapp-templates";
+import { getMapsCapabilitiesDTO } from "@/lib/maps-capabilities";
 
 export default async function SettingsPage() {
   const [propertyCount, leadCount, userCount, session] = await Promise.all([
@@ -17,6 +19,7 @@ export default async function SettingsPage() {
   ]);
   const whatsapp = getWhatsAppConfigStatus();
   const templates = listWhatsAppTemplates();
+  const maps = getMapsCapabilitiesDTO();
   const isAdmin = session?.user?.role === "ADMIN";
 
   return (
@@ -74,6 +77,24 @@ export default async function SettingsPage() {
           🔒 Secrets are securely validated server-side and never exposed to the client browser.
         </p>
         {isAdmin && <WhatsAppDiagnosticsPanel />}
+      </SettingsSection>
+
+      <SettingsSection icon={Map} title="Maps & Localities">
+        <Row label="Provider" value={<Badge tone={maps.configured ? "green" : "slate"}>{maps.configured ? "Google Maps (Configured)" : "Not configured"}</Badge>} />
+        <ConfigRow label="Server Key" status={maps.configured ? "configured" : "missing"} />
+        <ConfigRow label="Browser Key" status={maps.browserKeyConfigured ? "configured" : "missing"} />
+        <Row label="Default Region" value={maps.defaultRegion} />
+        <Row label="Default Language" value={maps.defaultLanguage} />
+        <Row label="Default City" value={maps.defaultCity} />
+        {!maps.configured && (
+          <p className="rounded-lg border border-dashed border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.05)] p-3 text-xs text-[#94A3B8]">
+            Maps integration is not configured. Address search and map previews are unavailable, but manual address entry, property forms, and external &quot;Open in Google Maps&quot; links continue to work with zero configuration.
+          </p>
+        )}
+        <p className="text-xs text-[#94A3B8] border-t border-[rgba(255,255,255,0.06)] pt-2.5">
+          🔒 Keys are securely validated server-side and never exposed beyond what this page shows.
+        </p>
+        {isAdmin && <MapsDiagnosticsPanel />}
       </SettingsSection>
 
       <SettingsSection icon={Sparkles} title="Property Matching Engine">
