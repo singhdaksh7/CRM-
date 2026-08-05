@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+// Treats a blank/whitespace-only string as "not provided" before running the
+// underlying check, so optional fields left empty in the Add Property form
+// don't get validated as if they were filled in (e.g. an empty URL field
+// failing a .url() check, or an empty phone field failing a digits check).
+function optionalWhenBlank<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), schema.nullable().optional());
+}
+
+const optionalUrl = optionalWhenBlank(z.string().url());
+const alternatePhoneField = optionalWhenBlank(z.string().regex(/^[0-9+\-\s()]{7,20}$/, "Alternate phone must contain digits only"));
+const pincodeField = optionalWhenBlank(z.string().regex(/^[0-9]{6}$/, "Pincode must be a 6-digit number"));
+
 export const propertySchema = z.object({
   title: z.string().min(3),
   propertyType: z.enum(["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG"]),
@@ -12,7 +24,7 @@ export const propertySchema = z.object({
   landmark: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
-  pincode: z.string().max(10).optional().nullable(),
+  pincode: pincodeField,
   formattedAddress: z.string().optional().nullable(),
   placeId: z.string().optional().nullable(),
   monthlyRent: z.number().int().positive().optional().nullable(),
@@ -39,13 +51,13 @@ export const propertySchema = z.object({
   availableFrom: z.string().optional().nullable(),
   amenities: z.array(z.string()).default([]),
   images: z.array(z.string()).default([]),
-  coverImage: z.string().optional().nullable(),
-  videoUrl: z.string().optional().nullable(),
-  virtualTourUrl: z.string().optional().nullable(),
+  coverImage: optionalUrl,
+  videoUrl: optionalUrl,
+  virtualTourUrl: optionalUrl,
   floorPlanImage: z.string().optional().nullable(),
   ownerName: z.string().min(2),
   ownerPhone: z.string().min(8),
-  ownerAlternatePhone: z.string().optional().nullable(),
+  ownerAlternatePhone: alternatePhoneField,
   ownerNotes: z.string().optional().nullable(),
 });
 
