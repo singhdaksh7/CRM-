@@ -2,10 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
-import { Building, MessageCircle, Sparkles, Users, Database, Workflow, Map } from "lucide-react";
+import { Building, MessageCircle, Sparkles, Users, Database, Workflow, Map, Settings2, Zap } from "lucide-react";
 import { AssignmentRulesPanel } from "@/components/settings/assignment-rules-panel";
 import { WhatsAppDiagnosticsPanel } from "@/components/settings/whatsapp-diagnostics-panel";
 import { MapsDiagnosticsPanel } from "@/components/settings/maps-diagnostics-panel";
+import { SystemConfigPanel } from "@/components/settings/system-config-panel";
+import { AutomationRulesPanel } from "@/components/settings/automation-rules-panel";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
 import { listWhatsAppTemplates } from "@/integrations/whatsapp/whatsapp-templates";
 import { getMapsCapabilitiesDTO } from "@/lib/maps-capabilities";
@@ -108,6 +110,24 @@ export default async function SettingsPage() {
         </p>
         <AssignmentRulesPanel />
       </SettingsSection>
+
+      {isAdmin && (
+        <SettingsSection icon={Settings2} title="System Configuration">
+          <p className="mb-4 text-xs text-[#8A94A6]">
+            Business rules previously hardcoded in the app - hot lead threshold, health score weights, matching radius/budget tolerance, follow-up SLA, visit reminders, notification throttling, catalogue expiry, and business hours.
+          </p>
+          <SystemConfigPanel />
+        </SettingsSection>
+      )}
+
+      {isAdmin && (
+        <SettingsSection icon={Zap} title="Automation Rules Engine">
+          <p className="mb-4 text-xs text-[#8A94A6]">
+            When X happens, do Y. Rules run best-effort right after the triggering event and never block it - a failing rule is logged, not surfaced as an error.
+          </p>
+          <AutomationRulesPanel />
+        </SettingsSection>
+      )}
 
       <SettingsSection icon={Users} title="Team & Roles">
         <Row label="Admin" value={ROLE_LABELS.ADMIN + " — full system & settings access"} />

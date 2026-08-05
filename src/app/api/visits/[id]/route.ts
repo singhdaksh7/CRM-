@@ -8,6 +8,7 @@ import { createNotification } from "@/lib/notifications";
 import { getOrganizationId } from "@/lib/organization";
 import { checkVisitConflict } from "@/lib/visit-conflict";
 import { recordAudit } from "@/lib/audit";
+import { runAutomationRules } from "@/lib/automation-rules";
 import type { LeadStatus, VisitOutcome } from "@prisma/client";
 
 // Visit outcome -> lead status mapping (a small, low-risk slice of the
@@ -93,6 +94,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         },
       });
       await recalculateLeadScore(existing.leadId, "VISIT_COMPLETED");
+      await runAutomationRules({ trigger: "VISIT_COMPLETED", visitId: existing.id, leadId: existing.leadId, organizationId });
     } else if (data.status === "RESCHEDULED" && existing.status !== "RESCHEDULED") {
       await logActivity({ leadId: existing.leadId, type: "STATUS_CHANGED", description: "Visit rescheduled", actorId: session.user.id });
       if (existing.assignedToId) {

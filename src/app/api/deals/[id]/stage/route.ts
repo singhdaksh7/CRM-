@@ -15,6 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       stage: data.stage,
       notes: data.notes,
       lostReason: data.lostReason,
+      lostReasonCategory: data.lostReasonCategory,
       actorId: session.user.id,
       actorRole: session.user.role,
     });

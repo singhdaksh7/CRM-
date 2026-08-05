@@ -137,6 +137,14 @@ export const assignmentRuleSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+export const automationRuleSchema = z.object({
+  name: z.string().min(2),
+  trigger: z.enum(["LEAD_CREATED", "VISIT_COMPLETED", "CATALOGUE_OPENED", "PAYMENT_RECEIVED"]),
+  actionType: z.enum(["ASSIGN_EMPLOYEE", "CREATE_FOLLOW_UP", "NOTIFY_EMPLOYEE", "MARK_DEAL_CLOSED"]),
+  actionConfig: z.record(z.string(), z.unknown()).default({}),
+  isActive: z.boolean().default(true),
+});
+
 // ---------------------------------------------------------------------------
 // Phase 2B - WhatsApp + Catalogue
 // ---------------------------------------------------------------------------
@@ -227,6 +235,7 @@ export const dealStageUpdateSchema = z.object({
   stage: z.enum(["INQUIRY", "NEGOTIATION", "AGREEMENT", "TOKEN_RECEIVED", "DOCUMENTATION", "REGISTRATION", "CLOSED_WON", "CLOSED_LOST"]),
   notes: z.string().optional().nullable(),
   lostReason: z.string().optional().nullable(),
+  lostReasonCategory: z.enum(["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"]).optional().nullable(),
 });
 
 export const brokerageCalculationSchema = z.object({

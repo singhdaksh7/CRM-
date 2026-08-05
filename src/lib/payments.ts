@@ -6,6 +6,7 @@ import { recordAudit } from "./audit";
 import { Prisma, type PaymentStatus } from "@prisma/client";
 import { checkOverpayment } from "./payments-calc";
 import { logger } from "./logger";
+import { runAutomationRules } from "./automation-rules";
 
 /** Sequential, human-readable receipt numbers, e.g. RCPT-00001. Only assigned once a payment is marked PAID. */
 export async function generateReceiptNumber(): Promise<string> {
@@ -67,6 +68,7 @@ export async function updatePaymentStatus(params: {
       metadata: { paymentId: payment.id, amount: payment.amount, receiptNumber: updated.receiptNumber },
     });
     logger.info("payment_marked_paid", { paymentId: payment.id, dealId: payment.dealId, amount: payment.amount, receiptNumber: updated.receiptNumber, actorId: params.actorId });
+    await runAutomationRules({ trigger: "PAYMENT_RECEIVED", paymentId: payment.id, dealId: payment.dealId, organizationId });
   }
 
   await recordAudit({
