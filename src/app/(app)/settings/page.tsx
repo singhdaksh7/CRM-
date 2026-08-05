@@ -24,9 +24,9 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="border-b border-[rgba(255,255,255,0.08)] pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">System & Integration Settings</h1>
-        <p className="mt-1 text-sm text-[#94A3B8]">Organization profile, WhatsApp credentials, matching logic & lead rules</p>
+      <div className="border-b border-[#E7ECF2] pb-4">
+        <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">System & Integration Settings</h1>
+        <p className="mt-1 text-sm text-[#596579]">Organization profile, WhatsApp credentials, matching logic & lead rules</p>
       </div>
 
       <SettingsSection icon={Building} title="Company Profile">
@@ -64,7 +64,7 @@ export default async function SettingsPage() {
           }
         />
         <div>
-          <p className="mb-1.5 text-xs font-semibold text-[#94A3B8]">Templates</p>
+          <p className="mb-1.5 text-xs font-semibold text-[#8A94A6]">Templates</p>
           <div className="flex flex-wrap gap-1.5">
             {templates.map((t) => (
               <Badge key={t.useCase} tone={t.approved ? "green" : "slate"}>
@@ -73,7 +73,7 @@ export default async function SettingsPage() {
             ))}
           </div>
         </div>
-        <p className="text-xs text-[#94A3B8] border-t border-[rgba(255,255,255,0.06)] pt-2.5">
+        <p className="text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">
           🔒 Secrets are securely validated server-side and never exposed to the client browser.
         </p>
         {isAdmin && <WhatsAppDiagnosticsPanel />}
@@ -87,11 +87,11 @@ export default async function SettingsPage() {
         <Row label="Default Language" value={maps.defaultLanguage} />
         <Row label="Default City" value={maps.defaultCity} />
         {!maps.configured && (
-          <p className="rounded-lg border border-dashed border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.05)] p-3 text-xs text-[#94A3B8]">
+          <p className="rounded-xl border border-dashed border-[#FCE8E6] bg-[#FFF8F7] p-3 text-xs text-[#8A94A6]">
             Maps integration is not configured. Address search and map previews are unavailable, but manual address entry, property forms, and external &quot;Open in Google Maps&quot; links continue to work with zero configuration.
           </p>
         )}
-        <p className="text-xs text-[#94A3B8] border-t border-[rgba(255,255,255,0.06)] pt-2.5">
+        <p className="text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">
           🔒 Keys are securely validated server-side and never exposed beyond what this page shows.
         </p>
         {isAdmin && <MapsDiagnosticsPanel />}
@@ -103,7 +103,7 @@ export default async function SettingsPage() {
       </SettingsSection>
 
       <SettingsSection icon={Workflow} title="Automatic Lead Assignment Rules">
-        <p className="mb-4 text-xs text-[#94A3B8]">
+        <p className="mb-4 text-xs text-[#8A94A6]">
           Rules run in priority order against every new lead (manual entry or portal webhook). The first active rule matching source or location decides assignment.
         </p>
         <AssignmentRulesPanel />
@@ -127,11 +127,11 @@ export default async function SettingsPage() {
 
 function SettingsSection({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm space-y-3">
-      <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">
-        <Icon className="h-4 w-4 text-[#4F8CFF]" /> {title}
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-3">
+      <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
+        <Icon className="h-4 w-4 text-[#3366FF]" /> {title}
       </h3>
-      <div className="space-y-3.5 border-t border-[rgba(255,255,255,0.06)] pt-3">{children}</div>
+      <div className="space-y-3.5 border-t border-[#EFF4FF] pt-3">{children}</div>
     </div>
   );
 }
@@ -139,8 +139,8 @@ function SettingsSection({ icon: Icon, title, children }: { icon: React.Componen
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-      <span className="text-[#94A3B8]">{label}</span>
-      <span className="font-semibold text-[#F8FAFC]">{value}</span>
+      <span className="text-[#8A94A6]">{label}</span>
+      <span className="font-semibold text-[#1B2430]">{value}</span>
     </div>
   );
 }

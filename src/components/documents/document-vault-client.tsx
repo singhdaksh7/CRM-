@@ -114,10 +114,10 @@ export function DocumentVaultClient({ role }: { role: Role }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-3 border-b border-[rgba(255,255,255,0.08)] pb-4 sm:flex-row sm:items-start">
+      <div className="flex flex-col justify-between gap-3 border-b border-[#E7ECF2] pb-4 sm:flex-row sm:items-start">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Documents</h1>
-          <p className="mt-1 text-sm text-[#94A3B8]">Securely manage property, owner, lead, deal, and payment files</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Documents</h1>
+          <p className="mt-1 text-sm text-[#596579]">Securely manage property, owner, lead, deal, and payment files</p>
         </div>
         {!capsLoading && uploadsEnabled && (
           <Button onClick={() => setUploadOpen(true)}>
@@ -141,7 +141,7 @@ export function DocumentVaultClient({ role }: { role: Role }) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by file name..." className="pl-9" aria-label="Search documents" />
         </div>
         <Select value={entityType} onChange={(e) => setEntityType(e.target.value as DocumentEntityType | "")} aria-label="Filter by entity type" className="sm:w-48">
@@ -161,7 +161,7 @@ export function DocumentVaultClient({ role }: { role: Role }) {
       {error ? <ErrorState description={error} action={<Button onClick={load}>Retry</Button>} /> : <DocumentList documents={documents} loading={loading} onOpen={setSelected} />}
 
       {total > PAGE_SIZE && (
-        <div className="flex items-center justify-between text-xs text-[#94A3B8]">
+        <div className="flex items-center justify-between text-xs text-[#8A94A6]">
           <span>Showing {skip + 1}-{Math.min(skip + PAGE_SIZE, total)} of {total}</span>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" disabled={skip === 0} onClick={() => setSkip((s) => Math.max(0, s - PAGE_SIZE))}>Previous</Button>

@@ -34,9 +34,9 @@ export default async function NotificationsPage({ searchParams }: { searchParams
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-[rgba(255,255,255,0.08)] pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Notifications Centre</h1>
-        <p className="mt-1 text-sm text-[#94A3B8]">Alerts & operational updates across leads, site visits, and follow-ups.</p>
+      <div className="border-b border-[#E7ECF2] pb-4">
+        <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Notifications Centre</h1>
+        <p className="mt-1 text-sm text-[#596579]">Alerts & operational updates across leads, site visits, and follow-ups.</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -47,7 +47,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         ))}
       </div>
 
-      <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-2 shadow-sm">
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-2 shadow-xs">
         <NotificationList notifications={notifications} />
       </div>
 
@@ -63,8 +63,8 @@ function FilterChip({ href, active, label }: { href: string; active: boolean; la
       className={cn(
         "rounded-full px-3 py-1.5 text-xs font-semibold transition-all border",
         active
-          ? "bg-[#4F8CFF] text-white border-[#4F8CFF] shadow-sm"
-          : "bg-[#181E2A] text-[#CBD5E1] border-[rgba(255,255,255,0.08)] hover:bg-[#1E2533] hover:text-white"
+          ? "bg-[#3366FF] text-white border-[#3366FF] shadow-xs"
+          : "bg-white text-[#596579] border-[#E7ECF2] hover:bg-[#F3F6FA] hover:text-[#1B2430]"
       )}
     >
       {label}

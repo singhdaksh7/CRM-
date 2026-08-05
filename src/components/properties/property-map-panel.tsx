@@ -113,23 +113,23 @@ export function PropertyMapPanel(props: PropertyMapPanelProps) {
   const mapHref = hasCoordinates ? viewOnMapUrl({ latitude: location.latitude!, longitude: location.longitude! }) : directionsHref;
 
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
-          <MapPin className="h-4 w-4 text-[#4F8CFF]" /> Location
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">
+          <MapPin className="h-4 w-4 text-[#3366FF]" /> Location
         </h3>
         <Badge tone={GEOCODE_STATUS_TONE[location.geocodeStatus] ?? "slate"}>{location.geocodeStatus.replace(/_/g, " ")}</Badge>
       </div>
 
-      <p className="text-sm text-[#CBD5E1]">{location.formattedAddress ?? destinationAddress}</p>
-      <p className="mt-1 text-xs text-[#94A3B8]">
+      <p className="text-sm text-[#596579]">{location.formattedAddress ?? destinationAddress}</p>
+      <p className="mt-1 text-xs text-[#8A94A6]">
         {location.area}
         {location.pincode ? ` · ${location.pincode}` : ""}
         {location.landmark ? ` · Near ${location.landmark}` : ""}
       </p>
 
       {capabilities?.browserKeyConfigured && hasCoordinates && (
-        <div className="mt-3 overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)]">
+        <div className="mt-3 overflow-hidden rounded-xl border border-[#E7ECF2]">
           <iframe
             title={`Map showing ${location.area}`}
             width="100%"
@@ -143,19 +143,19 @@ export function PropertyMapPanel(props: PropertyMapPanelProps) {
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <a href={directionsHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#22bf5b]">
+        <a href={directionsHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#20bd5a]">
           <Navigation className="h-3.5 w-3.5" /> Get Directions
         </a>
-        <a href={mapHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E2533] px-3 py-1.5 text-xs font-semibold text-[#F8FAFC] hover:bg-[#252D3D]">
+        <a href={mapHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] px-3 py-1.5 text-xs font-semibold text-[#1B2430] hover:bg-[#F3F6FA]">
           <ExternalLink className="h-3.5 w-3.5" /> Open in Google Maps
         </a>
-        <button onClick={copyLocation} className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] px-3 py-1.5 text-xs font-semibold text-[#CBD5E1] hover:bg-[#1E2533]">
+        <button onClick={copyLocation} className="inline-flex items-center gap-1.5 rounded-xl border border-[#E7ECF2] bg-white px-3 py-1.5 text-xs font-semibold text-[#596579] hover:bg-[#F3F6FA]">
           <Copy className="h-3.5 w-3.5" /> Copy Location
         </button>
       </div>
 
       {canManage && (
-        <div className="mt-4 space-y-3 border-t border-[rgba(255,255,255,0.06)] pt-3">
+        <div className="mt-4 space-y-3 border-t border-[#EFF4FF] pt-3">
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" variant="secondary" onClick={reGeocode} loading={geocoding} disabled={!capabilities?.configured}>
               <RefreshCw className="h-3.5 w-3.5" /> Re-geocode
@@ -166,10 +166,10 @@ export function PropertyMapPanel(props: PropertyMapPanelProps) {
               </Button>
             )}
           </div>
-          {!capabilities?.configured && <p className="text-[11px] text-[#94A3B8]">Re-geocoding requires Maps to be configured (currently disabled).</p>}
+          {!capabilities?.configured && <p className="text-[11px] text-[#8A94A6]">Re-geocoding requires Maps to be configured (currently disabled).</p>}
 
           <div>
-            <label className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">
+            <label className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#8A94A6]">
               <EyeOff className="h-3 w-3" /> Public Catalogue Visibility
             </label>
             <Select value={location.publicLocationMode} onChange={(e) => changePublicMode(e.target.value)} disabled={updatingMode}>

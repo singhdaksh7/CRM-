@@ -14,9 +14,6 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
   const page = parsePage(sp.page);
   const organizationId = getOrganizationId();
 
-  // Directory listing is a good short-lived cache candidate (30s) - it's
-  // not used for any permission or financial decision, just display.
-  // Invalidated immediately on create/update (see /api/employees routes).
   const { employees, totalCount } = await withTiming("employeesPageQuery", "/employees", () =>
     cached(`employees:list:${organizationId}:${page}`, 30, () =>
       Promise.all([
@@ -34,17 +31,17 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[rgba(255,255,255,0.08)] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Team & Operations Directory</h1>
-          <p className="mt-1 text-sm text-[#94A3B8]">{totalCount} team members in NCR brokerage network</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Team & Operations Directory</h1>
+          <p className="mt-1 text-sm text-[#596579]">{totalCount} team members in NCR brokerage network</p>
         </div>
         <AddEmployeeModal />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] shadow-sm">
-        <table className="min-w-full divide-y divide-[rgba(255,255,255,0.08)] text-sm">
-          <thead className="bg-[#11151F] text-left text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+      <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
+        <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
+          <thead className="bg-[#FAFBFC] text-left text-xs font-semibold uppercase tracking-wider text-[#8A94A6]">
             <tr>
               <th className="px-4 py-3.5">Name</th>
               <th className="px-4 py-3.5">Role</th>
@@ -56,22 +53,22 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
               <th className="px-4 py-3.5">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[rgba(255,255,255,0.06)] text-[#CBD5E1]">
+          <tbody className="divide-y divide-[#EFF4FF] text-[#596579]">
             {employees.map((e) => (
-              <tr key={e.id} className="hover:bg-[#1E2533] transition-colors">
-                <td className="px-4 py-3.5 font-bold text-[#F8FAFC]">
-                  <Link href={`/employees/${e.id}`} className="hover:text-[#4F8CFF] transition-colors">{e.name}</Link>
+              <tr key={e.id} className="hover:bg-[#F3F6FA] transition-colors">
+                <td className="px-4 py-3.5 font-bold text-[#1B2430]">
+                  <Link href={`/employees/${e.id}`} className="hover:text-[#3366FF] transition-colors">{e.name}</Link>
                 </td>
                 <td className="px-4 py-3.5">{ROLE_LABELS[e.role]}</td>
                 <td className="px-4 py-3.5">
                   <p>{e.email}</p>
-                  {e.phone && <p className="text-xs text-[#94A3B8] font-mono mt-0.5">{e.phone}</p>}
+                  {e.phone && <p className="text-xs text-[#8A94A6] font-mono mt-0.5">{e.phone}</p>}
                 </td>
-                <td className="px-4 py-3.5 font-semibold">
+                <td className="px-4 py-3.5 font-semibold text-[#1B2430]">
                   {e.role === "FIELD_EXECUTIVE" ? `${e._count.assignedLeads} / ${e.maxActiveLeads}` : e._count.assignedLeads}
                 </td>
-                <td className="px-4 py-3.5 font-semibold text-[#4F8CFF]">{e._count.assignedVisits}</td>
-                <td className="px-4 py-3.5 font-semibold text-[#A78BFA]">{e._count.followUps}</td>
+                <td className="px-4 py-3.5 font-semibold text-[#3366FF]">{e._count.assignedVisits}</td>
+                <td className="px-4 py-3.5 font-semibold text-[#8B5CF6]">{e._count.followUps}</td>
                 <td className="px-4 py-3.5">
                   {e.role === "FIELD_EXECUTIVE" ? <Badge tone={e.isAvailable ? "green" : "slate"}>{e.isAvailable ? "Available" : "Unavailable"}</Badge> : "-"}
                 </td>

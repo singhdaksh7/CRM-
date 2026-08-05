@@ -9,8 +9,8 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Reports</h1>
-        <p className="text-sm text-slate-500">Business performance overview</p>
+        <h1 className="text-xl font-bold text-[#1B2430]">Reports</h1>
+        <p className="text-sm text-[#596579]">Business performance overview</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -27,27 +27,27 @@ export default async function ReportsPage() {
         <BarChartCard title="Property Demand by Budget" data={data.propertyDemandByBudget.map((b) => ({ name: b.label, value: b.count }))} />
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-slate-700">Employee Performance</h3>
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+        <h3 className="mb-3 text-sm font-bold text-[#1B2430]">Employee Performance</h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+          <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
+            <thead className="bg-[#FAFBFC] text-left text-xs font-semibold uppercase tracking-wider text-[#8A94A6]">
               <tr>
-                <th className="px-4 py-2">Employee</th>
-                <th className="px-4 py-2">Active Leads</th>
-                <th className="px-4 py-2">Total Leads</th>
-                <th className="px-4 py-2">Deals Closed</th>
-                <th className="px-4 py-2">Total Visits</th>
+                <th className="px-4 py-2.5">Employee</th>
+                <th className="px-4 py-2.5">Active Leads</th>
+                <th className="px-4 py-2.5">Total Leads</th>
+                <th className="px-4 py-2.5">Deals Closed</th>
+                <th className="px-4 py-2.5">Total Visits</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#EFF4FF] text-[#596579]">
               {data.employeePerformance.map((e) => (
-                <tr key={e.name}>
-                  <td className="px-4 py-2 font-medium text-slate-800">{e.name}</td>
-                  <td className="px-4 py-2 text-slate-600">{e.activeLeads}</td>
-                  <td className="px-4 py-2 text-slate-600">{e.totalLeads}</td>
-                  <td className="px-4 py-2 text-slate-600">{e.closedWon}</td>
-                  <td className="px-4 py-2 text-slate-600">{e.totalVisits}</td>
+                <tr key={e.name} className="hover:bg-[#F3F6FA]">
+                  <td className="px-4 py-2.5 font-bold text-[#1B2430]">{e.name}</td>
+                  <td className="px-4 py-2.5">{e.activeLeads}</td>
+                  <td className="px-4 py-2.5">{e.totalLeads}</td>
+                  <td className="px-4 py-2.5 font-semibold text-[#1FA971]">{e.closedWon}</td>
+                  <td className="px-4 py-2.5 font-semibold text-[#3366FF]">{e.totalVisits}</td>
                 </tr>
               ))}
             </tbody>

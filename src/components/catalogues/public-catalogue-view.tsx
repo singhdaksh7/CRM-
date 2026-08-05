@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import type { PublicCatalogueDTO, PublicCatalogueProperty } from "@/lib/catalogues";
 
-/** Fire-and-forget page-level interaction (no propertyId) - used by Call Broker / WhatsApp Broker so it never delays the tel:/wa.me navigation. Prefers sendBeacon since the browser can be about to navigate away. */
 function recordPageInteraction(token: string, type: "CALL_REQUESTED" | "WHATSAPP_REQUESTED") {
   const body = JSON.stringify({ type });
   const url = `/api/catalogues/${token}/interactions`;
@@ -47,8 +46,6 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
   }
 
   useEffect(() => {
-    // Records the page view once on mount; the route handler owns
-    // viewer-identity (cookie) + dedup, so this is a fire-and-forget call.
     if (catalogue.status !== "ACTIVE") return;
     fetch(`/api/catalogues/${token}/view`, { method: "POST" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,11 +54,11 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
   if (catalogue.status !== "ACTIVE") {
     return (
       <main className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-8">
-        <p className="text-lg font-semibold text-slate-700">
+        <p className="text-lg font-bold text-[#1B2430]">
           This catalogue is {catalogue.status === "EXPIRED" ? "no longer available" : "no longer active"}.
         </p>
-        <p className="mt-2 text-sm text-slate-500">Please contact your broker for updated options.</p>
-        <a href={`tel:${catalogue.brokerageContactPhone}`} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white">
+        <p className="mt-2 text-sm text-[#596579]">Please contact your broker for updated options.</p>
+        <a href={`tel:${catalogue.brokerageContactPhone}`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#3366FF] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-[#2952CC]">
           <Phone className="h-4 w-4" /> Call {catalogue.brokerageName}
         </a>
       </main>
@@ -70,14 +67,14 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="text-xl font-semibold text-slate-900">{catalogue.title}</h1>
-        <p className="mt-1 text-sm text-slate-500">Hi {catalogue.clientFirstName}, {catalogue.introMessage || `here are properties matching ${catalogue.requirementSummary}.`}</p>
-        {catalogue.expiresAt && <p className="mt-1 text-xs text-slate-400">This link expires on {new Date(catalogue.expiresAt).toLocaleDateString("en-IN")}</p>}
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+        <h1 className="text-xl font-bold text-[#1B2430]">{catalogue.title}</h1>
+        <p className="mt-1 text-sm text-[#596579]">Hi {catalogue.clientFirstName}, {catalogue.introMessage || `here are properties matching ${catalogue.requirementSummary}.`}</p>
+        {catalogue.expiresAt && <p className="mt-1 text-xs text-[#8A94A6]">This link expires on {new Date(catalogue.expiresAt).toLocaleDateString("en-IN")}</p>}
       </div>
 
       {catalogue.properties.length === 0 ? (
-        <p className="mt-6 text-center text-sm text-slate-400">No properties in this catalogue.</p>
+        <p className="mt-6 text-center text-sm text-[#8A94A6]">No properties in this catalogue.</p>
       ) : (
         <div className="mt-4 space-y-4 pb-24">
           {catalogue.properties.map((p) => (
@@ -93,13 +90,13 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
         </div>
       )}
 
-      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-semibold text-slate-800">Have questions or ready to move forward?</p>
+      <div className="mt-6 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+        <p className="mb-3 text-sm font-bold text-[#1B2430]">Have questions or ready to move forward?</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <a
             href={`tel:${catalogue.brokerageContactPhone}`}
             onClick={() => recordPageInteraction(token, "CALL_REQUESTED")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white border border-[#E7ECF2] px-4 py-2.5 text-sm font-semibold text-[#1B2430] hover:bg-[#F3F6FA]"
           >
             <Phone className="h-4 w-4" /> Call Broker
           </a>
@@ -108,7 +105,7 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
             target="_blank"
             rel="noreferrer"
             onClick={() => recordPageInteraction(token, "WHATSAPP_REQUESTED")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#20bd5a]"
           >
             <MessageCircle className="h-4 w-4" /> WhatsApp Broker
           </a>
@@ -126,7 +123,6 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
   );
 }
 
-/** Sticky bottom panel for requesting visits across every checked property in one form - fires one VISIT_REQUESTED interaction per selected property. Selection is intentionally not cleared after submit, so the client-selected properties stay visible ("Recorded" state per card) instead of the checkboxes disappearing. */
 function BulkVisitBar({
   token,
   selectedIds,
@@ -165,20 +161,20 @@ function BulkVisitBar({
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+    <div className="fixed inset-x-0 bottom-0 z-10 border-t border-[#E7ECF2] bg-white p-4 shadow-lg">
       <div className="mx-auto max-w-3xl">
-        <p className="mb-2 text-sm font-semibold text-slate-800">Request visits for selected properties ({selectedIds.size})</p>
+        <p className="mb-2 text-sm font-bold text-[#1B2430]">Request visits for selected properties ({selectedIds.size})</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="date"
             value={preferredDate}
             onChange={(e) => setPreferredDate(e.target.value)}
-            className="flex-1 rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300"
+            className="flex-1 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] px-2 py-1.5 text-xs text-[#1B2430]"
           />
           <select
             value={preferredWindow}
             onChange={(e) => setPreferredWindow(e.target.value)}
-            className="flex-1 rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300"
+            className="flex-1 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] px-2 py-1.5 text-xs text-[#1B2430]"
           >
             <option value="">Any time</option>
             <option value="Morning">Morning</option>
@@ -190,17 +186,17 @@ function BulkVisitBar({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Optional message"
-            className="flex-1 rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300"
+            className="flex-1 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] px-2 py-1.5 text-xs text-[#1B2430]"
           />
           <button
             onClick={submit}
             disabled={submitting}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+            className="rounded-xl bg-[#3366FF] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-[#2952CC]"
           >
             {submitting ? "Requesting…" : "Request Visits"}
           </button>
         </div>
-        <p className="mt-2 text-[11px] text-slate-400">We&apos;ll have the broker contact you to confirm these visits - they aren&apos;t booked automatically.</p>
+        <p className="mt-2 text-[11px] text-[#8A94A6]">We&apos;ll have the broker contact you to confirm these visits - they aren&apos;t booked automatically.</p>
       </div>
     </div>
   );
@@ -248,13 +244,13 @@ function PropertyCard({
   const isAvailable = property.isAvailable;
 
   return (
-    <div className={`overflow-hidden rounded-xl border bg-white shadow-sm ${isAvailable ? "border-slate-200" : "border-slate-200 opacity-75"}`}>
-      <div className="relative h-56 w-full bg-slate-100">
+    <div className={`overflow-hidden rounded-2xl border bg-white shadow-xs ${isAvailable ? "border-[#E7ECF2]" : "border-[#E7ECF2] opacity-75"}`}>
+      <div className="relative h-56 w-full bg-[#FAFBFC]">
         {property.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external signed/legacy URLs, loaded lazily
           <img src={property.coverImage} alt={`${property.bhk} BHK in ${property.area}`} loading="lazy" className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">No photo available</div>
+          <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">No photo available</div>
         )}
         {!isAvailable && (
           <div className="absolute left-2 top-2">
@@ -264,37 +260,37 @@ function PropertyCard({
       </div>
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base font-semibold text-slate-900">{property.title}</h3>
+          <h3 className="text-base font-bold text-[#1B2430]">{property.title}</h3>
           {onToggleSelected && (
-            <label className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-slate-600">
+            <label className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#596579]">
               <input
                 type="checkbox"
                 checked={selected}
                 onChange={onToggleSelected}
                 aria-label={`Select ${property.title} for a bulk visit request`}
-                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-[#E7ECF2] text-[#3366FF] focus:ring-[#3366FF]"
               />
               Select
             </label>
           )}
         </div>
-        <p className="mt-1 flex items-center gap-1 text-sm text-slate-500">
-          <MapPin className="h-3.5 w-3.5" /> {property.address ?? property.area}, Delhi
+        <p className="mt-1 flex items-center gap-1 text-sm text-[#596579]">
+          <MapPin className="h-3.5 w-3.5 text-[#3366FF]" /> {property.address ?? property.area}, Delhi
         </p>
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+        <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#596579]">
           <span className="flex items-center gap-1"><BedDouble className="h-3.5 w-3.5" /> {property.bhk} BHK</span>
           <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5" /> {property.bathrooms} Bath</span>
           <span className="flex items-center gap-1"><Ruler className="h-3.5 w-3.5" /> {property.builtUpAreaSqft} sqft</span>
         </div>
-        {property.price && <p className="mt-2 text-lg font-semibold text-indigo-600">{property.price}</p>}
-        {property.brokerage && <p className="text-xs text-slate-400">Brokerage: {property.brokerage}</p>}
-        <p className="mt-1 text-xs text-slate-500">{property.furnishing.replace(/_/g, " ")}</p>
+        {property.price && <p className="mt-2 text-lg font-bold text-[#3366FF]">{property.price}</p>}
+        {property.brokerage && <p className="text-xs text-[#8A94A6]">Brokerage: {property.brokerage}</p>}
+        <p className="mt-1 text-xs text-[#596579]">{property.furnishing.replace(/_/g, " ")}</p>
         {property.availableFrom && (
-          <p className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+          <p className="mt-1 flex items-center gap-1 text-xs text-[#8A94A6]">
             <Clock className="h-3 w-3" /> Available from {new Date(property.availableFrom).toLocaleDateString("en-IN")}
           </p>
         )}
-        {property.customNote && <p className="mt-2 rounded-lg bg-indigo-50 p-2 text-xs text-indigo-700">{property.customNote}</p>}
+        {property.customNote && <p className="mt-2 rounded-xl bg-[#EFF4FF] p-2 text-xs text-[#3366FF]">{property.customNote}</p>}
 
         {property.amenities.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -308,7 +304,7 @@ function PropertyCard({
           <>
             <div className="mt-3 flex flex-wrap gap-2">
               {mapsUrl && (
-                <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
+                <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-xl bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1B2430] border border-[#E7ECF2] hover:bg-[#F3F6FA]">
                   <Navigation className="h-3.5 w-3.5" /> {property.locationDisclosure === "APPROXIMATE" ? "Open Approximate Area" : "Open in Maps"}
                 </a>
               )}
@@ -338,25 +334,25 @@ function PropertyCard({
               />
             )}
             {expanded === "visit" && (
-              <div className="mt-3 space-y-2 rounded-lg border border-slate-100 p-3">
+              <div className="mt-3 space-y-2 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-3">
                 <div className="flex gap-2">
-                  <input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} className="flex-1 rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300" />
-                  <select value={preferredWindow} onChange={(e) => setPreferredWindow(e.target.value)} className="flex-1 rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300">
+                  <input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} className="flex-1 rounded-xl border border-[#E7ECF2] bg-white px-2 py-1.5 text-xs text-[#1B2430]" />
+                  <select value={preferredWindow} onChange={(e) => setPreferredWindow(e.target.value)} className="flex-1 rounded-xl border border-[#E7ECF2] bg-white px-2 py-1.5 text-xs text-[#1B2430]">
                     <option value="">Any time</option>
                     <option value="Morning">Morning</option>
                     <option value="Afternoon">Afternoon</option>
                     <option value="Evening">Evening</option>
                   </select>
                 </div>
-                <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Optional message" rows={2} className="w-full rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300" />
+                <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Optional message" rows={2} className="w-full rounded-xl border border-[#E7ECF2] bg-white px-2 py-1.5 text-xs text-[#1B2430]" />
                 <button
                   onClick={() => interact("VISIT_REQUESTED", { preferredDate, preferredWindow, message })}
                   disabled={submitting}
-                  className="w-full rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                  className="w-full rounded-xl bg-[#3366FF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-[#2952CC]"
                 >
                   Confirm Visit Request
                 </button>
-                <p className="text-[11px] text-slate-400">We&apos;ll have the broker contact you to confirm this visit - it isn&apos;t booked automatically.</p>
+                <p className="text-[11px] text-[#8A94A6]">We&apos;ll have the broker contact you to confirm this visit - it isn&apos;t booked automatically.</p>
               </div>
             )}
           </>
@@ -382,16 +378,16 @@ function ActionButton({
   tone: "green" | "slate" | "indigo" | "amber";
 }) {
   const toneClasses: Record<string, string> = {
-    green: "text-emerald-700 ring-emerald-300 bg-emerald-50",
-    slate: "text-slate-700 ring-slate-300 bg-white",
-    indigo: "text-indigo-700 ring-indigo-300 bg-indigo-50",
-    amber: "text-amber-700 ring-amber-300 bg-amber-50",
+    green: "text-[#1FA971] border-[#B8F3D1] bg-[#E6F9EE]",
+    slate: "text-[#596579] border-[#E7ECF2] bg-white",
+    indigo: "text-[#3366FF] border-[#C2D1FF] bg-[#EFF4FF]",
+    amber: "text-[#E6A23C] border-[#FCE6C3] bg-[#FFF8EE]",
   };
   return (
     <button
       onClick={onClick}
       disabled={loading || done}
-      className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium ring-1 ring-inset disabled:opacity-60 ${toneClasses[tone]}`}
+      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold border disabled:opacity-60 ${toneClasses[tone]}`}
     >
       <Icon className="h-3.5 w-3.5" /> {done ? "Recorded" : label}
     </button>
@@ -414,12 +410,12 @@ function InlineForm({
   required?: boolean;
 }) {
   return (
-    <div className="mt-3 space-y-2 rounded-lg border border-slate-100 p-3">
-      <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={placeholder} rows={2} className="w-full rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300" />
+    <div className="mt-3 space-y-2 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-3">
+      <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={placeholder} rows={2} className="w-full rounded-xl border border-[#E7ECF2] bg-white px-2 py-1.5 text-xs text-[#1B2430]" />
       <button
         onClick={onSubmit}
         disabled={submitting || (required && !message.trim())}
-        className="w-full rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+        className="w-full rounded-xl bg-[#3366FF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-[#2952CC]"
       >
         Submit
       </button>

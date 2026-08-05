@@ -127,7 +127,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
 
   if (error) {
     return (
-      <div className="relative h-72 w-full overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#11151F] sm:h-96 flex items-center justify-center text-sm text-[#64748B]">
+      <div className="relative h-72 w-full overflow-hidden rounded-2xl border border-[#E7ECF2] bg-[#FAFBFC] sm:h-96 flex items-center justify-center text-sm text-[#8A94A6]">
         Image gallery is unavailable right now.
       </div>
     );
@@ -135,7 +135,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
 
   if (images === null) {
     return (
-      <div className="relative h-72 w-full overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#11151F] sm:h-96">
+      <div className="relative h-72 w-full overflow-hidden rounded-2xl border border-[#E7ECF2] bg-[#FAFBFC] sm:h-96">
         <LoadingState label="Loading gallery..." />
       </div>
     );
@@ -146,13 +146,13 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
 
   return (
     <div className="space-y-3">
-      <div className="relative h-72 w-full overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#11151F] sm:h-96">
+      <div className="relative h-72 w-full overflow-hidden rounded-2xl border border-[#E7ECF2] bg-[#FAFBFC] sm:h-96">
         {heroSrc ? (
           <button type="button" className="absolute inset-0 h-full w-full cursor-zoom-in" onClick={() => setLightboxIndex(0)} aria-label="View full-screen gallery">
             <Image src={heroSrc} alt={propertyTitle} fill sizes="(max-width: 1024px) 100vw, 66vw" className="object-cover" unoptimized />
           </button>
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-[#64748B]">No photo uploaded for this property</div>
+          <div className="flex h-full w-full items-center justify-center text-sm text-[#8A94A6]">No photo uploaded for this property</div>
         )}
         {activeImages.length > 0 && (
           <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-semibold text-white">{activeImages.length} photo{activeImages.length > 1 ? "s" : ""}</span>
@@ -162,12 +162,12 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
       {orderedActive.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Image thumbnails">
           {orderedActive.map((img, idx) => (
-            <div key={img.id} role="listitem" className="group relative h-16 w-20 shrink-0 overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#11151F]">
+            <div key={img.id} role="listitem" className="group relative h-16 w-20 shrink-0 overflow-hidden rounded-xl border border-[#E7ECF2] bg-[#FAFBFC]">
               <button type="button" onClick={() => setLightboxIndex(idx)} className="h-full w-full" aria-label={`View photo ${idx + 1}${img.caption ? `: ${img.caption}` : ""}`}>
                 <Image src={img.url} alt={img.caption ?? `${propertyTitle} photo ${idx + 1}`} fill sizes="80px" className="object-cover" unoptimized />
               </button>
               {img.isCover && (
-                <span className="absolute left-0.5 top-0.5 rounded bg-[#4F8CFF] px-1 text-[9px] font-bold text-white">Cover</span>
+                <span className="absolute left-0.5 top-0.5 rounded bg-[#3366FF] px-1 text-[9px] font-bold text-white">Cover</span>
               )}
               {canManage && (
                 <div className="absolute inset-x-0 bottom-0 hidden items-center justify-center gap-0.5 bg-black/70 py-0.5 group-hover:flex group-focus-within:flex">
@@ -191,7 +191,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
       )}
 
       {floorPlans.length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-[#94A3B8]">
+        <div className="flex items-center gap-2 text-xs text-[#8A94A6]">
           <LayoutGrid className="h-3.5 w-3.5" /> {floorPlans.length} floor plan{floorPlans.length > 1 ? "s" : ""} attached
         </div>
       )}
@@ -199,23 +199,23 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
       {canManage && orderedActive.length > 0 && (
         <ul className="space-y-1.5">
           {orderedActive.map((img) => (
-            <li key={img.id} className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#11151F] px-2.5 py-1.5 text-xs">
+            <li key={img.id} className="flex items-center gap-2 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] px-2.5 py-1.5 text-xs">
               {captionDraftId === img.id ? (
                 <>
                   <input
                     value={captionDraft}
                     onChange={(e) => setCaptionDraft(e.target.value)}
                     aria-label="Edit caption"
-                    className="flex-1 rounded border border-[rgba(255,255,255,0.1)] bg-[#181E2A] px-2 py-1 text-xs text-[#F8FAFC]"
+                    className="flex-1 rounded-lg border border-[#E7ECF2] bg-white px-2 py-1 text-xs text-[#1B2430]"
                   />
-                  <button className="text-[#4F8CFF] font-semibold" onClick={() => saveCaption(img.id)} disabled={busyId === img.id}>Save</button>
-                  <button className="text-[#94A3B8]" onClick={() => setCaptionDraftId(null)}>Cancel</button>
+                  <button className="text-[#3366FF] font-semibold" onClick={() => saveCaption(img.id)} disabled={busyId === img.id}>Save</button>
+                  <button className="text-[#8A94A6]" onClick={() => setCaptionDraftId(null)}>Cancel</button>
                 </>
               ) : (
                 <>
-                  <span className="flex-1 truncate text-[#CBD5E1]">{img.caption || <span className="text-[#64748B]">No caption</span>}</span>
+                  <span className="flex-1 truncate text-[#596579]">{img.caption || <span className="text-[#8A94A6]">No caption</span>}</span>
                   <button
-                    className="flex items-center gap-1 text-[#94A3B8] hover:text-white"
+                    className="flex items-center gap-1 text-[#8A94A6] hover:text-[#1B2430]"
                     onClick={() => {
                       setCaptionDraftId(img.id);
                       setCaptionDraft(img.caption ?? "");
@@ -224,7 +224,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
                   >
                     <Pencil className="h-3 w-3" /> Caption
                   </button>
-                  <label className="flex cursor-pointer items-center gap-1 text-[#94A3B8] hover:text-white">
+                  <label className="flex cursor-pointer items-center gap-1 text-[#8A94A6] hover:text-[#1B2430]">
                     <RefreshCw className="h-3 w-3" /> Replace
                     <input
                       type="file"
@@ -250,7 +250,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
             {showUploader ? "Hide uploader" : "Upload Images"}
           </Button>
           {showUploader && (
-            <div className="mt-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-4">
+            <div className="mt-3 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
               <PropertyImageUploader propertyId={propertyId} onUploaded={load} />
             </div>
           )}
@@ -263,12 +263,12 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
             <div className="relative h-[60vh] w-full">
               <Image src={orderedActive[lightboxIndex]?.url ?? heroSrc ?? ""} alt={orderedActive[lightboxIndex]?.caption ?? propertyTitle} fill className="object-contain" unoptimized />
             </div>
-            {orderedActive[lightboxIndex]?.caption && <p className="mt-2 text-center text-sm text-[#CBD5E1]">{orderedActive[lightboxIndex].caption}</p>}
+            {orderedActive[lightboxIndex]?.caption && <p className="mt-2 text-center text-sm text-[#596579]">{orderedActive[lightboxIndex].caption}</p>}
             <div className="mt-3 flex items-center justify-between">
               <Button type="button" variant="secondary" size="sm" onClick={() => setLightboxIndex((i) => (i !== null ? Math.max(0, i - 1) : 0))} disabled={lightboxIndex === 0}>
                 <ChevronLeft className="h-4 w-4" /> Previous
               </Button>
-              <span className="text-xs text-[#94A3B8]">{lightboxIndex + 1} / {orderedActive.length}</span>
+              <span className="text-xs text-[#8A94A6]">{lightboxIndex + 1} / {orderedActive.length}</span>
               <Button type="button" variant="secondary" size="sm" onClick={() => setLightboxIndex((i) => (i !== null ? Math.min(orderedActive.length - 1, i + 1) : 0))} disabled={lightboxIndex === orderedActive.length - 1}>
                 Next <ChevronRight className="h-4 w-4" />
               </Button>

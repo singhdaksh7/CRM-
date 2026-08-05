@@ -244,8 +244,8 @@ export function PropertyForm({ property }: { property?: Property }) {
           </Field>
         </div>
         {watch("latitude") !== null && (
-          <p className="flex items-center gap-1.5 text-xs text-[#22C55E]">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22C55E]" /> Location confirmed ({watch("latitude")!.toFixed(5)}, {watch("longitude")!.toFixed(5)})
+          <p className="flex items-center gap-1.5 text-xs text-[#1FA971]">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#1FA971]" /> Location confirmed ({watch("latitude")!.toFixed(5)}, {watch("longitude")!.toFixed(5)})
           </p>
         )}
       </Section>
@@ -326,7 +326,7 @@ export function PropertyForm({ property }: { property?: Property }) {
                 key={a}
                 onClick={() => toggleAmenity(a)}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all border ${
-                  amenities.includes(a) ? "bg-[#4F8CFF] text-white border-[#4F8CFF]" : "bg-[#11151F] text-[#CBD5E1] border-[rgba(255,255,255,0.08)] hover:bg-[#1E2533]"
+                  amenities.includes(a) ? "bg-[#3366FF] text-white border-[#3366FF]" : "bg-[#FAFBFC] text-[#596579] border-[#E7ECF2] hover:bg-[#F3F6FA]"
                 }`}
               >
                 {a}
@@ -350,7 +350,7 @@ export function PropertyForm({ property }: { property?: Property }) {
         {isEdit ? (
           <PropertyGallery propertyId={property!.id} propertyTitle={property!.title} legacyCoverImage={property!.coverImage} />
         ) : (
-          <p className="text-sm text-[#94A3B8]">Save the property first, then you&apos;ll be able to upload and manage photos from its detail page.</p>
+          <p className="text-sm text-[#8A94A6]">Save the property first, then you&apos;ll be able to upload and manage photos from its detail page.</p>
         )}
       </Section>
 
@@ -363,7 +363,7 @@ export function PropertyForm({ property }: { property?: Property }) {
         </div>
       </Section>
 
-      <div className="flex justify-end gap-3 pt-2 border-t border-[rgba(255,255,255,0.08)]">
+      <div className="flex justify-end gap-3 pt-2 border-t border-[#EFF4FF]">
         <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
         <Button type="submit" loading={submitting}>{isEdit ? "Save Changes" : "Add Property"}</Button>
       </div>
@@ -373,8 +373,8 @@ export function PropertyForm({ property }: { property?: Property }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
-      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">{title}</h3>
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">{title}</h3>
       <div className="space-y-4">{children}</div>
     </div>
   );

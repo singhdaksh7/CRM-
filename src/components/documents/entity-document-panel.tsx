@@ -56,9 +56,9 @@ export function EntityDocumentPanel({ entityType, entityId, title }: { entityTyp
   if (!canList) return <PermissionState title="Documents" description="You do not have permission to view this record's documents." />;
 
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">{title}</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">{title}</h3>
         {canUpload && capabilities?.documents.enabled && (
           <Button type="button" size="sm" variant="secondary" onClick={() => setUploadOpen(true)}>
             <Upload className="h-3.5 w-3.5" /> Upload

@@ -10,8 +10,8 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ i
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Edit Property</h1>
-        <p className="text-sm text-slate-500">{property.propertyCode} &middot; {property.title}</p>
+        <h1 className="text-xl font-bold text-[#1B2430]">Edit Property</h1>
+        <p className="text-sm text-[#596579]">{property.propertyCode} &middot; {property.title}</p>
       </div>
       <PropertyForm property={property} />
     </div>

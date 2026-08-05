@@ -46,8 +46,8 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Follow-ups</h1>
-          <p className="text-sm text-slate-500">Stay on top of client follow-ups</p>
+          <h1 className="text-xl font-bold text-[#1B2430]">Follow-ups</h1>
+          <p className="text-sm text-[#596579]">Stay on top of client follow-ups</p>
         </div>
         <AddFollowUpModal leads={leads} employees={employees} />
       </div>
@@ -58,8 +58,8 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
         <Link href="/follow-ups?bucket=upcoming"><KpiCard label="Upcoming" value={upcomingCount} icon={CalendarDays} tone="blue" /></Link>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-2 text-sm font-semibold capitalize text-slate-800">{bucket} Follow-ups ({followUpsTotal})</h3>
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+        <h3 className="mb-2 text-sm font-bold capitalize text-[#1B2430]">{bucket} Follow-ups ({followUpsTotal})</h3>
         {followUps.length === 0 ? (
           <EmptyState title="No follow-ups in this bucket" />
         ) : (

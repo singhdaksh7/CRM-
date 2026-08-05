@@ -64,13 +64,13 @@ export function LeadWorkspace({ lead, employees, role }: { lead: LeadWithRelatio
 
   return (
     <div>
-      <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#11151F] p-1.5 text-sm">
+      <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1.5 text-sm shadow-xs">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`whitespace-nowrap rounded-lg px-3.5 py-2 font-semibold transition-all ${
-              tab === t ? "bg-[#4F8CFF] text-white shadow-sm" : "text-[#94A3B8] hover:text-white hover:bg-[#1E2533]"
+            className={`whitespace-nowrap rounded-xl px-3.5 py-2 font-semibold transition-all ${
+              tab === t ? "bg-[#3366FF] text-white shadow-xs" : "text-[#596579] hover:text-[#1B2430] hover:bg-[#F3F6FA]"
             }`}
           >
             {TAB_LABELS[t]}
@@ -186,8 +186,8 @@ function OverviewTab({ lead, employees, canManage }: { lead: LeadWithRelations; 
       <div className="space-y-6 lg:col-span-2">
         <ScorePanel lead={lead} onRecalculate={recalculateScore} saving={saving} />
 
-        <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm space-y-3">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">Add Internal Note</h3>
+        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-3">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Add Internal Note</h3>
           <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Type private lead notes..." />
           <div className="flex justify-end">
             <Button size="sm" onClick={addNote} loading={saving} disabled={!note.trim()}>
@@ -197,16 +197,16 @@ function OverviewTab({ lead, employees, canManage }: { lead: LeadWithRelations; 
         </div>
 
         {lead.notes && (
-          <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
-            <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">Existing Notes</h3>
-            <p className="whitespace-pre-wrap text-sm text-[#CBD5E1] bg-[#11151F] p-3 rounded-lg border border-[rgba(255,255,255,0.06)]">{lead.notes}</p>
+          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+            <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Existing Notes</h3>
+            <p className="whitespace-pre-wrap text-sm text-[#596579] bg-[#FAFBFC] p-3 rounded-xl border border-[#E7ECF2]">{lead.notes}</p>
           </div>
         )}
       </div>
 
       <div className="space-y-6">
-        <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">Lead Controls</h3>
+        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Lead Controls</h3>
           <Field label="Status">
             <Select value={status} onChange={(e) => { setStatus(e.target.value); updateField("status", e.target.value); }} disabled={saving}>
               {STATUSES.map((s) => (
@@ -224,16 +224,16 @@ function OverviewTab({ lead, employees, canManage }: { lead: LeadWithRelations; 
         </div>
 
         {canManage && (
-          <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm space-y-4">
-            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">
-              <UserIcon className="h-4 w-4 text-[#4F8CFF]" /> Assignment Details
+          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
+            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
+              <UserIcon className="h-4 w-4 text-[#3366FF]" /> Assignment Details
             </h3>
-            <p className="text-sm text-[#CBD5E1]">Currently: <span className="font-bold text-[#F8FAFC]">{lead.assignedTo?.name ?? "Unassigned"}</span></p>
+            <p className="text-sm text-[#596579]">Currently: <span className="font-bold text-[#1B2430]">{lead.assignedTo?.name ?? "Unassigned"}</span></p>
             {lead.assignmentReason && (
-              <p className="rounded-lg bg-[#11151F] p-3 text-xs text-[#94A3B8] border border-[rgba(255,255,255,0.06)]">
+              <p className="rounded-xl bg-[#FAFBFC] p-3 text-xs text-[#596579] border border-[#E7ECF2]">
                 {lead.assignmentStrategy && <Badge tone="indigo" className="mr-1.5 mb-1">{enumToLabel(lead.assignmentStrategy)}</Badge>}
                 {lead.assignmentReason}
-                {lead.autoAssignedAt && <span className="mt-1 block text-[#64748B]">{formatDateTime(lead.autoAssignedAt)}</span>}
+                {lead.autoAssignedAt && <span className="mt-1 block text-[#8A94A6]">{formatDateTime(lead.autoAssignedAt)}</span>}
               </p>
             )}
             {!lead.assignedToId && (
@@ -248,7 +248,7 @@ function OverviewTab({ lead, employees, canManage }: { lead: LeadWithRelations; 
               </Select>
             </Field>
             {lead.assignedToId && (
-              <div className="border-t border-[rgba(255,255,255,0.06)] pt-3">
+              <div className="border-t border-[#EFF4FF] pt-3">
                 <Field label="Transfer to executive">
                   <div className="flex gap-2">
                     <Select value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
@@ -274,26 +274,26 @@ function ScorePanel({ lead, onRecalculate, saving }: { lead: LeadWithRelations; 
   const tone = lead.score >= 70 ? "red" : lead.score >= 40 ? "amber" : "blue";
 
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">
-          <Gauge className="h-4 w-4 text-[#4F8CFF]" /> Lead Quality Score
+        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
+          <Gauge className="h-4 w-4 text-[#3366FF]" /> Lead Quality Score
         </h3>
-        <button onClick={onRecalculate} disabled={saving} className="text-xs font-semibold text-[#4F8CFF] hover:text-[#6BA0FF] disabled:opacity-50">
+        <button onClick={onRecalculate} disabled={saving} className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC] disabled:opacity-50">
           Recalculate
         </button>
       </div>
       <div className="flex items-center gap-3">
-        <p className="text-4xl font-extrabold text-[#F8FAFC]">{lead.score}</p>
+        <p className="text-4xl font-extrabold text-[#1B2430]">{lead.score}</p>
         <Badge tone={tone}>{lead.priority}</Badge>
       </div>
-      {lead.scoreUpdatedAt && <p className="mt-1 text-xs text-[#94A3B8]">Updated {timeAgo(lead.scoreUpdatedAt)}</p>}
+      {lead.scoreUpdatedAt && <p className="mt-1 text-xs text-[#8A94A6]">Updated {timeAgo(lead.scoreUpdatedAt)}</p>}
       {factors.length > 0 && (
-        <div className="mt-4 space-y-2 border-t border-[rgba(255,255,255,0.06)] pt-3">
+        <div className="mt-4 space-y-2 border-t border-[#EFF4FF] pt-3">
           {factors.map((f, i) => (
             <div key={i} className="flex items-start justify-between gap-2 text-xs">
-              <span className="text-[#CBD5E1]">{f.reason}</span>
-              <span className={`shrink-0 font-bold ${f.delta >= 0 ? "text-[#22C55E]" : "text-[#EF4444]"}`}>{f.delta >= 0 ? "+" : ""}{f.delta}</span>
+              <span className="text-[#596579]">{f.reason}</span>
+              <span className={`shrink-0 font-bold ${f.delta >= 0 ? "text-[#1FA971]" : "text-[#E5484D]"}`}>{f.delta >= 0 ? "+" : ""}{f.delta}</span>
             </div>
           ))}
         </div>
@@ -304,15 +304,15 @@ function ScorePanel({ lead, onRecalculate, saving }: { lead: LeadWithRelations; 
 
 function ActivityTab({ activities }: { activities: LeadWithRelations["activities"] }) {
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
-      <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">Activity Timeline</h3>
-      {activities.length === 0 && <p className="text-sm text-[#64748B]">No activity recorded yet.</p>}
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+      <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Activity Timeline</h3>
+      {activities.length === 0 && <p className="text-sm text-[#8A94A6]">No activity recorded yet.</p>}
       <ol className="space-y-4">
         {activities.map((a) => (
-          <li key={a.id} className="relative border-l-2 border-[rgba(255,255,255,0.08)] pl-4">
-            <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[#4F8CFF]" />
-            <p className="text-sm font-semibold text-[#F8FAFC]">{a.description}</p>
-            <p className="text-xs text-[#94A3B8]">{a.actor ? `${a.actor.name} · ` : ""}{formatDateTime(a.createdAt)} ({timeAgo(a.createdAt)})</p>
+          <li key={a.id} className="relative border-l-2 border-[#E7ECF2] pl-4">
+            <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[#3366FF]" />
+            <p className="text-sm font-semibold text-[#1B2430]">{a.description}</p>
+            <p className="text-xs text-[#8A94A6]">{a.actor ? `${a.actor.name} · ` : ""}{formatDateTime(a.createdAt)} ({timeAgo(a.createdAt)})</p>
           </li>
         ))}
       </ol>
@@ -355,8 +355,8 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm space-y-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">Schedule Follow-up</h3>
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Schedule Follow-up</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <Select value={type} onChange={(e) => setType(e.target.value as FollowUpType)}>
             {FOLLOWUP_TYPES.map((t) => (<option key={t} value={t}>{enumToLabel(t)}</option>))}
@@ -371,20 +371,20 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
         <Textarea rows={2} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
-      <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">Follow-up History</h3>
-        {followUps.length === 0 && <p className="text-sm text-[#64748B]">No follow-ups scheduled.</p>}
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Follow-up History</h3>
+        {followUps.length === 0 && <p className="text-sm text-[#8A94A6]">No follow-ups scheduled.</p>}
         <div className="space-y-3">
           {followUps.map((f) => (
-            <div key={f.id} className="flex items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] pb-3 last:border-0 last:pb-0">
+            <div key={f.id} className="flex items-center justify-between gap-3 border-b border-[#EFF4FF] pb-3 last:border-0 last:pb-0">
               <div>
-                <p className="text-sm font-semibold text-[#F8FAFC]">{enumToLabel(f.type)} <span className="text-[#94A3B8] font-normal">&middot; {f.owner?.name ?? "Unassigned"}</span></p>
-                <p className="text-xs text-[#94A3B8]">{formatDateTime(f.dueDate)}{f.notes ? ` · ${f.notes}` : ""}</p>
+                <p className="text-sm font-semibold text-[#1B2430]">{enumToLabel(f.type)} <span className="text-[#8A94A6] font-normal">&middot; {f.owner?.name ?? "Unassigned"}</span></p>
+                <p className="text-xs text-[#8A94A6]">{formatDateTime(f.dueDate)}{f.notes ? ` · ${f.notes}` : ""}</p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge tone={FOLLOWUP_STATUS_TONE[f.status]}>{enumToLabel(f.status)}</Badge>
                 {f.status !== "COMPLETED" && (
-                  <button onClick={() => complete(f.id)} className="text-[#94A3B8] hover:text-[#22C55E] transition-colors" title="Mark completed">
+                  <button onClick={() => complete(f.id)} className="text-[#8A94A6] hover:text-[#1FA971] transition-colors" title="Mark completed">
                     <CheckCircle2 className="h-5 w-5" />
                   </button>
                 )}
@@ -410,21 +410,21 @@ function VisitsTab({ visits }: { leadId: string; visits: LeadWithRelations["visi
   }
 
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">Site Visits</h3>
-        <Link href="/visits" className="text-xs font-semibold text-[#4F8CFF] hover:text-[#6BA0FF]">Visits module &rarr;</Link>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Site Visits</h3>
+        <Link href="/visits" className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">Visits module &rarr;</Link>
       </div>
-      {visits.length === 0 && <p className="text-sm text-[#64748B]">No visits scheduled yet.</p>}
+      {visits.length === 0 && <p className="text-sm text-[#8A94A6]">No visits scheduled yet.</p>}
       <div className="space-y-3">
         {visits.map((v) => (
-          <div key={v.id} className="rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#11151F] p-4">
+          <div key={v.id} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="flex items-center gap-2 text-sm font-bold text-[#F8FAFC]">
-                  <Building2 className="h-4 w-4 text-[#4F8CFF]" /> {v.property.title}
+                <p className="flex items-center gap-2 text-sm font-bold text-[#1B2430]">
+                  <Building2 className="h-4 w-4 text-[#3366FF]" /> {v.property.title}
                 </p>
-                <p className="text-xs text-[#94A3B8] mt-0.5">{formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"}</p>
+                <p className="text-xs text-[#8A94A6] mt-0.5">{formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"}</p>
               </div>
               <Badge tone={VISIT_STATUS_TONE[v.status]}>{enumToLabel(v.status)}</Badge>
             </div>
@@ -437,7 +437,7 @@ function VisitsTab({ visits }: { leadId: string; visits: LeadWithRelations["visi
                 {OUTCOMES.map((o) => (<option key={o} value={o}>{enumToLabel(o)}</option>))}
               </Select>
             </div>
-            {v.employeeNotes && <p className="mt-2 text-xs text-[#CBD5E1]">{v.employeeNotes}</p>}
+            {v.employeeNotes && <p className="mt-2 text-xs text-[#596579]">{v.employeeNotes}</p>}
           </div>
         ))}
       </div>
@@ -447,18 +447,18 @@ function VisitsTab({ visits }: { leadId: string; visits: LeadWithRelations["visi
 
 function SharedTab({ shares }: { shares: LeadWithRelations["sharedProperties"] }) {
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
-      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#F8FAFC]">
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
         <MessageSquare className="h-4 w-4 text-[#25D366]" /> WhatsApp Share History
       </h3>
-      {shares.length === 0 && <p className="text-sm text-[#64748B]">No properties shared yet.</p>}
+      {shares.length === 0 && <p className="text-sm text-[#8A94A6]">No properties shared yet.</p>}
       <div className="space-y-3">
         {shares.map((s) => {
           const ids: string[] = JSON.parse(s.propertyIds);
           return (
-            <div key={s.id} className="rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#11151F] p-4">
-              <p className="text-sm font-bold text-[#F8FAFC]">{ids.length} propert{ids.length > 1 ? "ies" : "y"} shared</p>
-              <p className="text-xs text-[#94A3B8] mt-0.5">{formatDateTime(s.createdAt)}</p>
+            <div key={s.id} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
+              <p className="text-sm font-bold text-[#1B2430]">{ids.length} propert{ids.length > 1 ? "ies" : "y"} shared</p>
+              <p className="text-xs text-[#8A94A6] mt-0.5">{formatDateTime(s.createdAt)}</p>
               <a href={s.whatsappLink} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#25D366] hover:underline">
                 <Send className="h-3.5 w-3.5" /> Reopen WhatsApp message
               </a>

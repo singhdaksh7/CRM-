@@ -27,29 +27,29 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="mb-1 flex items-center gap-2">
-              <span className="font-mono text-xs text-slate-400">{lead.leadCode}</span>
+              <span className="font-mono text-xs text-[#8A94A6]">{lead.leadCode}</span>
               <Badge tone={LEAD_STATUS_TONE[lead.status]}>{enumToLabel(lead.status)}</Badge>
               <Badge tone={LEAD_PRIORITY_TONE[lead.priority]}>{lead.priority}</Badge>
             </div>
-            <h1 className="text-xl font-semibold text-slate-900">{lead.clientName}</h1>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+            <h1 className="text-xl font-semibold text-[#1B2430]">{lead.clientName}</h1>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#596579]">
               <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {lead.phone}</span>
               {lead.email && <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {lead.email}</span>}
               <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {lead.preferredLocation}</span>
               <span className="flex items-center gap-1"><Wallet className="h-3.5 w-3.5" /> {formatINR(lead.minBudget, { compact: true })} - {formatINR(lead.maxBudget, { compact: true })}</span>
             </div>
           </div>
-          <div className="text-right text-xs text-slate-400">
+          <div className="text-right text-xs text-[#8A94A6]">
             <p>{lead.requirementType === "RENT" ? "Looking to Rent" : "Looking to Buy"} &middot; {lead.preferredBhk ? `${lead.preferredBhk} BHK` : "Any BHK"}</p>
             <p>Created {formatDate(lead.createdAt)}</p>
             {lead.nextFollowUpAt && <p>Next follow-up: {formatDate(lead.nextFollowUpAt)}</p>}
           </div>
         </div>
-        {lead.additionalRequirements && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">{lead.additionalRequirements}</p>}
+        {lead.additionalRequirements && <p className="mt-3 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] p-3 text-sm text-[#596579]">{lead.additionalRequirements}</p>}
       </div>
 
       <LeadWorkspace lead={lead} employees={employees} role={session!.user.role} />

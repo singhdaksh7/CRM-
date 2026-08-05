@@ -21,9 +21,6 @@ const TABS = [
   { key: "employee", label: "Employee-wise" },
 ];
 
-// today/upcoming are naturally date-bounded; employee-wise groups visits
-// client-side so isn't paginated yet (see report "known limitations") but
-// still gets a safety cap so a very large history can't load unbounded.
 const SAFETY_CAP = 300;
 
 export default async function VisitsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -74,8 +71,8 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Property Visits</h1>
-          <p className="text-sm text-slate-500">{isAllTab ? totalCount : visits.length} visits</p>
+          <h1 className="text-xl font-bold text-[#1B2430]">Property Visits</h1>
+          <p className="text-sm text-[#596579]">{isAllTab ? totalCount : visits.length} visits</p>
         </div>
         {canManage && <ScheduleVisitModal leads={leads} properties={properties} employees={employees} />}
       </div>
@@ -84,9 +81,9 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
         <SuggestedRoutePanel employeeId={session!.user.role === "FIELD_EXECUTIVE" ? session!.user.id : sp.employeeId!} />
       )}
 
-      <div className="flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 text-sm w-fit">
+      <div className="flex gap-1 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1 text-sm shadow-xs w-fit">
         {TABS.map((t) => (
-          <Link key={t.key} href={`/visits?tab=${t.key}`} className={`whitespace-nowrap rounded-md px-3 py-1.5 font-medium ${tab === t.key ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500"}`}>
+          <Link key={t.key} href={`/visits?tab=${t.key}`} className={`whitespace-nowrap rounded-xl px-3.5 py-1.5 font-semibold transition-all ${tab === t.key ? "bg-[#3366FF] text-white shadow-xs" : "text-[#596579] hover:text-[#1B2430] hover:bg-[#F3F6FA]"}`}>
             {t.label}
           </Link>
         ))}
@@ -97,14 +94,14 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       ) : tab === "employee" ? (
         <div className="space-y-4">
           {[...grouped.entries()].map(([name, vs]) => (
-            <div key={name} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-slate-800">{name} ({vs.length})</h3>
+            <div key={name} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+              <h3 className="mb-3 text-sm font-bold text-[#1B2430]">{name} ({vs.length})</h3>
               <VisitTable visits={vs} canManage={canManage} role={session!.user.role} />
             </div>
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
           <VisitTable visits={visits} canManage={canManage} role={session!.user.role} />
         </div>
       )}
@@ -121,17 +118,17 @@ function VisitTable({ visits, canManage, role }: { visits: VisitWithRelations[];
   return (
     <div className="space-y-3">
       {visits.map((v) => (
-        <div key={v.id} className="rounded-lg border border-slate-100 p-3">
+        <div key={v.id} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-3.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <Link href={`/leads/${v.leadId}`} className="text-sm font-medium text-slate-800 hover:text-indigo-600">{v.lead.clientName}</Link>
-              <span className="text-slate-400"> &middot; {v.property.title}</span>
-              <p className="text-xs text-slate-400">{formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"} &middot; {v.meetingLocation}</p>
+              <Link href={`/leads/${v.leadId}`} className="text-sm font-bold text-[#1B2430] hover:text-[#3366FF]">{v.lead.clientName}</Link>
+              <span className="text-[#8A94A6]"> &middot; {v.property.title}</span>
+              <p className="text-xs text-[#8A94A6] mt-0.5">{formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"} &middot; {v.meetingLocation}</p>
             </div>
             <Badge tone={VISIT_STATUS_TONE[v.status]}>{enumToLabel(v.status)}</Badge>
           </div>
           {v.conflictStatus === "OVERRIDDEN" && (
-            <p className="mt-1.5 text-xs font-medium text-amber-600">⚠ Scheduling conflict overridden{v.conflictDetail ? `: ${v.conflictDetail}` : ""}</p>
+            <p className="mt-1.5 text-xs font-semibold text-[#E6A23C]">⚠ Scheduling conflict overridden{v.conflictDetail ? `: ${v.conflictDetail}` : ""}</p>
           )}
           <div className="mt-2">
             <VisitFieldActions

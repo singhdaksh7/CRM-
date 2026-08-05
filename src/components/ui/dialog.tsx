@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 /**
  * Minimal accessible modal - focus trap, Escape to close, backdrop click to
  * close, restores focus to the trigger on close. Used as both a centered
- * dialog and (via `sheet` prop) a full-screen mobile sheet, since the
- * project has no existing Dialog/Sheet primitive to build on.
+ * dialog and (via `sheet` prop) a full-screen mobile sheet, styled strictly
+ * in line with the Stitch Version 1.0 Light design system.
  */
 export function Dialog({
   open,
@@ -71,7 +71,7 @@ export function Dialog({
 
   return createPortal(
     <div
-      className={cn("fixed inset-0 z-50 flex bg-black/60 backdrop-blur-sm motion-reduce:transition-none", sheet ? "items-end sm:items-center sm:justify-center" : "items-center justify-center p-4")}
+      className={cn("fixed inset-0 z-50 flex bg-black/40 backdrop-blur-xs motion-reduce:transition-none", sheet ? "items-end sm:items-center sm:justify-center" : "items-center justify-center p-4")}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -83,22 +83,22 @@ export function Dialog({
         aria-labelledby="dialog-title"
         aria-describedby={description ? "dialog-description" : undefined}
         className={cn(
-          "flex max-h-[92vh] flex-col overflow-hidden border border-[rgba(255,255,255,0.1)] bg-[#181E2A] shadow-xl motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95",
-          sheet ? "w-full rounded-t-2xl sm:w-full sm:max-w-lg sm:rounded-2xl" : cn("w-full rounded-xl", wide ? "max-w-3xl" : "max-w-md")
+          "flex max-h-[92vh] flex-col overflow-hidden border border-[#E7ECF2] bg-white shadow-xl motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95",
+          sheet ? "w-full rounded-t-2xl sm:w-full sm:max-w-lg sm:rounded-2xl" : cn("w-full rounded-2xl", wide ? "max-w-3xl" : "max-w-md")
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.08)] px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-[#EFF4FF] px-5 py-4">
           <div>
-            <h2 id="dialog-title" className="text-base font-bold text-[#F8FAFC]">
+            <h2 id="dialog-title" className="text-base font-bold text-[#1B2430]">
               {title}
             </h2>
             {description && (
-              <p id="dialog-description" className="mt-0.5 text-xs text-[#94A3B8]">
+              <p id="dialog-description" className="mt-0.5 text-xs text-[#596579]">
                 {description}
               </p>
             )}
           </div>
-          <button type="button" onClick={onClose} aria-label="Close dialog" className="shrink-0 rounded-md p-1 text-[#94A3B8] hover:bg-[#1E2533] hover:text-white">
+          <button type="button" onClick={onClose} aria-label="Close dialog" className="shrink-0 rounded-lg p-1 text-[#8A94A6] hover:bg-[#F3F6FA] hover:text-[#1B2430]">
             <X className="h-4 w-4" />
           </button>
         </div>
