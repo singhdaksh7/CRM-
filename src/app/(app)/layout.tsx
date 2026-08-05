@@ -18,14 +18,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { role, id } = session.user;
   const organizationId = getOrganizationId(id);
 
-  // The due/overdue follow-up sweep used to run synchronously here on every
-  // navigation (see git history) - that blocked every page transition on an
-  // N+1 query loop. It's now primarily driven by Vercel Cron (see
-  // vercel.json, POST/GET /api/internal/notifications/sweep). This is a
-  // fallback for when cron hasn't fired recently (e.g. a plan that only
-  // supports daily cron): scheduled via `after()` so it runs once the
-  // response has already been sent to the browser, never delaying
-  // rendering, and throttled via Redis to at most once every 10 minutes.
   after(() => {
     runThrottledSweep(organizationId, LAZY_SWEEP_THROTTLE_SECONDS).catch((err) => {
       logger.error("lazy_sweep_failed", { message: err instanceof Error ? err.message : String(err) });
@@ -33,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   });
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0D1017] text-[#F8FAFC]">
+    <div className="flex h-screen overflow-hidden bg-[#FAFBFC] text-[#1B2430]">
       <Sidebar role={role} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header user={{ name: session.user.name, role }} />

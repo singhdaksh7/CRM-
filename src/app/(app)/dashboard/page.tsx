@@ -19,32 +19,32 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[rgba(255,255,255,0.08)] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">
+          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">
             Welcome back, {firstName} Bhaiya 👋
           </h1>
-          <p className="mt-1 text-sm text-[#94A3B8]">
+          <p className="mt-1 text-sm text-[#596579]">
             Here is what&apos;s happening with your NCR property portfolio & leads today.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Link
             href="/leads?add=true"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#4F8CFF] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#6BA0FF] transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#3366FF] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#2952CC] transition-colors shadow-xs"
           >
             + Add Lead
           </Link>
           <Link
             href="/properties?add=true"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E2533] border border-[rgba(255,255,255,0.08)] px-3.5 py-2 text-xs font-semibold text-[#F8FAFC] hover:bg-[#252D3D] transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white border border-[#E7ECF2] px-4 py-2.5 text-xs font-semibold text-[#1B2430] hover:bg-[#F3F6FA] transition-colors shadow-xs"
           >
             + Add Property
           </Link>
         </div>
       </div>
 
-      {/* KPI Cards - critical data, awaited directly so it's in the first flush */}
+      {/* Stitch 1.0 Clean Dashboard Grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         <KpiCard label="Active Properties" value={data.totalActiveProperties} icon={Building2} tone="blue" />
         <KpiCard label="For Rent" value={data.propertiesForRent} icon={Home} tone="indigo" />
@@ -61,13 +61,12 @@ export default async function DashboardPage() {
         <KpiCard label="Awaiting Shortlist" value={data.leadsAwaitingShortlistCount} icon={ListChecks} tone="red" />
       </div>
 
-      {/* Leads with no properties shared yet - streamed independently. */}
+      {/* Leads Streamed Panel */}
       <Suspense fallback={<PanelSkeleton />}>
         <LeadsAwaitingShortlistPanel userId={session.user.id} />
       </Suspense>
 
-      {/* Charts, trends, recent activity, employee workload - streamed in
-          independently so one slow panel never delays the KPIs above. */}
+      {/* Charts and Activity Streamed Panel */}
       <Suspense fallback={<DashboardSecondarySkeleton />}>
         <DashboardSecondary role={session.user.role} userId={session.user.id} />
       </Suspense>
@@ -90,28 +89,28 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
       <TrendChartCard title="Monthly Lead & Deal Trends" data={data.monthlyTrend} />
 
       {/* Recent Activity Panel */}
-      <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-semibold text-[#F8FAFC]">Recent Lead Activity</h3>
-            <p className="text-xs text-[#94A3B8]">Latest interactions, follow-ups & stage updates</p>
+            <h3 className="text-base font-semibold text-[#1B2430]">Recent Lead Activity</h3>
+            <p className="text-xs text-[#596579]">Latest interactions, follow-ups & stage updates</p>
           </div>
-          <Link href="/leads" className="inline-flex items-center gap-1 text-xs font-semibold text-[#4F8CFF] hover:text-[#6BA0FF]">
+          <Link href="/leads" className="inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
             View all leads <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
         <div className="space-y-3">
-          {data.recentActivities.length === 0 && <p className="text-sm text-[#64748B]">No recent activity recorded yet.</p>}
+          {data.recentActivities.length === 0 && <p className="text-sm text-[#8A94A6]">No recent activity recorded yet.</p>}
           {data.recentActivities.map((a) => (
-            <div key={a.id} className="flex items-start justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] pb-3 last:border-0 last:pb-0">
+            <div key={a.id} className="flex items-start justify-between gap-3 border-b border-[#EFF4FF] pb-3 last:border-0 last:pb-0">
               <div>
-                <p className="text-sm text-[#CBD5E1]">
-                  <Link href={`/leads/${a.leadId}`} className="font-semibold text-[#F8FAFC] hover:text-[#4F8CFF] transition-colors">
+                <p className="text-sm text-[#596579]">
+                  <Link href={`/leads/${a.leadId}`} className="font-semibold text-[#1B2430] hover:text-[#3366FF] transition-colors">
                     {a.lead!.clientName}
                   </Link>{" "}
                   &middot; {a.description}
                 </p>
-                <p className="mt-0.5 text-xs text-[#64748B]">{a.actor ? `${a.actor.name} · ` : ""}{timeAgo(a.createdAt)}</p>
+                <p className="mt-0.5 text-xs text-[#8A94A6]">{a.actor ? `${a.actor.name} · ` : ""}{timeAgo(a.createdAt)}</p>
               </div>
               <Badge tone={LEAD_STATUS_TONE[a.lead!.status] ?? "slate"}>{enumToLabel(a.lead!.status)}</Badge>
             </div>
@@ -123,7 +122,7 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
 }
 
 function PanelSkeleton() {
-  return <div className="h-40 animate-pulse rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />;
+  return <div className="h-40 animate-pulse rounded-2xl border border-[#E7ECF2] bg-white" />;
 }
 
 function DashboardSecondarySkeleton() {
@@ -131,11 +130,11 @@ function DashboardSecondarySkeleton() {
     <div className="animate-pulse space-y-6">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-64 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />
+          <div key={i} className="h-64 rounded-2xl border border-[#E7ECF2] bg-white" />
         ))}
       </div>
-      <div className="h-72 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />
-      <div className="h-56 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />
+      <div className="h-72 rounded-2xl border border-[#E7ECF2] bg-white" />
+      <div className="h-56 rounded-2xl border border-[#E7ECF2] bg-white" />
     </div>
   );
 }

@@ -9,12 +9,12 @@ export function PropertyCard({ property, coverImageUrl }: { property: Property; 
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
   const src = coverImageUrl ?? property.coverImage;
   return (
-    <Link href={`/properties/${property.id}`} className="group overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] shadow-sm transition-all duration-200 hover:border-[rgba(255,255,255,0.18)] hover:bg-[#1E2533]">
-      <div className="relative h-44 w-full bg-[#11151F]">
+    <Link href={`/properties/${property.id}`} className="group overflow-hidden rounded-2xl border border-[#E7ECF2] bg-white shadow-xs transition-all duration-200 hover:border-[#C3C5D8] hover:shadow-md">
+      <div className="relative h-44 w-full bg-[#F5F7FA]">
         {src ? (
           <Image src={src} alt={property.title} fill sizes="(max-width: 768px) 100vw, 320px" className="object-cover transition-transform duration-300 group-hover:scale-105" unoptimized />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-[#64748B]">No photo available</div>
+          <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">No photo available</div>
         )}
         <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1.5 z-10">
           <Badge tone={property.listingType === "RENT" ? "blue" : "purple"}>{property.listingType === "RENT" ? "For Rent" : "For Sale"}</Badge>
@@ -23,21 +23,21 @@ export function PropertyCard({ property, coverImageUrl }: { property: Property; 
       </div>
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="truncate text-base font-bold text-[#F8FAFC] group-hover:text-[#4F8CFF] transition-colors">{property.title}</p>
-          <p className="shrink-0 text-base font-bold text-[#4F8CFF]">{price}</p>
+          <p className="truncate text-base font-bold text-[#1B2430] group-hover:text-[#3366FF] transition-colors">{property.title}</p>
+          <p className="shrink-0 text-base font-bold text-[#3366FF]">{price}</p>
         </div>
-        <p className="mt-1 flex items-center gap-1 text-xs font-medium text-[#94A3B8]">
-          <MapPin className="h-3.5 w-3.5 text-[#4F8CFF] shrink-0" /> {property.area}, Delhi
+        <p className="mt-1 flex items-center gap-1 text-xs font-medium text-[#596579]">
+          <MapPin className="h-3.5 w-3.5 text-[#3366FF] shrink-0" /> {property.area}, Delhi
         </p>
-        <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-[#CBD5E1] border-t border-[rgba(255,255,255,0.06)] pt-3">
+        <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-[#596579] border-t border-[#EFF4FF] pt-3">
           <span className="flex items-center gap-1">
-            <BedDouble className="h-3.5 w-3.5 text-[#94A3B8]" /> {property.bhk} BHK
+            <BedDouble className="h-3.5 w-3.5 text-[#8A94A6]" /> {property.bhk} BHK
           </span>
           <span className="flex items-center gap-1">
-            <Bath className="h-3.5 w-3.5 text-[#94A3B8]" /> {property.bathrooms} Bath
+            <Bath className="h-3.5 w-3.5 text-[#8A94A6]" /> {property.bathrooms} Bath
           </span>
           <span className="flex items-center gap-1">
-            <Maximize2 className="h-3.5 w-3.5 text-[#94A3B8]" /> {property.builtUpAreaSqft} sqft
+            <Maximize2 className="h-3.5 w-3.5 text-[#8A94A6]" /> {property.builtUpAreaSqft} sqft
           </span>
         </div>
       </div>

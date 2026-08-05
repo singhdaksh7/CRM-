@@ -22,14 +22,14 @@ export function MobileNavigation({ role }: { role: Role }) {
       ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-center justify-around border-t border-[rgba(255,255,255,0.08)] bg-[#11151F] px-2 lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-center justify-around border-t border-[#E7ECF2] bg-white px-2 lg:hidden shadow-lg">
       {items.map((item) => {
         const Icon = item.icon;
         return (
           <Link
             key={item.href}
             href={item.href}
-            className="flex flex-col items-center gap-1 text-[#94A3B8] hover:text-[#4F8CFF] transition-colors"
+            className="flex flex-col items-center gap-1 text-[#596579] hover:text-[#3366FF] transition-colors"
           >
             <Icon className="h-5 w-5" />
             <span className="text-[10px] font-medium">{item.label}</span>

@@ -10,7 +10,7 @@ import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { withTiming } from "@/lib/perf";
 import { getCoverImageUrls } from "@/lib/property-images";
 import { getOrganizationId } from "@/lib/organization";
-import { Plus, Building2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 
@@ -51,10 +51,10 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[rgba(255,255,255,0.08)] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Property Inventory</h1>
-          <p className="mt-1 text-sm text-[#94A3B8]">{totalCount} active listings in Delhi-NCR portfolio</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Property Inventory</h1>
+          <p className="mt-1 text-sm text-[#596579]">{totalCount} active listings in Delhi-NCR portfolio</p>
         </div>
         {canCreate && (
           <LinkButton href="/properties/new" className="w-full sm:w-auto">
@@ -74,9 +74,9 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] shadow-sm">
-          <table className="min-w-full divide-y divide-[rgba(255,255,255,0.08)] text-sm">
-            <thead className="bg-[#11151F] text-left text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+        <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
+          <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
+            <thead className="bg-[#F8F9FF] text-left text-xs font-semibold uppercase tracking-wider text-[#596579]">
               <tr>
                 <th className="px-4 py-3.5">Code</th>
                 <th className="px-4 py-3.5">Title</th>
@@ -88,25 +88,25 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
                 <th className="px-4 py-3.5">Added</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[rgba(255,255,255,0.06)] text-[#CBD5E1]">
+            <tbody className="divide-y divide-[#EFF4FF] text-[#1B2430]">
               {properties.map((p) => (
-                <tr key={p.id} className="hover:bg-[#1E2533] transition-colors">
-                  <td className="px-4 py-3.5 font-mono text-xs text-[#94A3B8]">{p.propertyCode}</td>
-                  <td className="px-4 py-3.5 font-semibold text-[#F8FAFC]">
-                    <Link href={`/properties/${p.id}`} className="hover:text-[#4F8CFF] transition-colors">
+                <tr key={p.id} className="hover:bg-[#F3F6FA] transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-xs text-[#8A94A6]">{p.propertyCode}</td>
+                  <td className="px-4 py-3.5 font-semibold text-[#1B2430]">
+                    <Link href={`/properties/${p.id}`} className="hover:text-[#3366FF] transition-colors">
                       {p.title}
                     </Link>
                   </td>
                   <td className="px-4 py-3.5">{p.area}</td>
                   <td className="px-4 py-3.5">{p.listingType === "RENT" ? "Rent" : "Sale"}</td>
                   <td className="px-4 py-3.5">{p.bhk} BHK</td>
-                  <td className="px-4 py-3.5 font-bold text-[#4F8CFF]">
+                  <td className="px-4 py-3.5 font-bold text-[#3366FF]">
                     {p.listingType === "RENT" ? formatINR(p.monthlyRent, { suffix: "month" }) : formatINR(p.salePrice, { compact: true })}
                   </td>
                   <td className="px-4 py-3.5">
                     <Badge tone={PROPERTY_STATUS_TONE[p.status]}>{enumToLabel(p.status)}</Badge>
                   </td>
-                  <td className="px-4 py-3.5 text-xs text-[#94A3B8]">{formatDate(p.createdAt)}</td>
+                  <td className="px-4 py-3.5 text-xs text-[#8A94A6]">{formatDate(p.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

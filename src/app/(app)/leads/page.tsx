@@ -42,10 +42,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[rgba(255,255,255,0.08)] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Leads Pipeline</h1>
-          <p className="mt-1 text-sm text-[#94A3B8]">{totalCount} leads {session!.user.role === "FIELD_EXECUTIVE" ? "assigned to you" : "in organization pipeline"}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Leads Pipeline</h1>
+          <p className="mt-1 text-sm text-[#596579]">{totalCount} leads {session!.user.role === "FIELD_EXECUTIVE" ? "assigned to you" : "in organization pipeline"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canManage && <BulkAutoAssignButton unassignedCount={unassignedCount} />}
@@ -62,9 +62,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       {leads.length === 0 ? (
         <EmptyState title="No matching leads" description="Try adjusting your filters, or wait for new leads to arrive via digital portals & WhatsApp." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] shadow-sm">
-          <table className="min-w-full divide-y divide-[rgba(255,255,255,0.08)] text-sm">
-            <thead className="bg-[#11151F] text-left text-xs font-semibold uppercase tracking-wider text-[#94A3B8]">
+        <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
+          <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
+            <thead className="bg-[#F8F9FF] text-left text-xs font-semibold uppercase tracking-wider text-[#596579]">
               <tr>
                 <th className="px-4 py-3.5">Client</th>
                 <th className="px-4 py-3.5">Requirement</th>
@@ -77,23 +77,23 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <th className="px-4 py-3.5">Created</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[rgba(255,255,255,0.06)] text-[#CBD5E1]">
+            <tbody className="divide-y divide-[#EFF4FF] text-[#1B2430]">
               {leads.map((l) => (
-                <tr key={l.id} className="hover:bg-[#1E2533] transition-colors">
+                <tr key={l.id} className="hover:bg-[#F3F6FA] transition-colors">
                   <td className="px-4 py-3.5">
-                    <Link href={`/leads/${l.id}`} className="font-bold text-[#F8FAFC] hover:text-[#4F8CFF] transition-colors">{l.clientName}</Link>
-                    <p className="text-xs text-[#94A3B8] font-mono mt-0.5">{l.phone}</p>
+                    <Link href={`/leads/${l.id}`} className="font-bold text-[#1B2430] hover:text-[#3366FF] transition-colors">{l.clientName}</Link>
+                    <p className="text-xs text-[#8A94A6] font-mono mt-0.5">{l.phone}</p>
                   </td>
                   <td className="px-4 py-3.5">
                     {l.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {l.preferredBhk ? `${l.preferredBhk} BHK` : "Any"} &middot; {l.preferredLocation}
                   </td>
-                  <td className="px-4 py-3.5 font-semibold text-[#4F8CFF]">{formatINR(l.minBudget, { compact: true })} - {formatINR(l.maxBudget, { compact: true })}</td>
+                  <td className="px-4 py-3.5 font-semibold text-[#3366FF]">{formatINR(l.minBudget, { compact: true })} - {formatINR(l.maxBudget, { compact: true })}</td>
                   <td className="px-4 py-3.5">{enumToLabel(l.source)}</td>
-                  <td className="px-4 py-3.5">{l.assignedTo?.name ?? <span className="font-semibold text-[#F59E0B]">Unassigned</span>}</td>
+                  <td className="px-4 py-3.5">{l.assignedTo?.name ?? <span className="font-semibold text-[#E6A23C]">Unassigned</span>}</td>
                   <td className="px-4 py-3.5"><Badge tone={LEAD_STATUS_TONE[l.status]}>{enumToLabel(l.status)}</Badge></td>
                   <td className="px-4 py-3.5"><Badge tone={LEAD_PRIORITY_TONE[l.priority]}>{l.priority}</Badge></td>
-                  <td className="px-4 py-3.5 font-bold text-[#F8FAFC]">{l.score}</td>
-                  <td className="px-4 py-3.5 text-xs text-[#94A3B8]">{formatDate(l.createdAt)}</td>
+                  <td className="px-4 py-3.5 font-bold text-[#1B2430]">{l.score}</td>
+                  <td className="px-4 py-3.5 text-xs text-[#8A94A6]">{formatDate(l.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

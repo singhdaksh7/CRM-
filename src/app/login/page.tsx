@@ -34,17 +34,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-1 items-center justify-center bg-[#0D1017] px-4 py-8 text-[#F8FAFC]">
+    <div className="flex min-h-screen flex-1 items-center justify-center bg-[#FAFBFC] px-4 py-8 text-[#1B2430]">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4F8CFF] text-[#0D1017] font-bold text-2xl shadow-lg shadow-[#4F8CFF]/20">
-            D
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#3366FF] text-white font-bold text-2xl shadow-lg shadow-[#3366FF]/20">
+            KP
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#F8FAFC]">Welcome back, Bhaiya</h1>
-          <p className="mt-2 text-sm text-[#94A3B8]">Sign in to manage today’s leads, visits, and client follow-ups.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Welcome back, Bhaiya</h1>
+          <p className="mt-2 text-sm text-[#596579]">Sign in to manage today’s leads, visits, and client follow-ups.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[#181E2A] p-6 sm:p-8 shadow-2xl">
+        <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-[#E7ECF2] bg-white p-6 sm:p-8 shadow-xs">
           <Field label="Email Address">
             <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@delhibrokercrm.com" />
           </Field>
@@ -56,8 +56,8 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <div className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#11151F] p-4 text-xs text-[#94A3B8]">
-          <p className="mb-2 font-semibold uppercase tracking-wider text-[#64748B]">Quick Sign-In Demo Roles</p>
+        <div className="mt-6 rounded-2xl border border-[#E7ECF2] bg-[#F5F7FA] p-4 text-xs text-[#596579]">
+          <p className="mb-2 font-semibold uppercase tracking-wider text-[#8A94A6]">Quick Sign-In Demo Roles</p>
           <div className="space-y-1.5">
             {DEMO_ACCOUNTS.map((a) => (
               <button
@@ -67,10 +67,10 @@ export default function LoginPage() {
                   setEmail(a.email);
                   setPassword(a.password);
                 }}
-                className="flex w-full items-center justify-between rounded-lg p-2 hover:bg-[#1E2533] transition-colors text-left"
+                className="flex w-full items-center justify-between rounded-xl p-2 hover:bg-[#F3F6FA] transition-colors text-left"
               >
-                <span className="font-semibold text-[#CBD5E1]">{a.role}</span>
-                <span className="font-mono text-[#64748B]">{a.email}</span>
+                <span className="font-semibold text-[#1B2430]">{a.role}</span>
+                <span className="font-mono text-[#8A94A6]">{a.email}</span>
               </button>
             ))}
           </div>

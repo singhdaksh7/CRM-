@@ -3,15 +3,15 @@ import { cn } from "@/lib/utils";
 export type BadgeTone = "slate" | "green" | "amber" | "red" | "blue" | "purple" | "indigo" | "orange" | "whatsapp";
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  slate: "bg-[#1E2533] text-[#94A3B8] border border-[rgba(255,255,255,0.08)]",
-  green: "bg-[rgba(34,197,94,0.12)] text-[#22C55E] border border-[rgba(34,197,94,0.25)]",
-  amber: "bg-[rgba(245,158,11,0.12)] text-[#F59E0B] border border-[rgba(245,158,11,0.25)]",
-  red: "bg-[rgba(239,68,68,0.12)] text-[#EF4444] border border-[rgba(239,68,68,0.25)]",
-  blue: "bg-[rgba(79,140,255,0.12)] text-[#4F8CFF] border border-[rgba(79,140,255,0.25)]",
-  purple: "bg-[rgba(167,139,250,0.12)] text-[#A78BFA] border border-[rgba(167,139,250,0.25)]",
-  indigo: "bg-[rgba(99,102,241,0.12)] text-[#818CF8] border border-[rgba(99,102,241,0.25)]",
-  orange: "bg-[rgba(249,115,22,0.12)] text-[#FB923C] border border-[rgba(249,115,22,0.25)]",
-  whatsapp: "bg-[rgba(37,211,102,0.12)] text-[#25D366] border border-[rgba(37,211,102,0.25)]",
+  slate: "bg-[#F3F6FA] text-[#596579] border border-[#E7ECF2]",
+  green: "bg-[#E6F7F0] text-[#1FA971] border border-[#B3EBD3]",
+  amber: "bg-[#FFF6E5] text-[#E6A23C] border border-[#FFE3B3]",
+  red: "bg-[#FFECEC] text-[#E5484D] border border-[#FFC7C9]",
+  blue: "bg-[#EFF4FF] text-[#3366FF] border border-[#CCE0FF]",
+  purple: "bg-[#F3E8FF] text-[#9333EA] border border-[#E9D5FF]",
+  indigo: "bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]",
+  orange: "bg-[#FFF3EB] text-[#EA580C] border border-[#FFD8BE]",
+  whatsapp: "bg-[#E6F9EE] text-[#25D366] border border-[#B8F3D1]",
 };
 
 export function Badge({ tone = "slate", children, className }: { tone?: BadgeTone; children: React.ReactNode; className?: string }) {

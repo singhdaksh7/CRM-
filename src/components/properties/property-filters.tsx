@@ -26,9 +26,9 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-3.5 shadow-sm sm:flex-row sm:items-center sm:flex-wrap">
+    <div className="flex flex-col gap-3 rounded-2xl border border-[#E7ECF2] bg-white p-3.5 shadow-xs sm:flex-row sm:items-center sm:flex-wrap">
       <div className="relative flex-1 min-w-[200px]">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" />
         <Input
           placeholder="Search title, area, code..."
           defaultValue={sp.get("q") ?? ""}
@@ -73,11 +73,11 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
         <option value="price_low">Price: Low to High</option>
         <option value="price_high">Price: High to Low</option>
       </Select>
-      <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#11151F] border border-[rgba(255,255,255,0.08)] p-1">
-        <button onClick={() => setView("card")} className={cn("rounded-md p-1.5 transition-colors", view === "card" ? "bg-[#4F8CFF] text-white shadow-sm" : "text-[#94A3B8] hover:text-white")} aria-label="Card view">
+      <div className="ml-auto flex items-center gap-1 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] p-1">
+        <button onClick={() => setView("card")} className={cn("rounded-lg p-1.5 transition-colors", view === "card" ? "bg-[#3366FF] text-white shadow-xs" : "text-[#8A94A6] hover:text-[#1B2430]")} aria-label="Card view">
           <LayoutGrid className="h-4 w-4" />
         </button>
-        <button onClick={() => setView("table")} className={cn("rounded-md p-1.5 transition-colors", view === "table" ? "bg-[#4F8CFF] text-white shadow-sm" : "text-[#94A3B8] hover:text-white")} aria-label="Table view">
+        <button onClick={() => setView("table")} className={cn("rounded-lg p-1.5 transition-colors", view === "table" ? "bg-[#3366FF] text-white shadow-xs" : "text-[#8A94A6] hover:text-[#1B2430]")} aria-label="Table view">
           <List className="h-4 w-4" />
         </button>
       </div>

@@ -31,11 +31,6 @@ import {
   Eye,
 } from "lucide-react";
 
-// ---------------------------------------------------------------------------
-// Types mirroring the /api/leads/[id]/match response shape (dates arrive as
-// ISO strings once serialized through JSON, unlike the Prisma types).
-// ---------------------------------------------------------------------------
-
 interface MatchReason {
   label: string;
   matched: boolean;
@@ -97,7 +92,6 @@ const SECTION_META: { key: SectionKey; label: string; hint: string }[] = [
   { key: "otherSuggestions", label: "Other Suggestions", hint: "Still qualifies, weaker overall match" },
 ];
 
-/** Common shape a shortlist entry's property needs for display - a subset both a real MatchResult.property and a manually-picked PickerProperty can satisfy. */
 interface ShortlistProperty {
   id: string;
   propertyCode: string;
@@ -119,7 +113,7 @@ interface ShortlistProperty {
 interface ShortlistEntry {
   propertyId: string;
   property: ShortlistProperty;
-  matchScore: number | null; // null = manually added, no synthetic score
+  matchScore: number | null;
   reasons: MatchReason[];
   aboveBudget: boolean;
   addedManually: boolean;
@@ -185,7 +179,6 @@ export function PropertyMatchingWorkspace({
   const [loading, setLoading] = useState(true);
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(new Set(["bestMatches"]));
 
-  // Client-side filters over the already-fetched result set.
   const [exactLocalityOnly, setExactLocalityOnly] = useState(false);
   const [includeNearby, setIncludeNearby] = useState(true);
   const [bhkFilter, setBhkFilter] = useState("");
@@ -230,7 +223,6 @@ export function PropertyMatchingWorkspace({
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount and whenever tolerance/radius change
     fetchMatches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id, tolerance, radius]);
@@ -418,11 +410,6 @@ export function PropertyMatchingWorkspace({
     if (!entry.property.coverImage) warnings.push("No cover image set for this property");
     if (entry.addressVisible && includeAddress) warnings.push("Exact address will be visible to the client");
     if (entry.aboveBudget) warnings.push("Priced above the client's stated budget");
-    // "Price differs from when it was added" is intentionally not computed -
-    // this session-only builder doesn't capture a price-at-add-time
-    // snapshot, and fabricating one would be misleading. The dedicated
-    // PROPERTY_PRICE_CHANGED_AFTER_SHARE hook (Workstream F) covers this
-    // once a catalogue has actually been sent.
     return warnings;
   }
 
@@ -503,18 +490,17 @@ export function PropertyMatchingWorkspace({
     });
   }
 
-  // ---- Send screen (after catalogue creation) --------------------------
   if (created) {
     return (
       <div className="mx-auto max-w-xl space-y-4">
-        <div className="rounded-xl border border-[rgba(34,197,94,0.25)] bg-[rgba(34,197,94,0.08)] p-5 text-center">
-          <Sparkles className="mx-auto h-8 w-8 text-[#22C55E]" />
-          <p className="mt-2 text-sm font-semibold text-[#22C55E]">Catalogue created</p>
-          <p className="text-xs text-[#94A3B8]">Share it now, or copy the link/message for later.</p>
+        <div className="rounded-2xl border border-[#B3EBD3] bg-[#E6F7F0] p-5 text-center shadow-xs">
+          <Sparkles className="mx-auto h-8 w-8 text-[#1FA971]" />
+          <p className="mt-2 text-sm font-semibold text-[#1FA971]">Catalogue created</p>
+          <p className="text-xs text-[#596579]">Share it now, or copy the link/message for later.</p>
         </div>
-        <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-4 shadow-sm">
-          <p className="mb-2 text-xs font-medium text-[#94A3B8]">Message Preview</p>
-          <pre className="whitespace-pre-wrap rounded-lg bg-[#11151F] p-3 font-mono text-xs text-[#CBD5E1]">{created.previewMessage}</pre>
+        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+          <p className="mb-2 text-xs font-medium text-[#596579]">Message Preview</p>
+          <pre className="whitespace-pre-wrap rounded-xl bg-[#F8F9FF] p-3 font-mono text-xs text-[#1B2430] border border-[#E7ECF2]">{created.previewMessage}</pre>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard.writeText(created.publicUrl); toast.success("Link copied"); }}>
               <Copy className="h-3.5 w-3.5" /> Copy Link
@@ -522,7 +508,7 @@ export function PropertyMatchingWorkspace({
             <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard.writeText(created.previewMessage); toast.success("Message copied"); }}>
               <Copy className="h-3.5 w-3.5" /> Copy Message
             </Button>
-            <a href={created.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#1E2533] px-2.5 py-1.5 text-xs font-medium text-[#CBD5E1] ring-1 ring-inset ring-[rgba(255,255,255,0.1)] hover:bg-[#252D3D]">
+            <a href={created.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-xl bg-white px-2.5 py-1.5 text-xs font-medium text-[#596579] border border-[#E7ECF2] hover:bg-[#F3F6FA]">
               <ExternalLink className="h-3.5 w-3.5" /> Preview Public Page
             </a>
           </div>
@@ -537,15 +523,14 @@ export function PropertyMatchingWorkspace({
     );
   }
 
-  // ---- Main workspace ----------------------------------------------------
   return (
     <div className="space-y-4 pb-24 lg:pb-4">
       {/* Header */}
-      <div className="space-y-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-4 shadow-sm">
+      <div className="space-y-3 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-[#F8FAFC]">{lead.clientName}</h2>
-            <p className="mt-0.5 text-xs text-[#94A3B8]">
+            <h2 className="text-base font-bold text-[#1B2430]">{lead.clientName}</h2>
+            <p className="mt-0.5 text-xs text-[#596579]">
               {lead.phone} &middot; {lead.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {lead.preferredBhk ? `${lead.preferredBhk} BHK` : "Any BHK"} &middot; {lead.preferredLocation} &middot;{" "}
               {formatINR(lead.minBudget, { compact: true })} - {formatINR(lead.maxBudget, { compact: true })}
             </p>
@@ -553,7 +538,7 @@ export function PropertyMatchingWorkspace({
           <Badge tone="indigo">{loading ? "..." : totalMatchCount} match{totalMatchCount === 1 ? "" : "es"}</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#94A3B8]">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#596579]">
             Budget tolerance
             <Select value={tolerance} onChange={(e) => setTolerance(e.target.value)} className="w-auto text-xs font-semibold">
               <option value="0">Strict (0%)</option>
@@ -562,7 +547,7 @@ export function PropertyMatchingWorkspace({
               <option value="0.3">±30%</option>
             </Select>
           </label>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#94A3B8]">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#596579]">
             Locality radius
             <Select value={radius} onChange={(e) => setRadius(e.target.value)} className="w-auto text-xs font-semibold">
               <option value="0">Exact only</option>
@@ -571,7 +556,7 @@ export function PropertyMatchingWorkspace({
               <option value="10000">+10km</option>
             </Select>
           </label>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#94A3B8]">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#596579]">
             Sort
             <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-auto text-xs font-semibold">
               <option value="score">Best match</option>
@@ -591,7 +576,7 @@ export function PropertyMatchingWorkspace({
 
       {/* Filter bar */}
       {!loading && sections && !allEmpty && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
           <Checkbox label="Exact locality only" checked={exactLocalityOnly} onChange={(e) => setExactLocalityOnly(e.target.checked)} />
           <Checkbox label="Include nearby localities" checked={includeNearby} onChange={(e) => setIncludeNearby(e.target.checked)} />
           <Checkbox label="Verified only" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} />
@@ -631,7 +616,7 @@ export function PropertyMatchingWorkspace({
                         return next;
                       })
                     }
-                    className={`rounded-full px-2 py-1 text-[11px] font-medium ${active ? "bg-[#4F8CFF] text-white" : "bg-[#1E2533] text-[#94A3B8] hover:text-white"}`}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${active ? "bg-[#3366FF] text-white border-[#3366FF]" : "bg-[#FAFBFC] text-[#596579] border-[#E7ECF2] hover:bg-[#F3F6FA]"}`}
                   >
                     {a}
                   </button>
@@ -658,20 +643,20 @@ export function PropertyMatchingWorkspace({
               const list = filteredSections?.[meta.key] ?? [];
               const isOpen = openSections.has(meta.key);
               return (
-                <div key={meta.key} className="overflow-hidden rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] shadow-sm">
+                <div key={meta.key} className="overflow-hidden rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
                   <button type="button" onClick={() => toggleSection(meta.key)} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left">
                     <div>
-                      <p className="flex items-center gap-2 text-sm font-bold text-[#F8FAFC]">
+                      <p className="flex items-center gap-2 text-sm font-bold text-[#1B2430]">
                         {meta.label} <Badge tone="slate">{list.length}</Badge>
                       </p>
-                      <p className="text-xs text-[#94A3B8]">{meta.hint}</p>
+                      <p className="text-xs text-[#596579]">{meta.hint}</p>
                     </div>
-                    {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-[#94A3B8]" /> : <ChevronDown className="h-4 w-4 shrink-0 text-[#94A3B8]" />}
+                    {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-[#8A94A6]" /> : <ChevronDown className="h-4 w-4 shrink-0 text-[#8A94A6]" />}
                   </button>
                   {isOpen && (
-                    <div className="space-y-3 border-t border-[rgba(255,255,255,0.06)] p-3">
+                    <div className="space-y-3 border-t border-[#EFF4FF] p-3">
                       {list.length === 0 ? (
-                        <p className="py-4 text-center text-xs text-[#94A3B8]">No properties in this section{sections[meta.key].length > 0 ? " match the current filters" : ""}.</p>
+                        <p className="py-4 text-center text-xs text-[#8A94A6]">No properties in this section{sections[meta.key].length > 0 ? " match the current filters" : ""}.</p>
                       ) : (
                         list.map((m) => (
                           <MatchCard
@@ -724,9 +709,8 @@ export function PropertyMatchingWorkspace({
         </div>
       )}
 
-      {/* Sticky mobile action bar */}
       {shortlist.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-3 shadow-lg lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7ECF2] bg-white p-3 shadow-lg lg:hidden">
           <Button className="w-full justify-center" onClick={() => setReviewOpen(true)}>
             Review Shortlist ({shortlist.length})
           </Button>
@@ -737,7 +721,7 @@ export function PropertyMatchingWorkspace({
 
       <Dialog open={compareOpen} onClose={() => setCompareOpen(false)} title="Compare Properties" wide>
         {comparedMatches.length === 0 ? (
-          <p className="text-sm text-[#94A3B8]">No properties selected for comparison.</p>
+          <p className="text-sm text-[#8A94A6]">No properties selected for comparison.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] text-left text-xs">
@@ -758,11 +742,11 @@ export function PropertyMatchingWorkspace({
       <Dialog open={reviewOpen} onClose={() => setReviewOpen(false)} title="Shortlist Review" description={`For ${lead.clientName} · ${lead.phone}`} wide>
         <div className="space-y-3">
           {shortlist.length === 0 ? (
-            <p className="text-sm text-[#94A3B8]">No properties in the shortlist yet.</p>
+            <p className="text-sm text-[#8A94A6]">No properties in the shortlist yet.</p>
           ) : (
             <>
               {validShortlistCount === 0 && (
-                <div className="flex items-start gap-2 rounded-lg border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] p-3 text-xs text-[#EF4444]">
+                <div className="flex items-start gap-2 rounded-xl border border-[#FFC7C9] bg-[#FFECEC] p-3 text-xs text-[#E5484D]">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   All shortlisted properties are unavailable. Remove them or add at least one active property before creating a catalogue.
                 </div>
@@ -771,30 +755,30 @@ export function PropertyMatchingWorkspace({
                 {shortlist.map((s) => {
                   const warnings = warningsFor(s);
                   return (
-                    <div key={s.propertyId} className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#11151F] p-3">
+                    <div key={s.propertyId} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-3">
                       <div className="flex items-center gap-3">
-                        <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-[#181E2A]">
+                        <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-[#F5F7FA]">
                           {s.property.coverImage ? (
                             <Image src={s.property.coverImage} alt={s.property.title} fill className="object-cover" unoptimized />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[#64748B]"><ImageOff className="h-4 w-4" /></div>
+                            <div className="flex h-full w-full items-center justify-center text-[#8A94A6]"><ImageOff className="h-4 w-4" /></div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1.5 truncate text-sm font-medium text-[#F8FAFC]">
-                            {s.isTopPick && <Star className="h-3.5 w-3.5 shrink-0 fill-[#F59E0B] text-[#F59E0B]" />}
+                          <p className="flex items-center gap-1.5 truncate text-sm font-medium text-[#1B2430]">
+                            {s.isTopPick && <Star className="h-3.5 w-3.5 shrink-0 fill-[#E6A23C] text-[#E6A23C]" />}
                             {s.property.title}
                           </p>
-                          <p className="truncate text-xs text-[#94A3B8]">
+                          <p className="truncate text-xs text-[#596579]">
                             {s.property.area} &middot; {includePrice ? formatPrice(s.property) : "Price hidden"} &middot; {includeAddress && s.addressVisible ? s.property.address ?? "No address on file" : "Location only"}
                           </p>
-                          {s.customNote && <p className="mt-0.5 text-xs italic text-[#94A3B8]">&ldquo;{s.customNote}&rdquo;</p>}
+                          {s.customNote && <p className="mt-0.5 text-xs italic text-[#596579]">&ldquo;{s.customNote}&rdquo;</p>}
                         </div>
                       </div>
                       {warnings.length > 0 && (
-                        <ul className="mt-2 space-y-0.5 border-t border-[rgba(255,255,255,0.06)] pt-2">
+                        <ul className="mt-2 space-y-0.5 border-t border-[#EFF4FF] pt-2">
                           {warnings.map((w, i) => (
-                            <li key={i} className="flex items-center gap-1.5 text-[11px] text-[#F59E0B]"><AlertTriangle className="h-3 w-3 shrink-0" /> {w}</li>
+                            <li key={i} className="flex items-center gap-1.5 text-[11px] text-[#E6A23C]"><AlertTriangle className="h-3 w-3 shrink-0" /> {w}</li>
                           ))}
                         </ul>
                       )}
@@ -802,28 +786,15 @@ export function PropertyMatchingWorkspace({
                   );
                 })}
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="secondary" onClick={() => setReviewOpen(false)}>Keep Editing</Button>
-                <Button onClick={createCatalogue} loading={creating} disabled={validShortlistCount === 0}>
-                  Create Catalogue
-                </Button>
+              <div className="flex justify-end gap-2 border-t border-[#E7ECF2] pt-3">
+                <Button variant="secondary" onClick={() => setReviewOpen(false)}>Back to Workspace</Button>
+                <Button onClick={createCatalogue} loading={creating} disabled={validShortlistCount === 0}>Create & Share Catalogue</Button>
               </div>
             </>
           )}
         </div>
       </Dialog>
     </div>
-  );
-}
-
-function CompareRow({ label, cells, bold }: { label: string; cells: string[]; bold?: boolean }) {
-  return (
-    <tr className="border-b border-[rgba(255,255,255,0.06)]">
-      <td className="py-1.5 pr-3 font-semibold text-[#94A3B8]">{label}</td>
-      {cells.map((c, i) => (
-        <td key={i} className={`py-1.5 pr-3 ${bold ? "font-semibold text-[#F8FAFC]" : "text-[#CBD5E1]"}`}>{c}</td>
-      ))}
-    </tr>
   );
 }
 
@@ -840,78 +811,80 @@ function MatchCard({
   compareChecked: boolean;
   onToggleCompare: () => void;
 }) {
+  const [reasonsOpen, setReasonsOpen] = useState(false);
   const p = match.property;
-  const imageCount = parseAmenities(p.images).length;
+  const imageCount = useMemo(() => {
+    try {
+      const arr = JSON.parse(p.images || "[]");
+      return Array.isArray(arr) ? arr.length : 0;
+    } catch {
+      return 0;
+    }
+  }, [p.images]);
 
   return (
-    <div className={`overflow-hidden rounded-xl border transition-all ${inShortlist ? "border-[#4F8CFF] bg-[#1E2533]" : "border-[rgba(255,255,255,0.08)] bg-[#11151F]"}`}>
-      <div className="flex flex-col sm:flex-row">
-        <div className="relative h-40 shrink-0 bg-[#181E2A] sm:h-auto sm:w-48">
-          {p.coverImage ? (
-            <Image src={p.coverImage} alt={p.title} fill className="object-cover" unoptimized />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-[#64748B]">
-              <ImageOff className="h-6 w-6" />
-              <span className="text-[10px]">No Image</span>
-            </div>
-          )}
-          <label className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[10px] font-semibold text-white">
-            <input type="checkbox" checked={compareChecked} onChange={onToggleCompare} className="h-3 w-3" /> Compare
-          </label>
-        </div>
-
-        <div className="flex flex-1 flex-col justify-between p-4">
-          <div>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <span className="font-mono text-[10px] text-[#94A3B8]">{p.propertyCode}</span>
-                <h3 className="truncate text-sm font-bold leading-snug text-[#F8FAFC]">{p.title}</h3>
-              </div>
-              <span className="shrink-0 text-sm font-extrabold text-[#4F8CFF]">{formatPrice(p)}</span>
-            </div>
-
-            <p className="mt-1 text-xs font-medium text-[#94A3B8]">
-              {p.area}, Delhi &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {p.builtUpAreaSqft} sqft
-              {p.floorNumber !== null && ` · Floor ${p.floorNumber}${p.totalFloors ? `/${p.totalFloors}` : ""}`}
-              {p.maintenanceCharge && p.listingType === "RENT" && ` · +${formatINR(p.maintenanceCharge, { compact: true })} maint.`}
-            </p>
-            {p.availableFrom && <p className="mt-0.5 text-[11px] text-[#64748B]">Available from {formatDate(p.availableFrom)}</p>}
-
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <Badge tone={match.score >= 80 ? "green" : match.score >= 50 ? "amber" : "slate"}>{match.score}% Match</Badge>
-              {match.aboveBudget && <Badge tone="amber">{match.budgetTier}</Badge>}
-              {match.verified && (
-                <Badge tone="blue"><ShieldCheck className="mr-0.5 inline h-3 w-3" /> Verified</Badge>
-              )}
-              {match.hasImages && (
-                <Badge tone="purple"><Camera className="mr-0.5 inline h-3 w-3" /> {imageCount > 0 ? imageCount : ""} Photos</Badge>
-              )}
-            </div>
-
-            {match.reasons.length > 0 && (
-              <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 border-t border-[rgba(255,255,255,0.06)] pt-2.5 text-[11px] sm:grid-cols-2">
-                {match.reasons.map((r, i) => (
-                  <span key={i} className={`flex items-start gap-1 font-medium ${r.matched ? "text-[#22C55E]" : "text-[#EF4444]"}`}>
-                    {r.matched ? "✓" : "✗"} {r.detail}
-                  </span>
-                ))}
-              </div>
+    <div className={`rounded-xl border p-3.5 transition-all ${inShortlist ? "border-[#3366FF] bg-[#EFF4FF]" : "border-[#E7ECF2] bg-white hover:border-[#C3C5D8]"}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-xl bg-[#F5F7FA]">
+            {p.coverImage ? (
+              <Image src={p.coverImage} alt={p.title} fill className="object-cover" unoptimized />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[#8A94A6]"><ImageOff className="h-5 w-5" /></div>
+            )}
+            {imageCount > 0 && (
+              <span className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold text-white">
+                <Camera className="h-2.5 w-2.5" /> {imageCount}
+              </span>
             )}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" variant={inShortlist ? "secondary" : "primary"} onClick={onToggleShortlist}>
-              {inShortlist ? "Remove from Shortlist" : "Add to Shortlist"}
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-bold text-[#1B2430] text-sm">{p.title}</span>
+              {match.verified && (
+                <span className="inline-flex items-center gap-0.5 rounded bg-[#E6F7F0] px-1.5 py-0.5 text-[10px] font-semibold text-[#1FA971]">
+                  <ShieldCheck className="h-3 w-3" /> Verified
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-[#596579]">
+              {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {p.builtUpAreaSqft} sqft
+            </p>
+            <p className="text-sm font-bold text-[#3366FF]">{formatPrice(p)}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-row sm:flex-col items-end justify-between sm:justify-start gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[#596579]">Score</span>
+            <span className="rounded-xl bg-[#3366FF] px-2.5 py-1 text-xs font-bold text-white shadow-xs">{match.score}%</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant={inShortlist ? "primary" : "secondary"} onClick={onToggleShortlist}>
+              {inShortlist ? "Shortlisted" : "+ Shortlist"}
             </Button>
-            <LinkButton href={`/properties/${p.id}`} variant="ghost" size="sm">
-              <ExternalLink className="h-3.5 w-3.5" /> Open Property
-            </LinkButton>
-            <LinkButton href="/visits" variant="ghost" size="sm">
-              Schedule Visit
-            </LinkButton>
           </div>
         </div>
       </div>
+
+      <div className="mt-3 flex items-center justify-between border-t border-[#EFF4FF] pt-2 text-xs">
+        <button type="button" onClick={() => setReasonsOpen((v) => !v)} className="flex items-center gap-1 font-semibold text-[#596579] hover:text-[#3366FF]">
+          {reasonsOpen ? "Hide match breakdown" : "Why it matched"} {reasonsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
+        <Checkbox label="Compare" checked={compareChecked} onChange={onToggleCompare} />
+      </div>
+
+      {reasonsOpen && (
+        <div className="mt-2 space-y-1 rounded-xl bg-[#FAFBFC] p-2.5 text-xs border border-[#E7ECF2]">
+          {match.reasons.map((r, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <span className={r.matched ? "text-[#1B2430]" : "text-[#8A94A6]"}>{r.label}</span>
+              <span className={`font-semibold ${r.matched ? "text-[#1FA971]" : "text-[#E5484D]"}`}>{r.detail}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -956,94 +929,77 @@ function ShortlistPanel({
   onReview: () => void;
 }) {
   return (
-    <>
-      <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-[#F8FAFC]">Catalogue Details</h3>
-        <Field label="Title" required>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-        </Field>
-        <Field label="Intro Message" hint="Optional - overrides the default requirement summary line">
-          <Textarea rows={2} value={introMessage} onChange={(e) => setIntroMessage(e.target.value)} />
-        </Field>
-        <Field label="Expires On" hint="Optional">
-          <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
-        </Field>
-        <div className="mt-2 space-y-2">
-          <Checkbox label="Include price" checked={includePrice} onChange={(e) => setIncludePrice(e.target.checked)} />
-          <Checkbox label="Include approximate address" checked={includeAddress} onChange={(e) => setIncludeAddress(e.target.checked)} />
-          <Checkbox label="Include brokerage" checked={includeBrokerage} onChange={(e) => setIncludeBrokerage(e.target.checked)} />
-        </div>
+    <div className="space-y-3 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-[#1B2430]">Selected Shortlist</h3>
+        <Badge tone="blue">{shortlist.length}</Badge>
       </div>
 
-      <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-[#F8FAFC]">Shortlist ({shortlist.length})</h3>
-        {shortlist.length === 0 ? (
-          <p className="text-xs text-[#94A3B8]">Add properties from the matches on the left, or use &ldquo;Add More Properties&rdquo; to search the full inventory.</p>
-        ) : (
-          <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-            {shortlist.map((s, i) => (
-              <div key={s.propertyId} className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#11151F] p-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 flex-1 truncate text-xs font-medium text-[#F8FAFC]">
-                    {i + 1}. {s.property.title}
-                  </p>
-                  <div className="flex shrink-0 gap-1">
-                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="text-[#64748B] hover:text-[#4F8CFF] disabled:opacity-30">
+      {shortlist.length === 0 ? (
+        <p className="py-6 text-center text-xs text-[#8A94A6]">No properties shortlisted yet. Click &ldquo;+ Shortlist&rdquo; on any property card.</p>
+      ) : (
+        <div className="space-y-3">
+          <Field label="Catalogue Title">
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </Field>
+          <Field label="Client Note (Optional)">
+            <Textarea rows={2} placeholder="Add a custom message..." value={introMessage} onChange={(e) => setIntroMessage(e.target.value)} />
+          </Field>
+
+          <div className="space-y-2 border-t border-[#EFF4FF] pt-2">
+            {shortlist.map((s, idx) => (
+              <div key={s.propertyId} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-2.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-xs font-bold text-[#1B2430]">{s.property.title}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button type="button" onClick={() => toggleTopPick(s.propertyId)} className={`p-1 rounded ${s.isTopPick ? "text-[#E6A23C]" : "text-[#8A94A6] hover:text-[#1B2430]"}`}>
+                      <Star className="h-3.5 w-3.5 fill-current" />
+                    </button>
+                    <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1 text-[#8A94A6] hover:text-[#1B2430] disabled:opacity-30">
                       <ArrowUp className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => move(i, 1)} disabled={i === shortlist.length - 1} className="text-[#64748B] hover:text-[#4F8CFF] disabled:opacity-30">
+                    <button type="button" onClick={() => move(idx, 1)} disabled={idx === shortlist.length - 1} className="p-1 text-[#8A94A6] hover:text-[#1B2430] disabled:opacity-30">
                       <ArrowDown className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => remove(s.propertyId)} className="text-[#64748B] hover:text-[#EF4444]">
+                    <button type="button" onClick={() => remove(s.propertyId)} className="p-1 text-[#E5484D] hover:text-[#c93b40]">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
-
-                <p className="mt-0.5 text-[11px] text-[#94A3B8]">
-                  {s.matchScore !== null ? (
-                    <>Match score: {s.matchScore}%</>
-                  ) : (
-                    <>Added manually{s.addedByUserName ? ` by ${s.addedByUserName}` : ""}</>
-                  )}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => toggleTopPick(s.propertyId)}
-                  className={`mt-1.5 flex items-center gap-1 text-[11px] font-semibold ${s.isTopPick ? "text-[#F59E0B]" : "text-[#64748B] hover:text-[#F59E0B]"}`}
-                >
-                  <Star className={`h-3 w-3 ${s.isTopPick ? "fill-[#F59E0B]" : ""}`} /> {s.isTopPick ? "Top Pick" : "Mark as Top Pick"}
-                </button>
-
                 <Input
+                  placeholder="Custom note for client..."
                   value={s.customNote}
                   onChange={(e) => updateEntry(s.propertyId, { customNote: e.target.value })}
-                  placeholder="Client-facing note (optional)"
-                  className="mt-1.5 text-xs"
+                  className="text-xs py-1"
                 />
-                <Textarea
-                  rows={2}
-                  value={s.internalNote}
-                  onChange={(e) => updateEntry(s.propertyId, { internalNote: e.target.value })}
-                  placeholder="Internal only - never shown to client"
-                  className="mt-1.5 text-xs"
-                />
-
-                <div className="mt-1.5 flex flex-wrap gap-2">
-                  <Checkbox label="Price visible" checked={s.priceVisible} onChange={(e) => updateEntry(s.propertyId, { priceVisible: e.target.checked })} />
-                  <Checkbox label="Address visible" checked={s.addressVisible} onChange={(e) => updateEntry(s.propertyId, { addressVisible: e.target.checked })} />
-                  <Checkbox label="Brokerage visible" checked={s.brokerageVisible} onChange={(e) => updateEntry(s.propertyId, { brokerageVisible: e.target.checked })} />
-                </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
 
-      <Button onClick={onReview} disabled={shortlist.length === 0} className="hidden w-full justify-center lg:flex">
-        Review Shortlist
-      </Button>
-    </>
+          <div className="space-y-1.5 border-t border-[#EFF4FF] pt-2 text-xs">
+            <Checkbox label="Show prices" checked={includePrice} onChange={(e) => setIncludePrice(e.target.checked)} />
+            <Checkbox label="Show address" checked={includeAddress} onChange={(e) => setIncludeAddress(e.target.checked)} />
+            <Checkbox label="Show brokerage" checked={includeBrokerage} onChange={(e) => setIncludeBrokerage(e.target.checked)} />
+          </div>
+
+          <Button className="w-full justify-center" onClick={onReview}>
+            Review & Create Catalogue
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompareRow({ label, cells, bold }: { label: string; cells: React.ReactNode[]; bold?: boolean }) {
+  return (
+    <tr className="border-b border-[#EFF4FF]">
+      <td className="py-2.5 pr-4 font-medium text-[#8A94A6]">{label}</td>
+      {cells.map((cell, i) => (
+        <td key={i} className={`py-2.5 px-4 text-[#1B2430] ${bold ? "font-bold" : ""}`}>
+          {cell}
+        </td>
+      ))}
+    </tr>
   );
 }

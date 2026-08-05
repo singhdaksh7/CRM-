@@ -18,9 +18,9 @@ export function LeadFilters({ employees }: { employees: User[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-3.5 shadow-sm sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="flex flex-col gap-3 rounded-2xl border border-[#E7ECF2] bg-white p-3.5 shadow-xs sm:flex-row sm:flex-wrap sm:items-center">
       <div className="relative flex-1 min-w-[200px]">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" />
         <Input placeholder="Search name, phone, code..." defaultValue={sp.get("q") ?? ""} onChange={(e) => update("q", e.target.value)} className="pl-9" />
       </div>
       <Select defaultValue={sp.get("source") ?? ""} onChange={(e) => update("source", e.target.value)} className="w-auto text-xs font-semibold">
