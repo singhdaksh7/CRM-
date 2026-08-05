@@ -7,12 +7,16 @@ import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyMapPanel } from "@/components/properties/property-map-panel";
 import { NearbyPropertiesPanel } from "@/components/properties/nearby-properties-panel";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
+import { HealthCard } from "@/components/rules/health-card";
+import { SuggestionList } from "@/components/rules/suggestion-list";
+import { getPropertyHealth, getPropertySuggestions } from "@/lib/rules";
 import { MapPin, Home, Phone, ShieldCheck, CheckCircle2 } from "lucide-react";
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const property = await prisma.property.findUnique({ where: { id } });
   if (!property) notFound();
+  const [health, suggestions] = await Promise.all([getPropertyHealth(property.id), getPropertySuggestions(property.id)]);
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
@@ -117,6 +121,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
         {/* Pricing & Owner Info Column */}
         <div className="space-y-6">
+          {health && <HealthCard title="Property Health" health={health} />}
+          <SuggestionList suggestions={suggestions} />
+
           {/* Pricing Panel */}
           <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
             <p className="text-xs font-semibold uppercase tracking-wider text-[#8A94A6]">{property.listingType === "RENT" ? "Monthly Rent" : "Sale Price"}</p>

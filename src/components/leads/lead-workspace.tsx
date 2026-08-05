@@ -13,6 +13,9 @@ import { ArrowRightLeft, Send, Sparkles, Plus, MessageSquare, Building2, User as
 import { ConversationPanel } from "@/components/whatsapp/conversation-panel";
 import { CataloguesTab } from "@/components/catalogues/catalogues-tab";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
+import { HealthCard } from "@/components/rules/health-card";
+import { SuggestionList } from "@/components/rules/suggestion-list";
+import type { HealthScoreResult, Suggestion } from "@/lib/rules";
 
 interface ScoreFactor {
   label: string;
@@ -58,7 +61,21 @@ const TAB_LABELS: Record<LeadTab, string> = {
   shared: "Shared",
 };
 
-export function LeadWorkspace({ lead, employees, role }: { lead: LeadWithRelations; employees: User[]; role: string }) {
+export function LeadWorkspace({
+  lead,
+  employees,
+  role,
+  health,
+  suggestions,
+  visitSuggestions,
+}: {
+  lead: LeadWithRelations;
+  employees: User[];
+  role: string;
+  health: HealthScoreResult | null;
+  suggestions: Suggestion[];
+  visitSuggestions: Record<string, Suggestion[]>;
+}) {
   const [tab, setTab] = useState<LeadTab>("overview");
   const canManage = role === "ADMIN" || role === "DATA_MANAGER";
 
@@ -78,19 +95,33 @@ export function LeadWorkspace({ lead, employees, role }: { lead: LeadWithRelatio
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} />}
+      {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} health={health} suggestions={suggestions} onTabAction={(t) => setTab(t as LeadTab)} />}
       {tab === "whatsapp" && <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} />}
       {tab === "catalogues" && <CataloguesTab leadId={lead.id} canManage={canManage} canSend={true} />}
       {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
       {tab === "activity" && <ActivityTab activities={lead.activities} />}
       {tab === "followups" && <FollowUpsTab leadId={lead.id} followUps={lead.followUps} employees={employees} />}
-      {tab === "visits" && <VisitsTab leadId={lead.id} visits={lead.visits} canManage={canManage} />}
+      {tab === "visits" && <VisitsTab leadId={lead.id} visits={lead.visits} canManage={canManage} visitSuggestions={visitSuggestions} onTabAction={(t) => setTab(t as LeadTab)} />}
       {tab === "shared" && <SharedTab shares={lead.sharedProperties} />}
     </div>
   );
 }
 
-function OverviewTab({ lead, employees, canManage }: { lead: LeadWithRelations; employees: User[]; canManage: boolean }) {
+function OverviewTab({
+  lead,
+  employees,
+  canManage,
+  health,
+  suggestions,
+  onTabAction,
+}: {
+  lead: LeadWithRelations;
+  employees: User[];
+  canManage: boolean;
+  health: HealthScoreResult | null;
+  suggestions: Suggestion[];
+  onTabAction: (target: string) => void;
+}) {
   const router = useRouter();
   const [status, setStatus] = useState(lead.status);
   const [priority, setPriority] = useState(lead.priority);
@@ -185,6 +216,8 @@ function OverviewTab({ lead, employees, canManage }: { lead: LeadWithRelations; 
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
         <ScorePanel lead={lead} onRecalculate={recalculateScore} saving={saving} />
+        {health && <HealthCard title="Lead Health" health={health} />}
+        <SuggestionList suggestions={suggestions} onTabAction={onTabAction} />
 
         <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-3">
           <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Add Internal Note</h3>
@@ -397,7 +430,17 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
   );
 }
 
-function VisitsTab({ visits }: { leadId: string; visits: LeadWithRelations["visits"]; canManage: boolean }) {
+function VisitsTab({
+  visits,
+  visitSuggestions,
+  onTabAction,
+}: {
+  leadId: string;
+  visits: LeadWithRelations["visits"];
+  canManage: boolean;
+  visitSuggestions: Record<string, Suggestion[]>;
+  onTabAction: (target: string) => void;
+}) {
   const router = useRouter();
 
   async function updateVisit(id: string, data: Record<string, unknown>) {
@@ -438,6 +481,11 @@ function VisitsTab({ visits }: { leadId: string; visits: LeadWithRelations["visi
               </Select>
             </div>
             {v.employeeNotes && <p className="mt-2 text-xs text-[#596579]">{v.employeeNotes}</p>}
+            {(visitSuggestions[v.id]?.length ?? 0) > 0 && (
+              <div className="mt-3">
+                <SuggestionList title="Smart suggestion" suggestions={visitSuggestions[v.id]} onTabAction={onTabAction} />
+              </div>
+            )}
           </div>
         ))}
       </div>

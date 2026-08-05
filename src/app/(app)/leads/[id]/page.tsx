@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Badge, LEAD_STATUS_TONE, LEAD_PRIORITY_TONE } from "@/components/ui/badge";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { LeadWorkspace } from "@/components/leads/lead-workspace";
+import { getLeadHealth, getLeadSuggestions, computeVisitSuggestions } from "@/lib/rules";
 import { Phone, Mail, MapPin, Wallet } from "lucide-react";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,23 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   if (session!.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session!.user.id) notFound();
 
   const employees = await prisma.user.findMany({ where: { role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" } });
+  const canManage = session!.user.role === "ADMIN" || session!.user.role === "DATA_MANAGER";
+  const [health, suggestions] = await Promise.all([getLeadHealth(lead.id), getLeadSuggestions(lead.id, canManage)]);
+  const hasPendingFollowUp = lead.followUps.some((f) => f.status === "PENDING");
+  const visitSuggestions = Object.fromEntries(
+    lead.visits.map((v) => [
+      v.id,
+      computeVisitSuggestions({
+        visitId: v.id,
+        leadId: lead.id,
+        status: v.status,
+        outcome: v.outcome,
+        visitDate: v.visitDate,
+        leadStatus: lead.status,
+        hasPendingFollowUpForLead: hasPendingFollowUp,
+      }),
+    ])
+  );
 
   return (
     <div className="space-y-4">
@@ -52,7 +70,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         {lead.additionalRequirements && <p className="mt-3 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] p-3 text-sm text-[#596579]">{lead.additionalRequirements}</p>}
       </div>
 
-      <LeadWorkspace lead={lead} employees={employees} role={session!.user.role} />
+      <LeadWorkspace lead={lead} employees={employees} role={session!.user.role} health={health} suggestions={suggestions} visitSuggestions={visitSuggestions} />
     </div>
   );
 }

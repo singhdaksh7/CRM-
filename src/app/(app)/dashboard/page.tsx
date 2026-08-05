@@ -9,6 +9,10 @@ import { timeAgo, enumToLabel } from "@/lib/utils";
 import { Building2, Home, Landmark, Users, UserX, BellRing, CalendarClock, Trophy, ArrowRight, Send, Eye, Heart, CalendarPlus, ListChecks } from "lucide-react";
 import type { Role } from "@prisma/client";
 import Link from "next/link";
+import { getActionCenterItems, getLeadHealthOverview, getPropertyHealthOverview } from "@/lib/rules";
+import { getOrganizationId } from "@/lib/organization";
+import { ActionCenterList } from "@/components/dashboard/action-center-list";
+import { HealthOverviewCard } from "@/components/dashboard/health-overview-card";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -60,6 +64,16 @@ export default async function DashboardPage() {
         <KpiCard label="Visit Requests Today" value={data.visitRequestsReceivedToday} icon={CalendarPlus} tone="amber" />
         <KpiCard label="Awaiting Shortlist" value={data.leadsAwaitingShortlistCount} icon={ListChecks} tone="red" />
       </div>
+
+      {/* Smart Action Center - Phase 1 deterministic rule engine */}
+      <Suspense fallback={<PanelSkeleton />}>
+        <SmartActionCenter role={session.user.role} userId={session.user.id} />
+      </Suspense>
+
+      {/* Lead & Property Health Overview */}
+      <Suspense fallback={<div className="grid grid-cols-1 gap-4 lg:grid-cols-2"><PanelSkeleton /><PanelSkeleton /></div>}>
+        <HealthOverviewSection role={session.user.role} userId={session.user.id} />
+      </Suspense>
 
       {/* Leads Streamed Panel */}
       <Suspense fallback={<PanelSkeleton />}>
@@ -118,6 +132,25 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
         </div>
       </div>
     </>
+  );
+}
+
+async function SmartActionCenter({ role, userId }: { role: Role; userId: string }) {
+  const items = await getActionCenterItems(role, userId);
+  return <ActionCenterList items={JSON.parse(JSON.stringify(items))} />;
+}
+
+async function HealthOverviewSection({ role, userId }: { role: Role; userId: string }) {
+  const organizationId = getOrganizationId(userId);
+  const [leadDistribution, propertyDistribution] = await Promise.all([
+    getLeadHealthOverview(organizationId, role === "FIELD_EXECUTIVE" ? userId : undefined),
+    getPropertyHealthOverview(organizationId),
+  ]);
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <HealthOverviewCard title="Lead Health Overview" distribution={leadDistribution} />
+      <HealthOverviewCard title="Property Health Overview" distribution={propertyDistribution} />
+    </div>
   );
 }
 

@@ -27,6 +27,12 @@ import {
   SendHorizonal,
   Building2,
   IndianRupee,
+  UserRoundX,
+  MailWarning,
+  CalendarOff,
+  ImageOff,
+  Handshake,
+  FileClock,
   type LucideIcon,
 } from "lucide-react";
 import type { Notification, NotificationType } from "@prisma/client";
@@ -60,6 +66,12 @@ export const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   CATALOGUE_SENT: SendHorizonal,
   PROPERTY_UNAVAILABLE_AFTER_SHARE: Building2,
   PROPERTY_PRICE_CHANGED_AFTER_SHARE: IndianRupee,
+  HOT_LEAD_NO_FOLLOWUP: UserRoundX,
+  CATALOGUE_NO_RESPONSE: MailWarning,
+  VISIT_MISSED: CalendarOff,
+  PROPERTY_MISSING_PHOTOS: ImageOff,
+  DEAL_NEGOTIATION_STALE: Handshake,
+  DOCUMENT_EXPIRING: FileClock,
 };
 
 export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
@@ -91,9 +103,16 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   CATALOGUE_SENT: "Catalogue Sent",
   PROPERTY_UNAVAILABLE_AFTER_SHARE: "Property Unavailable After Share",
   PROPERTY_PRICE_CHANGED_AFTER_SHARE: "Property Price Changed After Share",
+  HOT_LEAD_NO_FOLLOWUP: "Hot Lead - No Follow-up",
+  CATALOGUE_NO_RESPONSE: "Catalogue - No Response",
+  VISIT_MISSED: "Visit Missed",
+  PROPERTY_MISSING_PHOTOS: "Property Missing Photos",
+  DEAL_NEGOTIATION_STALE: "Negotiation Stalled",
+  DOCUMENT_EXPIRING: "Document Expiring",
 };
 
 export function notificationHref(n: Notification): string | null {
   if (n.leadId) return `/leads/${n.leadId}`;
+  if (n.propertyId) return `/properties/${n.propertyId}`;
   return null;
 }

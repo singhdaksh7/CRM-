@@ -251,6 +251,13 @@ enum NotificationType {
   CATALOGUE_SENT
   PROPERTY_UNAVAILABLE_AFTER_SHARE
   PROPERTY_PRICE_CHANGED_AFTER_SHARE
+  // Smart CRM V2 Phase 1 - deterministic notification sweep (additive only)
+  HOT_LEAD_NO_FOLLOWUP
+  CATALOGUE_NO_RESPONSE
+  VISIT_MISSED
+  PROPERTY_MISSING_PHOTOS
+  DEAL_NEGOTIATION_STALE
+  DOCUMENT_EXPIRING
 }
 
 // ---------------------------------------------------------------------------
