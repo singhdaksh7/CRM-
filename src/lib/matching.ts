@@ -1,4 +1,6 @@
-import type { Property, Lead } from "@prisma/client";
+import type { Property, Lead, OwnerVerificationStatus } from "@prisma/client";
+import { normalizeLocality, getNearbyLocalities, getLocalityCentroid } from "./locality";
+import { haversineDistanceMeters } from "./geo";
 
 /**
  * Property matching engine.
@@ -22,6 +24,19 @@ export interface MatchReason {
   detail: string;
 }
 
+/** How the location score was earned - "exact" (canonical locality match), "nearby" (curated/derived adjacency), or "none" (no locality match, including the freeform substring fallback). */
+export type LocationMatchKind = "exact" | "nearby" | "none";
+
+/**
+ * A `Property` optionally carrying its `owner` relation. `owner` is optional
+ * so callers that don't `include: { owner: true }` on their Prisma query
+ * still satisfy this type - `verified` simply defaults to `false` when the
+ * relation isn't loaded.
+ */
+export type MatchableProperty = Property & {
+  owner?: { verificationStatus: OwnerVerificationStatus } | null;
+};
+
 export interface MatchResult {
   property: Property;
   score: number; // 0-100
@@ -29,6 +44,12 @@ export interface MatchResult {
   aboveBudget: boolean;
   overagePct: number;
   budgetTier: string;
+  /** How the location score was earned - additive field, defaults to "none". */
+  locationMatchKind: LocationMatchKind;
+  /** Whether the property's linked owner has a VERIFIED verification status. Defaults to false when the owner relation wasn't loaded. */
+  verified: boolean;
+  /** Whether the property has a cover image or any images in its images JSON array. */
+  hasImages: boolean;
 }
 
 const WEIGHTS = {
@@ -40,6 +61,10 @@ const WEIGHTS = {
   propertyType: 7,
 };
 
+/** Small, additive bonuses layered on top of the core 100-point scale - tiebreakers, not a rework of the existing weights. Total score is always capped at 100. */
+const VERIFIED_BONUS = 3;
+const HAS_IMAGES_BONUS = 2;
+
 function getListingPrice(property: Property): number {
   return property.listingType === "RENT" ? property.monthlyRent ?? 0 : property.salePrice ?? 0;
 }
@@ -48,7 +73,19 @@ function normalizeLocation(s: string): string {
   return s.trim().toLowerCase();
 }
 
-export function matchPropertyToLead(property: Property, lead: Lead, maxOverageTolerance = 0.2): MatchResult | null {
+/** Best-effort parse of the `images` JSON array field - tolerates malformed/legacy data instead of throwing. */
+function parseImageCount(images: string | null | undefined): number | null {
+  if (!images) return null;
+  try {
+    const parsed = JSON.parse(images);
+    if (Array.isArray(parsed)) return parsed.length;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function matchPropertyToLead(property: MatchableProperty, lead: Lead, maxOverageTolerance = 0.2): MatchResult | null {
   // Hard filter: listing type must match requirement type
   const wantsRent = lead.requirementType === "RENT";
   if (wantsRent && property.listingType !== "RENT") return null;
@@ -58,16 +95,33 @@ export function matchPropertyToLead(property: Property, lead: Lead, maxOverageTo
   const reasons: MatchReason[] = [];
   let score = 0;
 
-  // Location match (contains / equals area or address)
-  const leadLoc = normalizeLocation(lead.preferredLocation);
-  const propLoc = normalizeLocation(property.area);
-  const propAddr = normalizeLocation(property.address);
-  const locationMatched = propLoc.includes(leadLoc) || leadLoc.includes(propLoc) || propAddr.includes(leadLoc);
-  if (locationMatched) {
+  // Location match - locality-normalized first, substring as a last resort.
+  let locationMatchKind: LocationMatchKind = "none";
+  const leadLocality = normalizeLocality(lead.preferredLocation);
+  const propLocality = normalizeLocality(property.area);
+
+  if (leadLocality.matched && propLocality.matched && leadLocality.canonical === propLocality.canonical) {
+    locationMatchKind = "exact";
     score += WEIGHTS.location;
-    reasons.push({ label: "Location", matched: true, detail: `${property.area} matches preferred "${lead.preferredLocation}"` });
+    reasons.push({ label: "Location", matched: true, detail: "Exact locality match" });
+  } else if (leadLocality.matched && propLocality.matched && getNearbyLocalities(leadLocality.canonical).includes(propLocality.canonical)) {
+    locationMatchKind = "nearby";
+    score += WEIGHTS.location * 0.5;
+    reasons.push({ label: "Location", matched: true, detail: `Nearby locality: ${propLocality.canonical}` });
   } else {
-    reasons.push({ label: "Location", matched: false, detail: `${property.area} is not in preferred "${lead.preferredLocation}"` });
+    // Fallback: freeform substring containment (keeps working for
+    // preferredLocation/area values that aren't in the locality table).
+    const leadLoc = normalizeLocation(lead.preferredLocation);
+    const propLoc = normalizeLocation(property.area);
+    const propAddr = normalizeLocation(property.address);
+    const locationMatched = propLoc.includes(leadLoc) || leadLoc.includes(propLoc) || propAddr.includes(leadLoc);
+    if (locationMatched) {
+      locationMatchKind = "exact";
+      score += WEIGHTS.location;
+      reasons.push({ label: "Location", matched: true, detail: `${property.area} matches preferred "${lead.preferredLocation}"` });
+    } else {
+      reasons.push({ label: "Location", matched: false, detail: `${property.area} is not in preferred "${lead.preferredLocation}"` });
+    }
   }
 
   // Budget match
@@ -141,6 +195,25 @@ export function matchPropertyToLead(property: Property, lead: Lead, maxOverageTo
   score += WEIGHTS.propertyType;
   reasons.push({ label: "Property Type", matched: true, detail: `${property.propertyType.replace(/_/g, " ")}` });
 
+  // Verified-listing signal - additive bonus, never part of the hard filter.
+  const verified = property.owner?.verificationStatus === "VERIFIED";
+  if (verified) {
+    score += VERIFIED_BONUS;
+    reasons.push({ label: "Verified", matched: true, detail: "Verified listing" });
+  }
+
+  // Has-images signal - additive bonus, never part of the hard filter.
+  const imageCount = parseImageCount(property.images);
+  const hasImages = Boolean(property.coverImage) || Boolean(imageCount && imageCount > 0);
+  if (hasImages) {
+    score += HAS_IMAGES_BONUS;
+    reasons.push({
+      label: "Photos",
+      matched: true,
+      detail: imageCount && imageCount > 0 ? `Includes ${imageCount} photos` : "Includes photos",
+    });
+  }
+
   return {
     property,
     score: Math.round(Math.min(100, score)),
@@ -148,13 +221,39 @@ export function matchPropertyToLead(property: Property, lead: Lead, maxOverageTo
     aboveBudget: overagePct > 0,
     overagePct,
     budgetTier,
+    locationMatchKind,
+    verified,
+    hasImages,
   };
 }
 
-export function matchPropertiesToLead(properties: Property[], lead: Lead, maxOverageTolerance = 0.2): MatchResult[] {
-  return properties
+export function matchPropertiesToLead(properties: MatchableProperty[], lead: Lead, maxOverageTolerance = 0.2): MatchResult[] {
+  const results = properties
     .map((p) => matchPropertyToLead(p, lead, maxOverageTolerance))
     .filter((r): r is MatchResult => r !== null)
+    .sort((a, b) => b.score - a.score);
+
+  // Best-effort proximity refinement: only applied when both the lead's
+  // preferred-locality centroid and the property's coordinate (or its own
+  // locality centroid) are resolvable. Silently skipped otherwise - never
+  // throws, never blocks the base result set.
+  const leadCentroid = getLocalityCentroid(lead.preferredLocation);
+  if (!leadCentroid) return results;
+
+  return results
+    .map((result) => {
+      const property = result.property;
+      let propertyCoords: { latitude: number; longitude: number } | null = null;
+      if (property.latitude !== null && property.longitude !== null) {
+        propertyCoords = { latitude: property.latitude, longitude: property.longitude };
+      } else {
+        propertyCoords = getLocalityCentroid(property.area);
+      }
+      if (!propertyCoords) return result;
+
+      const distanceMeters = haversineDistanceMeters(leadCentroid, propertyCoords);
+      return applyProximityBonus(result, distanceMeters);
+    })
     .sort((a, b) => b.score - a.score);
 }
 
@@ -174,4 +273,49 @@ export function applyProximityBonus(result: MatchResult, distanceMeters: number 
   if (distanceMeters === null || distanceMeters > PROXIMITY_BONUS_RADIUS_METERS) return result;
   const bonus = MAX_PROXIMITY_BONUS * (1 - distanceMeters / PROXIMITY_BONUS_RADIUS_METERS);
   return { ...result, score: Math.round(Math.min(100, result.score + bonus)) };
+}
+
+export interface SectionedMatches {
+  bestMatches: MatchResult[];
+  nearBudget: MatchResult[];
+  nearbyLocalities: MatchResult[];
+  slightlyAboveBudget: MatchResult[];
+  otherSuggestions: MatchResult[];
+}
+
+/**
+ * Pure, additive bucketing of an already-computed match list into the
+ * workspace's five display sections. Each result appears in exactly one
+ * section - first matching rule wins, evaluated top to bottom:
+ *   1. bestMatches: score >= 80, within budget, exact locality match
+ *   2. nearBudget: within/at budget (not already in bestMatches)
+ *   3. nearbyLocalities: locationMatchKind === "nearby" (not yet placed)
+ *   4. slightlyAboveBudget: aboveBudget === true (not yet placed)
+ *   5. otherSuggestions: everything else
+ * The input is expected to already be sorted by score descending (as
+ * `matchPropertiesToLead` returns); since each section is built via a
+ * stable `filter`, that ordering is preserved within every section.
+ */
+export function sectionizeMatches(results: MatchResult[]): SectionedMatches {
+  const bestMatches: MatchResult[] = [];
+  const nearBudget: MatchResult[] = [];
+  const nearbyLocalities: MatchResult[] = [];
+  const slightlyAboveBudget: MatchResult[] = [];
+  const otherSuggestions: MatchResult[] = [];
+
+  for (const result of results) {
+    if (result.score >= 80 && !result.aboveBudget && result.locationMatchKind === "exact") {
+      bestMatches.push(result);
+    } else if (!result.aboveBudget) {
+      nearBudget.push(result);
+    } else if (result.locationMatchKind === "nearby") {
+      nearbyLocalities.push(result);
+    } else if (result.aboveBudget) {
+      slightlyAboveBudget.push(result);
+    } else {
+      otherSuggestions.push(result);
+    }
+  }
+
+  return { bestMatches, nearBudget, nearbyLocalities, slightlyAboveBudget, otherSuggestions };
 }

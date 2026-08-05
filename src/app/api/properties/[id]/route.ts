@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { propertySchema } from "@/lib/validators";
+import { notifyAffectedCataloguesOfPropertyChange } from "@/lib/property-share-alerts";
+import { logger } from "@/lib/logger";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -21,6 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
     const { amenities, images, availableFrom, ...data } = propertySchema.partial().parse(body);
+    const existing = await prisma.property.findUnique({ where: { id } });
     const property = await prisma.property.update({
       where: { id },
       data: {
@@ -33,6 +36,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(data.latitude != null && data.placeId ? { geocodeStatus: "SUCCESS" as const, geocodedAt: new Date() } : {}),
       },
     });
+
+    // Best-effort: a property becoming unavailable or changing price after
+    // it was already shared with a client shouldn't silently go unnoticed by
+    // whoever built that catalogue. Never let this alerting fail the update.
+    if (existing) {
+      try {
+        if (data.status && data.status !== "AVAILABLE" && data.status !== existing.status) {
+          await notifyAffectedCataloguesOfPropertyChange(id, "UNAVAILABLE");
+        }
+        const priceChanged =
+          (data.monthlyRent !== undefined && data.monthlyRent !== existing.monthlyRent) ||
+          (data.salePrice !== undefined && data.salePrice !== existing.salePrice);
+        if (priceChanged) {
+          await notifyAffectedCataloguesOfPropertyChange(id, "PRICE_CHANGED");
+        }
+      } catch (err) {
+        logger.error("property_share_alert_failed", { propertyId: id, message: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
     return NextResponse.json({ property });
   } catch (err) {
     return handleApiError(err);

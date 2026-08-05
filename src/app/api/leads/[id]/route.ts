@@ -5,8 +5,12 @@ import { leadSchema } from "@/lib/validators";
 import { logActivity } from "@/lib/activity";
 import { enumToLabel } from "@/lib/utils";
 import { recalculateLeadScore } from "@/lib/scoring";
+import { runMatchingForLead } from "@/lib/lead-matching";
 import { notifyRoles } from "@/lib/notifications";
 import { getOrganizationId } from "@/lib/organization";
+import { logger } from "@/lib/logger";
+
+const REQUIREMENT_FIELDS = ["preferredLocation", "minBudget", "maxBudget", "preferredBhk", "requirementType", "moveInDate"] as const;
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -47,6 +51,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json();
     const data = leadSchema.partial().parse(body);
 
+    const requirementChanged = REQUIREMENT_FIELDS.some((field) => {
+      if (!(field in data)) return false;
+      if (field === "moveInDate") {
+        const newVal = data.moveInDate ? new Date(data.moveInDate).getTime() : null;
+        const oldVal = existing.moveInDate ? existing.moveInDate.getTime() : null;
+        return newVal !== oldVal;
+      }
+      return data[field] !== existing[field];
+    });
+
     const lead = await prisma.lead.update({
       where: { id },
       data: {
@@ -84,6 +98,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await recalculateLeadScore(id, data.status && data.status !== existing.status ? "STATUS_CHANGED" : "LEAD_UPDATED");
     if (data.priority) {
       await prisma.lead.update({ where: { id }, data: { priority: data.priority } });
+    }
+
+    if (requirementChanged) {
+      try {
+        await runMatchingForLead(id, "updated");
+      } catch (err) {
+        logger.error("lead_matching_failed", { leadId: id, message: err instanceof Error ? err.message : String(err) });
+      }
     }
 
     const finalLead = await prisma.lead.findUnique({ where: { id }, include: { assignedTo: true } });

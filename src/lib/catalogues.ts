@@ -3,11 +3,16 @@ import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
 import { getOrganizationId } from "./organization";
 import { logActivity } from "./activity";
+import { notifyRoles } from "./notifications";
 import { sendOutboundMessage } from "./whatsapp-messages";
-import { normalizeIndianPhone } from "@/integrations/whatsapp";
+import { getConversationForLead } from "./whatsapp-conversations";
+import { normalizeIndianPhone, getWhatsAppProvider, buildRequirementSummary } from "@/integrations/whatsapp";
+import { isWithinCustomerCareWindow } from "@/integrations/whatsapp/whatsapp-window";
+import { getWhatsAppTemplate, renderTemplateBody } from "@/integrations/whatsapp/whatsapp-templates";
 import { getPublicCatalogueUrl, buildCatalogueMessageText, toPublicCatalogueDTO } from "./catalogue-dto";
 import { getCoverImageUrls } from "./property-images";
 import type { PublicCatalogueDTO } from "./catalogue-dto";
+import type { Role } from "@prisma/client";
 
 // Re-exported so existing call sites (API routes, components) can keep
 // importing everything catalogue-related from "@/lib/catalogues" - the
@@ -21,14 +26,21 @@ export interface CataloguePropertyInput {
   propertyId: string;
   sortOrder: number;
   customNote?: string | null;
+  /** Broker-only note, never surfaced in the public DTO or the client-facing message - `customNote` remains the client-facing one. */
+  internalNote?: string | null;
   priceVisible: boolean;
   addressVisible: boolean;
   brokerageVisible: boolean;
+  isTopPick?: boolean;
+  addedManually?: boolean;
+  addedByUserId?: string | null;
 }
 
 export interface CreateCatalogueParams {
   leadId: string;
   createdByUserId: string;
+  /** Role of the creating user - when FIELD_EXECUTIVE, Admin/Data Manager are notified the catalogue needs review before sending. Optional so existing internal callers (tests, scripts) keep working without it. */
+  createdByRole?: Role;
   title: string;
   introMessage?: string | null;
   includePrice: boolean;
@@ -80,13 +92,17 @@ export async function createCatalogue(params: CreateCatalogueParams) {
           propertyId: p.propertyId,
           sortOrder: p.sortOrder,
           customNote: p.customNote,
+          internalNote: p.internalNote,
           priceVisible: p.priceVisible,
           addressVisible: p.addressVisible,
           brokerageVisible: p.brokerageVisible,
+          isTopPick: p.isTopPick ?? false,
+          addedManually: p.addedManually ?? false,
+          addedByUserId: p.addedByUserId ?? null,
         })),
       },
     },
-    include: { properties: { include: { property: true }, orderBy: { sortOrder: "asc" } } },
+    include: { properties: { include: { property: true, addedByUser: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" } } },
   });
 
   await logActivity({
@@ -96,13 +112,35 @@ export async function createCatalogue(params: CreateCatalogueParams) {
     actorId: params.createdByUserId,
   });
 
+  if (params.createdByRole === "FIELD_EXECUTIVE") {
+    await notifyRoles(["ADMIN", "DATA_MANAGER"], {
+      organizationId,
+      type: "CATALOGUE_READY_FOR_REVIEW",
+      title: "Catalogue ready for review",
+      message: `${lead.clientName} - catalogue "${params.title}" was created by a field executive and is ready for review.`,
+      leadId: params.leadId,
+    });
+  }
+
   return catalogue;
 }
+
+// Minimal, name-only selection for the message-rendering fields
+// (employeeName/brokerageName) - deliberately never `true` (which would
+// pull the full User row, including passwordHash, into memory) even though
+// neither of these objects is ever serialized as-is (only toPublicCatalogueDTO
+// / buildCatalogueMessageText read specific fields off them).
+const CATALOGUE_SENDER_INCLUDE = {
+  properties: { include: { property: true, addedByUser: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" as const } },
+  lead: { include: { assignedTo: { select: { id: true, name: true } } } },
+  createdBy: { select: { id: true, name: true } },
+  organization: { select: { id: true, name: true } },
+};
 
 export async function getCatalogueById(catalogueId: string) {
   const catalogue = await prisma.catalogueShare.findUnique({
     where: { id: catalogueId },
-    include: { properties: { include: { property: true }, orderBy: { sortOrder: "asc" } }, lead: true },
+    include: CATALOGUE_SENDER_INCLUDE,
   });
   if (!catalogue) throw new ApiError(404, "Catalogue not found");
   return catalogue;
@@ -143,9 +181,13 @@ export async function updateCatalogue(catalogueId: string, patch: UpdateCatalogu
         propertyId: p.propertyId,
         sortOrder: p.sortOrder,
         customNote: p.customNote,
+        internalNote: p.internalNote,
         priceVisible: p.priceVisible,
         addressVisible: p.addressVisible,
         brokerageVisible: p.brokerageVisible,
+        isTopPick: p.isTopPick ?? false,
+        addedManually: p.addedManually ?? false,
+        addedByUserId: p.addedByUserId ?? null,
       })),
     });
   }
@@ -160,7 +202,7 @@ export async function updateCatalogue(catalogueId: string, patch: UpdateCatalogu
       includeBrokerage: patch.includeBrokerage,
       expiresAt: patch.expiresAt,
     },
-    include: { properties: { include: { property: true }, orderBy: { sortOrder: "asc" } } },
+    include: { properties: { include: { property: true, addedByUser: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" } } },
   });
 }
 
@@ -179,14 +221,49 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
   const message = buildCatalogueMessageText(catalogue);
   const catalogueUrl = getPublicCatalogueUrl(catalogue.token);
 
-  const { message: sentMessage, clickToChatUrl } = await sendOutboundMessage({
+  // Meta only allows free-form/"CATALOGUE" session messages within the 24h
+  // customer-care window (see sendOutboundMessage). Outside it - and only
+  // for the real Meta Cloud provider, which is the only one this window
+  // rule applies to - fall back to the approved PROPERTY_OPTIONS_SHARED
+  // template instead of the freeform message, exactly like any other
+  // outside-window template send. assertTemplateApproved (invoked inside
+  // sendOutboundMessage) still gates this on WHATSAPP_APPROVED_TEMPLATE_NAMES,
+  // so an unapproved template fails loudly rather than silently degrading.
+  const provider = getWhatsAppProvider();
+  let outboundParams: Parameters<typeof sendOutboundMessage>[0] = {
     leadId: catalogue.leadId,
     sentByUserId,
     content: message,
     messageType: "CATALOGUE",
     catalogueUrl,
     metadata: { catalogueShareId: catalogue.id },
-  });
+  };
+
+  if (provider.name === "META_CLOUD") {
+    const conversation = await getConversationForLead(catalogue.leadId);
+    if (!isWithinCustomerCareWindow(conversation?.lastInboundAt ?? null)) {
+      const template = getWhatsAppTemplate("PROPERTY_OPTIONS_SHARED");
+      const requirementSummary = buildRequirementSummary(
+        catalogue.lead,
+        catalogue.properties.map((cp) => ({
+          property: cp.property,
+          priceVisible: cp.priceVisible,
+          addressVisible: cp.addressVisible,
+          brokerageVisible: cp.brokerageVisible,
+        }))
+      );
+      const templateBody = renderTemplateBody("PROPERTY_OPTIONS_SHARED", [
+        catalogue.lead.clientName.split(" ")[0],
+        String(catalogue.properties.length),
+        requirementSummary,
+        catalogue.lead.preferredLocation,
+        catalogueUrl,
+      ]);
+      outboundParams = { ...outboundParams, messageType: "TEMPLATE", templateName: template.name, content: templateBody };
+    }
+  }
+
+  const { message: sentMessage, clickToChatUrl } = await sendOutboundMessage(outboundParams);
 
   // Bridge to the Phase 1 SharedPropertyLog so the lead's existing "Shared"
   // tab keeps showing every share, old and new, in one place.
@@ -196,7 +273,7 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
       organizationId: catalogue.organizationId,
       leadId: catalogue.leadId,
       propertyIds: JSON.stringify(catalogue.properties.map((p) => p.propertyId)),
-      message,
+      message: outboundParams.content,
       sharedById: sentByUserId,
       whatsappLink: clickToChatUrl ?? (phoneForLink ? `https://wa.me/${phoneForLink}` : catalogueUrl),
       propertyId: catalogue.properties[0]?.propertyId,
@@ -208,6 +285,14 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
     type: "CATALOGUE_SENT",
     description: `Catalogue "${catalogue.title}" sent containing ${catalogue.properties.length} propert${catalogue.properties.length > 1 ? "ies" : "y"}`,
     actorId: sentByUserId,
+  });
+
+  await notifyRoles(["ADMIN"], {
+    organizationId: catalogue.organizationId,
+    type: "CATALOGUE_SENT",
+    title: "Catalogue sent",
+    message: `Catalogue "${catalogue.title}" was sent to ${catalogue.lead.clientName}.`,
+    leadId: catalogue.leadId,
   });
 
   if (["NEW", "CONTACTED", "QUALIFIED"].includes(catalogue.lead.status)) {
@@ -234,7 +319,7 @@ export async function withResolvedCoverImages(dto: PublicCatalogueDTO): Promise<
 export async function getCatalogueByToken(token: string) {
   const catalogue = await prisma.catalogueShare.findUnique({
     where: { token },
-    include: { properties: { include: { property: true }, orderBy: { sortOrder: "asc" } }, lead: true },
+    include: CATALOGUE_SENDER_INCLUDE,
   });
   if (!catalogue) throw new ApiError(404, "Catalogue not found");
 

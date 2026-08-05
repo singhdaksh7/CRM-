@@ -78,7 +78,7 @@ export function CataloguesTab({ leadId, canManage, canSend }: { leadId: string; 
   return (
     <div className="space-y-4">
       {canManage && (
-        <LinkButton href={`/leads/${leadId}/catalogue/new`}>
+        <LinkButton href={`/leads/${leadId}/match`}>
           <Plus className="h-4 w-4" /> Build New Catalogue
         </LinkButton>
       )}

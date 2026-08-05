@@ -6,6 +6,7 @@ import { recalculateLeadScore } from "./scoring";
 import type { CatalogueInteractionType } from "@prisma/client";
 
 const VIEW_DEDUPE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+const INTERACTION_DEDUPE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Records a catalogue page view, but only once per viewer per dedupe
@@ -89,6 +90,25 @@ export async function recordCatalogueInteraction(catalogueShareId: string, input
       ? JSON.stringify({ preferredDate: input.preferredDate, preferredWindow: input.preferredWindow })
       : null;
 
+  // Idempotent duplicate-click prevention: a client double-tapping a button
+  // (or a retried request after a flaky network) must not create a second
+  // interaction row, re-notify the assigned employee, or double-fire
+  // side effects (follow-ups, rescoring). Scoped to the same catalogue +
+  // property + type within a short window - deliberately narrower than the
+  // view dedupe window since these are explicit user actions, not passive
+  // page loads.
+  const dedupeCutoff = new Date(Date.now() - INTERACTION_DEDUPE_WINDOW_MS);
+  const existing = await prisma.catalogueInteraction.findFirst({
+    where: {
+      catalogueShareId,
+      propertyId: input.propertyId ?? null,
+      type: input.type,
+      createdAt: { gte: dedupeCutoff },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  if (existing) return existing;
+
   const interaction = await prisma.catalogueInteraction.create({
     data: {
       organizationId: catalogue.organizationId,
@@ -128,10 +148,16 @@ export async function recordCatalogueInteraction(catalogueShareId: string, input
     description: activityDescriptions[input.type],
   });
 
-  const notificationTypeMap: Partial<Record<InteractionInput["type"], "PROPERTY_INTERESTED" | "PROPERTY_NOT_INTERESTED" | "VISIT_REQUESTED" | "QUESTION_ASKED">> = {
+  // NotificationType has no CALL_REQUESTED/WHATSAPP_REQUESTED value (schema
+  // is frozen for this workstream) - both map onto CLIENT_REPLY_RECEIVED,
+  // the closest existing category for "client wants direct contact now",
+  // rather than skip notifying the assigned employee entirely.
+  const notificationTypeMap: Partial<Record<InteractionInput["type"], "PROPERTY_INTERESTED" | "PROPERTY_NOT_INTERESTED" | "VISIT_REQUESTED" | "QUESTION_ASKED" | "CLIENT_REPLY_RECEIVED">> = {
     INTERESTED: "PROPERTY_INTERESTED",
     VISIT_REQUESTED: "VISIT_REQUESTED",
     QUESTION_ASKED: "QUESTION_ASKED",
+    CALL_REQUESTED: "CLIENT_REPLY_RECEIVED",
+    WHATSAPP_REQUESTED: "CLIENT_REPLY_RECEIVED",
   };
   const notifType = notificationTypeMap[input.type];
   if (notifType && catalogue.lead.assignedToId) {

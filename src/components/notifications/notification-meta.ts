@@ -21,6 +21,12 @@ import {
   UserX,
   Users2,
   Settings2,
+  Sparkles,
+  SearchX,
+  ClipboardCheck,
+  SendHorizonal,
+  Building2,
+  IndianRupee,
   type LucideIcon,
 } from "lucide-react";
 import type { Notification, NotificationType } from "@prisma/client";
@@ -48,6 +54,12 @@ export const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   WHATSAPP_UNKNOWN_CONTACT: UserX,
   WHATSAPP_MULTIPLE_LEAD_MATCH: Users2,
   WHATSAPP_TEMPLATE_CONFIG_ISSUE: Settings2,
+  MATCHES_READY: Sparkles,
+  NO_MATCHES_FOUND: SearchX,
+  CATALOGUE_READY_FOR_REVIEW: ClipboardCheck,
+  CATALOGUE_SENT: SendHorizonal,
+  PROPERTY_UNAVAILABLE_AFTER_SHARE: Building2,
+  PROPERTY_PRICE_CHANGED_AFTER_SHARE: IndianRupee,
 };
 
 export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
@@ -73,6 +85,12 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   WHATSAPP_UNKNOWN_CONTACT: "Unknown WhatsApp Contact",
   WHATSAPP_MULTIPLE_LEAD_MATCH: "Multiple Lead Match",
   WHATSAPP_TEMPLATE_CONFIG_ISSUE: "Template Configuration Issue",
+  MATCHES_READY: "Matches Ready",
+  NO_MATCHES_FOUND: "No Matches Found",
+  CATALOGUE_READY_FOR_REVIEW: "Catalogue Ready for Review",
+  CATALOGUE_SENT: "Catalogue Sent",
+  PROPERTY_UNAVAILABLE_AFTER_SHARE: "Property Unavailable After Share",
+  PROPERTY_PRICE_CHANGED_AFTER_SHARE: "Property Price Changed After Share",
 };
 
 export function notificationHref(n: Notification): string | null {

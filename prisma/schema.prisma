@@ -176,6 +176,12 @@ enum ActivityType {
   PROPERTY_NOT_INTERESTED
   VISIT_REQUESTED
   QUESTION_ASKED
+  // Lead-to-property matching workflow
+  MATCHING_STARTED
+  MATCHES_FOUND
+  SHORTLIST_UPDATED
+  PROPERTY_UNAVAILABLE_AFTER_SHARE
+  PROPERTY_PRICE_CHANGED_AFTER_SHARE
   // Phase 1 backend completion - Owner CRM / Deals / Payments / Documents
   OWNER_CREATED
   OWNER_UPDATED
@@ -238,6 +244,13 @@ enum NotificationType {
   WHATSAPP_UNKNOWN_CONTACT
   WHATSAPP_MULTIPLE_LEAD_MATCH
   WHATSAPP_TEMPLATE_CONFIG_ISSUE
+  // Lead-to-property matching workflow
+  MATCHES_READY
+  NO_MATCHES_FOUND
+  CATALOGUE_READY_FOR_REVIEW
+  CATALOGUE_SENT
+  PROPERTY_UNAVAILABLE_AFTER_SHARE
+  PROPERTY_PRICE_CHANGED_AFTER_SHARE
 }
 
 // ---------------------------------------------------------------------------
@@ -314,7 +327,9 @@ enum GeocodeStatus {
   MANUAL // coordinates set by hand, never geocoded
 }
 
-/** Used for both Property.locationPrecision (how good the stored coordinate actually is) and Property.publicLocationMode (what the public catalogue is allowed to reveal). */
+/**
+ * Used for both Property.locationPrecision (how good the stored coordinate actually is) and Property.publicLocationMode (what the public catalogue is allowed to reveal).
+ */
 enum LocationPrecision {
   EXACT
   APPROXIMATE
@@ -538,33 +553,34 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignedLeads             Lead[]                 @relation("AssignedEmployee")
-  assignedVisits            Visit[]                @relation("AssignedFieldExecutive")
-  visitConflictOverrides    Visit[]                @relation("VisitConflictOverrideBy")
-  followUps                 FollowUp[]             @relation("FollowUpOwner")
-  activities                Activity[]             @relation("ActivityActor")
-  sharedProperties          SharedPropertyLog[]    @relation("SharedBy")
-  leadTransfersFrom         LeadTransfer[]         @relation("TransferFrom")
-  leadTransfersTo           LeadTransfer[]         @relation("TransferTo")
-  propertiesAdded           Property[]             @relation("PropertyCreatedBy")
+  assignedLeads             Lead[]                   @relation("AssignedEmployee")
+  assignedVisits            Visit[]                  @relation("AssignedFieldExecutive")
+  visitConflictOverrides    Visit[]                  @relation("VisitConflictOverrideBy")
+  followUps                 FollowUp[]               @relation("FollowUpOwner")
+  activities                Activity[]               @relation("ActivityActor")
+  sharedProperties          SharedPropertyLog[]      @relation("SharedBy")
+  leadTransfersFrom         LeadTransfer[]           @relation("TransferFrom")
+  leadTransfersTo           LeadTransfer[]           @relation("TransferTo")
+  propertiesAdded           Property[]               @relation("PropertyCreatedBy")
   serviceAreas              EmployeeServiceArea[]
-  assignmentRules           LeadAssignmentRule[]   @relation("AssignmentRuleEmployee")
+  assignmentRules           LeadAssignmentRule[]     @relation("AssignmentRuleEmployee")
   notifications             Notification[]
   whatsappMessagesSent      WhatsAppMessage[]
   cataloguesCreated         CatalogueShare[]
-  ownersCreated             Owner[]                @relation("OwnerCreatedBy")
-  ownersVerified            Owner[]                @relation("OwnerVerifiedBy")
-  dealsAssigned             Deal[]                 @relation("DealAssignedTo")
-  dealsCreated              Deal[]                 @relation("DealCreatedBy")
-  brokerageCalculationsMade BrokerageCalculation[] @relation("BrokerageCalculatedBy")
-  brokerageIncentives       BrokerageCalculation[] @relation("BrokerageIncentiveEmployee")
-  paymentsRecorded          Payment[]              @relation("PaymentRecordedBy")
-  documentsUploaded         Document[]             @relation("DocumentUploadedBy")
-  propertyImagesUploaded    PropertyImage[]        @relation("PropertyImageUploadedBy")
-  importJobsCreated         ImportJob[]            @relation("ImportJobCreatedBy")
+  catalogueShareProperties  CatalogueShareProperty[]
+  ownersCreated             Owner[]                  @relation("OwnerCreatedBy")
+  ownersVerified            Owner[]                  @relation("OwnerVerifiedBy")
+  dealsAssigned             Deal[]                   @relation("DealAssignedTo")
+  dealsCreated              Deal[]                   @relation("DealCreatedBy")
+  brokerageCalculationsMade BrokerageCalculation[]   @relation("BrokerageCalculatedBy")
+  brokerageIncentives       BrokerageCalculation[]   @relation("BrokerageIncentiveEmployee")
+  paymentsRecorded          Payment[]                @relation("PaymentRecordedBy")
+  documentsUploaded         Document[]               @relation("DocumentUploadedBy")
+  propertyImagesUploaded    PropertyImage[]          @relation("PropertyImageUploadedBy")
+  importJobsCreated         ImportJob[]              @relation("ImportJobCreatedBy")
   auditLogs                 AuditLog[]
-  backupsTriggered          BackupRecord[]         @relation("BackupTriggeredBy")
-  restoreValidationsDone    RestoreValidation[]    @relation("RestoreValidatedBy")
+  backupsTriggered          BackupRecord[]           @relation("BackupTriggeredBy")
+  restoreValidationsDone    RestoreValidation[]      @relation("RestoreValidatedBy")
 
   @@map("users")
 }
@@ -661,12 +677,12 @@ model Property {
   // populated automatically; geocoding only ever runs on an explicit user
   // action (address search / "Re-geocode"), never silently in the background.
   pincode            String?
-  formattedAddress   String?             // Google's canonical formatted_address, kept separate from the user-entered `address`
-  placeId            String?             // Google Place ID - lets a re-geocode reuse the exact same place instead of a fresh text search
-  geocodeStatus      GeocodeStatus       @default(NOT_ATTEMPTED)
+  formattedAddress   String? // Google's canonical formatted_address, kept separate from the user-entered `address`
+  placeId            String? // Google Place ID - lets a re-geocode reuse the exact same place instead of a fresh text search
+  geocodeStatus      GeocodeStatus     @default(NOT_ATTEMPTED)
   geocodedAt         DateTime?
-  locationPrecision  LocationPrecision   @default(APPROXIMATE) // how precise the stored lat/lng actually is
-  publicLocationMode LocationPrecision   @default(LOCALITY_ONLY) // what the public catalogue is allowed to reveal - independent of locationPrecision, defaults to the safest option
+  locationPrecision  LocationPrecision @default(APPROXIMATE) // how precise the stored lat/lng actually is
+  publicLocationMode LocationPrecision @default(LOCALITY_ONLY) // what the public catalogue is allowed to reveal - independent of locationPrecision, defaults to the safest option
 
   // Rental pricing
   monthlyRent       Int?
@@ -879,12 +895,12 @@ model Visit {
   travelDurationMinutes    Int?
   travelDistanceMeters     Int?
   routeCheckedAt           DateTime?
-  routeSource              RouteSource          @default(NONE)
-  conflictStatus           VisitConflictStatus  @default(NONE)
+  routeSource              RouteSource         @default(NONE)
+  conflictStatus           VisitConflictStatus @default(NONE)
   conflictDetail           String? // short, non-sensitive description (e.g. "18 min travel needed, only 10 min available") - never a full address dump
   conflictOverrideReason   String?
   conflictOverrideByUserId String?
-  conflictOverrideBy       User?                @relation("VisitConflictOverrideBy", fields: [conflictOverrideByUserId], references: [id])
+  conflictOverrideBy       User?               @relation("VisitConflictOverrideBy", fields: [conflictOverrideByUserId], references: [id])
   conflictOverrideAt       DateTime?
 
   createdAt DateTime @default(now())
@@ -1056,9 +1072,14 @@ model CatalogueShareProperty {
   property         Property       @relation(fields: [propertyId], references: [id])
   sortOrder        Int            @default(0)
   customNote       String?
+  internalNote     String?
   priceVisible     Boolean        @default(true)
   addressVisible   Boolean        @default(false)
   brokerageVisible Boolean        @default(false)
+  isTopPick        Boolean        @default(false)
+  addedManually    Boolean        @default(false)
+  addedByUserId    String?
+  addedByUser      User?          @relation(fields: [addedByUserId], references: [id])
   createdAt        DateTime       @default(now())
 
   @@unique([catalogueShareId, propertyId])
@@ -1291,7 +1312,7 @@ model Document {
   payment    Payment?  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   fileName         String
-  fileUrl          String  // legacy/external mode: a pre-uploaded URL the caller already hosts elsewhere
+  fileUrl          String // legacy/external mode: a pre-uploaded URL the caller already hosts elsewhere
   storageKey       String? // object key in the active storage provider's bucket; when set, fileUrl is ignored and a signed/authorized URL is generated per-request instead
   storageProvider  String? // "S3" | "FIREBASE" - null for legacy fileUrl-only rows predating the provider abstraction
   storageBucket    String? // bucket name at time of upload, for traceability if the configured bucket is later rotated
@@ -1300,7 +1321,7 @@ model Document {
   category         DocumentCategory @default(GENERAL)
   fileType         String
   fileSizeBytes    Int?
-  status           DocumentStatus @default(ACTIVE)
+  status           DocumentStatus   @default(ACTIVE)
   expiresAt        DateTime?
 
   version            Int       @default(1)

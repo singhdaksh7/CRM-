@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeLocality, getLocalityCentroid, listKnownLocalities } from "./locality";
+import { normalizeLocality, getLocalityCentroid, listKnownLocalities, getNearbyLocalities } from "./locality";
 
 describe("normalizeLocality", () => {
   it("normalizes a common misspelling to its canonical name", () => {
@@ -59,5 +59,36 @@ describe("listKnownLocalities", () => {
     const list = listKnownLocalities();
     expect(list.length).toBeGreaterThan(0);
     expect(list).toContain("Janakpuri");
+  });
+});
+
+describe("getNearbyLocalities", () => {
+  it("returns curated adjacency for a locality with known nearby data", () => {
+    expect(getNearbyLocalities("Janakpuri")).toEqual(expect.arrayContaining(["Vikaspuri", "Uttam Nagar"]));
+  });
+
+  it("resolves curated adjacency via an alias too", () => {
+    expect(getNearbyLocalities("Janak Puri")).toEqual(expect.arrayContaining(["Vikaspuri"]));
+  });
+
+  it("is not necessarily symmetric-by-accident but curated pairs are mutually listed", () => {
+    expect(getNearbyLocalities("Dwarka")).toContain("Dwarka Sector 12");
+    expect(getNearbyLocalities("Dwarka Sector 12")).toContain("Dwarka");
+  });
+
+  it("derives nearby localities at runtime via centroid distance for entries without curated data", () => {
+    // Rajouri Garden has no curated `nearby` list - falls back to haversine distance.
+    const nearby = getNearbyLocalities("Rajouri Garden");
+    expect(Array.isArray(nearby)).toBe(true);
+    // Whatever it returns, it must never include itself.
+    expect(nearby).not.toContain("Rajouri Garden");
+  });
+
+  it("does not include Rohini and Connaught Place as nearby to each other (far apart)", () => {
+    expect(getNearbyLocalities("Connaught Place")).not.toContain("Rohini");
+  });
+
+  it("returns an empty array for an unknown locality", () => {
+    expect(getNearbyLocalities("Some Totally Unknown Colony")).toEqual([]);
   });
 });

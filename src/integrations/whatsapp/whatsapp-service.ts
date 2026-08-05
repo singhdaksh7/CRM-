@@ -39,5 +39,6 @@ export * from "./whatsapp-types";
 export * from "./whatsapp-config";
 export * from "./whatsapp-errors";
 export { normalizeIndianPhone, isValidIndianPhone } from "./phone";
-export { renderCatalogueMessage } from "./whatsapp-template-renderer";
+export { renderCatalogueMessage, buildRequirementSummary } from "./whatsapp-template-renderer";
 export { verifyMetaSignature } from "./whatsapp-signature";
+export { getWhatsAppTemplate, listWhatsAppTemplates, findWhatsAppTemplateByName, assertTemplateApproved, renderTemplateBody } from "./whatsapp-templates";

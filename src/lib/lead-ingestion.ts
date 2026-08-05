@@ -4,6 +4,7 @@ import { logActivity } from "./activity";
 import { getOrganizationId } from "./organization";
 import { autoAssignLead } from "./assignment";
 import { recalculateLeadScore } from "./scoring";
+import { runMatchingForLead } from "./lead-matching";
 import { notifyRoles } from "./notifications";
 import { ApiError } from "./api-auth";
 import { logger } from "./logger";
@@ -53,6 +54,12 @@ export async function ingestWebhookLead(data: WebhookLeadInput, source: LeadSour
 
   const assignment = await autoAssignLead(lead.id, organizationId);
   const score = await recalculateLeadScore(lead.id, "LEAD_CREATED");
+
+  try {
+    await runMatchingForLead(lead.id, "created");
+  } catch (err) {
+    logger.error("lead_matching_failed", { leadId: lead.id, message: err instanceof Error ? err.message : String(err) });
+  }
 
   await notifyRoles(["ADMIN", "DATA_MANAGER"], {
     organizationId,

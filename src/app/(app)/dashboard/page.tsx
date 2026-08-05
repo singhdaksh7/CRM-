@@ -3,9 +3,10 @@ import { auth } from "@/lib/auth";
 import { getDashboardCriticalData, getDashboardSecondaryData } from "@/lib/dashboard-data";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { BarChartCard, PieChartCard, TrendChartCard } from "@/components/dashboard/charts";
+import { LeadsAwaitingShortlistPanel } from "@/components/dashboard/leads-awaiting-shortlist-panel";
 import { Badge, LEAD_STATUS_TONE } from "@/components/ui/badge";
 import { timeAgo, enumToLabel } from "@/lib/utils";
-import { Building2, Home, Landmark, Users, UserX, BellRing, CalendarClock, Trophy, ArrowRight } from "lucide-react";
+import { Building2, Home, Landmark, Users, UserX, BellRing, CalendarClock, Trophy, ArrowRight, Send, Eye, Heart, CalendarPlus, ListChecks } from "lucide-react";
 import type { Role } from "@prisma/client";
 import Link from "next/link";
 
@@ -53,7 +54,17 @@ export default async function DashboardPage() {
         <KpiCard label="Follow-ups Due Today" value={data.followUpsDueToday} icon={BellRing} tone="red" />
         <KpiCard label="Visits Today" value={data.visitsToday} icon={CalendarClock} tone="blue" />
         <KpiCard label="Deals Closed (Month)" value={data.dealsClosedThisMonth} icon={Trophy} tone="green" />
+        <KpiCard label="Catalogues Sent Today" value={data.cataloguesSentToday} icon={Send} tone="indigo" />
+        <KpiCard label="Catalogues Opened Today" value={data.cataloguesOpenedToday} icon={Eye} tone="blue" />
+        <KpiCard label="Clients Interested Today" value={data.clientsInterestedToday} icon={Heart} tone="purple" />
+        <KpiCard label="Visit Requests Today" value={data.visitRequestsReceivedToday} icon={CalendarPlus} tone="amber" />
+        <KpiCard label="Awaiting Shortlist" value={data.leadsAwaitingShortlistCount} icon={ListChecks} tone="red" />
       </div>
+
+      {/* Leads with no properties shared yet - streamed independently. */}
+      <Suspense fallback={<PanelSkeleton />}>
+        <LeadsAwaitingShortlistPanel userId={session.user.id} />
+      </Suspense>
 
       {/* Charts, trends, recent activity, employee workload - streamed in
           independently so one slow panel never delays the KPIs above. */}
@@ -109,6 +120,10 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
       </div>
     </>
   );
+}
+
+function PanelSkeleton() {
+  return <div className="h-40 animate-pulse rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />;
 }
 
 function DashboardSecondarySkeleton() {

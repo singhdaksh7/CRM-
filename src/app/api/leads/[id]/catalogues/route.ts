@@ -27,6 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const catalogue = await createCatalogue({
       leadId: id,
       createdByUserId: session.user.id,
+      createdByRole: session.user.role,
       title: data.title,
       introMessage: data.introMessage,
       includePrice: data.includePrice,

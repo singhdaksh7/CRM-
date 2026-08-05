@@ -57,3 +57,5 @@ prisma/**/*.db-journal
 *firebase-adminsdk*.json
 serviceAccountKey.json
 firebase-service-account*.json
+
+.vercel

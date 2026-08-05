@@ -160,9 +160,13 @@ const cataloguePropertySchema = z.object({
   propertyId: z.string(),
   sortOrder: z.number().int().default(0),
   customNote: z.string().max(300).optional().nullable(),
+  internalNote: z.string().max(1000).optional().nullable(),
   priceVisible: z.boolean().default(true),
   addressVisible: z.boolean().default(false),
   brokerageVisible: z.boolean().default(false),
+  isTopPick: z.boolean().default(false),
+  addedManually: z.boolean().default(false),
+  addedByUserId: z.string().optional().nullable(),
 });
 
 export const createCatalogueSchema = z.object({

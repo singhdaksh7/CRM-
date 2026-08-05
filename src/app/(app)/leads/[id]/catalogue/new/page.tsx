@@ -1,19 +1,12 @@
-import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import { CatalogueBuilder } from "@/components/catalogues/catalogue-builder";
+import { redirect } from "next/navigation";
 
+/**
+ * The shortlist-building UI now lives at a single canonical route,
+ * `/leads/[id]/match` (see src/components/leads/property-matching-workspace.tsx).
+ * This route is kept only so any existing bookmarks/links to
+ * "Build New Catalogue" keep working - redirect rather than duplicate the UI.
+ */
 export default async function NewCataloguePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const lead = await prisma.lead.findUnique({ where: { id } });
-  if (!lead) notFound();
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Build Property Catalogue</h1>
-        <p className="text-sm text-slate-500">For {lead.clientName} &middot; {lead.preferredLocation} &middot; {lead.requirementType === "RENT" ? "Rent" : "Buy"}</p>
-      </div>
-      <CatalogueBuilder lead={lead} />
-    </div>
-  );
+  redirect(`/leads/${id}/match`);
 }

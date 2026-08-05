@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { Prisma, type Role } from "@prisma/client";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
+import { getOrganizationId } from "./organization";
 
 /**
  * Upper bound on concurrent Prisma queries this module issues per data
@@ -62,6 +63,16 @@ export interface DashboardCriticalData {
   followUpsDueToday: number;
   visitsToday: number;
   dealsClosedThisMonth: number;
+  /** WhatsAppMessage rows of type CATALOGUE sent (created) today - the actual "send" event fired by sendCatalogue() in src/lib/catalogues.ts, not CatalogueShare creation (a share can be created without ever being sent). */
+  cataloguesSentToday: number;
+  /** Distinct CatalogueShare ids with a VIEWED CatalogueInteraction today. */
+  cataloguesOpenedToday: number;
+  /** CatalogueInteraction rows of type INTERESTED today. */
+  clientsInterestedToday: number;
+  /** CatalogueInteraction rows of type VISIT_REQUESTED today. */
+  visitRequestsReceivedToday: number;
+  /** Count for the "Leads Awaiting Shortlist" panel - see getLeadsAwaitingShortlist. */
+  leadsAwaitingShortlistCount: number;
 }
 
 export interface DashboardSecondaryData {
@@ -93,6 +104,7 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
   const endOfToday = new Date(now);
   endOfToday.setHours(23, 59, 59, 999);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const organizationId = getOrganizationId(userId);
 
   const scopedLead = role === "FIELD_EXECUTIVE" ? { assignedToId: userId } : {};
   const scopedVisit = role === "FIELD_EXECUTIVE" ? { assignedToId: userId } : {};
@@ -104,6 +116,11 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
   let followUpsDueToday = 0;
   let visitsToday = 0;
   let dealsClosedThisMonth = 0;
+  let cataloguesSentToday = 0;
+  let cataloguesOpenedToday = 0;
+  let clientsInterestedToday = 0;
+  let visitRequestsReceivedToday = 0;
+  let leadsAwaitingShortlistCount = 0;
 
   const tasks: (() => Promise<void>)[] = [
     async () => {
@@ -146,6 +163,45 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
         prisma.lead.count({ where: { ...scopedLead, status: "CLOSED_WON", updatedAt: { gte: startOfMonth } } })
       );
     },
+    async () => {
+      // The actual "send" event is a WhatsAppMessage, not CatalogueShare
+      // creation - a share can exist without ever being sent. See
+      // sendCatalogue() in src/lib/catalogues.ts.
+      cataloguesSentToday = await safe("cataloguesSentToday", 0, () =>
+        prisma.whatsAppMessage.count({
+          where: { organizationId, messageType: "CATALOGUE", direction: "OUTBOUND", createdAt: { gte: startOfToday, lte: endOfToday } },
+        })
+      );
+    },
+    async () => {
+      cataloguesOpenedToday = await safe("cataloguesOpenedToday", 0, async () => {
+        const rows = await prisma.catalogueInteraction.findMany({
+          where: { organizationId, type: "VIEWED", createdAt: { gte: startOfToday, lte: endOfToday } },
+          select: { catalogueShareId: true },
+          distinct: ["catalogueShareId"],
+        });
+        return rows.length;
+      });
+    },
+    async () => {
+      clientsInterestedToday = await safe("clientsInterestedToday", 0, () =>
+        prisma.catalogueInteraction.count({
+          where: { organizationId, type: "INTERESTED", createdAt: { gte: startOfToday, lte: endOfToday } },
+        })
+      );
+    },
+    async () => {
+      visitRequestsReceivedToday = await safe("visitRequestsReceivedToday", 0, () =>
+        prisma.catalogueInteraction.count({
+          where: { organizationId, type: "VISIT_REQUESTED", createdAt: { gte: startOfToday, lte: endOfToday } },
+        })
+      );
+    },
+    async () => {
+      leadsAwaitingShortlistCount = await safe("leadsAwaitingShortlistCount", 0, () =>
+        prisma.lead.count({ where: { ...scopedLead, ...leadsAwaitingShortlistWhere(organizationId) } })
+      );
+    },
   ];
 
   await mapWithConcurrency(tasks, DASHBOARD_QUERY_CONCURRENCY);
@@ -159,6 +215,11 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
     followUpsDueToday,
     visitsToday,
     dealsClosedThisMonth,
+    cataloguesSentToday,
+    cataloguesOpenedToday,
+    clientsInterestedToday,
+    visitRequestsReceivedToday,
+    leadsAwaitingShortlistCount,
   };
 }
 
@@ -233,6 +294,95 @@ export async function getDashboardData(role: Role, userId: string) {
     getDashboardSecondaryData(role, userId),
   ]);
   return { ...critical, ...secondary };
+}
+
+const LEADS_AWAITING_SHORTLIST_LIMIT = 20;
+const LEADS_AWAITING_SHORTLIST_CACHE_TTL_SECONDS = SECONDARY_CACHE_TTL_SECONDS;
+
+/**
+ * Shared filter for the "Leads Awaiting Shortlist" panel: early-pipeline
+ * leads (not yet past PROPERTIES_SHARED) that have no currently-ACTIVE
+ * catalogue share. Used both by the row query below and by the
+ * leadsAwaitingShortlistCount KPI in computeCriticalData, so the two numbers
+ * never drift apart.
+ */
+function leadsAwaitingShortlistWhere(organizationId: string): Prisma.LeadWhereInput {
+  return {
+    organizationId,
+    status: { in: ["NEW", "CONTACTED", "QUALIFIED"] },
+    NOT: { catalogueShares: { some: { status: "ACTIVE" } } },
+  };
+}
+
+const leadAwaitingShortlistSelect = {
+  id: true,
+  clientName: true,
+  phone: true,
+  requirementType: true,
+  preferredBhk: true,
+  preferredLocation: true,
+  minBudget: true,
+  maxBudget: true,
+  source: true,
+  createdAt: true,
+  assignedTo: { select: { name: true } },
+} satisfies Prisma.LeadSelect;
+
+export type LeadAwaitingShortlist = Prisma.LeadGetPayload<{ select: typeof leadAwaitingShortlistSelect }>;
+
+export interface LeadsAwaitingShortlistResult {
+  leads: LeadAwaitingShortlist[];
+  totalCount: number;
+}
+
+/**
+ * Leads still in the early pipeline (NEW/CONTACTED/QUALIFIED) that have no
+ * currently-active catalogue share - i.e. nobody has shortlisted properties
+ * and sent them yet. Oldest-waiting-first, capped at
+ * LEADS_AWAITING_SHORTLIST_LIMIT with a separate total count so the panel
+ * can show "showing 20 of 47" without fetching all 47 rows.
+ *
+ * Deliberately does NOT compute a live "N matching properties" count per
+ * row here - that would mean running the full inventory-matching query
+ * (src/lib/matching.ts) once per lead on every dashboard load, which does
+ * not scale past a handful of leads. TODO: if a match count becomes a hard
+ * requirement for this panel, compute it lazily (e.g. on-demand per row via
+ * a client fetch when the row is expanded, or a periodically-refreshed
+ * materialized count) rather than inline here.
+ */
+export async function getLeadsAwaitingShortlist(organizationId: string): Promise<LeadsAwaitingShortlistResult> {
+  return withTiming("leadsAwaitingShortlist", "/dashboard", () =>
+    cached(`dashboard:leadsAwaitingShortlist:${organizationId}`, LEADS_AWAITING_SHORTLIST_CACHE_TTL_SECONDS, () =>
+      computeLeadsAwaitingShortlist(organizationId)
+    )
+  );
+}
+
+async function computeLeadsAwaitingShortlist(organizationId: string): Promise<LeadsAwaitingShortlistResult> {
+  const where = leadsAwaitingShortlistWhere(organizationId);
+
+  let leads: LeadAwaitingShortlist[] = [];
+  let totalCount = 0;
+
+  const tasks: (() => Promise<void>)[] = [
+    async () => {
+      leads = await safe("leadsAwaitingShortlistRows", leads, () =>
+        prisma.lead.findMany({
+          where,
+          select: leadAwaitingShortlistSelect,
+          orderBy: { createdAt: "asc" },
+          take: LEADS_AWAITING_SHORTLIST_LIMIT,
+        })
+      );
+    },
+    async () => {
+      totalCount = await safe("leadsAwaitingShortlistTotalCount", 0, () => prisma.lead.count({ where }));
+    },
+  ];
+
+  await mapWithConcurrency(tasks, DASHBOARD_QUERY_CONCURRENCY);
+
+  return { leads, totalCount };
 }
 
 /**

@@ -19,7 +19,8 @@ export type WhatsAppTemplateUseCase =
   | "FOLLOW_UP_REMINDER"
   | "CATALOGUE_SHARED"
   | "PRICE_UPDATED"
-  | "VISIT_RESCHEDULED";
+  | "VISIT_RESCHEDULED"
+  | "PROPERTY_OPTIONS_SHARED";
 
 export interface WhatsAppTemplateDefinition {
   useCase: WhatsAppTemplateUseCase;
@@ -29,6 +30,8 @@ export interface WhatsAppTemplateDefinition {
   category: "UTILITY" | "MARKETING";
   /** Ordered list of {{1}}, {{2}}, ... body variable names, for documentation/validation only. */
   variables: string[];
+  /** Optional {{1}}, {{2}}, ... body pattern this app can render locally for use cases that build their own outbound text (see renderTemplateBody). Documentation-only for use cases that don't. */
+  bodyTemplate?: string;
 }
 
 const DEFAULT_TEMPLATES: WhatsAppTemplateDefinition[] = [
@@ -38,6 +41,14 @@ const DEFAULT_TEMPLATES: WhatsAppTemplateDefinition[] = [
   { useCase: "CATALOGUE_SHARED", name: "catalogue_shared", languageCode: "en", category: "MARKETING", variables: ["clientName", "propertyCount", "catalogueUrl"] },
   { useCase: "PRICE_UPDATED", name: "price_updated", languageCode: "en", category: "UTILITY", variables: ["clientName", "propertyTitle", "newPrice"] },
   { useCase: "VISIT_RESCHEDULED", name: "visit_rescheduled", languageCode: "en", category: "UTILITY", variables: ["clientName", "propertyTitle", "newVisitDate", "newVisitTime"] },
+  {
+    useCase: "PROPERTY_OPTIONS_SHARED",
+    name: "property_options_shared",
+    languageCode: "en",
+    category: "MARKETING",
+    variables: ["clientName", "propertyCount", "requirementSummary", "preferredLocation", "catalogueUrl"],
+    bodyTemplate: "Hello {{1}},\n\nWe have shortlisted {{2}} properties matching your requirement for {{3}} in {{4}}.\n\nView the available options here:\n{{5}}\n\nReply to this message if you would like to schedule a visit.",
+  },
 ];
 
 function envOverrideName(useCase: WhatsAppTemplateUseCase): string | undefined {
@@ -88,6 +99,22 @@ export function findWhatsAppTemplateByName(name: string): WhatsAppTemplateStatus
  * falls back to a free-form message - the caller must surface this as a
  * clear configuration error.
  */
+/**
+ * Substitutes {{1}}, {{2}}, ... in a use case's registered `bodyTemplate`
+ * with the given values, in order - used for use cases (like
+ * PROPERTY_OPTIONS_SHARED) whose outbound text this app builds itself
+ * rather than relying on Meta's server-side template rendering. Throws if
+ * the use case has no `bodyTemplate` registered, so a misconfiguration is
+ * never silently swallowed into a blank/garbled message.
+ */
+export function renderTemplateBody(useCase: WhatsAppTemplateUseCase, values: string[]): string {
+  const template = getWhatsAppTemplate(useCase);
+  if (!template.bodyTemplate) {
+    throw new WhatsAppConfigError(`Template "${template.name}" (use case "${useCase}") has no registered body pattern to render.`);
+  }
+  return values.reduce((body, value, i) => body.split(`{{${i + 1}}}`).join(value), template.bodyTemplate);
+}
+
 export function assertTemplateApproved(name: string): WhatsAppTemplateStatus {
   const template = findWhatsAppTemplateByName(name);
   if (!template) {

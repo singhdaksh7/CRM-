@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { listWhatsAppTemplates, getWhatsAppTemplate, findWhatsAppTemplateByName, assertTemplateApproved } from "./whatsapp-templates";
+import { listWhatsAppTemplates, getWhatsAppTemplate, findWhatsAppTemplateByName, assertTemplateApproved, renderTemplateBody } from "./whatsapp-templates";
 import { WhatsAppConfigError } from "./whatsapp-errors";
 
 const ENV_KEYS = ["WHATSAPP_APPROVED_TEMPLATE_NAMES", "WHATSAPP_TEMPLATE_NAME_VISIT_CONFIRMATION"] as const;
@@ -18,9 +18,9 @@ afterEach(() => {
 });
 
 describe("listWhatsAppTemplates", () => {
-  it("lists all 6 use cases, none approved by default (no live Meta credentials)", () => {
+  it("lists all 7 use cases, none approved by default (no live Meta credentials)", () => {
     const templates = listWhatsAppTemplates();
-    expect(templates).toHaveLength(6);
+    expect(templates).toHaveLength(7);
     expect(templates.every((t) => t.approved === false)).toBe(true);
   });
 
@@ -55,6 +55,52 @@ describe("findWhatsAppTemplateByName", () => {
 
   it("returns undefined for a name not in the registry", () => {
     expect(findWhatsAppTemplateByName("totally_made_up")).toBeUndefined();
+  });
+});
+
+describe("PROPERTY_OPTIONS_SHARED", () => {
+  it("is registered with 5 ordered variables and a MARKETING category", () => {
+    const template = getWhatsAppTemplate("PROPERTY_OPTIONS_SHARED");
+    expect(template.name).toBe("property_options_shared");
+    expect(template.category).toBe("MARKETING");
+    expect(template.variables).toEqual(["clientName", "propertyCount", "requirementSummary", "preferredLocation", "catalogueUrl"]);
+  });
+
+  it("is unapproved by default like every other template (no live Meta credentials)", () => {
+    expect(getWhatsAppTemplate("PROPERTY_OPTIONS_SHARED").approved).toBe(false);
+  });
+
+  it("becomes approved once its name is in WHATSAPP_APPROVED_TEMPLATE_NAMES", () => {
+    process.env.WHATSAPP_APPROVED_TEMPLATE_NAMES = "property_options_shared";
+    expect(getWhatsAppTemplate("PROPERTY_OPTIONS_SHARED").approved).toBe(true);
+  });
+
+  it("does not remove or otherwise disturb the pre-existing CATALOGUE_SHARED template", () => {
+    const template = getWhatsAppTemplate("CATALOGUE_SHARED");
+    expect(template.name).toBe("catalogue_shared");
+    expect(template.variables).toEqual(["clientName", "propertyCount", "catalogueUrl"]);
+  });
+});
+
+describe("renderTemplateBody", () => {
+  it("substitutes {{1}}..{{5}} in order for PROPERTY_OPTIONS_SHARED", () => {
+    const body = renderTemplateBody("PROPERTY_OPTIONS_SHARED", ["Rahul", "5", "2 BHK rental flat", "Ramesh Nagar", "https://example.com/share/catalogue/abc"]);
+    expect(body).toBe(
+      [
+        "Hello Rahul,",
+        "",
+        "We have shortlisted 5 properties matching your requirement for 2 BHK rental flat in Ramesh Nagar.",
+        "",
+        "View the available options here:",
+        "https://example.com/share/catalogue/abc",
+        "",
+        "Reply to this message if you would like to schedule a visit.",
+      ].join("\n")
+    );
+  });
+
+  it("throws for a use case with no registered body pattern", () => {
+    expect(() => renderTemplateBody("VISIT_REMINDER", ["a", "b", "c"])).toThrow(WhatsAppConfigError);
   });
 });
 

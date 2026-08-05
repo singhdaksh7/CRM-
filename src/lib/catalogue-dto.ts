@@ -24,10 +24,17 @@ export function getPublicCatalogueUrl(token: string): string {
 /** Builds the WhatsApp-ready text for a catalogue - used both for preview and for the actual send. */
 export function buildCatalogueMessageText(catalogue: CatalogueForDTO) {
   return renderCatalogueMessage({
-    clientFirstName: catalogue.lead.clientName.split(" ")[0],
-    requirementSummary: budgetSummary(catalogue.lead),
-    introMessage: catalogue.introMessage,
+    lead: {
+      clientName: catalogue.lead.clientName,
+      requirementType: catalogue.lead.requirementType,
+      preferredBhk: catalogue.lead.preferredBhk,
+      preferredLocation: catalogue.lead.preferredLocation,
+      minBudget: catalogue.lead.minBudget,
+      maxBudget: catalogue.lead.maxBudget,
+    },
     catalogueUrl: getPublicCatalogueUrl(catalogue.token),
+    employeeName: catalogue.createdBy?.name ?? catalogue.lead.assignedTo?.name ?? null,
+    brokerageName: catalogue.organization?.name ?? null,
     properties: catalogue.properties.map((cp) => ({
       property: cp.property,
       customNote: cp.customNote,

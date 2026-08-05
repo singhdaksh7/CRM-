@@ -19,9 +19,32 @@ import {
 } from "lucide-react";
 import type { PublicCatalogueDTO, PublicCatalogueProperty } from "@/lib/catalogues";
 
+/** Fire-and-forget page-level interaction (no propertyId) - used by Call Broker / WhatsApp Broker so it never delays the tel:/wa.me navigation. Prefers sendBeacon since the browser can be about to navigate away. */
+function recordPageInteraction(token: string, type: "CALL_REQUESTED" | "WHATSAPP_REQUESTED") {
+  const body = JSON.stringify({ type });
+  const url = `/api/catalogues/${token}/interactions`;
+  if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+    const sent = navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
+    if (sent) return;
+  }
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
+}
+
 export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCatalogueDTO; token: string }) {
   const brokerPhone = catalogue.brokerageContactPhone.replace(/\D/g, "");
   const whatsappHref = `https://wa.me/${brokerPhone}?text=${encodeURIComponent(`Hi, I'm ${catalogue.clientFirstName}, following up on the "${catalogue.title}" catalogue.`)}`;
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDone, setBulkDone] = useState<Set<string>>(new Set());
+
+  function toggleSelected(propertyId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(propertyId)) next.delete(propertyId);
+      else next.add(propertyId);
+      return next;
+    });
+  }
 
   useEffect(() => {
     // Records the page view once on mount; the route handler owns
@@ -56,9 +79,16 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
       {catalogue.properties.length === 0 ? (
         <p className="mt-6 text-center text-sm text-slate-400">No properties in this catalogue.</p>
       ) : (
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4 pb-24">
           {catalogue.properties.map((p) => (
-            <PropertyCard key={p.id} property={p} token={token} />
+            <PropertyCard
+              key={p.id}
+              property={p}
+              token={token}
+              selected={selectedIds.has(p.id)}
+              onToggleSelected={p.isAvailable ? () => toggleSelected(p.id) : undefined}
+              bulkRequested={bulkDone.has(p.id)}
+            />
           ))}
         </div>
       )}
@@ -66,19 +96,129 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
       <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="mb-3 text-sm font-semibold text-slate-800">Have questions or ready to move forward?</p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <a href={`tel:${catalogue.brokerageContactPhone}`} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
+          <a
+            href={`tel:${catalogue.brokerageContactPhone}`}
+            onClick={() => recordPageInteraction(token, "CALL_REQUESTED")}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50"
+          >
             <Phone className="h-4 w-4" /> Call Broker
           </a>
-          <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500">
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => recordPageInteraction(token, "WHATSAPP_REQUESTED")}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500"
+          >
             <MessageCircle className="h-4 w-4" /> WhatsApp Broker
           </a>
         </div>
       </div>
+
+      {selectedIds.size > 0 && (
+        <BulkVisitBar
+          token={token}
+          selectedIds={selectedIds}
+          onDone={(ids) => setBulkDone((prev) => new Set([...prev, ...ids]))}
+        />
+      )}
     </main>
   );
 }
 
-function PropertyCard({ property, token }: { property: PublicCatalogueProperty; token: string }) {
+/** Sticky bottom panel for requesting visits across every checked property in one form - fires one VISIT_REQUESTED interaction per selected property. Selection is intentionally not cleared after submit, so the client-selected properties stay visible ("Recorded" state per card) instead of the checkboxes disappearing. */
+function BulkVisitBar({
+  token,
+  selectedIds,
+  onDone,
+}: {
+  token: string;
+  selectedIds: Set<string>;
+  onDone: (ids: string[]) => void;
+}) {
+  const [preferredDate, setPreferredDate] = useState("");
+  const [preferredWindow, setPreferredWindow] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit() {
+    setSubmitting(true);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.all(
+      ids.map((propertyId) =>
+        fetch(`/api/catalogues/${token}/interactions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "VISIT_REQUESTED", propertyId, preferredDate, preferredWindow, message }),
+        }).then((res) => res.ok)
+      )
+    );
+    setSubmitting(false);
+    const succeeded = ids.filter((_, i) => results[i]);
+    if (succeeded.length > 0) {
+      onDone(succeeded);
+      toast.success(`Visit requested for ${succeeded.length} ${succeeded.length === 1 ? "property" : "properties"}.`);
+    }
+    if (succeeded.length < ids.length) {
+      toast.error("Some requests couldn't be sent - please try again.");
+    }
+  }
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      <div className="mx-auto max-w-3xl">
+        <p className="mb-2 text-sm font-semibold text-slate-800">Request visits for selected properties ({selectedIds.size})</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="date"
+            value={preferredDate}
+            onChange={(e) => setPreferredDate(e.target.value)}
+            className="flex-1 rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300"
+          />
+          <select
+            value={preferredWindow}
+            onChange={(e) => setPreferredWindow(e.target.value)}
+            className="flex-1 rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300"
+          >
+            <option value="">Any time</option>
+            <option value="Morning">Morning</option>
+            <option value="Afternoon">Afternoon</option>
+            <option value="Evening">Evening</option>
+          </select>
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Optional message"
+            className="flex-1 rounded-lg border-0 px-2 py-1.5 text-xs ring-1 ring-inset ring-slate-300"
+          />
+          <button
+            onClick={submit}
+            disabled={submitting}
+            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+          >
+            {submitting ? "Requesting…" : "Request Visits"}
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-slate-400">We&apos;ll have the broker contact you to confirm these visits - they aren&apos;t booked automatically.</p>
+      </div>
+    </div>
+  );
+}
+
+function PropertyCard({
+  property,
+  token,
+  selected,
+  onToggleSelected,
+  bulkRequested,
+}: {
+  property: PublicCatalogueProperty;
+  token: string;
+  selected: boolean;
+  onToggleSelected?: () => void;
+  bulkRequested: boolean;
+}) {
   const [expanded, setExpanded] = useState<"visit" | "question" | "not-interested" | null>(null);
   const [message, setMessage] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
@@ -123,7 +263,21 @@ function PropertyCard({ property, token }: { property: PublicCatalogueProperty; 
         )}
       </div>
       <div className="p-4">
-        <h3 className="text-base font-semibold text-slate-900">{property.title}</h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-base font-semibold text-slate-900">{property.title}</h3>
+          {onToggleSelected && (
+            <label className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-slate-600">
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={onToggleSelected}
+                aria-label={`Select ${property.title} for a bulk visit request`}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Select
+            </label>
+          )}
+        </div>
         <p className="mt-1 flex items-center gap-1 text-sm text-slate-500">
           <MapPin className="h-3.5 w-3.5" /> {property.address ?? property.area}, Delhi
         </p>
@@ -160,7 +314,7 @@ function PropertyCard({ property, token }: { property: PublicCatalogueProperty; 
               )}
               <ActionButton icon={ThumbsUp} label="Interested" done={done.has("INTERESTED")} onClick={() => interact("INTERESTED")} loading={submitting} tone="green" />
               <ActionButton icon={ThumbsDown} label="Not Interested" done={done.has("NOT_INTERESTED")} onClick={() => setExpanded(expanded === "not-interested" ? null : "not-interested")} tone="slate" />
-              <ActionButton icon={CalendarPlus} label="Request Visit" done={done.has("VISIT_REQUESTED")} onClick={() => setExpanded(expanded === "visit" ? null : "visit")} tone="indigo" />
+              <ActionButton icon={CalendarPlus} label="Request Visit" done={done.has("VISIT_REQUESTED") || bulkRequested} onClick={() => setExpanded(expanded === "visit" ? null : "visit")} tone="indigo" />
               <ActionButton icon={HelpCircle} label="Ask a Question" done={done.has("QUESTION_ASKED")} onClick={() => setExpanded(expanded === "question" ? null : "question")} tone="amber" />
             </div>
 

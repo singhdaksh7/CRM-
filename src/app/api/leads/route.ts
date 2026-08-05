@@ -7,7 +7,10 @@ import { logActivity } from "@/lib/activity";
 import { getOrganizationId } from "@/lib/organization";
 import { autoAssignLead } from "@/lib/assignment";
 import { recalculateLeadScore } from "@/lib/scoring";
+import { runMatchingForLead } from "@/lib/lead-matching";
 import { notifyRoles } from "@/lib/notifications";
+import { normalizeIndianPhone } from "@/integrations/whatsapp";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   try {
@@ -55,6 +58,21 @@ export async function POST(req: NextRequest) {
     const organizationId = getOrganizationId(session.user.id);
     const count = await prisma.lead.count({ where: { organizationId } });
 
+    // Non-blocking duplicate check: webhook leads already hard-block on
+    // externalLeadId uniqueness, but manual creation has no such key, so we
+    // only warn - the same phone number can legitimately recur (e.g. a
+    // family member enquiring separately) and brokers should decide.
+    let duplicateWarning: { leadId: string; clientName: string } | null = null;
+    const normalizedPhone = normalizeIndianPhone(data.phone);
+    if (normalizedPhone) {
+      const last10 = normalizedPhone.slice(-10);
+      const duplicate = await prisma.lead.findFirst({
+        where: { organizationId, phone: { contains: last10 } },
+        select: { id: true, clientName: true },
+      });
+      if (duplicate) duplicateWarning = { leadId: duplicate.id, clientName: duplicate.clientName };
+    }
+
     const lead = await prisma.lead.create({
       data: {
         ...data,
@@ -74,6 +92,13 @@ export async function POST(req: NextRequest) {
     }
 
     await recalculateLeadScore(lead.id, "LEAD_CREATED");
+
+    try {
+      await runMatchingForLead(lead.id, "created");
+    } catch (err) {
+      logger.error("lead_matching_failed", { leadId: lead.id, message: err instanceof Error ? err.message : String(err) });
+    }
+
     await notifyRoles(["ADMIN", "DATA_MANAGER"], {
       organizationId,
       type: "NEW_LEAD",
@@ -83,7 +108,7 @@ export async function POST(req: NextRequest) {
     });
 
     const finalLead = await prisma.lead.findUnique({ where: { id: lead.id }, include: { assignedTo: true } });
-    return NextResponse.json({ lead: finalLead }, { status: 201 });
+    return NextResponse.json({ lead: finalLead, duplicateWarning }, { status: 201 });
   } catch (err) {
     return handleApiError(err);
   }
