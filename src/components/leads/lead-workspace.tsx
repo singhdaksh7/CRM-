@@ -9,13 +9,14 @@ import { Badge, FOLLOWUP_STATUS_TONE, VISIT_STATUS_TONE } from "@/components/ui/
 import { Select, Input, Textarea, Field } from "@/components/ui/form";
 import { Button, LinkButton } from "@/components/ui/button";
 import { formatDate, formatDateTime, enumToLabel, timeAgo } from "@/lib/utils";
-import { ArrowRightLeft, Send, Sparkles, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge } from "lucide-react";
+import { ArrowRightLeft, Send, Sparkles, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText } from "lucide-react";
 import { ConversationPanel } from "@/components/whatsapp/conversation-panel";
 import { CataloguesTab } from "@/components/catalogues/catalogues-tab";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
 import { HealthCard } from "@/components/rules/health-card";
 import { SuggestionList } from "@/components/rules/suggestion-list";
 import type { HealthScoreResult, Suggestion } from "@/lib/rules";
+import { computeLeadTimelineSummary } from "@/lib/timeline-summary";
 
 interface ScoreFactor {
   label: string;
@@ -31,6 +32,8 @@ const OUTCOMES = ["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTEREST
 type LeadWithRelations = {
   id: string;
   leadCode: string;
+  clientName: string;
+  createdAt: Date;
   status: string;
   priority: string;
   assignedToId: string | null;
@@ -96,10 +99,10 @@ export function LeadWorkspace({
       </div>
 
       {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} health={health} suggestions={suggestions} onTabAction={(t) => setTab(t as LeadTab)} />}
-      {tab === "whatsapp" && <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} />}
+      {tab === "whatsapp" && <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} clientName={lead.clientName} />}
       {tab === "catalogues" && <CataloguesTab leadId={lead.id} canManage={canManage} canSend={true} />}
       {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
-      {tab === "activity" && <ActivityTab activities={lead.activities} />}
+      {tab === "activity" && <ActivityTab activities={lead.activities} createdAt={lead.createdAt} followUps={lead.followUps} />}
       {tab === "followups" && <FollowUpsTab leadId={lead.id} followUps={lead.followUps} employees={employees} />}
       {tab === "visits" && <VisitsTab leadId={lead.id} visits={lead.visits} canManage={canManage} visitSuggestions={visitSuggestions} onTabAction={(t) => setTab(t as LeadTab)} />}
       {tab === "shared" && <SharedTab shares={lead.sharedProperties} />}
@@ -335,20 +338,43 @@ function ScorePanel({ lead, onRecalculate, saving }: { lead: LeadWithRelations; 
   );
 }
 
-function ActivityTab({ activities }: { activities: LeadWithRelations["activities"] }) {
+function ActivityTab({ activities, createdAt, followUps }: { activities: LeadWithRelations["activities"]; createdAt: Date; followUps: LeadWithRelations["followUps"] }) {
+  const summary = computeLeadTimelineSummary({
+    createdAt,
+    activities,
+    hasOverdueFollowUp: followUps.some((f) => f.status === "OVERDUE"),
+    hasPendingFollowUp: followUps.some((f) => f.status === "PENDING"),
+  });
+
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-      <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Activity Timeline</h3>
-      {activities.length === 0 && <p className="text-sm text-[#8A94A6]">No activity recorded yet.</p>}
-      <ol className="space-y-4">
-        {activities.map((a) => (
-          <li key={a.id} className="relative border-l-2 border-[#E7ECF2] pl-4">
-            <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[#3366FF]" />
-            <p className="text-sm font-semibold text-[#1B2430]">{a.description}</p>
-            <p className="text-xs text-[#8A94A6]">{a.actor ? `${a.actor.name} · ` : ""}{formatDateTime(a.createdAt)} ({timeAgo(a.createdAt)})</p>
-          </li>
-        ))}
-      </ol>
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
+          <FileText className="h-4 w-4 text-[#3366FF]" /> Timeline Summary
+        </h3>
+        <ul className="space-y-1.5">
+          {summary.lines.map((line) => (
+            <li key={line.id} className="flex items-start gap-2 text-sm text-[#596579]">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#3366FF]" />
+              {line.text}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Activity Timeline</h3>
+        {activities.length === 0 && <p className="text-sm text-[#8A94A6]">No activity recorded yet.</p>}
+        <ol className="space-y-4">
+          {activities.map((a) => (
+            <li key={a.id} className="relative border-l-2 border-[#E7ECF2] pl-4">
+              <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[#3366FF]" />
+              <p className="text-sm font-semibold text-[#1B2430]">{a.description}</p>
+              <p className="text-xs text-[#8A94A6]">{a.actor ? `${a.actor.name} · ` : ""}{formatDateTime(a.createdAt)} ({timeAgo(a.createdAt)})</p>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }

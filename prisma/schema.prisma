@@ -531,6 +531,7 @@ model Organization {
   auditLogs             AuditLog[]
   backupRecords         BackupRecord[]
   restoreValidations    RestoreValidation[]
+  savedViews            SavedView[]
 
   @@map("organizations")
 }
@@ -588,6 +589,7 @@ model User {
   auditLogs                 AuditLog[]
   backupsTriggered          BackupRecord[]           @relation("BackupTriggeredBy")
   restoreValidationsDone    RestoreValidation[]      @relation("RestoreValidatedBy")
+  savedViews                SavedView[]
 
   @@map("users")
 }
@@ -720,6 +722,7 @@ model Property {
   tenantPreference TenantPreference?
   availableFrom    DateTime?
   amenities        String            @default("[]") // JSON array of strings
+  tags             String            @default("[]") // JSON array of strings - free-form labels (Phase 2 bulk tagging), same pattern as amenities
 
   // Media
   images         String  @default("[]") // JSON array of URLs
@@ -1533,4 +1536,36 @@ model RestoreValidation {
   createdAt DateTime @default(now())
 
   @@map("restore_validations")
+}
+
+// ---------------------------------------------------------------------------
+// Saved Views (Phase 2 - Smart Search & Productivity)
+// ---------------------------------------------------------------------------
+
+enum SavedViewEntityType {
+  LEAD
+  PROPERTY
+}
+
+/**
+ * A user's saved filter preset for the Leads or Properties list page.
+ * `filters` is a JSON object of plain string key/value pairs mirroring the
+ * page's own URL query params (e.g. {"status":"HOT","area":"Rajouri
+ * Garden"}) - never executable code, never a raw SQL/Prisma fragment.
+ */
+model SavedView {
+  id             String              @id @default(cuid())
+  organizationId String              @default("org_default")
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType     SavedViewEntityType
+  name           String
+  filters        String // JSON object of string key/value filter params
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([userId, entityType, name])
+  @@index([organizationId, userId, entityType])
+  @@map("saved_views")
 }

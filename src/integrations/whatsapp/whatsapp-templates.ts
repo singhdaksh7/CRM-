@@ -20,7 +20,14 @@ export type WhatsAppTemplateUseCase =
   | "CATALOGUE_SHARED"
   | "PRICE_UPDATED"
   | "VISIT_RESCHEDULED"
-  | "PROPERTY_OPTIONS_SHARED";
+  | "PROPERTY_OPTIONS_SHARED"
+  // Phase 2 - Smart Search & Productivity: the three use cases from the
+  // original seven that had no equivalent (Property Catalogue = CATALOGUE_SHARED,
+  // Visit Confirmation/Reminder, New Matching Properties = PROPERTY_OPTIONS_SHARED,
+  // and Reminder = FOLLOW_UP_REMINDER already existed and are reused as-is).
+  | "PROPERTY_UNAVAILABLE"
+  | "PAYMENT_REMINDER"
+  | "THANK_YOU";
 
 export interface WhatsAppTemplateDefinition {
   useCase: WhatsAppTemplateUseCase;
@@ -48,6 +55,30 @@ const DEFAULT_TEMPLATES: WhatsAppTemplateDefinition[] = [
     category: "MARKETING",
     variables: ["clientName", "propertyCount", "requirementSummary", "preferredLocation", "catalogueUrl"],
     bodyTemplate: "Hello {{1}},\n\nWe have shortlisted {{2}} properties matching your requirement for {{3}} in {{4}}.\n\nView the available options here:\n{{5}}\n\nReply to this message if you would like to schedule a visit.",
+  },
+  {
+    useCase: "PROPERTY_UNAVAILABLE",
+    name: "property_unavailable",
+    languageCode: "en",
+    category: "UTILITY",
+    variables: ["clientName", "propertyTitle"],
+    bodyTemplate: "Hi {{1}}, we wanted to let you know that {{2}} is no longer available. We will share similar options shortly.",
+  },
+  {
+    useCase: "PAYMENT_REMINDER",
+    name: "payment_reminder",
+    languageCode: "en",
+    category: "UTILITY",
+    variables: ["clientName", "amount", "dueDate"],
+    bodyTemplate: "Hi {{1}}, this is a reminder that a payment of {{2}} is due on {{3}}. Please let us know if you have any questions.",
+  },
+  {
+    useCase: "THANK_YOU",
+    name: "thank_you",
+    languageCode: "en",
+    category: "UTILITY",
+    variables: ["clientName", "employeeName"],
+    bodyTemplate: "Thank you {{1}} for choosing us. {{2}} will be in touch if you need any further assistance.",
   },
 ];
 

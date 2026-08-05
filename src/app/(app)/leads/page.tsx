@@ -1,14 +1,13 @@
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LinkButton } from "@/components/ui/button";
-import { Badge, LEAD_STATUS_TONE, LEAD_PRIORITY_TONE } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/states";
 import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
-import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { withTiming } from "@/lib/perf";
 import { LeadFilters } from "@/components/leads/lead-filters";
 import { BulkAutoAssignButton } from "@/components/leads/bulk-auto-assign-button";
+import { LeadsTable } from "@/components/leads/leads-table";
+import { SavedViewsBar } from "@/components/saved-views/saved-views-bar";
 import { getOrganizationId } from "@/lib/organization";
 import { Plus } from "lucide-react";
 import type { Prisma } from "@prisma/client";
@@ -58,47 +57,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       </div>
 
       <LeadFilters employees={employees} />
+      <SavedViewsBar entityType="LEAD" />
 
       {leads.length === 0 ? (
         <EmptyState title="No matching leads" description="Try adjusting your filters, or wait for new leads to arrive via digital portals & WhatsApp." />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
-          <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
-            <thead className="bg-[#F8F9FF] text-left text-xs font-semibold uppercase tracking-wider text-[#596579]">
-              <tr>
-                <th className="px-4 py-3.5">Client</th>
-                <th className="px-4 py-3.5">Requirement</th>
-                <th className="px-4 py-3.5">Budget</th>
-                <th className="px-4 py-3.5">Source</th>
-                <th className="px-4 py-3.5">Assigned To</th>
-                <th className="px-4 py-3.5">Status</th>
-                <th className="px-4 py-3.5">Priority</th>
-                <th className="px-4 py-3.5">Score</th>
-                <th className="px-4 py-3.5">Created</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#EFF4FF] text-[#1B2430]">
-              {leads.map((l) => (
-                <tr key={l.id} className="hover:bg-[#F3F6FA] transition-colors">
-                  <td className="px-4 py-3.5">
-                    <Link href={`/leads/${l.id}`} className="font-bold text-[#1B2430] hover:text-[#3366FF] transition-colors">{l.clientName}</Link>
-                    <p className="text-xs text-[#8A94A6] font-mono mt-0.5">{l.phone}</p>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    {l.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {l.preferredBhk ? `${l.preferredBhk} BHK` : "Any"} &middot; {l.preferredLocation}
-                  </td>
-                  <td className="px-4 py-3.5 font-semibold text-[#3366FF]">{formatINR(l.minBudget, { compact: true })} - {formatINR(l.maxBudget, { compact: true })}</td>
-                  <td className="px-4 py-3.5">{enumToLabel(l.source)}</td>
-                  <td className="px-4 py-3.5">{l.assignedTo?.name ?? <span className="font-semibold text-[#E6A23C]">Unassigned</span>}</td>
-                  <td className="px-4 py-3.5"><Badge tone={LEAD_STATUS_TONE[l.status]}>{enumToLabel(l.status)}</Badge></td>
-                  <td className="px-4 py-3.5"><Badge tone={LEAD_PRIORITY_TONE[l.priority]}>{l.priority}</Badge></td>
-                  <td className="px-4 py-3.5 font-bold text-[#1B2430]">{l.score}</td>
-                  <td className="px-4 py-3.5 text-xs text-[#8A94A6]">{formatDate(l.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <LeadsTable leads={leads} employees={employees} canManage={canManage} />
       )}
 
       <Pagination basePath="/leads" currentParams={sp} page={page} pageSize={DEFAULT_PAGE_SIZE} totalCount={totalCount} />

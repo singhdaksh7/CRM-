@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { signOut } from "next-auth/react";
-import { Menu, Search, LogOut, X, Plus } from "lucide-react";
+import { Menu, LogOut, X, Plus } from "lucide-react";
 import { ROLE_LABELS } from "@/lib/permissions";
 import type { Role } from "@prisma/client";
 import { Sidebar } from "./sidebar";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { CommandPalette } from "@/components/search/command-palette";
 import Link from "next/link";
 
 export function Header({
@@ -25,17 +26,9 @@ export function Header({
           <Menu className="h-6 w-6" />
         </button>
 
-        <div className="hidden flex-1 items-center sm:flex">
-          <div className="relative w-full max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" />
-            <input
-              type="search"
-              placeholder="Search leads, properties, locality..."
-              className="w-full rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] py-2 pl-9 pr-3 text-sm text-[#1B2430] placeholder:text-[#8A94A6] focus:border-[#3366FF] focus:outline-none focus:ring-1 focus:ring-[#3366FF] transition-all"
-            />
-          </div>
+        <div className="flex flex-1 items-center justify-end sm:justify-start">
+          <CommandPalette role={user.role} />
         </div>
-        <div className="flex-1 sm:hidden" />
 
         {/* Quick Add Button */}
         <div className="relative">

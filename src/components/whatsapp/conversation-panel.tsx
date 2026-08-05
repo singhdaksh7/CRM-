@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState, EmptyState } from "@/components/ui/states";
+import { TemplatePicker } from "./template-picker";
 import { formatDateTime } from "@/lib/utils";
 import {
   MessageCircle,
@@ -17,6 +18,7 @@ import {
   XCircle,
   ExternalLink,
   Sparkles,
+  FileText,
 } from "lucide-react";
 import type { WhatsAppConversation, WhatsAppMessage, WhatsAppMessageStatus, WhatsAppProviderName } from "@prisma/client";
 
@@ -35,13 +37,15 @@ const PROVIDER_LABEL: Record<WhatsAppProviderName, string> = {
   META_CLOUD: "Meta Cloud API",
 };
 
-export function ConversationPanel({ leadId, canManage }: { leadId: string; canManage: boolean }) {
+export function ConversationPanel({ leadId, canManage, clientName }: { leadId: string; canManage: boolean; clientName?: string }) {
   const [conversation, setConversation] = useState<WhatsAppConversation | null | undefined>(undefined);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [pendingTemplateName, setPendingTemplateName] = useState<string | null>(null);
   const [simulatedText, setSimulatedText] = useState(SIMULATED_REPLIES[0]);
   const [simulating, setSimulating] = useState(false);
 
@@ -80,12 +84,13 @@ export function ConversationPanel({ leadId, canManage }: { leadId: string; canMa
     const res = await fetch(`/api/leads/${leadId}/whatsapp/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: text }),
+      body: JSON.stringify({ content: text, ...(pendingTemplateName ? { templateName: pendingTemplateName } : {}) }),
     });
     setSending(false);
     if (res.ok) {
       const data = await res.json();
       setText("");
+      setPendingTemplateName(null);
       await load();
       if (data.clickToChatUrl) {
         toast.success("Message queued - click \"Open in WhatsApp\" below to send it.");
@@ -182,8 +187,14 @@ export function ConversationPanel({ leadId, canManage }: { leadId: string; canMa
 
       {canManage && (
         <div className="rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+          <div className="mb-2 flex items-center justify-between">
+            <button onClick={() => setTemplatePickerOpen(true)} className="flex items-center gap-1.5 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+              <FileText className="h-3.5 w-3.5" /> Insert template
+            </button>
+            {pendingTemplateName && <span className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Template: {pendingTemplateName}</span>}
+          </div>
           <div className="flex gap-2">
-            <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Type a message..." className="flex-1" />
+            <Textarea rows={2} value={text} onChange={(e) => { setText(e.target.value); setPendingTemplateName(null); }} placeholder="Type a message..." className="flex-1" />
             <Button variant="whatsapp" onClick={sendMessage} loading={sending} disabled={!text.trim()}>
               <Send className="h-4 w-4" /> Send
             </Button>
@@ -191,6 +202,16 @@ export function ConversationPanel({ leadId, canManage }: { leadId: string; canMa
           {isClickToChat && <p className="mt-1.5 text-xs text-[#8A94A6]">Click-to-Chat mode: sending queues the message, then opens WhatsApp for you to actually hit send.</p>}
         </div>
       )}
+
+      <TemplatePicker
+        open={templatePickerOpen}
+        onClose={() => setTemplatePickerOpen(false)}
+        defaultClientName={clientName}
+        onInsert={(renderedText, templateName) => {
+          setText(renderedText);
+          setPendingTemplateName(templateName);
+        }}
+      />
 
       {isMock && canManage && (
         <div className="rounded-2xl border border-dashed border-[#B8F3D1] bg-[#E6F9EE] p-3">

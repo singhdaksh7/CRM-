@@ -1,17 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { PropertyFilters } from "@/components/properties/property-filters";
+import { PropertiesTable } from "@/components/properties/properties-table";
+import { SavedViewsBar } from "@/components/saved-views/saved-views-bar";
 import { PropertyCard } from "@/components/properties/property-card";
 import { EmptyState } from "@/components/ui/states";
 import { LinkButton } from "@/components/ui/button";
-import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
-import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { withTiming } from "@/lib/perf";
 import { getCoverImageUrls } from "@/lib/property-images";
 import { getOrganizationId } from "@/lib/organization";
 import { Plus } from "lucide-react";
-import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 
 export default async function PropertiesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -64,6 +63,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
       </div>
 
       <PropertyFilters view={view} />
+      <SavedViewsBar entityType="PROPERTY" />
 
       {properties.length === 0 ? (
         <EmptyState title="No matching properties" description="Try adjusting your filters or search query to find inventory." />
@@ -74,44 +74,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
-          <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
-            <thead className="bg-[#F8F9FF] text-left text-xs font-semibold uppercase tracking-wider text-[#596579]">
-              <tr>
-                <th className="px-4 py-3.5">Code</th>
-                <th className="px-4 py-3.5">Title</th>
-                <th className="px-4 py-3.5">Location</th>
-                <th className="px-4 py-3.5">Type</th>
-                <th className="px-4 py-3.5">BHK</th>
-                <th className="px-4 py-3.5">Price</th>
-                <th className="px-4 py-3.5">Status</th>
-                <th className="px-4 py-3.5">Added</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#EFF4FF] text-[#1B2430]">
-              {properties.map((p) => (
-                <tr key={p.id} className="hover:bg-[#F3F6FA] transition-colors">
-                  <td className="px-4 py-3.5 font-mono text-xs text-[#8A94A6]">{p.propertyCode}</td>
-                  <td className="px-4 py-3.5 font-semibold text-[#1B2430]">
-                    <Link href={`/properties/${p.id}`} className="hover:text-[#3366FF] transition-colors">
-                      {p.title}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3.5">{p.area}</td>
-                  <td className="px-4 py-3.5">{p.listingType === "RENT" ? "Rent" : "Sale"}</td>
-                  <td className="px-4 py-3.5">{p.bhk} BHK</td>
-                  <td className="px-4 py-3.5 font-bold text-[#3366FF]">
-                    {p.listingType === "RENT" ? formatINR(p.monthlyRent, { suffix: "month" }) : formatINR(p.salePrice, { compact: true })}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <Badge tone={PROPERTY_STATUS_TONE[p.status]}>{enumToLabel(p.status)}</Badge>
-                  </td>
-                  <td className="px-4 py-3.5 text-xs text-[#8A94A6]">{formatDate(p.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <PropertiesTable properties={properties} canManage={canCreate} />
       )}
 
       <Pagination basePath="/properties" currentParams={sp} page={page} pageSize={DEFAULT_PAGE_SIZE} totalCount={totalCount} />

@@ -18,9 +18,9 @@ afterEach(() => {
 });
 
 describe("listWhatsAppTemplates", () => {
-  it("lists all 7 use cases, none approved by default (no live Meta credentials)", () => {
+  it("lists all 10 use cases (7 original + 3 Phase 2 additions), none approved by default (no live Meta credentials)", () => {
     const templates = listWhatsAppTemplates();
-    expect(templates).toHaveLength(7);
+    expect(templates).toHaveLength(10);
     expect(templates.every((t) => t.approved === false)).toBe(true);
   });
 
@@ -79,6 +79,36 @@ describe("PROPERTY_OPTIONS_SHARED", () => {
     const template = getWhatsAppTemplate("CATALOGUE_SHARED");
     expect(template.name).toBe("catalogue_shared");
     expect(template.variables).toEqual(["clientName", "propertyCount", "catalogueUrl"]);
+  });
+});
+
+describe("Phase 2 templates - PROPERTY_UNAVAILABLE, PAYMENT_REMINDER, THANK_YOU", () => {
+  it("registers PROPERTY_UNAVAILABLE with 2 ordered variables and a renderable body", () => {
+    const template = getWhatsAppTemplate("PROPERTY_UNAVAILABLE");
+    expect(template.variables).toEqual(["clientName", "propertyTitle"]);
+    expect(renderTemplateBody("PROPERTY_UNAVAILABLE", ["Priya", "2BHK in Dwarka"])).toBe(
+      "Hi Priya, we wanted to let you know that 2BHK in Dwarka is no longer available. We will share similar options shortly."
+    );
+  });
+
+  it("registers PAYMENT_REMINDER with 3 ordered variables and a renderable body", () => {
+    const template = getWhatsAppTemplate("PAYMENT_REMINDER");
+    expect(template.variables).toEqual(["clientName", "amount", "dueDate"]);
+    expect(renderTemplateBody("PAYMENT_REMINDER", ["Amit", "₹25,000", "10 Aug 2026"])).toBe(
+      "Hi Amit, this is a reminder that a payment of ₹25,000 is due on 10 Aug 2026. Please let us know if you have any questions."
+    );
+  });
+
+  it("registers THANK_YOU with 2 ordered variables and a renderable body", () => {
+    const template = getWhatsAppTemplate("THANK_YOU");
+    expect(template.variables).toEqual(["clientName", "employeeName"]);
+    expect(renderTemplateBody("THANK_YOU", ["Rahul", "Rohit"])).toBe("Thank you Rahul for choosing us. Rohit will be in touch if you need any further assistance.");
+  });
+
+  it("all three are unapproved by default like every other template", () => {
+    expect(getWhatsAppTemplate("PROPERTY_UNAVAILABLE").approved).toBe(false);
+    expect(getWhatsAppTemplate("PAYMENT_REMINDER").approved).toBe(false);
+    expect(getWhatsAppTemplate("THANK_YOU").approved).toBe(false);
   });
 });
 

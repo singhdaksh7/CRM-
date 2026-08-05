@@ -1,6 +1,7 @@
 import { prisma } from "../prisma";
 import { matchPropertiesToLead } from "../matching";
 import { daysBetween } from "./rule-engine";
+import { detectFollowUpTrigger, recommendFollowUpTiming } from "./followup-recommendations";
 import type { Suggestion } from "./types";
 import type { LeadPriority, LeadStatus, PropertyStatus, VisitStatus, VisitOutcome, DealStage, DealStatus, OwnerVerificationStatus } from "@prisma/client";
 
@@ -82,12 +83,21 @@ export function computeLeadSuggestions(input: LeadSuggestionInput): Suggestion[]
       actionTarget: "followups",
     });
   } else if (!input.hasPendingFollowUp) {
+    const trigger = detectFollowUpTrigger({
+      visitCompletedRecently: false,
+      visitMissedRecently: false,
+      catalogueOpenedNoInterest: false,
+      daysSinceLastContact: daysSinceContact,
+      negotiationJustStarted: input.status === "NEGOTIATION",
+      paymentPartial: false,
+    });
+    const recommendation = trigger ? recommendFollowUpTiming(trigger, now) : null;
     suggestions.push({
       id: `lead-${input.leadId}-followup`,
       severity: input.priority === "HOT" ? "HIGH" : "MEDIUM",
       title: "Create follow-up",
-      reason: "No follow-up is currently scheduled for this lead.",
-      actionLabel: "Go to Follow-ups",
+      reason: recommendation ? recommendation.reason : "No follow-up is currently scheduled for this lead.",
+      actionLabel: recommendation ? recommendation.label : "Go to Follow-ups",
       actionKind: "tab",
       actionTarget: "followups",
     });
@@ -294,12 +304,21 @@ export function computeVisitSuggestions(input: VisitSuggestionInput): Suggestion
   }
 
   if ((input.status === "COMPLETED" || input.status === "CLIENT_NO_SHOW") && !input.hasPendingFollowUpForLead) {
+    const trigger = detectFollowUpTrigger({
+      visitCompletedRecently: input.status === "COMPLETED",
+      visitMissedRecently: input.status === "CLIENT_NO_SHOW",
+      catalogueOpenedNoInterest: false,
+      daysSinceLastContact: null,
+      negotiationJustStarted: false,
+      paymentPartial: false,
+    });
+    const recommendation = trigger ? recommendFollowUpTiming(trigger, input.now) : null;
     suggestions.push({
       id: `visit-${input.visitId}-create-followup`,
       severity: input.status === "CLIENT_NO_SHOW" ? "HIGH" : "MEDIUM",
       title: "Create follow-up",
-      reason: input.status === "CLIENT_NO_SHOW" ? "Client did not show up for this visit." : "Visit is complete with no follow-up scheduled.",
-      actionLabel: "Go to Follow-ups",
+      reason: recommendation ? recommendation.reason : "Visit is complete with no follow-up scheduled.",
+      actionLabel: recommendation ? recommendation.label : "Go to Follow-ups",
       actionKind: "tab",
       actionTarget: "followups",
     });
