@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 let queryCallCount = 0;
-const visitCount = vi.fn(() => (queryCallCount++, Promise.resolve(0)));
-const visitGroupBy = vi.fn(() => (queryCallCount++, Promise.resolve([])));
-const userFindMany = vi.fn(() => (queryCallCount++, Promise.resolve([])));
-const availabilityReportCount = vi.fn(() => (queryCallCount++, Promise.resolve(0)));
-const propertyReportCount = vi.fn(() => (queryCallCount++, Promise.resolve(0)));
-const propertyGroupBy = vi.fn(() => (queryCallCount++, Promise.resolve([])));
-const propertyCount = vi.fn(() => (queryCallCount++, Promise.resolve(0)));
+const visitCount = vi.fn((..._a: unknown[]) => (queryCallCount++, Promise.resolve(0)));
+const visitGroupBy = vi.fn((..._a: unknown[]) => (queryCallCount++, Promise.resolve([])));
+const userFindMany = vi.fn((..._a: unknown[]) => (queryCallCount++, Promise.resolve([])));
+const availabilityReportCount = vi.fn((..._a: unknown[]) => (queryCallCount++, Promise.resolve(0)));
+const propertyReportCount = vi.fn((..._a: unknown[]) => (queryCallCount++, Promise.resolve(0)));
+const propertyGroupBy = vi.fn((..._a: unknown[]) => (queryCallCount++, Promise.resolve([])));
+const propertyCount = vi.fn((..._a: unknown[]) => (queryCallCount++, Promise.resolve(0)));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {

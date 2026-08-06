@@ -13,14 +13,27 @@ import { PropertyTimelinePanel } from "@/components/properties/property-timeline
 import { getPropertyTimeline } from "@/lib/property-timeline";
 import { HealthCard } from "@/components/rules/health-card";
 import { SuggestionList } from "@/components/rules/suggestion-list";
-import { getPropertyHealth, getPropertySuggestions } from "@/lib/rules";
+import { getPropertyHealth, getPropertySuggestions, getInventoryFreshness } from "@/lib/rules";
 import { MapPin, Home, Phone, ShieldCheck, CheckCircle2 } from "lucide-react";
+
+// Change 15 - Inventory Freshness label tone, distinct from the numeric Property Health score.
+const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
+  FRESH: "green",
+  VERIFIED: "blue",
+  NEEDS_VERIFICATION: "amber",
+  STALE: "red",
+};
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const property = await prisma.property.findUnique({ where: { id }, include: { partner: true } });
   if (!property) notFound();
-  const [health, suggestions, timelineEvents] = await Promise.all([getPropertyHealth(property.id), getPropertySuggestions(property.id), getPropertyTimeline(property.id)]);
+  const [health, suggestions, timelineEvents, freshness] = await Promise.all([
+    getPropertyHealth(property.id),
+    getPropertySuggestions(property.id),
+    getPropertyTimeline(property.id),
+    getInventoryFreshness(property.id),
+  ]);
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
@@ -36,6 +49,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             <Badge tone={PROPERTY_STATUS_TONE[property.status]}>{enumToLabel(property.status)}</Badge>
             <Badge tone={property.inventorySource === "DIRECT" ? "indigo" : "orange"}>{property.inventorySource === "DIRECT" ? "Direct" : "Indirect"}</Badge>
             {property.pendingVerification && <Badge tone="amber">Pending Verification</Badge>}
+            {freshness && <Badge tone={FRESHNESS_TONE[freshness]}>{freshness.replace(/_/g, " ")}</Badge>}
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">{property.title}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-[#596579]">
