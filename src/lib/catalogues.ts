@@ -3,7 +3,7 @@ import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
 import { getOrganizationId } from "./organization";
 import { logActivity } from "./activity";
-import { notifyRoles } from "./notifications";
+import { notifyRoles, createNotification } from "./notifications";
 import { sendOutboundMessage } from "./whatsapp-messages";
 import { getConversationForLead } from "./whatsapp-conversations";
 import { normalizeIndianPhone, getWhatsAppProvider, buildRequirementSummary } from "@/integrations/whatsapp";
@@ -118,6 +118,27 @@ export async function createCatalogue(params: CreateCatalogueParams) {
       type: "CATALOGUE_READY_FOR_REVIEW",
       title: "Catalogue ready for review",
       message: `${lead.clientName} - catalogue "${params.title}" was created by a field executive and is ready for review.`,
+      leadId: params.leadId,
+    });
+  }
+
+  // Phase 4, Objective 9 - the assigned executive automatically receives the
+  // same catalogue (no second share/token record - they open the internal
+  // version of this one). Skipped when the executive is the one who just
+  // created it themselves - no need to notify someone of their own action.
+  if (lead.assignedToId && lead.assignedToId !== params.createdByUserId) {
+    await logActivity({
+      leadId: params.leadId,
+      type: "CATALOGUE_INTERNAL_SHARED",
+      description: `Catalogue "${params.title}" automatically shared with the assigned field executive`,
+      actorId: params.createdByUserId,
+    });
+    await createNotification({
+      organizationId,
+      userId: lead.assignedToId,
+      type: "INTERNAL_CATALOGUE_SHARED",
+      title: "New catalogue for your lead",
+      message: `${lead.clientName} - catalogue "${params.title}" is ready. Open it for owner/partner details, navigation, and internal notes.`,
       leadId: params.leadId,
     });
   }
