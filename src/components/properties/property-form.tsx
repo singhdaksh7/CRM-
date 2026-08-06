@@ -13,6 +13,15 @@ import { PropertyAddressSearch, type AppliedLocation } from "@/components/proper
 const AREAS = ["Janakpuri", "Dwarka", "Rajouri Garden", "Uttam Nagar", "Rohini", "Pitampura", "Vasant Kunj", "Saket", "Greater Kailash", "Lajpat Nagar", "Karol Bagh", "Paschim Vihar"];
 const AMENITIES_POOL = ["Lift", "Power Backup", "24x7 Security", "Swimming Pool", "Gym", "Club House", "Children's Play Area", "Covered Parking", "CCTV", "Park Facing", "Modular Kitchen", "Water Storage"];
 
+function isValidUrl(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type FormValues = {
   title: string;
   propertyType: string;
@@ -109,7 +118,7 @@ export function PropertyForm({ property }: { property?: Property }) {
   const router = useRouter();
   const isEdit = !!property;
   const [submitting, setSubmitting] = useState(false);
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({ defaultValues: toFormValues(property) });
+  const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: toFormValues(property) });
   const listingType = watch("listingType");
   const amenities = watch("amenities");
 
@@ -119,8 +128,13 @@ export function PropertyForm({ property }: { property?: Property }) {
 
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
+    const blankToNull = (v: string) => (v.trim() === "" ? null : v.trim());
+    const coverImage = blankToNull(values.coverImage);
     const payload = {
       ...values,
+      title: values.title.trim(),
+      description: values.description.trim(),
+      address: values.address.trim(),
       monthlyRent: values.monthlyRent ? Number(values.monthlyRent) : null,
       securityDeposit: values.securityDeposit ? Number(values.securityDeposit) : null,
       maintenanceCharge: values.maintenanceCharge ? Number(values.maintenanceCharge) : null,
@@ -139,15 +153,20 @@ export function PropertyForm({ property }: { property?: Property }) {
       facing: values.facing || null,
       tenantPreference: values.tenantPreference || null,
       availableFrom: values.availableFrom || null,
-      images: values.coverImage ? [values.coverImage] : [],
-      landmark: values.landmark || null,
-      pincode: values.pincode || null,
+      coverImage,
+      images: coverImage ? [coverImage] : [],
+      videoUrl: blankToNull(values.videoUrl),
+      virtualTourUrl: blankToNull(values.virtualTourUrl),
+      landmark: values.landmark.trim() === "" ? null : values.landmark.trim(),
+      pincode: blankToNull(values.pincode),
       latitude: values.latitude,
       longitude: values.longitude,
       formattedAddress: values.formattedAddress || null,
       placeId: values.placeId || null,
-      ownerAlternatePhone: values.ownerAlternatePhone || null,
-      ownerNotes: values.ownerNotes || null,
+      ownerName: values.ownerName.trim(),
+      ownerPhone: values.ownerPhone.trim(),
+      ownerAlternatePhone: blankToNull(values.ownerAlternatePhone),
+      ownerNotes: values.ownerNotes.trim() === "" ? null : values.ownerNotes.trim(),
     };
 
     try {
@@ -158,6 +177,17 @@ export function PropertyForm({ property }: { property?: Property }) {
       });
       if (!res.ok) {
         const err = await res.json();
+        const issues = Array.isArray(err.issues) ? (err.issues as { path: (string | number)[]; message: string }[]) : [];
+        if (issues.length > 0) {
+          for (const issue of issues) {
+            const field = issue.path[0];
+            if (typeof field === "string" && field in values) {
+              setError(field as keyof FormValues, { type: "server", message: issue.message });
+            }
+          }
+          const summary = issues.map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message)).join("; ");
+          throw new Error(summary);
+        }
         throw new Error(err.error ?? "Failed to save property");
       }
       const { property: saved } = await res.json();
@@ -175,8 +205,8 @@ export function PropertyForm({ property }: { property?: Property }) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Section title="Basic Information">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Property Title" required error={errors.title ? "Title is required" : undefined}>
-            <Input {...register("title", { required: true })} placeholder="Spacious 2 BHK Apartment in Janakpuri" />
+          <Field label="Property Title" required error={errors.title?.message}>
+            <Input {...register("title", { required: "Title is required", minLength: { value: 3, message: "Title must be at least 3 characters" } })} placeholder="Spacious 2 BHK Apartment in Janakpuri" />
           </Field>
           <Field label="Property Type" required>
             <Select {...register("propertyType")}>
@@ -199,8 +229,8 @@ export function PropertyForm({ property }: { property?: Property }) {
             </Select>
           </Field>
         </div>
-        <Field label="Description" required error={errors.description ? "Description is required" : undefined}>
-          <Textarea rows={3} {...register("description", { required: true })} placeholder="Describe the property..." />
+        <Field label="Description" required error={errors.description?.message}>
+          <Textarea rows={3} {...register("description", { required: "Description is required", minLength: { value: 10, message: "Description must be at least 10 characters" } })} placeholder="Describe the property..." />
         </Field>
       </Section>
 
@@ -236,11 +266,17 @@ export function PropertyForm({ property }: { property?: Property }) {
           </Field>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Complete Address" required error={errors.address ? "Address is required" : undefined}>
-            <Input {...register("address", { required: true })} placeholder="House/Flat No, Street, Delhi" />
+          <Field label="Complete Address" required error={errors.address?.message}>
+            <Input {...register("address", { required: "Address is required", minLength: { value: 5, message: "Address must be at least 5 characters" } })} placeholder="House/Flat No, Street, Delhi" />
           </Field>
-          <Field label="Pincode">
-            <Input {...register("pincode")} placeholder="110058" maxLength={10} />
+          <Field label="Pincode" error={errors.pincode?.message}>
+            <Input
+              {...register("pincode", {
+                validate: (v) => v.trim() === "" || /^[0-9]{6}$/.test(v.trim()) || "Pincode must be a 6-digit number",
+              })}
+              placeholder="110058"
+              maxLength={10}
+            />
           </Field>
         </div>
         {watch("latitude") !== null && (
@@ -253,8 +289,8 @@ export function PropertyForm({ property }: { property?: Property }) {
       <Section title="Pricing">
         {listingType === "RENT" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Monthly Rent (₹)" required error={errors.monthlyRent ? "Rent amount is required" : undefined}>
-              <Input type="number" {...register("monthlyRent", { required: true })} />
+            <Field label="Monthly Rent (₹)" required error={errors.monthlyRent?.message}>
+              <Input type="number" {...register("monthlyRent", { required: "Rent amount is required", min: { value: 1, message: "Rent must be greater than 0" } })} />
             </Field>
             <Field label="Security Deposit (₹)">
               <Input type="number" {...register("securityDeposit")} />
@@ -268,8 +304,8 @@ export function PropertyForm({ property }: { property?: Property }) {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Sale Price (₹)" required error={errors.salePrice ? "Sale price is required" : undefined}>
-              <Input type="number" {...register("salePrice", { required: true })} />
+            <Field label="Sale Price (₹)" required error={errors.salePrice?.message}>
+              <Input type="number" {...register("salePrice", { required: "Sale price is required", min: { value: 1, message: "Sale price must be greater than 0" } })} />
             </Field>
             <Field label="Price per Sqft (₹)">
               <Input type="number" {...register("pricePerSqft")} />
@@ -284,8 +320,8 @@ export function PropertyForm({ property }: { property?: Property }) {
 
       <Section title="Property Details">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <Field label="BHK" required error={errors.bhk ? "BHK is required" : undefined}><Input type="number" {...register("bhk", { required: true })} /></Field>
-          <Field label="Bathrooms" required error={errors.bathrooms ? "Bathrooms required" : undefined}><Input type="number" {...register("bathrooms", { required: true })} /></Field>
+          <Field label="BHK" required error={errors.bhk?.message}><Input type="number" {...register("bhk", { required: "BHK is required", min: { value: 0, message: "BHK must be 0-10" }, max: { value: 10, message: "BHK must be 0-10" } })} /></Field>
+          <Field label="Bathrooms" required error={errors.bathrooms?.message}><Input type="number" {...register("bathrooms", { required: "Bathrooms required", min: { value: 0, message: "Bathrooms must be 0-10" }, max: { value: 10, message: "Bathrooms must be 0-10" } })} /></Field>
           <Field label="Balconies"><Input type="number" {...register("balconies")} /></Field>
           <Field label="Furnishing">
             <Select {...register("furnishing")}>
@@ -297,7 +333,7 @@ export function PropertyForm({ property }: { property?: Property }) {
           <Field label="Floor Number"><Input type="number" {...register("floorNumber")} /></Field>
           <Field label="Total Floors"><Input type="number" {...register("totalFloors")} /></Field>
           <Field label="Property Age (years)"><Input type="number" {...register("propertyAgeYears")} /></Field>
-          <Field label="Built-up Area (sqft)" required error={errors.builtUpAreaSqft ? "Area is required" : undefined}><Input type="number" {...register("builtUpAreaSqft", { required: true })} /></Field>
+          <Field label="Built-up Area (sqft)" required error={errors.builtUpAreaSqft?.message}><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required", min: { value: 1, message: "Built-up area must be greater than 0" } })} /></Field>
           <Field label="Carpet Area (sqft)"><Input type="number" {...register("carpetAreaSqft")} /></Field>
           <Field label="Facing">
             <Select {...register("facing")}>
@@ -338,11 +374,15 @@ export function PropertyForm({ property }: { property?: Property }) {
 
       <Section title="Media">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Cover Image URL (legacy, optional)" hint="Only used as a fallback when no uploaded photos exist">
-            <Input {...register("coverImage")} placeholder="https://..." />
+          <Field label="Cover Image URL (legacy, optional)" hint="Only used as a fallback when no uploaded photos exist" error={errors.coverImage?.message}>
+            <Input {...register("coverImage", { validate: (v) => v.trim() === "" || isValidUrl(v.trim()) || "Enter a valid URL" })} placeholder="https://..." />
           </Field>
-          <Field label="Video URL"><Input {...register("videoUrl")} placeholder="https://youtube.com/..." /></Field>
-          <Field label="Virtual Tour URL"><Input {...register("virtualTourUrl")} placeholder="https://..." /></Field>
+          <Field label="Video URL" error={errors.videoUrl?.message}>
+            <Input {...register("videoUrl", { validate: (v) => v.trim() === "" || isValidUrl(v.trim()) || "Enter a valid URL" })} placeholder="https://youtube.com/..." />
+          </Field>
+          <Field label="Virtual Tour URL" error={errors.virtualTourUrl?.message}>
+            <Input {...register("virtualTourUrl", { validate: (v) => v.trim() === "" || isValidUrl(v.trim()) || "Enter a valid URL" })} placeholder="https://..." />
+          </Field>
         </div>
       </Section>
 
@@ -356,9 +396,15 @@ export function PropertyForm({ property }: { property?: Property }) {
 
       <Section title="Owner Details (private, never shown publicly)">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Owner Name" required error={errors.ownerName ? "Owner name required" : undefined}><Input {...register("ownerName", { required: true })} /></Field>
-          <Field label="Owner Phone" required error={errors.ownerPhone ? "Owner phone required" : undefined}><Input {...register("ownerPhone", { required: true })} /></Field>
-          <Field label="Alternate Phone"><Input {...register("ownerAlternatePhone")} /></Field>
+          <Field label="Owner Name" required error={errors.ownerName?.message}><Input {...register("ownerName", { required: "Owner name required", minLength: { value: 2, message: "Owner name must be at least 2 characters" } })} /></Field>
+          <Field label="Owner Phone" required error={errors.ownerPhone?.message}><Input {...register("ownerPhone", { required: "Owner phone required", minLength: { value: 8, message: "Owner phone must be at least 8 characters" } })} /></Field>
+          <Field label="Alternate Phone" error={errors.ownerAlternatePhone?.message}>
+            <Input
+              {...register("ownerAlternatePhone", {
+                validate: (v) => v.trim() === "" || /^[0-9+\-\s()]{7,20}$/.test(v.trim()) || "Alternate phone must contain digits only",
+              })}
+            />
+          </Field>
           <Field label="Owner Notes"><Input {...register("ownerNotes")} /></Field>
         </div>
       </Section>

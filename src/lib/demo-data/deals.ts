@@ -11,7 +11,18 @@ const STAGE_WEIGHTS: [DealStage, number][] = [
   ["INQUIRY", 6], ["NEGOTIATION", 5], ["AGREEMENT", 3], ["TOKEN_RECEIVED", 2],
   ["DOCUMENTATION", 2], ["REGISTRATION", 2], ["CLOSED_WON", 6], ["CLOSED_LOST", 4],
 ];
-const LOST_REASONS: NonNullable<Deal["lostReasonCategory"]>[] = ["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"];
+/** Paired 1:1 by index with LOST_REASON_CATEGORIES so seeded deals get both a human-readable lostReason and a matching lostReasonCategory (Phase 3 field, reconciled back in after the merge with main - main's schema predates it). */
+const LOST_REASONS = [
+  "Price - client found a cheaper option.",
+  "Location - client chose a different area.",
+  "Competition - lost to another broker.",
+  "Budget - client's budget changed.",
+  "Loan rejected by the bank.",
+  "Owner issue - owner withdrew or changed terms.",
+  "Client no longer interested.",
+  "Other reason.",
+];
+const LOST_REASON_CATEGORIES: NonNullable<Deal["lostReasonCategory"]>[] = ["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"];
 
 export interface DemoDealSet {
   all: Deal[];
@@ -44,6 +55,8 @@ export async function createDemoDeals(
     const baseAmount = isSale ? property.salePrice ?? 5000000 : property.monthlyRent ?? 20000;
     const status: Deal["status"] = stage === "CLOSED_WON" ? "WON" : stage === "CLOSED_LOST" ? "LOST" : "OPEN";
     const updatedAt = isStaleNegotiationScenario ? rng.pastDate(9, 14) : rng.pastDate(0, 6);
+    // Single shared index so lostReason and lostReasonCategory stay semantically paired (e.g. both "Price" / PRICE), rather than two independent rng.pick() calls landing on unrelated reasons.
+    const lostReasonIndex = status === "LOST" ? rng.int(0, LOST_REASONS.length - 1) : -1;
 
     const deal = await prisma.deal.create({
       data: {
@@ -60,8 +73,8 @@ export async function createDemoDeals(
         assignedToId: assignedTo.id,
         expectedCloseDate: rng.daysFromNow(rng.int(5, 30)),
         closedAt: status !== "OPEN" ? rng.pastDate(0, 5) : null,
-        lostReason: status === "LOST" ? "Client chose a different property closer to their office." : null,
-        lostReasonCategory: status === "LOST" ? rng.pick(LOST_REASONS) : null,
+        lostReason: status === "LOST" ? LOST_REASONS[lostReasonIndex] : null,
+        lostReasonCategory: status === "LOST" ? LOST_REASON_CATEGORIES[lostReasonIndex] : null,
         notes: rng.bool(0.4) ? "Client is in active negotiation on final price." : null,
         createdById: creator.id,
         updatedAt,

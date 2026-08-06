@@ -1,6 +1,5 @@
 import { prisma } from "../prisma";
 import { getDashboardData } from "../dashboard-data";
-import { buildReport, REPORT_TYPES } from "../report-builder";
 import { runGlobalSearch } from "../search/entity-search";
 import { getLeadHealth, getLeadHealthOverview } from "../rules/lead-health";
 import { getPropertyHealth, getPropertyHealthOverview } from "../rules/property-health";
@@ -10,7 +9,8 @@ import { DEMO_ORGANIZATION_ID, DEMO_ID_PREFIX } from "./constants";
 export interface VerificationReport {
   propertyMatching: Record<string, { matchCount: number; topKind: string | null }>;
   dashboard: { criticalKeysPresent: boolean; totalLeads: number; totalProperties: number };
-  reports: Record<string, { rows: number; headerOk: boolean }>;
+  /** Always "skipped" on this branch - depends on src/lib/report-builder.ts, a Phase 3 module not present on main. See Known Limitations. */
+  reports: { status: "skipped"; reason: string };
   smartActions: { checked: number; created: number };
   notifications: { total: number; distinctTypes: number };
   savedViews: { count: number; names: string[] };
@@ -57,16 +57,13 @@ export async function runVerification(params: {
   }
 
   // --- Reports ---
-  const reports: VerificationReport["reports"] = {};
-  for (const type of REPORT_TYPES) {
-    try {
-      const result = await buildReport(type, {});
-      reports[type] = { rows: result.rows.length, headerOk: result.header.length > 0 };
-    } catch (e) {
-      errors.push(`report(${type}): ${(e as Error).message}`);
-      reports[type] = { rows: 0, headerOk: false };
-    }
-  }
+  // src/lib/report-builder.ts is a Phase 3 ("brokerage intelligence
+  // dashboard") module not present on main - this stays a "skipped" no-op
+  // (not an error) here rather than importing it, so the demo-data
+  // framework has no dependency on unrelated Phase 3 code. Once
+  // report-builder.ts lands on main, this can call buildReport() per
+  // REPORT_TYPES the same way the dashboard verification below does.
+  const reports: VerificationReport["reports"] = { status: "skipped", reason: "src/lib/report-builder.ts not present on this branch" };
 
   // --- Smart actions ---
   // Deliberately does NOT call the real generateSmartNotifications() sweep
@@ -149,16 +146,8 @@ export async function runVerification(params: {
     errors.push(`healthScores: ${(e as Error).message}`);
   }
 
-  // --- Exports (CSV shape only - no file written) ---
-  let exportsOk = false;
-  try {
-    const { toCsv } = await import("../report-builder");
-    const leadsReport = await buildReport("leads", {});
-    const csv = toCsv(leadsReport);
-    exportsOk = csv.split("\n").length === leadsReport.rows.length + 1;
-  } catch (e) {
-    errors.push(`exports: ${(e as Error).message}`);
-  }
+  // --- Exports --- also depends on report-builder.ts (see Reports above) - skipped on this branch, not an error.
+  const exportsOk = false;
 
   return {
     propertyMatching,

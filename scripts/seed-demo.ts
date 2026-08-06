@@ -8,6 +8,12 @@
  * ADMIN-only dashboard banner's "Delete Demo Data" button) can find and
  * remove exactly what this script created and nothing else.
  *
+ * The lead-property matching distribution is validated BEFORE the first
+ * database write (buildAndValidateProjectedDataset() - the same pure
+ * builders and shared plan scripts/seed-demo-dry-run.ts uses) - if that
+ * projection fails the 3-8-matches-per-lead / >=25-total-pairs gate, this
+ * aborts before calling teardownDemoData() or creating anything.
+ *
  * See src/lib/demo-data/safety-guard.ts for the production DB check this
  * performs before writing anything, and scripts/seed-demo-dry-run.ts /
  * scripts/seed-demo-verify.ts for the zero-write preview/status commands.
@@ -20,6 +26,7 @@ import { DEMO_ORGANIZATION_ID } from "../src/lib/demo-data/constants";
 import { DEMO_SEED_PLAN } from "../src/lib/demo-data/plan";
 import { getCurrentOrganizationId } from "../src/lib/demo-data/organization";
 import { teardownDemoData } from "../src/lib/demo-data/teardown";
+import { buildAndValidateProjectedDataset } from "../src/lib/demo-data/validate";
 import { createDemoEmployees } from "../src/lib/demo-data/employees";
 import { createDemoOwners } from "../src/lib/demo-data/owners";
 import { createDemoProperties } from "../src/lib/demo-data/properties";
@@ -54,6 +61,23 @@ async function main() {
     "deals (supporting data)": DEMO_SEED_PLAN.deals,
   });
 
+  // --- Validate the matching distribution BEFORE any write - same pure
+  // builders + same plan as seed:demo:dry-run, so if this passes here, the
+  // real data created below (a fresh but identically-seeded Rng stream)
+  // will match it exactly. ---
+  console.log("[seed-demo] Validating lead-property matching distribution before writing anything...");
+  const projected = buildAndValidateProjectedDataset();
+  console.log("All 20 lead match counts (projected):");
+  for (const l of projected.perLead) console.log(`  ${l.leadCode}: ${l.matches}`);
+  const { min: minMatch, max: maxMatch } = DEMO_SEED_PLAN.leadPropertyMatchRange;
+  if (!projected.passed) {
+    console.error(`\n[seed-demo] BLOCKED - matching validation failed before any write was made:`);
+    for (const err of projected.errors) console.error(`  - ${err}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(`[seed-demo] Matching validation passed: ${projected.totalMatchPairs} total pairs, all 20 leads within ${minMatch}-${maxMatch}.\n`);
+
   console.log("[seed-demo] Tearing down any previous KP-DEMO- dataset...");
   const { deletedCounts } = await teardownDemoData();
   console.log(`[seed-demo] Deleted: ${JSON.stringify(deletedCounts)}`);
@@ -73,7 +97,7 @@ async function main() {
   const properties = await createDemoProperties(rng, owners, employees, DEMO_SEED_PLAN.properties);
 
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.leads} leads...`);
-  const leads = await createDemoLeads(rng, employees, DEMO_SEED_PLAN.leads);
+  const leads = await createDemoLeads(rng, employees, properties.all, DEMO_SEED_PLAN.leads);
 
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.followUps} follow-ups...`);
   const followUps = await createDemoFollowUps(rng, leads.all, employees, DEMO_SEED_PLAN.followUps);
@@ -98,7 +122,7 @@ async function main() {
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.notifications} notifications (Hot Lead, Visit Today, Payment Pending, Catalogue Opened, Property Unavailable, Follow-up Due)...`);
   const notifications = await createDemoNotificationHistory(rng, employees.all, leads.all, properties.all, DEMO_SEED_PLAN.notifications);
 
-  console.log("[seed-demo] Computing lead-property matches with the real matching engine...");
+  console.log("[seed-demo] Re-computing lead-property matches against what was actually written (should be identical to the pre-write projection above)...");
   const availableProperties = properties.all.filter((p) => p.status === "AVAILABLE");
   let totalMatchPairs = 0;
   const perLeadMatchCounts: { leadCode: string; matches: number }[] = [];
@@ -107,7 +131,8 @@ async function main() {
     totalMatchPairs += matches.length;
     perLeadMatchCounts.push({ leadCode: lead.leadCode, matches: matches.length });
   }
-  const { min: minMatch, max: maxMatch } = DEMO_SEED_PLAN.leadPropertyMatchRange;
+  console.log("All 20 lead match counts (actual):");
+  for (const l of perLeadMatchCounts) console.log(`  ${l.leadCode}: ${l.matches}`);
   const leadsOutsideTargetRange = perLeadMatchCounts.filter((l) => l.matches < minMatch || l.matches > maxMatch);
 
   console.log("[seed-demo] Running verification (matching, dashboard, reports, smart actions, search, health, exports)...");
@@ -151,6 +176,9 @@ async function main() {
   const problems: string[] = [...verification.errors];
   if (totalMatchPairs < DEMO_SEED_PLAN.minLeadPropertyMatches) {
     problems.push(`Only ${totalMatchPairs} lead-property match pairs (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches}).`);
+  }
+  if (leadsOutsideTargetRange.length > 0) {
+    problems.push(`${leadsOutsideTargetRange.length} lead(s) outside ${minMatch}-${maxMatch} match range: ${JSON.stringify(leadsOutsideTargetRange)}.`);
   }
 
   if (problems.length > 0) {
