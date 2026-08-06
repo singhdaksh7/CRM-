@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,6 +19,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Delhi Broker CRM",
   description: "Real-estate broker CRM & property inventory management",
+  // Phase 4, Objective 14 - PWA. iOS Safari doesn't honor the manifest's
+  // display:standalone on its own, hence the explicit apple-* tags.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Broker CRM",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#3366FF",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -30,6 +45,8 @@ export default function RootLayout({
         <AuthSessionProvider>
           {children}
           <Toaster richColors position="top-right" />
+          <ServiceWorkerRegister />
+          <InstallPrompt />
         </AuthSessionProvider>
       </body>
     </html>

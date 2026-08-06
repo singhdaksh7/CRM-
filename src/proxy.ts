@@ -16,7 +16,16 @@ export default auth((req) => {
     // Vercel Cron (and manual/administrative triggers) call this without a
     // user session - it does its own CRON_SECRET bearer-token check inside
     // the route handler, same pattern as /api/integrations above.
-    pathname === "/api/internal/notifications/sweep";
+    pathname === "/api/internal/notifications/sweep" ||
+    // Phase 4 - PWA: browsers fetch the manifest, service worker, and app
+    // icons unauthenticated (often before the user has ever logged in) -
+    // these must never redirect to /login.
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/sw.js" ||
+    pathname === "/offline.html" ||
+    pathname === "/icon" ||
+    pathname === "/apple-icon" ||
+    pathname.startsWith("/api/pwa/");
 
   if (isPublic) return NextResponse.next();
 

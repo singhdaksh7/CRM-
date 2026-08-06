@@ -20,6 +20,10 @@ const CSP = [
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",
+  // Phase 4 - PWA: required for the hand-written service worker
+  // (public/sw.js) to register, and for the browser to fetch manifest.json.
+  "worker-src 'self'",
+  "manifest-src 'self'",
 ].join("; ");
 
 const securityHeaders = [
