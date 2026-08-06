@@ -11,7 +11,21 @@ const STAGE_WEIGHTS: [DealStage, number][] = [
   ["INQUIRY", 6], ["NEGOTIATION", 5], ["AGREEMENT", 3], ["TOKEN_RECEIVED", 2],
   ["DOCUMENTATION", 2], ["REGISTRATION", 2], ["CLOSED_WON", 6], ["CLOSED_LOST", 4],
 ];
-const LOST_REASONS: NonNullable<Deal["lostReasonCategory"]>[] = ["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"];
+/**
+ * Deal.lostReasonCategory (a Phase 3 "brokerage intelligence dashboard"
+ * field) is not present on this branch's schema - lostReason (a plain
+ * string, already on this branch) carries the same information without it.
+ */
+const LOST_REASONS = [
+  "Price - client found a cheaper option.",
+  "Location - client chose a different area.",
+  "Competition - lost to another broker.",
+  "Budget - client's budget changed.",
+  "Loan rejected by the bank.",
+  "Owner issue - owner withdrew or changed terms.",
+  "Client no longer interested.",
+  "Other reason.",
+];
 
 export interface DemoDealSet {
   all: Deal[];
@@ -60,8 +74,7 @@ export async function createDemoDeals(
         assignedToId: assignedTo.id,
         expectedCloseDate: rng.daysFromNow(rng.int(5, 30)),
         closedAt: status !== "OPEN" ? rng.pastDate(0, 5) : null,
-        lostReason: status === "LOST" ? "Client chose a different property closer to their office." : null,
-        lostReasonCategory: status === "LOST" ? rng.pick(LOST_REASONS) : null,
+        lostReason: status === "LOST" ? rng.pick(LOST_REASONS) : null,
         notes: rng.bool(0.4) ? "Client is in active negotiation on final price." : null,
         createdById: creator.id,
         updatedAt,
