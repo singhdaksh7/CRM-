@@ -10,6 +10,10 @@
     "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:demo:dry-run": "tsx scripts/seed-demo-dry-run.ts",
+    "seed:demo:verify": "tsx scripts/seed-demo-verify.ts",
+    "seed:remove": "tsx scripts/remove-demo.ts",
     "bootstrap:production": "tsx scripts/bootstrap-admin.ts",
     "test": "vitest run"
   },
