@@ -13,15 +13,20 @@ import { getActionCenterItems, getLeadHealthOverview, getPropertyHealthOverview 
 import { getOrganizationId } from "@/lib/organization";
 import { ActionCenterList } from "@/components/dashboard/action-center-list";
 import { HealthOverviewCard } from "@/components/dashboard/health-overview-card";
+import { DemoDataBanner } from "@/components/dashboard/demo-data-banner";
+import { isDemoDataLoaded } from "@/lib/demo-data/status";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session) return null;
   const data = await getDashboardCriticalData(session.user.role, session.user.id);
   const firstName = session.user.name.split(" ")[0];
+  const demoDataLoaded = session.user.role === "ADMIN" ? await isDemoDataLoaded() : false;
 
   return (
     <div className="space-y-6">
+      {session.user.role === "ADMIN" && <DemoDataBanner initialLoaded={demoDataLoaded} />}
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-5">
         <div>
