@@ -9,11 +9,56 @@ const SYSTEM_CONFIG_CACHE_TTL_SECONDS = 60;
  * has a safe built-in default matching the value that used to be a literal
  * constant elsewhere in the codebase - moving a rule under admin control is
  * an additive change to `DEFAULT_SYSTEM_CONFIG`, never a breaking one.
+ *
+ * -------------------------------------------------------------------------
+ * Config integration matrix (staging review, 2026-08-06)
+ * -------------------------------------------------------------------------
+ * ACTIVE  - read by real business logic today, changing it changes behavior:
+ *   hotLeadThreshold            -> scoring.ts computeLeadScore (HOT cutoff)
+ *   matchingBudgetTolerancePct  -> scoring.ts + lead-matching.ts (property-match tolerance)
+ *   followUpSlaHours            -> notifications.ts notifyHotLeadsNoFollowUp cutoff
+ *   staleLeadDays               -> rules/lead-health.ts "Stale lead"/"Going quiet" thresholds
+ *   stalePropertyDays           -> rules/property-health.ts "Stale availability" threshold
+ *   catalogueFollowUpDelayHours -> notifications.ts notifyCatalogueNoResponse cutoff
+ *
+ * FUTURE  - stored and displayed, but not read by any code path yet
+ *   (INACTIVE_CONFIG_KEYS below - UI must disable editing and label
+ *   "Not active yet", never present these as if they take effect):
+ *   healthScoreWeights          -> matching.ts's WEIGHTS constant matches this shape
+ *                                  exactly, but is not threaded through (12 call
+ *                                  sites across matching/scoring/lead-matching);
+ *                                  wiring it is a follow-up, not done in this pass
+ *                                  to avoid destabilizing the matching algorithm
+ *                                  under time pressure.
+ *   matchingRadiusKm            -> nearby-properties.ts uses a fixed, user-selected
+ *                                  enum of allowed radii (1/3/5/10km) per API call,
+ *                                  not a single configurable default - doesn't map
+ *                                  onto this field without a UX change.
+ *   visitReminderMinutesBefore  -> no "visit reminder" notification exists in the
+ *                                  NotificationType enum or notification sweep at
+ *                                  all yet - genuinely unimplemented, not just unwired.
+ *   notificationThrottleMinutes -> the notification sweep already has several
+ *                                  distinct per-rule dedup windows (24h/48h/72h/7d)
+ *                                  hardcoded per notifyXxx function; a single global
+ *                                  override would change several of them
+ *                                  simultaneously and inconsistently, so it is left
+ *                                  unwired rather than risk a silent behavior change.
+ *   catalogueExpiryDays         -> catalogues.ts createCatalogue() has no auto-expiry
+ *                                  fallback at all today (expiresAt stays null/never-
+ *                                  expires unless the caller sets it explicitly);
+ *                                  wiring this would be a real behavior change
+ *                                  (catalogues that never expired would start
+ *                                  expiring), not just "wiring an existing value",
+ *                                  so it is left unwired.
+ *   businessHours                -> reserved for a future "don't send WhatsApp/
+ *                                  notify outside business hours" feature; no such
+ *                                  gate exists in the codebase yet.
+ * -------------------------------------------------------------------------
  */
 export interface SystemConfigValues {
-  /** Lead score at/above which a lead is treated as HOT (src/lib/scoring.ts historically hardcoded this). */
+  /** ACTIVE - Lead score at/above which a lead is treated as HOT (src/lib/scoring.ts). */
   hotLeadThreshold: number;
-  /** Lead scoring factor weights, must roughly sum to 100. */
+  /** FUTURE - matching.ts's WEIGHTS constant matches this shape but is not wired to it yet. */
   healthScoreWeights: {
     location: number;
     budget: number;
@@ -22,24 +67,40 @@ export interface SystemConfigValues {
     availability: number;
     type: number;
   };
-  /** Matching radius in kilometers used by nearby-properties/lead matching. */
+  /** FUTURE - nearby-properties.ts uses a fixed per-request radius enum, not this field. */
   matchingRadiusKm: number;
-  /** How far above a lead's stated max budget a property may be and still match. */
+  /** ACTIVE - src/lib/scoring.ts + src/lib/lead-matching.ts property-match budget tolerance. */
   matchingBudgetTolerancePct: number;
-  /** Hours allowed before a follow-up is considered overdue. */
+  /** ACTIVE - src/lib/notifications.ts notifyHotLeadsNoFollowUp cutoff. */
   followUpSlaHours: number;
-  /** Minutes before a scheduled visit that a reminder notification should fire. */
+  /** FUTURE - no visit-reminder notification exists in this codebase yet. */
   visitReminderMinutesBefore: number;
-  /** Minimum minutes between repeat notifications of the same type to the same user. */
+  /** FUTURE - each notification sweep rule has its own distinct hardcoded dedup window; not safely collapsible into one global knob without changing several of them. */
   notificationThrottleMinutes: number;
-  /** Days after creation that a catalogue share auto-expires if no expiresAt was set explicitly. */
+  /** FUTURE - catalogues never auto-expire today; wiring this would be a real behavior change, not just "wiring an existing value". */
   catalogueExpiryDays: number;
-  /** Business hours, 24h local time. */
+  /** FUTURE - reserved for a not-yet-built "quiet hours" notification gate. */
   businessHours: {
     startHour: number;
     endHour: number;
   };
+  /** ACTIVE - rules/lead-health.ts "Stale lead" threshold (days since last contact); "Going quiet" fires at half this value. */
+  staleLeadDays: number;
+  /** ACTIVE - rules/property-health.ts "Stale availability" threshold (days since last update). */
+  stalePropertyDays: number;
+  /** ACTIVE - notifications.ts notifyCatalogueNoResponse cutoff (hours since last view with no client response). */
+  catalogueFollowUpDelayHours: number;
 }
+
+/** Keys the Settings UI must render read-only with a "Not active yet" badge - see the FUTURE section of the matrix above. Exported so the UI and this module can never drift apart on which fields are real. */
+export const INACTIVE_CONFIG_KEYS: readonly (keyof SystemConfigValues)[] = [
+  "healthScoreWeights",
+  "matchingRadiusKm",
+  "visitReminderMinutesBefore",
+  "notificationThrottleMinutes",
+  "catalogueExpiryDays",
+  "businessHours",
+];
 
 export const DEFAULT_SYSTEM_CONFIG: SystemConfigValues = {
   hotLeadThreshold: 70,
@@ -61,6 +122,9 @@ export const DEFAULT_SYSTEM_CONFIG: SystemConfigValues = {
     startHour: 9,
     endHour: 20,
   },
+  staleLeadDays: 14,
+  stalePropertyDays: 30,
+  catalogueFollowUpDelayHours: 24,
 };
 
 /** Deep-merges a partial config blob (as stored in SystemConfig.values) over the defaults - never trusts the stored blob to have every key. */

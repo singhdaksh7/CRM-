@@ -30,6 +30,7 @@ vi.mock("./prisma", () => ({
       findMany: (...a: unknown[]) => followUpFindMany(...a),
       update: (...a: unknown[]) => followUpUpdate(...a),
     },
+    systemConfig: { findUnique: vi.fn().mockResolvedValue(null) },
   },
 }));
 

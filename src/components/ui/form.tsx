@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-export function Field({ label, error, hint, required, children }: { label: string; error?: string; hint?: string; required?: boolean; children: React.ReactNode }) {
+export function Field({ label, error, hint, required, children }: { label: React.ReactNode; error?: string; hint?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
       <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#596579]">

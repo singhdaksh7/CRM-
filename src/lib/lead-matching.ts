@@ -2,8 +2,7 @@ import { prisma } from "./prisma";
 import { logActivity } from "./activity";
 import { createNotification, notifyRoles } from "./notifications";
 import { matchPropertiesToLead } from "./matching";
-
-const DEFAULT_TOLERANCE = 0.2;
+import { getSystemConfig } from "./system-config";
 
 // Same idempotency window shape as generateDueFollowUpNotifications in
 // notifications.ts: a recent-enough notification of the relevant type(s)
@@ -29,9 +28,10 @@ export async function runMatchingForLead(leadId: string, trigger: "created" | "u
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
   const organizationId = lead.organizationId;
 
-  const properties = await prisma.property.findMany({
-    where: { organizationId, status: "AVAILABLE" },
-  });
+  const [config, properties] = await Promise.all([
+    getSystemConfig(organizationId),
+    prisma.property.findMany({ where: { organizationId, status: "AVAILABLE" } }),
+  ]);
 
   await logActivity({
     leadId,
@@ -39,7 +39,7 @@ export async function runMatchingForLead(leadId: string, trigger: "created" | "u
     description: trigger === "created" ? "Property matching started after lead creation" : "Property matching re-run after requirement update",
   });
 
-  const matches = matchPropertiesToLead(properties, lead, DEFAULT_TOLERANCE);
+  const matches = matchPropertiesToLead(properties, lead, config.matchingBudgetTolerancePct / 100);
   const matchCount = matches.length;
 
   await logActivity({

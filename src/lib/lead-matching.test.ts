@@ -15,6 +15,7 @@ vi.mock("./prisma", () => ({
     notification: {
       findFirst: (...a: unknown[]) => notificationFindFirst(...a),
     },
+    systemConfig: { findUnique: vi.fn().mockResolvedValue(null) },
   },
 }));
 

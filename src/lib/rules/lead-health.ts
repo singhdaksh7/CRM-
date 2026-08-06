@@ -1,6 +1,7 @@
 import { prisma } from "../prisma";
 import { matchPropertiesToLead } from "../matching";
 import { cached } from "../cache";
+import { getSystemConfig } from "../system-config";
 import { buildHealthScore, daysBetween } from "./rule-engine";
 import type { HealthFactor, HealthLabel, HealthScoreResult } from "./types";
 import type { LeadStatus } from "@prisma/client";
@@ -43,8 +44,13 @@ function isValidIndianPhone(phone: string): boolean {
   return digits.length === 10 || (digits.length === 12 && digits.startsWith("91"));
 }
 
-/** Pure, deterministic - no I/O, fully unit-testable. */
-export function computeLeadHealth(input: LeadHealthInput): HealthScoreResult {
+/**
+ * Pure, deterministic - no I/O, fully unit-testable.
+ * `staleLeadDays` (default 14, matching the previous hardcoded value)
+ * is System Configuration's `staleLeadDays` - see src/lib/system-config.ts.
+ * "Going quiet" always fires at half that threshold.
+ */
+export function computeLeadHealth(input: LeadHealthInput, staleLeadDays = 14): HealthScoreResult {
   const now = input.now ?? new Date();
   const factors: HealthFactor[] = [];
 
@@ -108,10 +114,11 @@ export function computeLeadHealth(input: LeadHealthInput): HealthScoreResult {
   }
 
   const daysSinceContact = input.lastContactedAt ? daysBetween(input.lastContactedAt, now) : daysBetween(input.createdAt, now);
+  const goingQuietDays = Math.floor(staleLeadDays / 2);
   if (!TERMINAL_STATUSES.includes(input.status)) {
-    if (daysSinceContact > 14) {
+    if (daysSinceContact > staleLeadDays) {
       factors.push({ label: "Stale lead", delta: -15, detail: `No client contact recorded for ${daysSinceContact} days` });
-    } else if (daysSinceContact > 7) {
+    } else if (daysSinceContact > goingQuietDays) {
       factors.push({ label: "Going quiet", delta: -8, detail: `No client contact recorded for ${daysSinceContact} days` });
     } else if (input.lastContactedAt) {
       factors.push({ label: "Recent activity", delta: 6, detail: "Client was contacted recently" });
@@ -135,7 +142,8 @@ export async function getLeadHealth(leadId: string): Promise<HealthScoreResult |
   const lead = await prisma.lead.findUnique({ where: { id: leadId } });
   if (!lead) return null;
 
-  const [availableProperties, pendingFollowUpCount, overdueFollowUpCount, scheduledVisitCount, missedVisitCount, catalogueSentCount, catalogueViewedCount, clientInterestCount, failedWhatsAppCount] = await Promise.all([
+  const [config, availableProperties, pendingFollowUpCount, overdueFollowUpCount, scheduledVisitCount, missedVisitCount, catalogueSentCount, catalogueViewedCount, clientInterestCount, failedWhatsAppCount] = await Promise.all([
+    getSystemConfig(lead.organizationId),
     prisma.property.findMany({ where: { organizationId: lead.organizationId, status: "AVAILABLE" } }),
     prisma.followUp.count({ where: { leadId, status: "PENDING" } }),
     prisma.followUp.count({ where: { leadId, status: "OVERDUE" } }),
@@ -169,7 +177,7 @@ export async function getLeadHealth(leadId: string): Promise<HealthScoreResult |
     catalogueViewedCount,
     clientInterestCount,
     failedWhatsAppCount,
-  });
+  }, config.staleLeadDays);
 }
 
 const OVERVIEW_LEAD_LIMIT = 200;
@@ -188,6 +196,7 @@ export async function getLeadHealthOverview(organizationId: string, assignedToId
 }
 
 async function computeLeadHealthOverview(organizationId: string, assignedToId?: string): Promise<{ label: HealthLabel; count: number }[]> {
+  const config = await getSystemConfig(organizationId);
   const leads = await prisma.lead.findMany({
     where: {
       organizationId,
@@ -273,7 +282,7 @@ async function computeLeadHealthOverview(organizationId: string, assignedToId?: 
       catalogueViewedCount: catalogueViewedByLead.get(lead.id) ?? 0,
       clientInterestCount: clientInterestByLead.get(lead.id) ?? 0,
       failedWhatsAppCount: failedWhatsAppByLead.get(lead.id) ?? 0,
-    });
+    }, config.staleLeadDays);
     counts.set(result.label, (counts.get(result.label) ?? 0) + 1);
   }
 
