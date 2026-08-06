@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
+import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -22,10 +23,30 @@ const ALL_MODEL_KEYS = [
 
 type MockClient = ReturnType<typeof createReadOnlyClient>;
 
+const HEALTHY_CATALOGUE_COLUMNS = [
+  { table_name: "catalogue_share_properties", column_name: "internalNote" },
+  { table_name: "catalogue_share_properties", column_name: "isTopPick" },
+  { table_name: "catalogue_share_properties", column_name: "addedManually" },
+  { table_name: "catalogue_share_properties", column_name: "addedByUserId" },
+];
+
+const HEALTHY_NOTIFICATION_ENUM_ROWS = NOTIFICATION_TYPES_USED_BY_DEMO_DATA.map((enumlabel) => ({ enumlabel }));
+
+/** Dispatches on the raw SQL text so the two different $queryRawUnsafe call sites (catalogue schema check, production enum check) each get shaped fixture data instead of one being fed the other's rows. */
+function makeQueryRawUnsafe(overrides?: { catalogueColumns?: typeof HEALTHY_CATALOGUE_COLUMNS; notificationEnumRows?: typeof HEALTHY_NOTIFICATION_ENUM_ROWS }) {
+  const catalogueColumns = overrides?.catalogueColumns ?? HEALTHY_CATALOGUE_COLUMNS;
+  const notificationEnumRows = overrides?.notificationEnumRows ?? HEALTHY_NOTIFICATION_ENUM_ROWS;
+  return vi.fn().mockImplementation((query: string) => {
+    if (query.includes("pg_enum")) return Promise.resolve(notificationEnumRows);
+    return Promise.resolve(catalogueColumns);
+  });
+}
+
 function makeHealthyClient(): MockClient {
   const client: Record<string, unknown> = {
     organization: { findUnique: vi.fn().mockResolvedValue({ id: "org_default", name: "Delhi Broker CRM" }) },
     user: { count: vi.fn().mockResolvedValue(1) },
+    $queryRawUnsafe: makeQueryRawUnsafe(),
     $disconnect: vi.fn().mockResolvedValue(undefined),
   };
   for (const key of ALL_MODEL_KEYS) {
@@ -153,6 +174,44 @@ describe("runDryRun - each required failure condition", () => {
     const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
     expect(allPassed).toBe(false);
     expect(checks.find((c) => c.name === "Teardown safety check")?.passed).toBe(false);
+  });
+
+  it("FAILs catalogue schema compatibility, and it propagates to allPassed=false and exit code 1, when a required catalogue column is missing in production (e.g. isTopPick)", async () => {
+    process.exitCode = undefined;
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({
+      catalogueColumns: HEALTHY_CATALOGUE_COLUMNS.filter((c) => c.column_name !== "isTopPick"),
+    });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    const check = checks.find((c) => c.name === "Catalogue schema compatibility");
+    expect(check?.passed).toBe(false);
+    expect(check?.detail).toContain("catalogue_share_properties.isTopPick");
+
+    await main(client);
+    expect(process.exitCode).toBe(1);
+    const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
+    expect(output).not.toContain("All checks passed");
+    process.exitCode = undefined;
+  });
+
+  it("FAILs production NotificationType enum compatibility, and it propagates to allPassed=false and exit code 1, when a value demo data uses is missing in production", async () => {
+    process.exitCode = undefined;
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({
+      notificationEnumRows: HEALTHY_NOTIFICATION_ENUM_ROWS.filter((r) => r.enumlabel !== "PROPERTY_UNAVAILABLE_AFTER_SHARE"),
+    });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    const check = checks.find((c) => c.name === "Production NotificationType enum compatibility");
+    expect(check?.passed).toBe(false);
+    expect(check?.detail).toContain("PROPERTY_UNAVAILABLE_AFTER_SHARE");
+
+    await main(client);
+    expect(process.exitCode).toBe(1);
+    const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
+    expect(output).not.toContain("All checks passed");
+    process.exitCode = undefined;
   });
 });
 

@@ -17,6 +17,8 @@ import { DEMO_SEED_PLAN } from "../src/lib/demo-data/plan";
 import { previewTeardownCounts } from "../src/lib/demo-data/teardown";
 import { buildAndValidateProjectedDataset, type DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { createReadOnlyClient, UnexpectedWriteError } from "../src/lib/demo-data/read-only-guard";
+import { checkCatalogueSchemaCompatibility } from "../src/lib/demo-data/schema-compat";
+import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
 export interface CheckResult {
   name: string;
@@ -119,6 +121,47 @@ export async function runDryRun(
   console.log(`\nEnum compatibility: ${enumCheck.ok ? "OK" : "ISSUES FOUND"}`);
   for (const issue of enumCheck.issues) console.log(`  - ${issue}`);
   record("Enum compatibility", enumCheck.ok, enumCheck.ok ? "all hardcoded enum literals are valid" : enumCheck.issues.join("; "));
+
+  // --- catalogue schema compatibility (production migration drift, e.g. a
+  // merged migration that was never `prisma migrate deploy`-ed) - checked
+  // here, before the matching projection and before any write could ever
+  // occur, so a gap like this fails the dry run instead of surfacing as a
+  // P2022 mid-seed ---
+  try {
+    const schemaCheck = await checkCatalogueSchemaCompatibility(client);
+    console.log(`Catalogue schema compatibility: ${schemaCheck.ok ? "OK - all required catalogue columns present" : "MISSING COLUMNS"}`);
+    for (const m of schemaCheck.missing) console.log(`  - ${m.table}.${m.column} is missing`);
+    record(
+      "Catalogue schema compatibility",
+      schemaCheck.ok,
+      schemaCheck.ok
+        ? "all required catalogue columns present"
+        : `missing: ${schemaCheck.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`
+    );
+  } catch (e) {
+    record("Catalogue schema compatibility", false, (e as Error).message);
+  }
+
+  // --- NotificationType enum compatibility against the actual production
+  // database (pg_enum), not just the locally-generated @prisma/client enum
+  // that "Enum compatibility" above already checks - a value can be added
+  // to prisma/schema.prisma and generated into the client without the
+  // corresponding `ALTER TYPE ... ADD VALUE` ever having been run against
+  // production ---
+  try {
+    const notificationEnumCheck = await checkNotificationTypeEnumInProduction(client);
+    console.log(`Production NotificationType enum compatibility: ${notificationEnumCheck.ok ? "OK - all values used by demo data exist in production" : "MISSING VALUES"}`);
+    for (const v of notificationEnumCheck.missing) console.log(`  - NotificationType.${v} is missing in production`);
+    record(
+      "Production NotificationType enum compatibility",
+      notificationEnumCheck.ok,
+      notificationEnumCheck.ok
+        ? "all NotificationType values used by demo data exist in production"
+        : `missing in production: ${notificationEnumCheck.missing.join(", ")}`
+    );
+  } catch (e) {
+    record("Production NotificationType enum compatibility", false, (e as Error).message);
+  }
 
   // --- admin integrity ---
   try {
