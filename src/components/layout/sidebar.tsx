@@ -21,7 +21,8 @@ import {
   FileText,
   Crown,
   Briefcase,
-  Handshake
+  Handshake,
+  ShieldAlert
 } from "lucide-react";
 import { useState } from "react";
 
@@ -31,6 +32,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/owner-dashboard": Crown,
   "/properties": Building2,
   "/inventory-partners": Handshake,
+  "/admin/property-issues": ShieldAlert,
   "/leads": Users,
   "/visits": CalendarClock,
   "/follow-ups": BellRing,

@@ -8,6 +8,7 @@ import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyMapPanel } from "@/components/properties/property-map-panel";
 import { NearbyPropertiesPanel } from "@/components/properties/nearby-properties-panel";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
+import { PropertyReportPanel } from "@/components/properties/property-report-panel";
 import { HealthCard } from "@/components/rules/health-card";
 import { SuggestionList } from "@/components/rules/suggestion-list";
 import { getPropertyHealth, getPropertySuggestions } from "@/lib/rules";
@@ -180,6 +181,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               <p className="mt-3 text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
             </div>
           )}
+
+          {/* Objectives 7 & 10 - executive-facing issue/unavailability reporting */}
+          <PropertyReportPanel propertyId={property.id} />
 
           {/* Meta Details */}
           <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
