@@ -481,6 +481,35 @@ enum BackupStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 3 - Business Intelligence & Management Platform
+// ---------------------------------------------------------------------------
+
+enum LostDealReasonCategory {
+  PRICE
+  LOCATION
+  COMPETITION
+  BUDGET
+  LOAN_REJECTED
+  OWNER_ISSUE
+  CLIENT_NOT_INTERESTED
+  OTHER
+}
+
+enum AutomationTrigger {
+  LEAD_CREATED
+  VISIT_COMPLETED
+  CATALOGUE_OPENED
+  PAYMENT_RECEIVED
+}
+
+enum AutomationActionType {
+  ASSIGN_EMPLOYEE
+  CREATE_FOLLOW_UP
+  NOTIFY_EMPLOYEE
+  MARK_DEAL_CLOSED
+}
+
+// ---------------------------------------------------------------------------
 // Multi-tenant foundation (Phase 2A)
 //
 // Every major record is scoped to an Organization so the product can become
@@ -532,6 +561,8 @@ model Organization {
   backupRecords         BackupRecord[]
   restoreValidations    RestoreValidation[]
   savedViews            SavedView[]
+  systemConfig          SystemConfig?
+  automationRules       AutomationRule[]
 
   @@map("organizations")
 }
@@ -590,6 +621,8 @@ model User {
   backupsTriggered          BackupRecord[]           @relation("BackupTriggeredBy")
   restoreValidationsDone    RestoreValidation[]      @relation("RestoreValidatedBy")
   savedViews                SavedView[]
+  systemConfigsUpdated      SystemConfig[]
+  automationRulesCreated    AutomationRule[]
 
   @@map("users")
 }
@@ -1203,6 +1236,7 @@ model Deal {
   expectedCloseDate DateTime?
   closedAt          DateTime?
   lostReason        String?
+  lostReasonCategory LostDealReasonCategory?
   notes             String?
 
   createdById String?
@@ -1568,4 +1602,57 @@ model SavedView {
   @@unique([userId, entityType, name])
   @@index([organizationId, userId, entityType])
   @@map("saved_views")
+}
+
+// ---------------------------------------------------------------------------
+// System Configuration (Phase 3, Module 7)
+//
+// Singleton-per-organization row holding previously-hardcoded business rules
+// (hot lead threshold, health score weights, matching radius/budget %,
+// follow-up SLA, visit reminder timing, notification timing, catalogue
+// expiry, business hours). `values` is a JSON blob merged over
+// DEFAULT_SYSTEM_CONFIG (src/lib/system-config.ts) at read time, so adding a
+// new configurable key never requires a migration.
+// ---------------------------------------------------------------------------
+
+model SystemConfig {
+  id             String       @id @default(cuid())
+  organizationId String       @unique @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  values         String       @default("{}") // JSON blob, shape: Partial<SystemConfigValues>
+  updatedById    String?
+  updatedBy      User?        @relation(fields: [updatedById], references: [id])
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+
+  @@map("system_configs")
+}
+
+// ---------------------------------------------------------------------------
+// Automation Rules Engine (Phase 3, Module 8)
+//
+// Admin-configurable "when X happens, do Y" rules. Deliberately small and
+// deterministic (no arbitrary code execution) - each rule pairs one trigger
+// with one action type plus a JSON actionConfig. Executed best-effort and
+// non-blocking from the existing trigger points (lead creation, visit
+// completion, catalogue view, payment received); failures are logged via the
+// existing audit log, never surfaced to the end user as an error.
+// ---------------------------------------------------------------------------
+
+model AutomationRule {
+  id             String               @id @default(cuid())
+  organizationId String               @default("org_default")
+  organization   Organization         @relation(fields: [organizationId], references: [id])
+  name           String
+  trigger        AutomationTrigger
+  actionType     AutomationActionType
+  actionConfig   String               @default("{}") // JSON blob, shape depends on actionType
+  isActive       Boolean              @default(false)
+  createdById    String?
+  createdBy      User?                @relation(fields: [createdById], references: [id])
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([organizationId, trigger, isActive])
+  @@map("automation_rules")
 }

@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { matchPropertiesToLead } from "./matching";
+import { getSystemConfig } from "./system-config";
 import type { FurnishingStatus, LeadPriority, LeadSource, LeadStatus } from "@prisma/client";
 
 export interface ScoreFactor {
@@ -51,8 +52,13 @@ function isValidEmail(email: string | null): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-/** Pure, deterministic lead-scoring function - no I/O, fully unit-testable. */
-export function computeLeadScore(input: ScoringInput): ScoreResult {
+/**
+ * Pure, deterministic lead-scoring function - no I/O, fully unit-testable.
+ * `hotThreshold` (default 70, matching the previous hardcoded value) is
+ * System Configuration's `hotLeadThreshold` - see src/lib/system-config.ts.
+ * The WARM/COLD boundary (40) is not independently configurable.
+ */
+export function computeLeadScore(input: ScoringInput, hotThreshold = 70): ScoreResult {
   const factors: ScoreFactor[] = [];
 
   if (isValidIndianPhone(input.phone)) {
@@ -138,7 +144,7 @@ export function computeLeadScore(input: ScoringInput): ScoreResult {
 
   const rawScore = factors.reduce((sum, f) => sum + f.delta, 0);
   const score = Math.max(0, Math.min(100, rawScore));
-  const priority: LeadPriority = score >= 70 ? "HOT" : score >= 40 ? "WARM" : "COLD";
+  const priority: LeadPriority = score >= hotThreshold ? "HOT" : score >= 40 ? "WARM" : "COLD";
 
   return { score, priority, factors };
 }
@@ -147,7 +153,8 @@ export function computeLeadScore(input: ScoringInput): ScoreResult {
 export async function recalculateLeadScore(leadId: string, trigger: string): Promise<ScoreResult> {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
 
-  const [availableProperties, visitCount, overdueFollowUpCount, inboundMessageCount, catalogueViewCount, propertyInterestCount, visitRequestCount] = await Promise.all([
+  const [config, availableProperties, visitCount, overdueFollowUpCount, inboundMessageCount, catalogueViewCount, propertyInterestCount, visitRequestCount] = await Promise.all([
+    getSystemConfig(lead.organizationId),
     prisma.property.findMany({ where: { organizationId: lead.organizationId, status: "AVAILABLE" } }),
     prisma.visit.count({ where: { leadId } }),
     prisma.followUp.count({ where: { leadId, status: "OVERDUE" } }),
@@ -157,7 +164,7 @@ export async function recalculateLeadScore(leadId: string, trigger: string): Pro
     prisma.catalogueInteraction.count({ where: { catalogueShare: { leadId }, type: "VISIT_REQUESTED" } }),
   ]);
 
-  const matches = matchPropertiesToLead(availableProperties, lead, 0.2);
+  const matches = matchPropertiesToLead(availableProperties, lead, config.matchingBudgetTolerancePct / 100);
 
   const localityProperties = availableProperties.filter(
     (p) => p.area.toLowerCase() === lead.preferredLocation.toLowerCase() && p.listingType === (lead.requirementType === "RENT" ? "RENT" : "SALE")
@@ -187,7 +194,7 @@ export async function recalculateLeadScore(leadId: string, trigger: string): Pro
     catalogueViewed: catalogueViewCount > 0,
     propertyInterestCount,
     clientRequestedVisit: visitRequestCount > 0,
-  });
+  }, config.hotLeadThreshold);
 
   await prisma.$transaction([
     prisma.lead.update({

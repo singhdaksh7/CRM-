@@ -4,7 +4,7 @@ import { getOrganizationId } from "./organization";
 import { generateCode } from "./utils";
 import { recordAudit } from "./audit";
 import { terminalStatusFor, validateStageTransition } from "./deal-stage";
-import type { DealStage } from "@prisma/client";
+import type { DealStage, LostDealReasonCategory } from "@prisma/client";
 
 export async function generateDealCode(): Promise<string> {
   const count = await prisma.deal.count();
@@ -36,6 +36,7 @@ export async function transitionDealStage(params: {
   actorRole: "ADMIN" | "DATA_MANAGER" | "FIELD_EXECUTIVE";
   notes?: string | null;
   lostReason?: string | null;
+  lostReasonCategory?: LostDealReasonCategory | null;
 }) {
   const organizationId = getOrganizationId(params.actorId);
   const deal = await prisma.deal.findFirst({ where: { id: params.dealId, organizationId } });
@@ -53,7 +54,12 @@ export async function transitionDealStage(params: {
       stage: params.stage,
       notes: params.notes !== undefined ? params.notes : deal.notes,
       ...(terminal
-        ? { status: terminal, closedAt: new Date(), lostReason: terminal === "LOST" ? params.lostReason : null }
+        ? {
+            status: terminal,
+            closedAt: new Date(),
+            lostReason: terminal === "LOST" ? params.lostReason : null,
+            lostReasonCategory: terminal === "LOST" ? params.lostReasonCategory ?? null : null,
+          }
         : {}),
     },
   });

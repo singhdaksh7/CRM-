@@ -11,11 +11,7 @@ const STAGE_WEIGHTS: [DealStage, number][] = [
   ["INQUIRY", 6], ["NEGOTIATION", 5], ["AGREEMENT", 3], ["TOKEN_RECEIVED", 2],
   ["DOCUMENTATION", 2], ["REGISTRATION", 2], ["CLOSED_WON", 6], ["CLOSED_LOST", 4],
 ];
-/**
- * Deal.lostReasonCategory (a Phase 3 "brokerage intelligence dashboard"
- * field) is not present on this branch's schema - lostReason (a plain
- * string, already on this branch) carries the same information without it.
- */
+/** Paired 1:1 by index with LOST_REASON_CATEGORIES so seeded deals get both a human-readable lostReason and a matching lostReasonCategory (Phase 3 field, reconciled back in after the merge with main - main's schema predates it). */
 const LOST_REASONS = [
   "Price - client found a cheaper option.",
   "Location - client chose a different area.",
@@ -26,11 +22,16 @@ const LOST_REASONS = [
   "Client no longer interested.",
   "Other reason.",
 ];
+const LOST_REASON_CATEGORIES: NonNullable<Deal["lostReasonCategory"]>[] = ["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"];
 
 export interface DemoDealSet {
   all: Deal[];
   staleNegotiationScenarioId: string;
   overduePaymentScenarioId: string;
+  /** Deal #3 - always CLOSED_WON with a normal (non-overdue) fully-recorded payment pair, so Brokerage Analytics / Owner Dashboard "Brokerage Received" always has real, non-edge-case data to show - not left to the weighted-random stage draw, which can (and on at least one production run, did) land zero deals on CLOSED_WON out of 10. */
+  wonDealScenarioId: string;
+  /** Deal #4 - always CLOSED_LOST with a deterministic lostReasonCategory, so Lost Deal Analysis always has real data - same rationale as wonDealScenarioId. */
+  lostDealScenarioId: string;
 }
 
 export async function createDemoDeals(
@@ -53,11 +54,25 @@ export async function createDemoDeals(
 
     // notifyStaleNegotiations: stage NEGOTIATION, status OPEN, updatedAt > 7 days ago, leadId set.
     const isStaleNegotiationScenario = i === 1;
-    const stage: DealStage = isStaleNegotiationScenario ? "NEGOTIATION" : rng.weightedPick(STAGE_WEIGHTS);
+    // notifyOverduePayments scenario: a PENDING payment whose dueDate is already in the past - requires this deal to actually be WON (payments only exist on WON deals below), so the stage is forced here rather than left to chance.
+    const isOverduePaymentScenario = i === 2;
+    // Guarantees at least one "normal" WON deal (full, non-overdue payment pair) so Brokerage Analytics / Owner Dashboard always have real collected-brokerage data, regardless of how the weighted-random draw below happens to land.
+    const isGuaranteedWonScenario = i === 3;
+    // Guarantees at least one LOST deal (with a deterministic lostReasonCategory) so Lost Deal Analysis always has real data to show.
+    const isGuaranteedLostScenario = i === 4;
+    const stage: DealStage = isStaleNegotiationScenario
+      ? "NEGOTIATION"
+      : isOverduePaymentScenario || isGuaranteedWonScenario
+        ? "CLOSED_WON"
+        : isGuaranteedLostScenario
+          ? "CLOSED_LOST"
+          : rng.weightedPick(STAGE_WEIGHTS);
     const isSale = property.listingType === "SALE";
     const baseAmount = isSale ? property.salePrice ?? 5000000 : property.monthlyRent ?? 20000;
     const status: Deal["status"] = stage === "CLOSED_WON" ? "WON" : stage === "CLOSED_LOST" ? "LOST" : "OPEN";
     const updatedAt = isStaleNegotiationScenario ? rng.pastDate(9, 14) : rng.pastDate(0, 6);
+    // Single shared index so lostReason and lostReasonCategory stay semantically paired (e.g. both "Price" / PRICE), rather than two independent rng.pick() calls landing on unrelated reasons. Deterministic (not rng-drawn) for the guaranteed-lost scenario so it's always PRICE, matching a believable "lost to a cheaper option" story.
+    const lostReasonIndex = status === "LOST" ? (isGuaranteedLostScenario ? 0 : rng.int(0, LOST_REASONS.length - 1)) : -1;
 
     const deal = await prisma.deal.create({
       data: {
@@ -74,7 +89,8 @@ export async function createDemoDeals(
         assignedToId: assignedTo.id,
         expectedCloseDate: rng.daysFromNow(rng.int(5, 30)),
         closedAt: status !== "OPEN" ? rng.pastDate(0, 5) : null,
-        lostReason: status === "LOST" ? rng.pick(LOST_REASONS) : null,
+        lostReason: status === "LOST" ? LOST_REASONS[lostReasonIndex] : null,
+        lostReasonCategory: status === "LOST" ? LOST_REASON_CATEGORIES[lostReasonIndex] : null,
         notes: rng.bool(0.4) ? "Client is in active negotiation on final price." : null,
         createdById: creator.id,
         updatedAt,
@@ -108,8 +124,6 @@ export async function createDemoDeals(
         data: { dealId: deal.id, type: "DEAL_WON", description: `Deal ${deal.dealCode} closed won`, actorId: assignedTo.id },
       });
 
-      // notifyOverduePayments scenario: a PENDING payment whose dueDate is already in the past.
-      const isOverduePaymentScenario = i === 2;
       const half = Math.round(brokerage.netBrokerage / 2);
       await prisma.payment.create({
         data: {
@@ -147,5 +161,7 @@ export async function createDemoDeals(
     all: deals,
     staleNegotiationScenarioId: demoId("deal", 1),
     overduePaymentScenarioId: demoId("deal", 2),
+    wonDealScenarioId: demoId("deal", 3),
+    lostDealScenarioId: demoId("deal", 4),
   };
 }

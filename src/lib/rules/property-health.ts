@@ -1,5 +1,6 @@
 import { prisma } from "../prisma";
 import { cached } from "../cache";
+import { getSystemConfig } from "../system-config";
 import { buildHealthScore, daysBetween } from "./rule-engine";
 import type { HealthFactor, HealthLabel, HealthScoreResult } from "./types";
 import type { PropertyStatus, OwnerVerificationStatus } from "@prisma/client";
@@ -28,8 +29,13 @@ export interface PropertyHealthInput {
 
 const STALE_AVAILABILITY_DAYS = 30;
 
-/** Pure, deterministic - no I/O, fully unit-testable. */
-export function computePropertyHealth(input: PropertyHealthInput): HealthScoreResult {
+/**
+ * Pure, deterministic - no I/O, fully unit-testable.
+ * `staleAvailabilityDays` (default 30, matching the previous hardcoded
+ * value) is System Configuration's `stalePropertyDays` - see
+ * src/lib/system-config.ts.
+ */
+export function computePropertyHealth(input: PropertyHealthInput, staleAvailabilityDays = STALE_AVAILABILITY_DAYS): HealthScoreResult {
   const now = input.now ?? new Date();
   const factors: HealthFactor[] = [];
 
@@ -72,7 +78,7 @@ export function computePropertyHealth(input: PropertyHealthInput): HealthScoreRe
   }
 
   const daysSinceUpdate = daysBetween(input.updatedAt, now);
-  if (input.status === "AVAILABLE" && daysSinceUpdate > STALE_AVAILABILITY_DAYS) {
+  if (input.status === "AVAILABLE" && daysSinceUpdate > staleAvailabilityDays) {
     factors.push({ label: "Stale availability", delta: -12, detail: `No update in ${daysSinceUpdate} days - confirm this listing is still available` });
   } else if (input.status === "AVAILABLE" && daysSinceUpdate <= 7) {
     factors.push({ label: "Recently confirmed", delta: 5, detail: "Listing was updated recently" });
@@ -111,7 +117,8 @@ export async function getPropertyHealth(propertyId: string): Promise<HealthScore
   const since = new Date();
   since.setDate(since.getDate() - RECENT_WINDOW_DAYS);
 
-  const [recentVisitCount, recentCatalogueShareCount, recentRejectionCount, activeLeadCount] = await Promise.all([
+  const [config, recentVisitCount, recentCatalogueShareCount, recentRejectionCount, activeLeadCount] = await Promise.all([
+    getSystemConfig(property.organizationId),
     prisma.visit.count({ where: { propertyId, createdAt: { gte: since } } }),
     prisma.catalogueShareProperty.count({ where: { propertyId, createdAt: { gte: since } } }),
     prisma.catalogueInteraction.count({ where: { propertyId, type: "NOT_INTERESTED", createdAt: { gte: since } } }),
@@ -153,7 +160,7 @@ export async function getPropertyHealth(propertyId: string): Promise<HealthScore
     recentCatalogueShareCount,
     recentVisitCount,
     recentRejectionCount,
-  });
+  }, config.stalePropertyDays);
 }
 
 const OVERVIEW_PROPERTY_LIMIT = 200;
@@ -170,6 +177,7 @@ export async function getPropertyHealthOverview(organizationId: string): Promise
 }
 
 async function computePropertyHealthOverview(organizationId: string): Promise<{ label: HealthLabel; count: number }[]> {
+  const config = await getSystemConfig(organizationId);
   const properties = await prisma.property.findMany({
     where: { organizationId, status: { not: "INACTIVE" } },
     include: { owner: { select: { verificationStatus: true } } },
@@ -229,7 +237,7 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
       recentCatalogueShareCount: shareByProperty.get(property.id) ?? 0,
       recentVisitCount: visitByProperty.get(property.id) ?? 0,
       recentRejectionCount: rejectionByProperty.get(property.id) ?? 0,
-    });
+    }, config.stalePropertyDays);
     counts.set(result.label, (counts.get(result.label) ?? 0) + 1);
   }
 

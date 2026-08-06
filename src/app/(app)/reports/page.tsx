@@ -1,6 +1,7 @@
 import { getReportsData } from "@/lib/reports-data";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { BarChartCard, PieChartCard } from "@/components/dashboard/charts";
+import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { TrendingUp, Trophy, XCircle, CalendarCheck } from "lucide-react";
 
 export default async function ReportsPage() {
@@ -12,6 +13,8 @@ export default async function ReportsPage() {
         <h1 className="text-xl font-bold text-[#1B2430]">Reports</h1>
         <p className="text-sm text-[#596579]">Business performance overview</p>
       </div>
+
+      <ReportsTabs />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiCard label="Conversion Rate" value={`${data.conversionRate}%`} icon={TrendingUp} tone="indigo" hint={`${data.totalLeads} total leads`} />

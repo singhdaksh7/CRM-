@@ -3,6 +3,7 @@ import { ApiError } from "./api-auth";
 import { logActivity } from "./activity";
 import { createNotification } from "./notifications";
 import { recalculateLeadScore } from "./scoring";
+import { runAutomationRules } from "./automation-rules";
 import type { CatalogueInteractionType } from "@prisma/client";
 
 const VIEW_DEDUPE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
@@ -45,6 +46,7 @@ export async function recordCatalogueView(catalogueShareId: string, viewerToken:
 
   await logActivity({ leadId: catalogue.leadId, type: "CATALOGUE_VIEWED", description: "Client viewed the property catalogue." });
   await recalculateLeadScore(catalogue.leadId, "CATALOGUE_VIEWED");
+  await runAutomationRules({ trigger: "CATALOGUE_OPENED", catalogueShareId, leadId: catalogue.leadId, organizationId: catalogue.organizationId });
 
   // Only the FIRST view notifies the assigned employee - every subsequent
   // view within/across windows just increments the counter silently, per

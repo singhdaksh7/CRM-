@@ -36,6 +36,9 @@ export function createReadOnlyClient() {
   return client.$extends({
     name: "read-only-guard",
     query: {
+      // Model operations (create/update/delete/... on a specific model) are
+      // dispatched here, with an unprefixed operation name - see
+      // WRITE_OPERATIONS above.
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
           if (WRITE_OPERATIONS.has(operation)) {
@@ -43,6 +46,19 @@ export function createReadOnlyClient() {
           }
           return query(args);
         },
+      },
+      // $executeRaw/$executeRawUnsafe are top-level client methods, not
+      // model operations - they are NOT routed through $allModels.$allOperations
+      // above (Prisma dispatches them separately, as '$executeRaw'-prefixed
+      // keys sibling to $allModels), so they need their own guard here or
+      // they would silently bypass the write guard entirely. $queryRaw/
+      // $queryRawUnsafe are intentionally left unguarded - they can only
+      // read, never write.
+      async $executeRaw() {
+        throw new UnexpectedWriteError(undefined, "$executeRaw");
+      },
+      async $executeRawUnsafe() {
+        throw new UnexpectedWriteError(undefined, "$executeRawUnsafe");
       },
     },
   });

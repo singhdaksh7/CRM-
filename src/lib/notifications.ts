@@ -4,6 +4,7 @@ import { DEFAULT_ORGANIZATION_ID } from "./organization";
 import { withTiming } from "./perf";
 import { logger } from "./logger";
 import { matchPropertiesToLead } from "./matching";
+import { getSystemConfig } from "./system-config";
 import type { LeadStatus, Notification, NotificationType, Role } from "@prisma/client";
 
 interface CreateNotificationParams {
@@ -175,9 +176,9 @@ interface SweepRuleResult {
   created: number;
 }
 
-/** High-priority lead with no follow-up scheduled at all. */
-async function notifyHotLeadsNoFollowUp(organizationId: string, now: Date): Promise<SweepRuleResult> {
-  const cutoff = hoursAgo(now, 24);
+/** High-priority lead with no follow-up scheduled at all. `slaHours` (default 24, matching the previous hardcoded value) is System Configuration's `followUpSlaHours`. */
+async function notifyHotLeadsNoFollowUp(organizationId: string, now: Date, slaHours = 24): Promise<SweepRuleResult> {
+  const cutoff = hoursAgo(now, slaHours);
   const leads = await prisma.lead.findMany({
     where: {
       organizationId,
@@ -214,10 +215,10 @@ async function notifyHotLeadsNoFollowUp(organizationId: string, now: Date): Prom
   return { checked: leads.length, created };
 }
 
-/** Catalogue opened by the client but no interest/visit-request interaction recorded within 24h of the last view. */
-async function notifyCatalogueNoResponse(organizationId: string, now: Date): Promise<SweepRuleResult> {
-  const cutoff = hoursAgo(now, 24);
-  const quietSince = hoursAgo(now, 24);
+/** Catalogue opened by the client but no interest/visit-request interaction recorded within `delayHours` of the last view. `delayHours` (default 24, matching the previous hardcoded value) is System Configuration's `catalogueFollowUpDelayHours`. */
+async function notifyCatalogueNoResponse(organizationId: string, now: Date, delayHours = 24): Promise<SweepRuleResult> {
+  const cutoff = hoursAgo(now, delayHours);
+  const quietSince = hoursAgo(now, delayHours);
   const shares = await prisma.catalogueShare.findMany({
     where: {
       organizationId,
@@ -523,9 +524,10 @@ async function notifyOverduePayments(organizationId: string, now: Date): Promise
 /** Runs every Smart Notification rule for one organization. Idempotent and safe to call from a cron, a throttled lazy trigger, or a test - see runThrottledSweep. */
 export async function generateSmartNotifications(organizationId = DEFAULT_ORGANIZATION_ID): Promise<SweepRuleResult> {
   const now = new Date();
+  const config = await getSystemConfig(organizationId);
   const results = await Promise.all([
-    notifyHotLeadsNoFollowUp(organizationId, now),
-    notifyCatalogueNoResponse(organizationId, now),
+    notifyHotLeadsNoFollowUp(organizationId, now, config.followUpSlaHours),
+    notifyCatalogueNoResponse(organizationId, now, config.catalogueFollowUpDelayHours),
     notifyMissedVisits(organizationId, now),
     notifyPropertiesMissingPhotos(organizationId, now),
     notifyLeadsWithNoMatches(organizationId, now),

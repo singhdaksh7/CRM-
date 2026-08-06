@@ -11,6 +11,7 @@ import { runMatchingForLead } from "@/lib/lead-matching";
 import { notifyRoles } from "@/lib/notifications";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
 import { logger } from "@/lib/logger";
+import { runAutomationRules } from "@/lib/automation-rules";
 
 export async function GET(req: NextRequest) {
   try {
@@ -98,6 +99,8 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       logger.error("lead_matching_failed", { leadId: lead.id, message: err instanceof Error ? err.message : String(err) });
     }
+
+    await runAutomationRules({ trigger: "LEAD_CREATED", leadId: lead.id, organizationId });
 
     await notifyRoles(["ADMIN", "DATA_MANAGER"], {
       organizationId,

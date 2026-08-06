@@ -6,8 +6,10 @@ import { recordAudit } from "@/lib/audit";
 
 const MAX_EXPORT_ROWS = 500;
 
+/** Also guards against CSV/Excel formula injection - see src/lib/report-builder.ts's csvEscape for the full rationale. */
 function csvEscape(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
+  let s = value === null || value === undefined ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
