@@ -26,7 +26,8 @@ export function VisitCard({ visit }: { visit: Visit }) {
         longitude={visit.property.longitude}
         catalogueHref={`/leads/${visit.lead.id}`}
       />
-      <Link href={`/visits/${visit.id}`} className="block text-center text-xs font-semibold text-[#3366FF] hover:underline">Open Visit →</Link>
+      <Link href={`/leads/${visit.lead.id}`} className="block text-center text-xs font-semibold text-[#3366FF] hover:underline">Open Lead →</Link>
+      <Link href="/visits" className="block text-center text-xs font-semibold text-[#596579] hover:underline">Update visit status/outcome/feedback in Visits →</Link>
     </div>
   );
 }

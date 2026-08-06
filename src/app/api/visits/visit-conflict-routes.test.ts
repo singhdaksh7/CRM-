@@ -48,6 +48,9 @@ vi.mock("@/lib/scoring", () => ({ recalculateLeadScore: vi.fn() }));
 vi.mock("@/lib/notifications", () => ({ createNotification: vi.fn() }));
 const recordAudit = vi.fn();
 vi.mock("@/lib/audit", () => ({ recordAudit: (...a: unknown[]) => recordAudit(...a) }));
+const appendPropertyTimelineEvent = vi.fn();
+vi.mock("@/lib/property-timeline", () => ({ appendPropertyTimelineEvent: (...a: unknown[]) => appendPropertyTimelineEvent(...a) }));
+vi.mock("@/lib/automation-rules", () => ({ runAutomationRules: vi.fn() }));
 
 const checkVisitConflict = vi.fn();
 vi.mock("@/lib/visit-conflict", () => ({ checkVisitConflict: (...a: unknown[]) => checkVisitConflict(...a) }));
@@ -116,6 +119,13 @@ describe("POST /api/visits - conflict handling", () => {
     expect(res.status).toBe(201);
     expect(checkVisitConflict).not.toHaveBeenCalled();
   });
+
+  it("appends a VISIT_SCHEDULED property timeline event on creation", async () => {
+    checkVisitConflict.mockResolvedValue({ status: "NONE", detail: null, travelDurationMinutes: null, travelDistanceMeters: null, routeSource: "NONE" });
+    visitCreate.mockResolvedValue({ id: "v1", lead: { clientName: "Rahul" }, property: { title: "Flat" } });
+    await POST(jsonRequest(VALID_BODY));
+    expect(appendPropertyTimelineEvent).toHaveBeenCalledWith(expect.objectContaining({ propertyId: "prop1", eventType: "VISIT_SCHEDULED" }));
+  });
 });
 
 describe("PATCH /api/visits/[id] - conflict handling on reschedule", () => {
@@ -158,5 +168,42 @@ describe("PATCH /api/visits/[id] - conflict handling on reschedule", () => {
     const res = await PATCH(patchRequest({ visitTime: "10:15", overrideConflict: true, overrideReason: "client requested" }), { params: Promise.resolve({ id: "v1" }) });
     expect(res.status).toBe(200);
     expect(visitUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ conflictStatus: "OVERRIDDEN" }) }));
+  });
+});
+
+describe("PATCH /api/visits/[id] - Phase 4 outcome handling", () => {
+  function patchRequest(body: unknown) {
+    return new NextRequest(new Request("https://x.test/api/visits/v1", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+  }
+
+  beforeEach(() => {
+    visitFindFirst.mockResolvedValue({ id: "v1", organizationId: "org_default", assignedToId: "emp1", leadId: "lead1", status: "SCHEDULED", visitDate: new Date(), visitTime: "10:00", propertyId: "prop1" });
+    visitUpdate.mockResolvedValue({ id: "v1" });
+  });
+
+  it.each([
+    ["SHORTLISTED", "QUALIFIED"],
+    ["REJECTED", "NOT_INTERESTED"],
+    ["NEGOTIATION_IN_PROGRESS", "NEGOTIATION"],
+  ])("maps the new %s outcome to lead status %s", async (outcome, expectedStatus) => {
+    const res = await PATCH(patchRequest({ status: "COMPLETED", outcome }), { params: Promise.resolve({ id: "v1" }) });
+    expect(res.status).toBe(200);
+    expect(leadUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: expectedStatus }) }));
+  });
+
+  it("falls through to VISIT_COMPLETED for FOLLOW_UP_NEEDED (intentionally unmapped)", async () => {
+    await PATCH(patchRequest({ status: "COMPLETED", outcome: "FOLLOW_UP_NEEDED" }), { params: Promise.resolve({ id: "v1" }) });
+    expect(leadUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "VISIT_COMPLETED" }) }));
+  });
+
+  it("logs VISIT_OUTCOME_RECORDED, records audit, and appends a property timeline event when an outcome is recorded", async () => {
+    await PATCH(patchRequest({ status: "COMPLETED", outcome: "CUSTOMER_NO_SHOW" }), { params: Promise.resolve({ id: "v1" }) });
+    expect(recordAudit).toHaveBeenCalledWith(expect.objectContaining({ newValues: expect.objectContaining({ event: "visit_outcome_recorded", outcome: "CUSTOMER_NO_SHOW" }) }));
+    expect(appendPropertyTimelineEvent).toHaveBeenCalledWith(expect.objectContaining({ propertyId: "prop1", eventType: "VISIT_COMPLETED", toValue: "CUSTOMER_NO_SHOW" }));
+  });
+
+  it("does not append a timeline event or outcome audit when completing without an outcome", async () => {
+    await PATCH(patchRequest({ status: "COMPLETED" }), { params: Promise.resolve({ id: "v1" }) });
+    expect(appendPropertyTimelineEvent).not.toHaveBeenCalled();
   });
 });

@@ -134,7 +134,7 @@ export const visitSchema = z.object({
   status: z.enum(["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"]).default("SCHEDULED"),
   clientFeedback: z.string().optional().nullable(),
   employeeNotes: z.string().optional().nullable(),
-  outcome: z.enum(["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION"]).optional().nullable(),
+  outcome: z.enum(["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION", "CUSTOMER_NO_SHOW", "OWNER_NO_SHOW", "NEGOTIATION_IN_PROGRESS", "SHORTLISTED", "REJECTED", "FOLLOW_UP_NEEDED"]).optional().nullable(),
   followUpAction: z.string().optional().nullable(),
   // Route-aware conflict override (Maps & Localities phase) - set only when
   // the caller has already seen a WARNING conflict response and explicitly
