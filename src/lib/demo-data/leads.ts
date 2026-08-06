@@ -1,7 +1,8 @@
-import type { Lead, LeadSource, Prisma, User } from "@prisma/client";
+import type { Lead, LeadSource, Prisma, Property, User } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Rng } from "./rng";
-import { demoId, demoCode, demoPhone, fullName, AREAS, RENT_BUDGET_TIERS, LEAD_ADDITIONAL_REQUIREMENTS, DEMO_ORGANIZATION_ID } from "./constants";
+import { matchPropertiesToLead } from "../matching";
+import { demoId, demoCode, demoPhone, fullName, AREAS, LEAD_ADDITIONAL_REQUIREMENTS, DEMO_ORGANIZATION_ID } from "./constants";
 
 export const LEAD_COUNT = 20;
 // Roughly the same 30/40/30 HOT/WARM/COLD split regardless of total count.
@@ -38,36 +39,104 @@ export interface DemoLeadSet {
   scenarioIds: Record<keyof typeof SCENARIO_LEAD_INDEX, string>;
 }
 
+const TARGET_MIN_MATCHES = 3;
+const TARGET_MAX_MATCHES = 8;
+
 /**
- * Pure - no I/O. Builds the exact create-input for lead #i. Split out from
- * createDemoLeads() so scripts/seed-demo-dry-run.ts can project the
- * lead-property matching outcome (via the real matching engine) without
- * calling prisma.lead.create.
+ * matchPropertyToLead's only HARD filters are requirementType/listingType,
+ * property.status === "AVAILABLE", and price <= maxBudget * (1 +
+ * tolerance) - there is no lower-price cutoff, and location/BHK/furnishing
+ * only affect score, never inclusion (see src/lib/matching.ts). So match
+ * COUNT for a lead is driven almost entirely by maxBudget against the
+ * available-property price distribution, not by locality or BHK - a wide
+ * "generous" budget band (an earlier version of this file) silently
+ * matched most or all of the inventory (10-18 matches, seen in
+ * seed:demo:dry-run), not 3-8. This searches candidate maxBudget values
+ * against the REAL matching engine (the actual oracle for what counts as a
+ * match) rather than guessing a band width analytically.
  */
-export function buildLeadData(rng: Rng, i: number, employees: { admin: User; dataManagers: User[]; fieldExecutives: User[] }, count: number): Prisma.LeadUncheckedCreateInput {
+function pickBudgetForMatchRange(rng: Rng, isRent: boolean, availableProperties: Property[]): { minBudget: number; maxBudget: number } {
+  const sameType = availableProperties.filter((p) => p.listingType === (isRent ? "RENT" : "SALE"));
+  const prices = [...new Set(sameType.map((p) => (isRent ? p.monthlyRent : p.salePrice)).filter((p): p is number => typeof p === "number"))].sort(
+    (a, b) => a - b
+  );
+
+  const fallback = isRent ? { minBudget: 9000, maxBudget: 120000 } : { minBudget: 3000000, maxBudget: 15000000 };
+  if (prices.length === 0) return fallback;
+
+  const targetCount = rng.int(TARGET_MIN_MATCHES, TARGET_MAX_MATCHES);
+  const stubLead = {
+    requirementType: isRent ? "RENT" : "BUY",
+    preferredLocation: "",
+    preferredBhk: null,
+    furnishingPref: null,
+    moveInDate: null,
+  } as unknown as Lead;
+
+  let best: { minBudget: number; maxBudget: number; diff: number } | null = null;
+  for (const candidateMax of prices) {
+    const candidateMin = Math.max(1000, Math.round(candidateMax * 0.5));
+    const testLead = { ...stubLead, minBudget: candidateMin, maxBudget: candidateMax } as Lead;
+    const matchCount = matchPropertiesToLead(availableProperties, testLead, 0.2).length;
+    if (matchCount >= TARGET_MIN_MATCHES && matchCount <= TARGET_MAX_MATCHES) {
+      return { minBudget: candidateMin, maxBudget: candidateMax };
+    }
+    const diff = Math.abs(matchCount - targetCount);
+    if (!best || diff < best.diff) best = { minBudget: candidateMin, maxBudget: candidateMax, diff };
+  }
+  return best ?? fallback;
+}
+
+/**
+ * Pure - no I/O. Builds the exact create-input for lead #i, given the
+ * ALREADY-CREATED (or projected) properties, so its budget can be chosen
+ * against real available inventory. Split out from createDemoLeads() so
+ * scripts/seed-demo-dry-run.ts can project the lead-property matching
+ * outcome without calling prisma.lead.create.
+ */
+export function buildLeadData(
+  rng: Rng,
+  i: number,
+  employees: { admin: User; dataManagers: User[]; fieldExecutives: User[] },
+  count: number,
+  availableProperties: Property[]
+): Prisma.LeadUncheckedCreateInput {
   const hot = hotCount(count);
   const warm = warmCount(count);
 
   const priority: Lead["priority"] = i <= hot ? "HOT" : i <= hot + warm ? "WARM" : "COLD";
   const source = SOURCE_MAP[(i - 1) % SOURCE_MAP.length];
-  const isRent = rng.bool(0.65);
+  // Scenario leads force requirementType to match the SCALE of budget
+  // they're about to be given below (rent tiers are ~9k-120k, sale prices
+  // are ~millions) - previously this was left to the random draw, so e.g.
+  // budgetMismatch could randomly land as RENT and its "500000-600000"
+  // budget would match *every* rent listing instead of demonstrating a
+  // mismatch (found via seed:demo:dry-run's matching projection).
+  let isRent = rng.bool(0.65);
+  if (i === SCENARIO_LEAD_INDEX.budgetMismatch) isRent = false;
+  else if (
+    i === SCENARIO_LEAD_INDEX.perfectMatch ||
+    i === SCENARIO_LEAD_INDEX.nearbyMatch ||
+    i === SCENARIO_LEAD_INDEX.noMatch ||
+    i === SCENARIO_LEAD_INDEX.localityMismatch
+  ) {
+    isRent = true;
+  }
   const clientName = fullName(rng);
   const assignUnassigned = rng.bool(0.12);
   const assignedTo = assignUnassigned ? null : rng.pick(employees.fieldExecutives);
   const complete = rng.bool(0.7); // "mix complete and incomplete requirements"
 
-  // BHK weighted toward 1-3 (matches the property mix's own skew) and a
-  // wide-ish budget band, both deliberately generous so most leads
-  // genuinely match several properties via the real matching engine
-  // rather than needing a hand-picked scenario for every one - see
-  // "every lead should naturally match 3-8 properties" in the task spec.
+  // preferredLocation/BHK/furnishing are for realism/display only - the
+  // matching engine's hard filters don't gate on them (see doc comment on
+  // pickBudgetForMatchRange above), so they're free to vary without
+  // affecting whether "every lead matches 3-8 properties" holds.
   let preferredLocation: string = AREAS[(i * 7) % AREAS.length];
   let preferredBhk: number | null = complete ? rng.weightedPick<number>([[1, 3], [2, 4], [3, 2], [4, 1]]) : rng.bool(0.5) ? rng.weightedPick<number>([[1, 3], [2, 4], [3, 2], [4, 1]]) : null;
   let furnishingPref = complete ? rng.pick(FURNISHING_PREFS) : null;
-  let minBudget = isRent ? rng.pick(RENT_BUDGET_TIERS) : rng.int(30, 120) * 100000;
-  let maxBudget = isRent ? minBudget + rng.int(10000, 30000) : minBudget + rng.int(1000000, 4000000);
+  let { minBudget, maxBudget } = pickBudgetForMatchRange(rng, isRent, availableProperties);
 
-  // --- Scenario overrides for property-matching verification (see matching.ts) ---
+  // --- Scenario overrides for property-matching verification (see matching.ts) - deliberately OUTSIDE the 3-8 range, that's the point of each one. ---
   switch (i) {
     case SCENARIO_LEAD_INDEX.perfectMatch:
       preferredLocation = AREAS[0]; // Karol Bagh - properties #1, #9, #17... land here (AREAS cycle of 15 against 100 properties)
@@ -91,7 +160,9 @@ export function buildLeadData(rng: Rng, i: number, employees: { admin: User; dat
     case SCENARIO_LEAD_INDEX.budgetMismatch:
       preferredLocation = AREAS[0];
       preferredBhk = 2;
-      minBudget = 500000; // sale-scale budget against what is likely a rent-scale locality mix - deliberate mismatch
+      // isRent forced false above - real sale prices are ~millions, so this
+      // budget is genuinely, deterministically far below every sale listing.
+      minBudget = 500000;
       maxBudget = 600000;
       break;
     case SCENARIO_LEAD_INDEX.localityMismatch:
@@ -101,7 +172,7 @@ export function buildLeadData(rng: Rng, i: number, employees: { admin: User; dat
       maxBudget = 30000;
       break;
     case SCENARIO_LEAD_INDEX.hotNoFollowUp:
-      // Left as randomly generated HOT lead; followups.ts skips this id deliberately so
+      // Left as a normal generously-matched HOT lead; followups.ts skips this id deliberately so
       // notifyHotLeadsNoFollowUp() has a guaranteed subject.
       break;
   }
@@ -155,12 +226,14 @@ export function buildLeadData(rng: Rng, i: number, employees: { admin: User; dat
 export async function createDemoLeads(
   rng: Rng,
   employees: { admin: User; dataManagers: User[]; fieldExecutives: User[] },
+  properties: Property[],
   count: number = LEAD_COUNT
 ): Promise<DemoLeadSet> {
   const leads: Lead[] = [];
+  const availableProperties = properties.filter((p) => p.status === "AVAILABLE");
 
   for (let i = 1; i <= count; i++) {
-    const data = buildLeadData(rng, i, employees, count);
+    const data = buildLeadData(rng, i, employees, count, availableProperties);
     leads.push(await prisma.lead.create({ data }));
   }
 

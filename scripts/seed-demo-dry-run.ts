@@ -127,7 +127,7 @@ async function main() {
 
   const projectedLeads: Lead[] = [];
   for (let i = 1; i <= DEMO_SEED_PLAN.leads; i++) {
-    projectedLeads.push(buildLeadData(rng, i, stubStaff, DEMO_SEED_PLAN.leads) as unknown as Lead);
+    projectedLeads.push(buildLeadData(rng, i, stubStaff, DEMO_SEED_PLAN.leads, availableProjected) as unknown as Lead);
   }
 
   let totalMatchPairs = 0;

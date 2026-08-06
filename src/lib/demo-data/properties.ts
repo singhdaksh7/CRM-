@@ -94,9 +94,21 @@ export function buildPropertyData(
   const isStaleInactiveScenario = i === PROPERTY_SCENARIO_INDEX.staleInactive;
   const isNoOwnerScenario = i === PROPERTY_SCENARIO_INDEX.noOwner || owners.length === 0;
 
+  // Guarantees at least 2 AVAILABLE properties per area (the first two times
+  // each area comes up in the i-cycle) instead of leaving every area's
+  // available-inventory count to independent random draws, which could
+  // (and did, in the seed:demo:dry-run projection) leave some areas with
+  // zero available properties by chance - starving every lead whose
+  // preferredLocation happened to land there of any real match. This is
+  // "adjust the demo data distributions" per the quality-gate rule, not a
+  // change to matching.ts itself.
+  const areaPass = Math.floor((i - 1) / AREAS.length);
+  const forceAvailable = areaPass < 2 && !isStaleInactiveScenario;
+
   // notifyPropertiesMissingPhotos only fires for AVAILABLE listings - force
   // that status here rather than leaving it to the weighted random pick.
-  const status: Property["status"] = isNoPhotosScenario ? "AVAILABLE" : isStaleInactiveScenario ? "INACTIVE" : rng.weightedPick(STATUS_WEIGHTS);
+  const status: Property["status"] =
+    isNoPhotosScenario ? "AVAILABLE" : isStaleInactiveScenario ? "INACTIVE" : forceAvailable ? "AVAILABLE" : rng.weightedPick(STATUS_WEIGHTS);
 
   const imagePool = assetsByType[type];
   const imageCount = isNoPhotosScenario ? 0 : isWellPhotographedScenario ? 6 : rng.int(1, 3);

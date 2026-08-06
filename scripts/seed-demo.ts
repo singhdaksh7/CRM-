@@ -73,7 +73,7 @@ async function main() {
   const properties = await createDemoProperties(rng, owners, employees, DEMO_SEED_PLAN.properties);
 
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.leads} leads...`);
-  const leads = await createDemoLeads(rng, employees, DEMO_SEED_PLAN.leads);
+  const leads = await createDemoLeads(rng, employees, properties.all, DEMO_SEED_PLAN.leads);
 
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.followUps} follow-ups...`);
   const followUps = await createDemoFollowUps(rng, leads.all, employees, DEMO_SEED_PLAN.followUps);
