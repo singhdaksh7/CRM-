@@ -17,7 +17,7 @@ import { DEMO_SEED_PLAN } from "../src/lib/demo-data/plan";
 import { previewTeardownCounts } from "../src/lib/demo-data/teardown";
 import { buildAndValidateProjectedDataset, type DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { createReadOnlyClient, UnexpectedWriteError } from "../src/lib/demo-data/read-only-guard";
-import { checkCatalogueSchemaCompatibility } from "../src/lib/demo-data/schema-compat";
+import { checkCatalogueSchemaCompatibility, checkPhase4SchemaCompatibility } from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
 export interface CheckResult {
@@ -140,6 +140,24 @@ export async function runDryRun(
     );
   } catch (e) {
     record("Catalogue schema compatibility", false, (e as Error).message);
+  }
+
+  // --- Phase 4 schema compatibility - same drift risk as above, but for
+  // every table Phase 4 added in one migration (higher risk than a single
+  // column, since several whole tables land at once) ---
+  try {
+    const phase4Check = await checkPhase4SchemaCompatibility(client);
+    console.log(`Phase 4 schema compatibility: ${phase4Check.ok ? "OK - all required Phase 4 tables/columns present" : "MISSING COLUMNS"}`);
+    for (const m of phase4Check.missing) console.log(`  - ${m.table}.${m.column} is missing`);
+    record(
+      "Phase 4 schema compatibility",
+      phase4Check.ok,
+      phase4Check.ok
+        ? "all required Phase 4 tables/columns present"
+        : `missing: ${phase4Check.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`
+    );
+  } catch (e) {
+    record("Phase 4 schema compatibility", false, (e as Error).message);
   }
 
   // --- NotificationType enum compatibility against the actual production

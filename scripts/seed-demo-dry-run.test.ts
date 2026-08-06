@@ -3,6 +3,7 @@ import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
+import { REQUIRED_PHASE4_TABLES } from "../src/lib/demo-data/schema-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -18,7 +19,7 @@ const ALL_MODEL_KEYS = [
   "whatsAppMessage", "whatsAppConversation", "sharedPropertyLog",
   "payment", "brokerageCalculation", "deal", "document",
   "visit", "followUp", "leadScoreHistory", "activity", "notification", "savedView",
-  "lead", "property", "owner", "employeeServiceArea", "leadAssignmentRule",
+  "lead", "property", "owner", "inventoryPartner", "employeeServiceArea", "leadAssignmentRule",
 ] as const;
 
 type MockClient = ReturnType<typeof createReadOnlyClient>;
@@ -31,13 +32,17 @@ const HEALTHY_CATALOGUE_COLUMNS = [
 ];
 
 const HEALTHY_NOTIFICATION_ENUM_ROWS = NOTIFICATION_TYPES_USED_BY_DEMO_DATA.map((enumlabel) => ({ enumlabel }));
+/** Mirrors REQUIRED_PHASE4_TABLES exactly (imported, not duplicated) so this fixture can never silently drift out of sync with what checkPhase4SchemaCompatibility actually requires. */
+const HEALTHY_PHASE4_COLUMNS = REQUIRED_PHASE4_TABLES.map((r) => ({ table_name: r.table, column_name: r.column }));
 
-/** Dispatches on the raw SQL text so the two different $queryRawUnsafe call sites (catalogue schema check, production enum check) each get shaped fixture data instead of one being fed the other's rows. */
-function makeQueryRawUnsafe(overrides?: { catalogueColumns?: typeof HEALTHY_CATALOGUE_COLUMNS; notificationEnumRows?: typeof HEALTHY_NOTIFICATION_ENUM_ROWS }) {
+/** Dispatches on the raw SQL text so the different $queryRawUnsafe call sites (catalogue schema check, Phase 4 schema check, production enum check) each get shaped fixture data instead of one being fed another's rows. */
+function makeQueryRawUnsafe(overrides?: { catalogueColumns?: typeof HEALTHY_CATALOGUE_COLUMNS; phase4Columns?: typeof HEALTHY_PHASE4_COLUMNS; notificationEnumRows?: typeof HEALTHY_NOTIFICATION_ENUM_ROWS }) {
   const catalogueColumns = overrides?.catalogueColumns ?? HEALTHY_CATALOGUE_COLUMNS;
+  const phase4Columns = overrides?.phase4Columns ?? HEALTHY_PHASE4_COLUMNS;
   const notificationEnumRows = overrides?.notificationEnumRows ?? HEALTHY_NOTIFICATION_ENUM_ROWS;
-  return vi.fn().mockImplementation((query: string) => {
+  return vi.fn().mockImplementation((query: string, tables?: string[]) => {
     if (query.includes("pg_enum")) return Promise.resolve(notificationEnumRows);
+    if (Array.isArray(tables) && tables.includes("inventory_partners")) return Promise.resolve(phase4Columns);
     return Promise.resolve(catalogueColumns);
   });
 }

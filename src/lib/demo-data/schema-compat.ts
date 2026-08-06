@@ -46,3 +46,31 @@ export async function checkCatalogueSchemaCompatibility(
   const missing = required.filter((r) => !present.has(`${r.table}.${r.column}`));
   return { ok: missing.length === 0, missing };
 }
+
+/**
+ * Phase 4 - every table the demo seeder writes to that didn't exist before
+ * this phase. Higher drift risk than a single-column gap (the
+ * catalogue_share_properties incident above) since several whole tables
+ * land in one migration - checked the same way, reusing
+ * checkCatalogueSchemaCompatibility's underlying logic (it's generic
+ * despite the name; only the constant differs).
+ */
+export const REQUIRED_PHASE4_TABLES: readonly RequiredColumn[] = [
+  { table: "inventory_partners", column: "partnerCode" },
+  { table: "properties", column: "inventorySource" },
+  { table: "properties", column: "partnerId" },
+  { table: "property_timeline_events", column: "eventType" },
+  { table: "property_availability_reports", column: "photoId" },
+  { table: "property_reports", column: "type" },
+  { table: "visit_feedback", column: "willVisitAgain" },
+  { table: "lead_assignment_history", column: "method" },
+  { table: "catalogue_version_events", column: "changeType" },
+  { table: "catalogue_share_properties", column: "executiveStatus" },
+  { table: "catalogue_share_properties", column: "removedAt" },
+  { table: "property_favorites", column: "propertyId" },
+  { table: "property_view_logs", column: "propertyId" },
+];
+
+export async function checkPhase4SchemaCompatibility(client: RawQueryClient): Promise<CatalogueSchemaCheckResult> {
+  return checkCatalogueSchemaCompatibility(client, REQUIRED_PHASE4_TABLES);
+}

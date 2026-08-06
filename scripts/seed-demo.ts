@@ -29,6 +29,7 @@ import { teardownDemoData } from "../src/lib/demo-data/teardown";
 import { buildAndValidateProjectedDataset } from "../src/lib/demo-data/validate";
 import { createDemoEmployees } from "../src/lib/demo-data/employees";
 import { createDemoOwners } from "../src/lib/demo-data/owners";
+import { createDemoInventoryPartners } from "../src/lib/demo-data/inventory-partners";
 import { createDemoProperties } from "../src/lib/demo-data/properties";
 import { createDemoLeads } from "../src/lib/demo-data/leads";
 import { createDemoFollowUps } from "../src/lib/demo-data/followups";
@@ -59,6 +60,7 @@ async function main() {
     documents: DEMO_SEED_PLAN.documents,
     catalogues: DEMO_SEED_PLAN.catalogues,
     "deals (supporting data)": DEMO_SEED_PLAN.deals,
+    inventoryPartners: DEMO_SEED_PLAN.inventoryPartners,
   });
 
   // --- Validate the matching distribution BEFORE any write - same pure
@@ -93,8 +95,11 @@ async function main() {
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.owners} owners...`);
   const owners = await createDemoOwners(rng, employees, DEMO_SEED_PLAN.owners);
 
+  console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.inventoryPartners} inventory partners...`);
+  const partners = await createDemoInventoryPartners(rng, employees, DEMO_SEED_PLAN.inventoryPartners);
+
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.properties} properties...`);
-  const properties = await createDemoProperties(rng, owners, employees, DEMO_SEED_PLAN.properties);
+  const properties = await createDemoProperties(rng, owners, employees, DEMO_SEED_PLAN.properties, partners);
 
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.leads} leads...`);
   const leads = await createDemoLeads(rng, employees, properties.all, DEMO_SEED_PLAN.leads);

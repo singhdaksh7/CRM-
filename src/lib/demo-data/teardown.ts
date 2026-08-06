@@ -33,6 +33,7 @@ type ModelDelegateKeys =
   | "lead"
   | "property"
   | "owner"
+  | "inventoryPartner"
   | "employeeServiceArea"
   | "leadAssignmentRule"
   | "user";
@@ -153,6 +154,8 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   await del("lead", () => prisma.lead.deleteMany({ where: startsWith("lead") }));
   await del("property", () => prisma.property.deleteMany({ where: startsWith("prop") }));
   await del("owner", () => prisma.owner.deleteMany({ where: startsWith("owner") }));
+  // Phase 4 - must come after property (Property.partnerId references this table, no cascade set).
+  await del("inventoryPartner", () => prisma.inventoryPartner.deleteMany({ where: startsWith("partner") }));
 
   // --- Employee-scoped config, then employees themselves ---
   await del("employeeServiceArea", () =>
@@ -183,7 +186,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     payment, brokerageCalculation, deal, document,
     visit, followUp, leadScoreHistory, activity, notification, savedView,
-    lead, property, owner, employeeServiceArea, leadAssignmentRule, user,
+    lead, property, owner, inventoryPartner, employeeServiceArea, leadAssignmentRule, user,
   ] = await Promise.all([
     client.catalogueInteraction.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
     client.catalogueShareProperty.count({ where: { catalogueShare: startsWith("cat") } }),
@@ -222,6 +225,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     client.lead.count({ where: startsWith("lead") }),
     client.property.count({ where: startsWith("prop") }),
     client.owner.count({ where: startsWith("owner") }),
+    client.inventoryPartner.count({ where: startsWith("partner") }),
     client.employeeServiceArea.count({ where: { organizationId: orgId, employee: startsWith("emp") } }),
     client.leadAssignmentRule.count({ where: startsWith("rule") }),
     client.user.count({ where: startsWith("emp") }),
@@ -232,6 +236,6 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     payment, brokerageCalculation, deal, document,
     visit, followUp, leadScoreHistory, activity, notification, savedView,
-    lead, property, owner, employeeServiceArea, leadAssignmentRule, user,
+    lead, property, owner, inventoryPartner, employeeServiceArea, leadAssignmentRule, user,
   };
 }

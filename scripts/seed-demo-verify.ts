@@ -66,6 +66,7 @@ async function main() {
     const expectations: [string, number, number][] = [
       ["user", counts.user, DEMO_SEED_PLAN.employees],
       ["owner", counts.owner, DEMO_SEED_PLAN.owners],
+      ["inventoryPartner", counts.inventoryPartner, DEMO_SEED_PLAN.inventoryPartners],
       ["property", counts.property, DEMO_SEED_PLAN.properties],
       ["lead", counts.lead, DEMO_SEED_PLAN.leads],
       ["visit", counts.visit, DEMO_SEED_PLAN.visits],

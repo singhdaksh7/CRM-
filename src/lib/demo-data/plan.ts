@@ -9,6 +9,8 @@
 export const DEMO_SEED_PLAN = {
   employees: 8,
   owners: 20,
+  /** Phase 4 - roughly a third of demo properties link to one of these instead of a direct owner. */
+  inventoryPartners: 10,
   properties: 50,
   leads: 20,
   visits: 15,
