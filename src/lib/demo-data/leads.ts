@@ -24,13 +24,17 @@ const SOURCE_MAP: { label: string; value: LeadSource }[] = [
 
 const FURNISHING_PREFS: NonNullable<Lead["furnishingPref"]>[] = ["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"];
 
-/** Fixed scenario lead indices, reserved up front so property-matching / smart-action verification has known, deterministic subjects. */
+/**
+ * Fixed scenario lead index, reserved up front for smart-action
+ * verification. The former perfectMatch/nearbyMatch/noMatch/budgetMismatch/
+ * localityMismatch matching-edge-case leads were removed: they were
+ * deliberately outside the 3-8 match range by design, which unavoidably
+ * conflicts with the quality gate requiring every lead to land in that
+ * range (decision made explicitly, not silently, after seed:demo:dry-run
+ * surfaced the conflict) - all 20 leads now go through
+ * pickBudgetForMatchRange uniformly.
+ */
 export const SCENARIO_LEAD_INDEX = {
-  perfectMatch: 1,
-  nearbyMatch: 2,
-  noMatch: 3,
-  budgetMismatch: 4,
-  localityMismatch: 5,
   hotNoFollowUp: 6,
 } as const;
 
@@ -106,22 +110,7 @@ export function buildLeadData(
 
   const priority: Lead["priority"] = i <= hot ? "HOT" : i <= hot + warm ? "WARM" : "COLD";
   const source = SOURCE_MAP[(i - 1) % SOURCE_MAP.length];
-  // Scenario leads force requirementType to match the SCALE of budget
-  // they're about to be given below (rent tiers are ~9k-120k, sale prices
-  // are ~millions) - previously this was left to the random draw, so e.g.
-  // budgetMismatch could randomly land as RENT and its "500000-600000"
-  // budget would match *every* rent listing instead of demonstrating a
-  // mismatch (found via seed:demo:dry-run's matching projection).
-  let isRent = rng.bool(0.65);
-  if (i === SCENARIO_LEAD_INDEX.budgetMismatch) isRent = false;
-  else if (
-    i === SCENARIO_LEAD_INDEX.perfectMatch ||
-    i === SCENARIO_LEAD_INDEX.nearbyMatch ||
-    i === SCENARIO_LEAD_INDEX.noMatch ||
-    i === SCENARIO_LEAD_INDEX.localityMismatch
-  ) {
-    isRent = true;
-  }
+  const isRent = rng.bool(0.65);
   const clientName = fullName(rng);
   const assignUnassigned = rng.bool(0.12);
   const assignedTo = assignUnassigned ? null : rng.pick(employees.fieldExecutives);
@@ -131,51 +120,11 @@ export function buildLeadData(
   // matching engine's hard filters don't gate on them (see doc comment on
   // pickBudgetForMatchRange above), so they're free to vary without
   // affecting whether "every lead matches 3-8 properties" holds.
-  let preferredLocation: string = AREAS[(i * 7) % AREAS.length];
-  let preferredBhk: number | null = complete ? rng.weightedPick<number>([[1, 3], [2, 4], [3, 2], [4, 1]]) : rng.bool(0.5) ? rng.weightedPick<number>([[1, 3], [2, 4], [3, 2], [4, 1]]) : null;
-  let furnishingPref = complete ? rng.pick(FURNISHING_PREFS) : null;
-  let { minBudget, maxBudget } = pickBudgetForMatchRange(rng, isRent, availableProperties);
-
-  // --- Scenario overrides for property-matching verification (see matching.ts) - deliberately OUTSIDE the 3-8 range, that's the point of each one. ---
-  switch (i) {
-    case SCENARIO_LEAD_INDEX.perfectMatch:
-      preferredLocation = AREAS[0]; // Karol Bagh - properties #1, #9, #17... land here (AREAS cycle of 15 against 100 properties)
-      preferredBhk = 2;
-      furnishingPref = "SEMI_FURNISHED";
-      minBudget = 8000;
-      maxBudget = 40000;
-      break;
-    case SCENARIO_LEAD_INDEX.nearbyMatch:
-      preferredLocation = AREAS[1]; // Patel Nagar
-      preferredBhk = 3;
-      minBudget = 12000;
-      maxBudget = 50000;
-      break;
-    case SCENARIO_LEAD_INDEX.noMatch:
-      preferredLocation = AREAS[2];
-      preferredBhk = 4;
-      minBudget = 1000;
-      maxBudget = 1500; // below every rent tier and every sale price - guaranteed no budget-fit
-      break;
-    case SCENARIO_LEAD_INDEX.budgetMismatch:
-      preferredLocation = AREAS[0];
-      preferredBhk = 2;
-      // isRent forced false above - real sale prices are ~millions, so this
-      // budget is genuinely, deterministically far below every sale listing.
-      minBudget = 500000;
-      maxBudget = 600000;
-      break;
-    case SCENARIO_LEAD_INDEX.localityMismatch:
-      preferredLocation = "Vasant Kunj"; // not in the 15 demo AREAS - guarantees zero exact-locality matches
-      preferredBhk = 2;
-      minBudget = 15000;
-      maxBudget = 30000;
-      break;
-    case SCENARIO_LEAD_INDEX.hotNoFollowUp:
-      // Left as a normal generously-matched HOT lead; followups.ts skips this id deliberately so
-      // notifyHotLeadsNoFollowUp() has a guaranteed subject.
-      break;
-  }
+  const preferredLocation: string = AREAS[(i * 7) % AREAS.length];
+  const preferredBhk: number | null = complete ? rng.weightedPick<number>([[1, 3], [2, 4], [3, 2], [4, 1]]) : rng.bool(0.5) ? rng.weightedPick<number>([[1, 3], [2, 4], [3, 2], [4, 1]]) : null;
+  const furnishingPref = complete ? rng.pick(FURNISHING_PREFS) : null;
+  const { minBudget, maxBudget } = pickBudgetForMatchRange(rng, isRent, availableProperties);
+  // Lead #6 (hotNoFollowUp) is otherwise a completely normal lead, budget-searched into range like every other one; followups.ts skips this id deliberately so notifyHotLeadsNoFollowUp() has a guaranteed subject.
 
   // notifyHotLeadsNoFollowUp requires a non-terminal status and a null
   // nextFollowUpAt - force both for that scenario rather than leaving them
