@@ -36,7 +36,7 @@ CREATE TABLE "automation_rules" (
     "trigger" "AutomationTrigger" NOT NULL,
     "actionType" "AutomationActionType" NOT NULL,
     "actionConfig" TEXT NOT NULL DEFAULT '{}',
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isActive" BOOLEAN NOT NULL DEFAULT false,
     "createdById" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
