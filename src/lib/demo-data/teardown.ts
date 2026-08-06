@@ -2,6 +2,42 @@ import { prisma } from "../prisma";
 import { DEMO_ID_PREFIX, DEMO_ORGANIZATION_ID } from "./constants";
 
 /**
+ * A minimal structural type for "something with .count() on these models" -
+ * deliberately NOT `Pick<typeof prisma, ...>`: Prisma Client Extensions
+ * (read-only-guard.ts) return a type-level-incompatible-but-runtime-identical
+ * shape (extension generics don't structurally match the base
+ * PrismaClient's), so pinning to the exact base type would make it
+ * impossible to pass a guarded/extended client in here without an `as`
+ * cast at every call site. `count(args: any)` is intentionally loose here
+ * (this is an internal cross-cutting utility type, not a public API) -
+ * every actual call site below passes a concrete, fully-typed `where`.
+ */
+type CountableClient = Record<ModelDelegateKeys, { count(args: unknown): Promise<number> }>;
+type ModelDelegateKeys =
+  | "catalogueInteraction"
+  | "catalogueShareProperty"
+  | "catalogueShare"
+  | "whatsAppMessage"
+  | "whatsAppConversation"
+  | "sharedPropertyLog"
+  | "payment"
+  | "brokerageCalculation"
+  | "deal"
+  | "document"
+  | "visit"
+  | "followUp"
+  | "leadScoreHistory"
+  | "activity"
+  | "notification"
+  | "savedView"
+  | "lead"
+  | "property"
+  | "owner"
+  | "employeeServiceArea"
+  | "leadAssignmentRule"
+  | "user";
+
+/**
  * Deletes every row this framework could have created, in FK-safe
  * (children-before-parents) order - Option A from the task spec ("delete
  * previous DEMO organization data and recreate"). Safe to call on a DB that
@@ -132,9 +168,12 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
  * Read-only counterpart to teardownDemoData() - same filters, `.count()`
  * instead of `.deleteMany()`, zero writes. Used by scripts/seed-demo-dry-run.ts
  * and scripts/seed-demo-verify.ts to report "what currently exists / what
- * would be removed" without touching anything.
+ * would be removed" without touching anything. Accepts an optional client
+ * so callers that must guarantee zero writes at runtime (not just by
+ * convention) can pass the read-only-guarded client from
+ * read-only-guard.ts instead of the shared singleton.
  */
-export async function previewTeardownCounts(): Promise<Record<string, number>> {
+export async function previewTeardownCounts(client: CountableClient = prisma): Promise<Record<string, number>> {
   const p = DEMO_ID_PREFIX;
   const orgId = DEMO_ORGANIZATION_ID;
   const startsWith = (prefix: string) => ({ organizationId: orgId, id: { startsWith: `${p}${prefix}-` } });
@@ -146,28 +185,28 @@ export async function previewTeardownCounts(): Promise<Record<string, number>> {
     visit, followUp, leadScoreHistory, activity, notification, savedView,
     lead, property, owner, employeeServiceArea, leadAssignmentRule, user,
   ] = await Promise.all([
-    prisma.catalogueInteraction.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
-    prisma.catalogueShareProperty.count({ where: { catalogueShare: startsWith("cat") } }),
-    prisma.catalogueShare.count({ where: startsWith("cat") }),
-    prisma.whatsAppMessage.count({ where: { organizationId: orgId, conversation: startsWith("wa") } }),
-    prisma.whatsAppConversation.count({ where: startsWith("wa") }),
-    prisma.sharedPropertyLog.count({ where: { organizationId: orgId, lead: startsWith("lead") } }),
-    prisma.payment.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
-    prisma.brokerageCalculation.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
-    prisma.deal.count({ where: startsWith("deal") }),
-    prisma.document.count({
+    client.catalogueInteraction.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
+    client.catalogueShareProperty.count({ where: { catalogueShare: startsWith("cat") } }),
+    client.catalogueShare.count({ where: startsWith("cat") }),
+    client.whatsAppMessage.count({ where: { organizationId: orgId, conversation: startsWith("wa") } }),
+    client.whatsAppConversation.count({ where: startsWith("wa") }),
+    client.sharedPropertyLog.count({ where: { organizationId: orgId, lead: startsWith("lead") } }),
+    client.payment.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
+    client.brokerageCalculation.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
+    client.deal.count({ where: startsWith("deal") }),
+    client.document.count({
       where: {
         organizationId: orgId,
         OR: [{ property: startsWith("prop") }, { lead: startsWith("lead") }, { owner: startsWith("owner") }, { deal: startsWith("deal") }],
       },
     }),
-    prisma.visit.count({ where: startsWith("visit") }),
-    prisma.followUp.count({ where: startsWith("fu") }),
-    prisma.leadScoreHistory.count({ where: { organizationId: orgId, lead: startsWith("lead") } }),
-    prisma.activity.count({
+    client.visit.count({ where: startsWith("visit") }),
+    client.followUp.count({ where: startsWith("fu") }),
+    client.leadScoreHistory.count({ where: { organizationId: orgId, lead: startsWith("lead") } }),
+    client.activity.count({
       where: { organizationId: orgId, OR: [{ lead: startsWith("lead") }, { crmOwner: startsWith("owner") }, { deal: startsWith("deal") }] },
     }),
-    prisma.notification.count({
+    client.notification.count({
       where: {
         organizationId: orgId,
         OR: [
@@ -179,13 +218,13 @@ export async function previewTeardownCounts(): Promise<Record<string, number>> {
         ],
       },
     }),
-    prisma.savedView.count({ where: { organizationId: orgId, user: startsWith("emp") } }),
-    prisma.lead.count({ where: startsWith("lead") }),
-    prisma.property.count({ where: startsWith("prop") }),
-    prisma.owner.count({ where: startsWith("owner") }),
-    prisma.employeeServiceArea.count({ where: { organizationId: orgId, employee: startsWith("emp") } }),
-    prisma.leadAssignmentRule.count({ where: startsWith("rule") }),
-    prisma.user.count({ where: startsWith("emp") }),
+    client.savedView.count({ where: { organizationId: orgId, user: startsWith("emp") } }),
+    client.lead.count({ where: startsWith("lead") }),
+    client.property.count({ where: startsWith("prop") }),
+    client.owner.count({ where: startsWith("owner") }),
+    client.employeeServiceArea.count({ where: { organizationId: orgId, employee: startsWith("emp") } }),
+    client.leadAssignmentRule.count({ where: startsWith("rule") }),
+    client.user.count({ where: startsWith("emp") }),
   ]);
 
   return {
