@@ -15,10 +15,10 @@ import {
 } from "./storage";
 import type { PropertyImagePurpose, Role } from "@prisma/client";
 
-/** Field Executives may only upload IMAGE (property visit photos), never floor plans - see role matrix in the task spec. */
+/** Field Executives may upload IMAGE (property visit photos) and AVAILABILITY_REPORT (Phase 4 evidence photos), never floor plans - see role matrix in the task spec. */
 function canUploadPropertyImage(role: Role, purpose: PropertyImagePurpose): boolean {
   if (role === "ADMIN" || role === "DATA_MANAGER") return true;
-  if (role === "FIELD_EXECUTIVE") return purpose === "IMAGE";
+  if (role === "FIELD_EXECUTIVE") return purpose === "IMAGE" || purpose === "AVAILABILITY_REPORT";
   return false;
 }
 

@@ -69,15 +69,15 @@ export interface BuildPropertyImageObjectKeyParams {
   organizationId: string;
   propertyId: string;
   fileName: string;
-  purpose: "IMAGE" | "FLOOR_PLAN";
+  purpose: "IMAGE" | "FLOOR_PLAN" | "AVAILABILITY_REPORT";
 }
 
-/** organizations/{orgId}/properties/{propertyId}/{images|floor-plans}/{uuid}.{ext} */
+/** organizations/{orgId}/properties/{propertyId}/{images|floor-plans|availability-reports}/{uuid}.{ext} */
 export function buildPropertyImageObjectKey(params: BuildPropertyImageObjectKeyParams): string {
   const organizationId = assertSafeSegment(params.organizationId, "organization id");
   const propertyId = assertSafeSegment(params.propertyId, "property id");
   const ext = sanitizeExtension(params.fileName);
-  const sub = params.purpose === "FLOOR_PLAN" ? "floor-plans" : "images";
+  const sub = params.purpose === "FLOOR_PLAN" ? "floor-plans" : params.purpose === "AVAILABILITY_REPORT" ? "availability-reports" : "images";
   return `organizations/${organizationId}/properties/${propertyId}/${sub}/${randomUUID()}.${ext}`;
 }
 
