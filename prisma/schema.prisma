@@ -1094,6 +1094,8 @@ model Activity {
   crmOwner       Owner?       @relation(fields: [crmOwnerId], references: [id], onDelete: Cascade)
   dealId         String?
   deal           Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  inventoryPartnerId String? // Phase 4 - Field Operations
+  inventoryPartner   InventoryPartner? @relation(fields: [inventoryPartnerId], references: [id], onDelete: Cascade)
   actorId        String?
   actor          User?        @relation("ActivityActor", fields: [actorId], references: [id])
   type           ActivityType
@@ -1103,6 +1105,7 @@ model Activity {
 
   @@index([crmOwnerId])
   @@index([dealId])
+  @@index([inventoryPartnerId])
   @@map("activities")
 }
 
@@ -1813,6 +1816,7 @@ model InventoryPartner {
 
   properties    Property[]
   notifications Notification[]
+  activities    Activity[]
 
   @@index([organizationId, isActive])
   @@index([organizationId, phone])

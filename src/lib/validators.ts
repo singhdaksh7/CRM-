@@ -310,3 +310,60 @@ export const catalogueInteractionSchema = z.object({
   preferredDate: z.string().max(40).optional(),
   preferredWindow: z.string().max(60).optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Phase 4 - Field Operations & Property Workflow
+// ---------------------------------------------------------------------------
+
+export const inventoryPartnerSchema = z.object({
+  name: z.string().min(2),
+  company: z.string().optional().nullable(),
+  phone: z.string().min(8),
+  alternatePhone: z.string().optional().nullable(),
+  localities: z.array(z.string()).default([]),
+  notes: z.string().optional().nullable(),
+  commissionSplitPct: z.number().min(0).max(100).optional().nullable(),
+  isActive: z.boolean().default(true),
+});
+
+export const updateInventoryPartnerSchema = inventoryPartnerSchema.partial();
+
+export const visitFeedbackSchema = z.object({
+  customerLiked: z.array(z.string()).default([]),
+  customerDisliked: z.array(z.string()).default([]),
+  budgetIssue: z.boolean().default(false),
+  areaIssue: z.boolean().default(false),
+  parkingIssue: z.boolean().default(false),
+  familyRejected: z.boolean().default(false),
+  ownerRejected: z.boolean().default(false),
+  willVisitAgain: z.boolean().default(false),
+  negotiationRequired: z.boolean().default(false),
+  additionalNotes: z.string().optional().nullable(),
+});
+
+export const availabilityReportSchema = z.object({
+  reason: z.enum(["ALREADY_RENTED", "ALREADY_SOLD", "PROPERTY_LOCKED", "OWNER_UNREACHABLE", "OTHER"]),
+  note: z.string().max(2000).optional().nullable(),
+  photoId: z.string().min(1, "A photo is required to report a property unavailable"),
+  visitId: z.string().optional().nullable(),
+});
+
+export const availabilityReportReviewSchema = z.object({
+  decision: z.enum(["APPROVE", "REJECT"]),
+  reviewNote: z.string().max(2000).optional().nullable(),
+});
+
+export const propertyReportSchema = z.object({
+  type: z.enum(["WRONG_RENT", "WRONG_PHOTOS", "WRONG_AREA", "OWNER_NOT_RESPONDING", "DUPLICATE_LISTING", "PROPERTY_CLOSED", "ALREADY_RENTED", "ALREADY_SOLD", "NEEDS_NEW_PHOTOS", "REQUIRES_VERIFICATION"]),
+  note: z.string().max(2000).optional().nullable(),
+});
+
+export const propertyReportResolveSchema = z.object({
+  status: z.enum(["RESOLVED", "DISMISSED"]),
+  resolutionNote: z.string().max(2000).optional().nullable(),
+});
+
+export const catalogueExecutiveStatusSchema = z.object({
+  executiveStatus: z.enum(["PENDING", "SHOWN", "CUSTOMER_LIKED", "SHORTLISTED", "REJECTED"]),
+  note: z.string().max(1000).optional().nullable(),
+});
