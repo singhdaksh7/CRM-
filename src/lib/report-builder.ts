@@ -16,8 +16,18 @@ export interface ReportResult {
   rows: (string | number)[][];
 }
 
+/**
+ * Escapes one CSV cell, defending against both CSV structural characters
+ * (commas/quotes/newlines) and CSV/Excel formula injection: a cell value
+ * that itself starts with =, +, -, @, or a tab/CR is prefixed with a
+ * leading apostrophe so spreadsheet software renders it as literal text
+ * instead of evaluating it as a formula when this file is opened. Data
+ * here comes straight from lead/property/employee fields a client or
+ * teammate can set (e.g. clientName), so this must never be skipped.
+ */
 function csvEscape(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
+  let s = value === null || value === undefined ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

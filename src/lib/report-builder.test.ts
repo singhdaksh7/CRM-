@@ -17,4 +17,23 @@ describe("toCsv", () => {
     const csv = toCsv({ header: ["A"], rows: [[null as unknown as string]] });
     expect(csv.split("\n")[1]).toBe("");
   });
+
+  it("prevents CSV/Excel formula injection by prefixing a leading apostrophe on cells starting with =, +, -, or @", () => {
+    const csv = toCsv({
+      header: ["Name"],
+      rows: [["=cmd|calc!A1"], ["+1+1"], ["-2+3"], ["@SUM(A1:A2)"]],
+    });
+    const lines = csv.split("\n").slice(1);
+    expect(lines[0]).toBe("'=cmd|calc!A1");
+    expect(lines[1]).toBe("'+1+1");
+    expect(lines[2]).toBe("'-2+3");
+    expect(lines[3]).toBe("'@SUM(A1:A2)");
+  });
+
+  it("leaves ordinary cell values (including ones merely containing = elsewhere) untouched", () => {
+    const csv = toCsv({ header: ["Name"], rows: [["a=b"], ["Normal Name"]] });
+    const lines = csv.split("\n").slice(1);
+    expect(lines[0]).toBe("a=b");
+    expect(lines[1]).toBe("Normal Name");
+  });
 });

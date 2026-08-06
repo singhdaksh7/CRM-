@@ -1,5 +1,37 @@
-import { describe, it, expect } from "vitest";
-import { mergeSystemConfig, DEFAULT_SYSTEM_CONFIG } from "./system-config";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+const systemConfigFindUnique = vi.fn();
+const systemConfigUpsert = vi.fn();
+const cacheGet = vi.fn();
+const cacheDel = vi.fn();
+
+vi.mock("./prisma", () => ({
+  prisma: {
+    systemConfig: {
+      findUnique: (...a: unknown[]) => systemConfigFindUnique(...a),
+      upsert: (...a: unknown[]) => systemConfigUpsert(...a),
+    },
+  },
+}));
+
+// Mirrors src/lib/cache.ts's real "fail open, no Redis configured -> always
+// compute" behavior (REDIS_URL is unset in the test environment), but lets
+// invalidateCache be asserted on directly instead of needing a real Redis.
+vi.mock("./cache", () => ({
+  cached: async (_key: string, _ttl: number, compute: () => Promise<unknown>) => {
+    cacheGet();
+    return compute();
+  },
+  invalidateCache: async (prefix: string) => {
+    cacheDel(prefix);
+  },
+}));
+
+import { mergeSystemConfig, DEFAULT_SYSTEM_CONFIG, getSystemConfig, updateSystemConfig } from "./system-config";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("mergeSystemConfig", () => {
   it("returns the defaults untouched when there are no overrides", () => {
@@ -23,5 +55,41 @@ describe("mergeSystemConfig", () => {
     const merged = mergeSystemConfig({ businessHours: { startHour: 8 } as never });
     expect(merged.businessHours.startHour).toBe(8);
     expect(merged.businessHours.endHour).toBe(DEFAULT_SYSTEM_CONFIG.businessHours.endHour);
+  });
+});
+
+describe("getSystemConfig - defaults preserve old behavior", () => {
+  it("returns DEFAULT_SYSTEM_CONFIG (exactly matching the previous hardcoded constants) when no row exists for the organization", async () => {
+    systemConfigFindUnique.mockResolvedValue(null);
+    const config = await getSystemConfig("org_default");
+    expect(config).toEqual(DEFAULT_SYSTEM_CONFIG);
+  });
+});
+
+describe("getSystemConfig - organization isolation", () => {
+  it("looks up the row scoped to the given organizationId, never a different org's config", async () => {
+    systemConfigFindUnique.mockResolvedValue(null);
+    await getSystemConfig("org_a");
+    expect(systemConfigFindUnique).toHaveBeenCalledWith({ where: { organizationId: "org_a" } });
+
+    systemConfigFindUnique.mockClear();
+    await getSystemConfig("org_b");
+    expect(systemConfigFindUnique).toHaveBeenCalledWith({ where: { organizationId: "org_b" } });
+  });
+});
+
+describe("updateSystemConfig - cache invalidation", () => {
+  it("invalidates the cache for the affected organization after a successful update", async () => {
+    systemConfigFindUnique.mockResolvedValue(null);
+    systemConfigUpsert.mockResolvedValue({});
+    await updateSystemConfig({ organizationId: "org_a", updatedById: "u1", patch: { hotLeadThreshold: 80 } });
+    expect(cacheDel).toHaveBeenCalledWith("system-config:org_a");
+  });
+
+  it("scopes the upsert to the given organizationId", async () => {
+    systemConfigFindUnique.mockResolvedValue(null);
+    systemConfigUpsert.mockResolvedValue({});
+    await updateSystemConfig({ organizationId: "org_b", updatedById: "u1", patch: { hotLeadThreshold: 80 } });
+    expect(systemConfigUpsert).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org_b" } }));
   });
 });
