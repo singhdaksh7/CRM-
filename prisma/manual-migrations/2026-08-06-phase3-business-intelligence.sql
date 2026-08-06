@@ -42,8 +42,9 @@
 -- Companion file: 2026-08-06-phase3-business-intelligence.verify.sql
 -- (read-only, run after applying this file).
 --
--- DO NOT RUN THIS AGAINST PRODUCTION YET - staging review only per the
--- Phase 3 acceptance instructions. Kept unapplied pending sign-off.
+-- SIGNED OFF 2026-08-06: production execution authorized by the
+-- repository owner as part of the Phase 3 release process. Applied to
+-- production via DIRECT_URL per the run instructions above.
 
 -- ---------------------------------------------------------------------
 -- Enums
@@ -137,7 +138,7 @@ CREATE TABLE IF NOT EXISTS "automation_rules" (
     "trigger" "AutomationTrigger" NOT NULL,
     "actionType" "AutomationActionType" NOT NULL,
     "actionConfig" TEXT NOT NULL DEFAULT '{}',
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isActive" BOOLEAN NOT NULL DEFAULT false,
     "createdById" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

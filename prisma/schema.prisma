@@ -1647,7 +1647,7 @@ model AutomationRule {
   trigger        AutomationTrigger
   actionType     AutomationActionType
   actionConfig   String               @default("{}") // JSON blob, shape depends on actionType
-  isActive       Boolean              @default(true)
+  isActive       Boolean              @default(false)
   createdById    String?
   createdBy      User?                @relation(fields: [createdById], references: [id])
   createdAt      DateTime             @default(now())
