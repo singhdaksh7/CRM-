@@ -21,6 +21,8 @@ const SYSTEM_CONFIG_CACHE_TTL_SECONDS = 60;
  *   staleLeadDays               -> rules/lead-health.ts "Stale lead"/"Going quiet" thresholds
  *   stalePropertyDays           -> rules/property-health.ts "Stale availability" threshold
  *   catalogueFollowUpDelayHours -> notifications.ts notifyCatalogueNoResponse cutoff
+ *   freshnessNeedsVerificationDays -> rules/inventory-freshness.ts VERIFIED->NEEDS_VERIFICATION cutoff (Phase 4)
+ *   freshnessStaleDays          -> rules/inventory-freshness.ts NEEDS_VERIFICATION->STALE cutoff (Phase 4)
  *
  * FUTURE  - stored and displayed, but not read by any code path yet
  *   (INACTIVE_CONFIG_KEYS below - UI must disable editing and label
@@ -91,6 +93,10 @@ export interface SystemConfigValues {
   stalePropertyDays: number;
   /** ACTIVE - notifications.ts notifyCatalogueNoResponse cutoff (hours since last view with no client response). */
   catalogueFollowUpDelayHours: number;
+  /** ACTIVE (Phase 4) - rules/inventory-freshness.ts: days since last verification/visit/update before a property moves from VERIFIED to NEEDS_VERIFICATION. */
+  freshnessNeedsVerificationDays: number;
+  /** ACTIVE (Phase 4) - rules/inventory-freshness.ts: days since last verification/visit/update before a property moves from NEEDS_VERIFICATION to STALE. */
+  freshnessStaleDays: number;
 }
 
 /** Keys the Settings UI must render read-only with a "Not active yet" badge - see the FUTURE section of the matrix above. Exported so the UI and this module can never drift apart on which fields are real. */
@@ -126,6 +132,8 @@ export const DEFAULT_SYSTEM_CONFIG: SystemConfigValues = {
   staleLeadDays: 14,
   stalePropertyDays: 30,
   catalogueFollowUpDelayHours: 24,
+  freshnessNeedsVerificationDays: 30,
+  freshnessStaleDays: 60,
 };
 
 /** Deep-merges a partial config blob (as stored in SystemConfig.values) over the defaults - never trusts the stored blob to have every key. */

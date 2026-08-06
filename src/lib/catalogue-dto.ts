@@ -137,7 +137,10 @@ export function toPublicCatalogueDTO(catalogue: CatalogueForDTO): PublicCatalogu
     brokerageContactPhone: "+919811100001",
     clientFirstName: catalogue.lead.clientName.split(" ")[0],
     requirementSummary: budgetSummary(catalogue.lead),
-    properties: !propertiesVisible ? [] : catalogue.properties.map((cp) => {
+    // Phase 4 - versioning: a soft-removed property (cp.removedAt set) must
+    // never appear here either - the same public token always reflects only
+    // the current active property set, "latest version" falls out naturally.
+    properties: !propertiesVisible ? [] : catalogue.properties.filter((cp) => !cp.removedAt).map((cp) => {
       const p = cp.property;
       const priceVisible = cp.priceVisible && catalogue.includePrice;
       const brokerageVisible = cp.brokerageVisible && catalogue.includeBrokerage;
@@ -170,5 +173,117 @@ export function toPublicCatalogueDTO(catalogue: CatalogueForDTO): PublicCatalogu
         locationDisclosure: location.locationDisclosure,
       };
     }),
+  };
+}
+
+/**
+ * Executive-only DTO (Phase 4, Objective 9). Reads the SAME CatalogueShare
+ * the client sees - no second share/token record - but skips the
+ * priceVisible/addressVisible/brokerageVisible/includePrice/includeAddress/
+ * includeBrokerage gating entirely and additionally exposes owner/partner
+ * contact info, the Internal Property View fields, exact coordinates for
+ * navigation, and the per-property executive engagement checklist. NEVER
+ * reachable from the public token-based route - callers must restrict this
+ * to FIELD_EXECUTIVE/ADMIN/DATA_MANAGER sessions, and a field executive to
+ * only their own assigned lead's catalogue.
+ */
+export interface ExecutiveCatalogueProperty {
+  id: string;
+  title: string;
+  area: string;
+  address: string;
+  buildingName: string | null;
+  flatNumber: string | null;
+  gateNumber: string | null;
+  landmark: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  bhk: number;
+  bathrooms: number;
+  furnishing: string;
+  builtUpAreaSqft: number;
+  amenities: string[];
+  coverImage: string | null;
+  images: string[];
+  price: string | null;
+  status: string;
+  isAvailable: boolean;
+  customNote: string | null;
+  inventorySource: string;
+  ownerName: string | null;
+  ownerPhone: string | null;
+  partnerName: string | null;
+  partnerPhone: string | null;
+  propertySource: string | null;
+  keyAvailability: string | null;
+  entryInstructions: string | null;
+  internalNotes: string | null;
+  negotiationNotes: string | null;
+  hiddenRemarks: string | null;
+  executiveStatus: string;
+  executiveStatusNote: string | null;
+}
+
+export interface ExecutiveCatalogueDTO {
+  id: string;
+  token: string;
+  title: string;
+  status: CatalogueStatus;
+  version: number;
+  clientName: string;
+  properties: ExecutiveCatalogueProperty[];
+}
+
+export function toExecutiveCatalogueDTO(catalogue: CatalogueForDTO): ExecutiveCatalogueDTO {
+  return {
+    id: catalogue.id,
+    token: catalogue.token,
+    title: catalogue.title,
+    status: catalogue.status,
+    version: catalogue.version,
+    clientName: catalogue.lead.clientName,
+    properties: catalogue.properties
+      .filter((cp) => !cp.removedAt)
+      .map((cp) => {
+        const p = cp.property;
+        const price = p.listingType === "RENT" ? formatINR(p.monthlyRent, { suffix: "month" }) : formatINR(p.salePrice, { compact: true });
+
+        return {
+          id: p.id,
+          title: p.title,
+          area: p.area,
+          address: p.address,
+          buildingName: p.buildingName,
+          flatNumber: p.flatNumber,
+          gateNumber: p.gateNumber,
+          landmark: p.landmark,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          bhk: p.bhk,
+          bathrooms: p.bathrooms,
+          furnishing: p.furnishing,
+          builtUpAreaSqft: p.builtUpAreaSqft,
+          amenities: JSON.parse(p.amenities || "[]"),
+          coverImage: p.coverImage,
+          images: JSON.parse(p.images || "[]"),
+          price,
+          status: p.status,
+          isAvailable: p.status === "AVAILABLE",
+          customNote: cp.customNote,
+          inventorySource: p.inventorySource,
+          ownerName: p.inventorySource === "DIRECT" ? (p.owner?.name ?? p.ownerName) : null,
+          ownerPhone: p.inventorySource === "DIRECT" ? (p.owner?.phone ?? p.ownerPhone) : null,
+          partnerName: p.inventorySource === "INDIRECT" ? (p.partner?.name ?? null) : null,
+          partnerPhone: p.inventorySource === "INDIRECT" ? (p.partner?.phone ?? null) : null,
+          propertySource: p.propertySource,
+          keyAvailability: p.keyAvailability,
+          entryInstructions: p.entryInstructions,
+          internalNotes: p.internalNotes,
+          negotiationNotes: p.negotiationNotes,
+          hiddenRemarks: p.hiddenRemarks,
+          executiveStatus: cp.executiveStatus,
+          executiveStatusNote: cp.executiveStatusNote,
+        };
+      }),
   };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toPublicCatalogueDTO } from "./catalogue-dto";
+import { toPublicCatalogueDTO, toExecutiveCatalogueDTO } from "./catalogue-dto";
 import type { Property } from "@prisma/client";
 
 function property(overrides: Partial<Property> = {}): Property {
@@ -58,6 +58,22 @@ function property(overrides: Partial<Property> = {}): Property {
     geocodedAt: null,
     locationPrecision: "APPROXIMATE",
     publicLocationMode: "LOCALITY_ONLY",
+    // Phase 4 fields
+    inventorySource: "DIRECT",
+    partnerId: null,
+    buildingName: "Sunrise Apartments",
+    flatNumber: "301",
+    gateNumber: "Gate 2",
+    propertySource: "Referral",
+    keyAvailability: "With owner",
+    entryInstructions: "Ring the bell twice",
+    internalNotes: "Owner prefers evening visits only",
+    negotiationNotes: "Can go 5% lower on rent",
+    hiddenRemarks: "Slightly noisy road-facing unit",
+    imagesUpdatedAt: null,
+    pendingVerification: false,
+    lastVerifiedAt: null,
+    lastVerifiedById: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -81,6 +97,7 @@ function fakeCatalogue(overrides: Partial<Record<string, unknown>> = {}) {
     expiresAt: null,
     viewCount: 0,
     lastViewedAt: null,
+    version: 1,
     createdAt: new Date(),
     updatedAt: new Date(),
     lead: {
@@ -121,6 +138,19 @@ describe("toPublicCatalogueDTO - privacy", () => {
     expect(serialized).not.toContain("+919999999999");
     expect(serialized).not.toContain("+918888888888");
     expect(serialized).not.toContain("difficult to reach");
+  });
+
+  it("never includes any Internal Property View field (Phase 4, Objective 3)", () => {
+    const dto = toPublicCatalogueDTO(fakeCatalogue());
+    const serialized = JSON.stringify(dto);
+    expect(serialized).not.toContain("Sunrise Apartments"); // buildingName
+    expect(serialized).not.toContain("301"); // flatNumber (also not a coincidental price/id match)
+    expect(serialized).not.toContain("Gate 2"); // gateNumber
+    expect(serialized).not.toContain("Ring the bell twice"); // entryInstructions
+    expect(serialized).not.toContain("evening visits only"); // internalNotes
+    expect(serialized).not.toContain("5% lower on rent"); // negotiationNotes
+    expect(serialized).not.toContain("noisy road-facing"); // hiddenRemarks
+    expect(serialized).not.toContain("With owner"); // keyAvailability
   });
 
   it("never includes the lead's own phone or email", () => {
@@ -191,6 +221,13 @@ describe("toPublicCatalogueDTO - privacy", () => {
     expect(dto.properties[0].customNote).toBe("Great natural light");
     expect(dto.clientFirstName).toBe("Rahul");
   });
+
+  it("excludes a soft-removed property (Phase 4 catalogue versioning) - the same link always shows the current version", () => {
+    const base = fakeCatalogue();
+    base.properties[0].removedAt = new Date("2026-08-01T00:00:00Z");
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties).toEqual([]);
+  });
 });
 
 describe("toPublicCatalogueDTO - location privacy", () => {
@@ -250,5 +287,90 @@ describe("toPublicCatalogueDTO - location privacy", () => {
     const dto = toPublicCatalogueDTO(fakeCatalogue({ properties: base.properties }));
     expect(dto.properties[0].latitude).toBeNull();
     expect(dto.properties[0].locationDisclosure).toBe("HIDDEN");
+  });
+});
+
+describe("toExecutiveCatalogueDTO", () => {
+  function directProperty() {
+    return {
+      ...property({ inventorySource: "DIRECT" }),
+      owner: { id: "owner1", name: "Ramesh Gupta", phone: "+919111111111" },
+      partner: null,
+    };
+  }
+
+  function indirectProperty() {
+    return {
+      ...property({ inventorySource: "INDIRECT", ownerName: "", ownerPhone: "" }),
+      owner: null,
+      partner: { id: "partner1", name: "Sharma Dealers", phone: "+919222222222" },
+    };
+  }
+
+  it("ignores priceVisible/addressVisible/brokerageVisible and includePrice/includeAddress/includeBrokerage entirely", () => {
+    const base = fakeCatalogue({ includePrice: false, includeAddress: false, includeBrokerage: false });
+    base.properties[0].priceVisible = false;
+    base.properties[0].addressVisible = false;
+    base.properties[0].property = directProperty();
+    const dto = toExecutiveCatalogueDTO(fakeCatalogue({ ...base, properties: base.properties }));
+    expect(dto.properties[0].price).not.toBeNull();
+    expect(dto.properties[0].address).toBe("123 Main Street, Janakpuri");
+  });
+
+  it("exposes owner contact details for a DIRECT property", () => {
+    const base = fakeCatalogue();
+    base.properties[0].property = directProperty();
+    const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties[0].ownerName).toBe("Ramesh Gupta");
+    expect(dto.properties[0].ownerPhone).toBe("+919111111111");
+    expect(dto.properties[0].partnerName).toBeNull();
+    expect(dto.properties[0].partnerPhone).toBeNull();
+  });
+
+  it("exposes inventory partner contact details for an INDIRECT property, never owner fields", () => {
+    const base = fakeCatalogue();
+    base.properties[0].property = indirectProperty();
+    const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties[0].partnerName).toBe("Sharma Dealers");
+    expect(dto.properties[0].partnerPhone).toBe("+919222222222");
+    expect(dto.properties[0].ownerName).toBeNull();
+    expect(dto.properties[0].ownerPhone).toBeNull();
+  });
+
+  it("exposes Internal Property View fields (building, flat, gate, entry instructions, internal/negotiation notes, hidden remarks)", () => {
+    const base = fakeCatalogue();
+    base.properties[0].property = directProperty();
+    const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties[0].buildingName).toBe("Sunrise Apartments");
+    expect(dto.properties[0].flatNumber).toBe("301");
+    expect(dto.properties[0].gateNumber).toBe("Gate 2");
+    expect(dto.properties[0].entryInstructions).toBe("Ring the bell twice");
+    expect(dto.properties[0].internalNotes).toBe("Owner prefers evening visits only");
+    expect(dto.properties[0].negotiationNotes).toBe("Can go 5% lower on rent");
+    expect(dto.properties[0].hiddenRemarks).toBe("Slightly noisy road-facing unit");
+  });
+
+  it("exposes exact coordinates for navigation regardless of publicLocationMode", () => {
+    const base = fakeCatalogue();
+    base.properties[0].property = { ...directProperty(), publicLocationMode: "HIDDEN", latitude: 28.612945, longitude: 77.229467 };
+    const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties[0].latitude).toBe(28.612945);
+    expect(dto.properties[0].longitude).toBe(77.229467);
+  });
+
+  it("excludes a soft-removed property, same as the public DTO", () => {
+    const base = fakeCatalogue();
+    base.properties[0].removedAt = new Date("2026-08-01T00:00:00Z");
+    const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties).toEqual([]);
+  });
+
+  it("carries through the per-property executive engagement status and note", () => {
+    const base = fakeCatalogue();
+    base.properties[0].executiveStatus = "CUSTOMER_LIKED";
+    base.properties[0].executiveStatusNote = "Loved the balcony view";
+    const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties[0].executiveStatus).toBe("CUSTOMER_LIKED");
+    expect(dto.properties[0].executiveStatusNote).toBe("Loved the balcony view");
   });
 });

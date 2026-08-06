@@ -131,7 +131,10 @@ export async function createCatalogue(params: CreateCatalogueParams) {
 // neither of these objects is ever serialized as-is (only toPublicCatalogueDTO
 // / buildCatalogueMessageText read specific fields off them).
 const CATALOGUE_SENDER_INCLUDE = {
-  properties: { include: { property: true, addedByUser: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" as const } },
+  // Phase 4: property now also loads owner/partner so toExecutiveCatalogueDTO
+  // can resolve Direct-vs-Indirect contact details without a second query -
+  // toPublicCatalogueDTO stays a strict whitelist and never reads these.
+  properties: { include: { property: { include: { owner: true, partner: true } }, addedByUser: { select: { id: true, name: true } }, executiveStatusUpdatedBy: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" as const } },
   lead: { include: { assignedTo: { select: { id: true, name: true } } } },
   createdBy: { select: { id: true, name: true } },
   organization: { select: { id: true, name: true } },

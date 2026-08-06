@@ -24,6 +24,12 @@ export interface PropertyHealthInput {
   recentCatalogueShareCount: number;
   recentVisitCount: number;
   recentRejectionCount: number;
+  /** Phase 4 - Field Operations. */
+  pendingVerification: boolean;
+  daysSinceOwnerResponse: number | null;
+  recentVisitOutcomeCount: { positive: number; negative: number };
+  photoUpdatedAt: Date | null;
+  daysSinceLastVerified: number | null;
   now?: Date;
 }
 
@@ -102,12 +108,38 @@ export function computePropertyHealth(input: PropertyHealthInput, staleAvailabil
     factors.push({ label: "Multiple client rejections", delta: -10, detail: `${input.recentRejectionCount} clients marked "not interested" recently - review price or condition` });
   }
 
+  // Phase 4 - Field Operations
+  if (input.pendingVerification) {
+    factors.push({ label: "Pending verification", delta: -18, detail: "Availability reported as uncertain - awaiting admin review" });
+  }
+
+  if (input.daysSinceOwnerResponse !== null && input.daysSinceOwnerResponse > 14) {
+    factors.push({ label: "Owner unresponsive", delta: -8, detail: `No owner response in ${input.daysSinceOwnerResponse} days` });
+  }
+
+  if (input.recentVisitOutcomeCount.positive > 0) {
+    factors.push({ label: "Positive recent visits", delta: 6, detail: `${input.recentVisitOutcomeCount.positive} recent visit(s) with positive interest` });
+  } else if (input.recentVisitOutcomeCount.negative >= 2) {
+    factors.push({ label: "Multiple negative visit outcomes", delta: -8, detail: `${input.recentVisitOutcomeCount.negative} recent visit(s) rejected/not-interested` });
+  }
+
+  if (input.photoUpdatedAt && daysBetween(input.photoUpdatedAt, now) > 60) {
+    factors.push({ label: "Stale photos", delta: -6, detail: "Photos have not been updated in over 60 days" });
+  }
+
+  if (input.daysSinceLastVerified === null || input.daysSinceLastVerified > 30) {
+    factors.push({ label: "Not recently verified", delta: -10, detail: input.daysSinceLastVerified === null ? "Never verified" : `Last verified ${input.daysSinceLastVerified} days ago` });
+  }
+
   const fallback = "Listing is in good health - no action needed right now.";
 
   return buildHealthScore(factors, 50, fallback);
 }
 
 const RECENT_WINDOW_DAYS = 30;
+
+const POSITIVE_VISIT_OUTCOMES = new Set(["HIGHLY_INTERESTED", "INTERESTED", "READY_FOR_NEGOTIATION", "WANTS_ANOTHER_PROPERTY", "SHORTLISTED", "NEGOTIATION_IN_PROGRESS"]);
+const NEGATIVE_VISIT_OUTCOMES = new Set(["NOT_INTERESTED", "REJECTED"]);
 
 /** Orchestration: loads what computePropertyHealth needs and returns the result. */
 export async function getPropertyHealth(propertyId: string): Promise<HealthScoreResult | null> {
@@ -117,7 +149,7 @@ export async function getPropertyHealth(propertyId: string): Promise<HealthScore
   const since = new Date();
   since.setDate(since.getDate() - RECENT_WINDOW_DAYS);
 
-  const [config, recentVisitCount, recentCatalogueShareCount, recentRejectionCount, activeLeadCount] = await Promise.all([
+  const [config, recentVisitCount, recentCatalogueShareCount, recentRejectionCount, activeLeadCount, recentVisitOutcomes] = await Promise.all([
     getSystemConfig(property.organizationId),
     prisma.visit.count({ where: { propertyId, createdAt: { gte: since } } }),
     prisma.catalogueShareProperty.count({ where: { propertyId, createdAt: { gte: since } } }),
@@ -135,6 +167,8 @@ export async function getPropertyHealth(propertyId: string): Promise<HealthScore
         maxBudget: { gte: property.listingType === "RENT" ? (property.monthlyRent ?? 0) * 0.7 : (property.salePrice ?? 0) * 0.7 },
       },
     }),
+    // Phase 4 - recent visit outcomes for this property, bucketed positive/negative.
+    prisma.visit.findMany({ where: { propertyId, createdAt: { gte: since }, outcome: { not: null } }, select: { outcome: true } }),
   ]);
 
   const images: string[] = (() => {
@@ -146,6 +180,10 @@ export async function getPropertyHealth(propertyId: string): Promise<HealthScore
   })();
 
   const hasPrice = property.listingType === "RENT" ? Boolean(property.monthlyRent && property.monthlyRent > 0) : Boolean(property.salePrice && property.salePrice > 0);
+
+  const now = new Date();
+  const positiveOutcomeCount = recentVisitOutcomes.filter((v) => v.outcome && POSITIVE_VISIT_OUTCOMES.has(v.outcome)).length;
+  const negativeOutcomeCount = recentVisitOutcomes.filter((v) => v.outcome && NEGATIVE_VISIT_OUTCOMES.has(v.outcome)).length;
 
   return computePropertyHealth({
     status: property.status,
@@ -160,6 +198,11 @@ export async function getPropertyHealth(propertyId: string): Promise<HealthScore
     recentCatalogueShareCount,
     recentVisitCount,
     recentRejectionCount,
+    pendingVerification: property.pendingVerification,
+    daysSinceOwnerResponse: property.owner ? daysBetween(property.owner.updatedAt, now) : null,
+    recentVisitOutcomeCount: { positive: positiveOutcomeCount, negative: negativeOutcomeCount },
+    photoUpdatedAt: property.imagesUpdatedAt,
+    daysSinceLastVerified: property.lastVerifiedAt ? daysBetween(property.lastVerifiedAt, now) : null,
   }, config.stalePropertyDays);
 }
 
@@ -180,7 +223,7 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
   const config = await getSystemConfig(organizationId);
   const properties = await prisma.property.findMany({
     where: { organizationId, status: { not: "INACTIVE" } },
-    include: { owner: { select: { verificationStatus: true } } },
+    include: { owner: { select: { verificationStatus: true, updatedAt: true } } },
     take: OVERVIEW_PROPERTY_LIMIT,
   });
   if (properties.length === 0) return [];
@@ -189,7 +232,7 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
   const since = new Date();
   since.setDate(since.getDate() - RECENT_WINDOW_DAYS);
 
-  const [visitGroups, shareGroups, rejectionGroups, activeLeads] = await Promise.all([
+  const [visitGroups, shareGroups, rejectionGroups, activeLeads, recentVisitOutcomes] = await Promise.all([
     prisma.visit.groupBy({ by: ["propertyId"], where: { propertyId: { in: propertyIds }, createdAt: { gte: since } }, _count: true }),
     prisma.catalogueShareProperty.groupBy({ by: ["propertyId"], where: { propertyId: { in: propertyIds }, createdAt: { gte: since } }, _count: true }),
     prisma.catalogueInteraction.groupBy({ by: ["propertyId"], where: { propertyId: { in: propertyIds }, type: "NOT_INTERESTED", createdAt: { gte: since } }, _count: true }),
@@ -197,6 +240,8 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
       where: { organizationId, status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"] } },
       select: { preferredLocation: true, requirementType: true, maxBudget: true },
     }),
+    // Phase 4 - one bulk query, bucketed in-memory below (never one query per property).
+    prisma.visit.findMany({ where: { propertyId: { in: propertyIds }, createdAt: { gte: since }, outcome: { not: null } }, select: { propertyId: true, outcome: true } }),
   ]);
 
   const visitByProperty = new Map(visitGroups.map((g) => [g.propertyId, g._count]));
@@ -210,6 +255,15 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
     leadBucket.get(key)!.push(lead.maxBudget);
   }
 
+  const visitOutcomeByProperty = new Map<string, { positive: number; negative: number }>();
+  for (const v of recentVisitOutcomes) {
+    const bucket = visitOutcomeByProperty.get(v.propertyId) ?? { positive: 0, negative: 0 };
+    if (v.outcome && POSITIVE_VISIT_OUTCOMES.has(v.outcome)) bucket.positive += 1;
+    else if (v.outcome && NEGATIVE_VISIT_OUTCOMES.has(v.outcome)) bucket.negative += 1;
+    visitOutcomeByProperty.set(v.propertyId, bucket);
+  }
+
+  const now = new Date();
   const counts = new Map<HealthLabel, number>();
   for (const property of properties) {
     const images: string[] = (() => {
@@ -237,6 +291,11 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
       recentCatalogueShareCount: shareByProperty.get(property.id) ?? 0,
       recentVisitCount: visitByProperty.get(property.id) ?? 0,
       recentRejectionCount: rejectionByProperty.get(property.id) ?? 0,
+      pendingVerification: property.pendingVerification,
+      daysSinceOwnerResponse: property.owner ? daysBetween(property.owner.updatedAt, now) : null,
+      recentVisitOutcomeCount: visitOutcomeByProperty.get(property.id) ?? { positive: 0, negative: 0 },
+      photoUpdatedAt: property.imagesUpdatedAt,
+      daysSinceLastVerified: property.lastVerifiedAt ? daysBetween(property.lastVerifiedAt, now) : null,
     }, config.stalePropertyDays);
     counts.set(result.label, (counts.get(result.label) ?? 0) + 1);
   }

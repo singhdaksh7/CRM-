@@ -34,6 +34,10 @@ export interface LeadHealthInput {
   catalogueViewedCount: number;
   clientInterestCount: number;
   failedWhatsAppCount: number;
+  /** Phase 4 - Field Operations: structured visit feedback signals. */
+  recentFeedbackRejectionCount: number;
+  recentFeedbackPositiveCount: number;
+  hasNegotiationRequiredFeedback: boolean;
   now?: Date;
 }
 
@@ -113,6 +117,17 @@ export function computeLeadHealth(input: LeadHealthInput, staleLeadDays = 14): H
     factors.push({ label: "WhatsApp delivery failing", delta: -10, detail: `${input.failedWhatsAppCount} WhatsApp messages failed to send - verify the phone number` });
   }
 
+  // Phase 4 - Field Operations: structured visit feedback signals
+  if (input.recentFeedbackRejectionCount > 0) {
+    factors.push({ label: "Feedback indicates rejection", delta: -12, detail: `${input.recentFeedbackRejectionCount} recent visit(s) had feedback marking family or owner rejection` });
+  }
+  if (input.recentFeedbackPositiveCount > 0) {
+    factors.push({ label: "Positive visit feedback", delta: 8, detail: `${input.recentFeedbackPositiveCount} recent visit(s) with feedback indicating they'll visit again` });
+  }
+  if (input.hasNegotiationRequiredFeedback) {
+    factors.push({ label: "Negotiation required per feedback", delta: 6, detail: "Recent visit feedback flagged negotiation as required" });
+  }
+
   const daysSinceContact = input.lastContactedAt ? daysBetween(input.lastContactedAt, now) : daysBetween(input.createdAt, now);
   const goingQuietDays = Math.floor(staleLeadDays / 2);
   if (!TERMINAL_STATUSES.includes(input.status)) {
@@ -142,7 +157,7 @@ export async function getLeadHealth(leadId: string): Promise<HealthScoreResult |
   const lead = await prisma.lead.findUnique({ where: { id: leadId } });
   if (!lead) return null;
 
-  const [config, availableProperties, pendingFollowUpCount, overdueFollowUpCount, scheduledVisitCount, missedVisitCount, catalogueSentCount, catalogueViewedCount, clientInterestCount, failedWhatsAppCount] = await Promise.all([
+  const [config, availableProperties, pendingFollowUpCount, overdueFollowUpCount, scheduledVisitCount, missedVisitCount, catalogueSentCount, catalogueViewedCount, clientInterestCount, failedWhatsAppCount, feedback] = await Promise.all([
     getSystemConfig(lead.organizationId),
     prisma.property.findMany({ where: { organizationId: lead.organizationId, status: "AVAILABLE" } }),
     prisma.followUp.count({ where: { leadId, status: "PENDING" } }),
@@ -153,6 +168,8 @@ export async function getLeadHealth(leadId: string): Promise<HealthScoreResult |
     prisma.catalogueInteraction.count({ where: { catalogueShare: { leadId }, type: "VIEWED" } }),
     prisma.catalogueInteraction.count({ where: { catalogueShare: { leadId }, type: "INTERESTED" } }),
     prisma.whatsAppMessage.count({ where: { conversation: { leadId }, direction: "OUTBOUND", status: "FAILED" } }),
+    // Phase 4 - structured visit feedback for this lead's visits.
+    prisma.visitFeedback.findMany({ where: { visit: { leadId } }, select: { familyRejected: true, ownerRejected: true, willVisitAgain: true, negotiationRequired: true } }),
   ]);
 
   const matches = matchPropertiesToLead(availableProperties, lead, 0.2);
@@ -177,6 +194,9 @@ export async function getLeadHealth(leadId: string): Promise<HealthScoreResult |
     catalogueViewedCount,
     clientInterestCount,
     failedWhatsAppCount,
+    recentFeedbackRejectionCount: feedback.filter((f) => f.familyRejected || f.ownerRejected).length,
+    recentFeedbackPositiveCount: feedback.filter((f) => f.willVisitAgain).length,
+    hasNegotiationRequiredFeedback: feedback.some((f) => f.negotiationRequired),
   }, config.staleLeadDays);
 }
 
@@ -209,12 +229,14 @@ async function computeLeadHealthOverview(organizationId: string, assignedToId?: 
   if (leads.length === 0) return [];
 
   const leadIds = leads.map((l) => l.id);
-  const [followUpGroups, visitGroups, catalogueSentGroups, catalogueInteractionGroups, whatsappFailGroups] = await Promise.all([
+  const [followUpGroups, visitGroups, catalogueSentGroups, catalogueInteractionGroups, whatsappFailGroups, feedbackRows] = await Promise.all([
     prisma.followUp.groupBy({ by: ["leadId", "status"], where: { leadId: { in: leadIds } }, _count: true }),
     prisma.visit.groupBy({ by: ["leadId", "status"], where: { leadId: { in: leadIds } }, _count: true }),
     prisma.whatsAppMessage.groupBy({ by: ["conversationId"], where: { conversation: { leadId: { in: leadIds } }, messageType: "CATALOGUE", direction: "OUTBOUND" }, _count: true }),
     prisma.catalogueInteraction.groupBy({ by: ["catalogueShareId", "type"], where: { catalogueShare: { leadId: { in: leadIds } } }, _count: true }),
     prisma.whatsAppMessage.groupBy({ by: ["conversationId"], where: { conversation: { leadId: { in: leadIds } }, direction: "OUTBOUND", status: "FAILED" }, _count: true }),
+    // Phase 4 - one bulk query, bucketed in-memory below (never one query per lead).
+    prisma.visitFeedback.findMany({ where: { visit: { leadId: { in: leadIds } } }, select: { familyRejected: true, ownerRejected: true, willVisitAgain: true, negotiationRequired: true, visit: { select: { leadId: true } } } }),
   ]);
 
   // conversationId/catalogueShareId -> leadId lookups so the grouped rows above can be re-keyed by lead.
@@ -260,6 +282,17 @@ async function computeLeadHealthOverview(organizationId: string, assignedToId?: 
     if (leadId) failedWhatsAppByLead.set(leadId, (failedWhatsAppByLead.get(leadId) ?? 0) + g._count);
   }
 
+  // Phase 4 - structured visit feedback, bucketed per lead.
+  const feedbackRejectionByLead = new Map<string, number>();
+  const feedbackPositiveByLead = new Map<string, number>();
+  const negotiationRequiredByLead = new Set<string>();
+  for (const f of feedbackRows) {
+    const leadId = f.visit.leadId;
+    if (f.familyRejected || f.ownerRejected) feedbackRejectionByLead.set(leadId, (feedbackRejectionByLead.get(leadId) ?? 0) + 1);
+    if (f.willVisitAgain) feedbackPositiveByLead.set(leadId, (feedbackPositiveByLead.get(leadId) ?? 0) + 1);
+    if (f.negotiationRequired) negotiationRequiredByLead.add(leadId);
+  }
+
   const counts = new Map<HealthLabel, number>();
   for (const lead of leads) {
     const result = computeLeadHealth({
@@ -282,6 +315,9 @@ async function computeLeadHealthOverview(organizationId: string, assignedToId?: 
       catalogueViewedCount: catalogueViewedByLead.get(lead.id) ?? 0,
       clientInterestCount: clientInterestByLead.get(lead.id) ?? 0,
       failedWhatsAppCount: failedWhatsAppByLead.get(lead.id) ?? 0,
+      recentFeedbackRejectionCount: feedbackRejectionByLead.get(lead.id) ?? 0,
+      recentFeedbackPositiveCount: feedbackPositiveByLead.get(lead.id) ?? 0,
+      hasNegotiationRequiredFeedback: negotiationRequiredByLead.has(lead.id),
     }, config.staleLeadDays);
     counts.set(result.label, (counts.get(result.label) ?? 0) + 1);
   }

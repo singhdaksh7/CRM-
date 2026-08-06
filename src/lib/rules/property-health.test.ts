@@ -17,6 +17,11 @@ function baseInput(overrides: Partial<PropertyHealthInput> = {}): PropertyHealth
     recentCatalogueShareCount: 2,
     recentVisitCount: 1,
     recentRejectionCount: 0,
+    pendingVerification: false,
+    daysSinceOwnerResponse: 2,
+    recentVisitOutcomeCount: { positive: 0, negative: 0 },
+    photoUpdatedAt: new Date("2026-08-01T12:00:00Z"),
+    daysSinceLastVerified: 3,
     now: NOW,
     ...overrides,
   };
@@ -72,6 +77,11 @@ describe("computePropertyHealth", () => {
         recentCatalogueShareCount: 0,
         recentVisitCount: 0,
         recentRejectionCount: 5,
+        pendingVerification: true,
+        daysSinceOwnerResponse: 60,
+        recentVisitOutcomeCount: { positive: 0, negative: 3 },
+        photoUpdatedAt: new Date("2026-01-01T12:00:00Z"),
+        daysSinceLastVerified: null,
       })
     );
     expect(result.score).toBeGreaterThanOrEqual(0);
@@ -81,5 +91,55 @@ describe("computePropertyHealth", () => {
   it("clamps the score to 0-100 for a property with every positive factor", () => {
     const result = computePropertyHealth(baseInput({ imageCount: 20, recentLeadMatchesCount: 10 }));
     expect(result.score).toBeLessThanOrEqual(100);
+  });
+
+  it("penalizes a property pending availability verification", () => {
+    const midLevel = { imageCount: 3, recentCatalogueShareCount: 0, recentVisitCount: 0 } as const;
+    const verified = computePropertyHealth(baseInput(midLevel));
+    const pending = computePropertyHealth(baseInput({ ...midLevel, pendingVerification: true }));
+    expect(pending.score).toBeLessThan(verified.score);
+    expect(pending.warnings.some((w) => /pending verification/i.test(w.label))).toBe(true);
+  });
+
+  it("penalizes an unresponsive owner past 14 days", () => {
+    const result = computePropertyHealth(baseInput({ daysSinceOwnerResponse: 20 }));
+    expect(result.warnings.some((w) => /owner unresponsive/i.test(w.label))).toBe(true);
+  });
+
+  it("does not penalize owner responsiveness when there is no owner at all", () => {
+    const result = computePropertyHealth(baseInput({ hasOwner: false, ownerVerificationStatus: null, daysSinceOwnerResponse: null }));
+    expect(result.warnings.some((w) => /owner unresponsive/i.test(w.label))).toBe(false);
+  });
+
+  it("rewards positive recent visit outcomes", () => {
+    const midLevel = { imageCount: 3, hasCoverImage: false, recentCatalogueShareCount: 0, recentVisitCount: 0, recentLeadMatchesCount: 0 } as const;
+    const neutral = computePropertyHealth(baseInput(midLevel));
+    const positive = computePropertyHealth(baseInput({ ...midLevel, recentVisitOutcomeCount: { positive: 2, negative: 0 } }));
+    expect(positive.score).toBeGreaterThan(neutral.score);
+  });
+
+  it("penalizes multiple negative recent visit outcomes", () => {
+    const result = computePropertyHealth(baseInput({ recentVisitOutcomeCount: { positive: 0, negative: 2 } }));
+    expect(result.warnings.some((w) => /negative visit outcomes/i.test(w.label))).toBe(true);
+  });
+
+  it("penalizes stale photos past 60 days", () => {
+    const result = computePropertyHealth(baseInput({ photoUpdatedAt: new Date("2026-05-01T12:00:00Z") }));
+    expect(result.warnings.some((w) => /stale photos/i.test(w.label))).toBe(true);
+  });
+
+  it("penalizes a property that has never been verified", () => {
+    const result = computePropertyHealth(baseInput({ daysSinceLastVerified: null }));
+    expect(result.warnings.some((w) => /not recently verified/i.test(w.label))).toBe(true);
+  });
+
+  it("penalizes a property not verified in over 30 days", () => {
+    const result = computePropertyHealth(baseInput({ daysSinceLastVerified: 45 }));
+    expect(result.warnings.some((w) => /not recently verified/i.test(w.label))).toBe(true);
+  });
+
+  it("does not penalize a recently verified property", () => {
+    const result = computePropertyHealth(baseInput({ daysSinceLastVerified: 3 }));
+    expect(result.warnings.some((w) => /not recently verified/i.test(w.label))).toBe(false);
   });
 });
