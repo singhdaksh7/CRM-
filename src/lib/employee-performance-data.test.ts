@@ -20,9 +20,9 @@ describe("rankEmployees", () => {
     expect(ranked.conversionPct).toBe(30);
   });
 
-  it("returns 0% conversion when an employee has no assigned leads (no division by zero)", () => {
+  it("returns null (insufficient data) rather than a misleading 0% when an employee has no assigned leads", () => {
     const [ranked] = rankEmployees([{ ...base, assignedLeads: 0, dealsClosed: 0 }]);
-    expect(ranked.conversionPct).toBe(0);
+    expect(ranked.conversionPct).toBeNull();
   });
 
   it("sorts by dealsClosed descending, then brokerageGenerated descending", () => {

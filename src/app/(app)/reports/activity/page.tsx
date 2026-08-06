@@ -19,8 +19,8 @@ export default async function ActivityAnalyticsPage() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <KpiCard label="Avg Response Time" value={data.avgResponseTimeHours !== null ? `${data.avgResponseTimeHours}h` : "—"} icon={Clock} tone="blue" />
         <KpiCard label="Avg Closing Time" value={data.avgClosingTimeDays !== null ? `${data.avgClosingTimeDays}d` : "—"} icon={CalendarClock} tone="indigo" />
-        <KpiCard label="Visit Success %" value={`${data.visitSuccessPct}%`} icon={CheckCircle2} tone="green" />
-        <KpiCard label="Match Success %" value={`${data.propertyMatchSuccessPct}%`} icon={Target} tone="purple" />
+        <KpiCard label="Visit Success %" value={data.visitSuccessPct !== null ? `${data.visitSuccessPct}%` : "Insufficient data"} icon={CheckCircle2} tone="green" />
+        <KpiCard label="Match Success %" value={data.propertyMatchSuccessPct !== null ? `${data.propertyMatchSuccessPct}%` : "Insufficient data"} icon={Target} tone="purple" />
         <KpiCard label="Open Follow-ups" value={data.openFollowUps} icon={ClipboardList} tone="amber" />
         <KpiCard label="Ageing Leads (30+d)" value={data.ageingLeads.find((b) => b.bucket === "30+ days")?.count ?? 0} icon={Hourglass} tone="red" />
       </div>

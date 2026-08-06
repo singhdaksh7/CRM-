@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
 import { getOrganizationId } from "./organization";
+import { startOfIstDay, startOfIstWeek, startOfIstMonth } from "./ist-date";
 
 const EMPLOYEE_PERFORMANCE_CACHE_TTL_SECONDS = 60;
 
@@ -15,25 +16,24 @@ export interface EmployeeKpi {
   followUps: number;
   visits: number;
   dealsClosed: number;
-  conversionPct: number;
+  /** null = insufficient data (zero leads assigned in this period), never a misleading 0%. */
+  conversionPct: number | null;
   brokerageGenerated: number;
   avgResponseTimeHours: number | null;
   avgLeadAgeDays: number;
 }
 
-function periodStart(period: LeaderboardPeriod): Date {
-  const now = new Date();
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  if (period === "weekly") start.setDate(start.getDate() - start.getDay());
-  if (period === "monthly") start.setDate(1);
-  return start;
+/** IST calendar-aware, so "today"/"this week"/"this month" match the broker's actual business day regardless of server timezone. */
+function periodStart(period: LeaderboardPeriod, now: Date = new Date()): Date {
+  if (period === "weekly") return startOfIstWeek(now);
+  if (period === "monthly") return startOfIstMonth(now);
+  return startOfIstDay(now);
 }
 
 /** Pure ranking + conversion-math helper, split out for unit testing. */
 export function rankEmployees(rows: Omit<EmployeeKpi, "conversionPct">[]): EmployeeKpi[] {
   return rows
-    .map((r) => ({ ...r, conversionPct: r.assignedLeads > 0 ? Math.round((r.dealsClosed / r.assignedLeads) * 1000) / 10 : 0 }))
+    .map((r) => ({ ...r, conversionPct: r.assignedLeads > 0 ? Math.round((r.dealsClosed / r.assignedLeads) * 1000) / 10 : null }))
     .sort((a, b) => b.dealsClosed - a.dealsClosed || b.brokerageGenerated - a.brokerageGenerated);
 }
 

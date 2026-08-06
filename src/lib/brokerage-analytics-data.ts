@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
 import { getOrganizationId } from "./organization";
+import { istMonthKey, istMonthLabel } from "./ist-date";
 
 const BROKERAGE_ANALYTICS_CACHE_TTL_SECONDS = 60;
 
@@ -16,8 +17,10 @@ export interface BrokerageAnalyticsData {
   byEmployee: { name: string; collected: number }[];
 }
 
-function monthLabel(d: Date): string {
-  return d.toLocaleString("en-IN", { month: "short", year: "2-digit" });
+/** IST calendar year/quarter derived from the same "YYYY-MM" key istMonthKey() produces, so monthly/quarterly/yearly buckets can never disagree with each other about which IST day a payment falls on. */
+function istQuarterAndYear(monthKey: string): { quarter: string; year: string } {
+  const [year, month] = monthKey.split("-").map(Number);
+  return { quarter: `Q${Math.floor((month - 1) / 3) + 1} ${year}`, year: String(year) };
 }
 
 export async function getBrokerageAnalytics(): Promise<BrokerageAnalyticsData> {
@@ -50,11 +53,11 @@ async function computeBrokerageAnalytics(organizationId: string): Promise<Broker
 
   for (const p of paidPayments) {
     if (!p.paidAt) continue;
-    const mKey = monthLabel(p.paidAt);
+    const key = istMonthKey(p.paidAt);
+    const mKey = istMonthLabel(key);
     monthlyMap.set(mKey, { collected: (monthlyMap.get(mKey)?.collected ?? 0) + p.amount });
-    const qKey = `Q${Math.floor(p.paidAt.getMonth() / 3) + 1} ${p.paidAt.getFullYear()}`;
+    const { quarter: qKey, year: yKey } = istQuarterAndYear(key);
     quarterlyMap.set(qKey, { collected: (quarterlyMap.get(qKey)?.collected ?? 0) + p.amount });
-    const yKey = String(p.paidAt.getFullYear());
     yearlyMap.set(yKey, { collected: (yearlyMap.get(yKey)?.collected ?? 0) + p.amount });
   }
 

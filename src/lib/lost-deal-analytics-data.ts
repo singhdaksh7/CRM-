@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
 import { getOrganizationId } from "./organization";
+import { istMonthKey, istMonthLabel } from "./ist-date";
 import type { LostDealReasonCategory } from "@prisma/client";
 
 const LOST_DEAL_ANALYTICS_CACHE_TTL_SECONDS = 60;
@@ -24,10 +25,6 @@ export interface LostDealAnalyticsData {
   topReasonLast90Days: { reason: string; count: number }[];
   /** Deals lost with no category recorded - a data-quality signal, not a real reason bucket. */
   uncategorizedCount: number;
-}
-
-function monthLabel(d: Date): string {
-  return d.toLocaleString("en-IN", { month: "short", year: "2-digit" });
 }
 
 export async function getLostDealAnalytics(): Promise<LostDealAnalyticsData> {
@@ -54,7 +51,7 @@ async function computeLostDealAnalytics(organizationId: string): Promise<LostDea
   const trendMap = new Map<string, number>();
   for (const d of lostDeals) {
     if (!d.closedAt) continue;
-    const key = monthLabel(d.closedAt);
+    const key = istMonthLabel(istMonthKey(d.closedAt));
     trendMap.set(key, (trendMap.get(key) ?? 0) + 1);
   }
 

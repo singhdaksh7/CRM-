@@ -8,8 +8,10 @@ const ACTIVITY_ANALYTICS_CACHE_TTL_SECONDS = 60;
 export interface ActivityAnalyticsData {
   avgResponseTimeHours: number | null;
   avgClosingTimeDays: number | null;
-  visitSuccessPct: number;
-  propertyMatchSuccessPct: number;
+  /** null = insufficient data (zero visits recorded yet), never a misleading 0%. */
+  visitSuccessPct: number | null;
+  /** null = insufficient data (no catalogue shared yet), never a misleading 0%. */
+  propertyMatchSuccessPct: number | null;
   employeeWorkload: { name: string; activeLeads: number }[];
   openFollowUps: number;
   ageingLeads: { bucket: string; count: number }[];
@@ -50,8 +52,8 @@ async function computeActivityAnalytics(organizationId: string): Promise<Activit
   const closingTimes = closedLeads.map((l) => (l.updatedAt.getTime() - l.createdAt.getTime()) / 864e5);
   const avgClosingTimeDays = closingTimes.length > 0 ? Math.round((closingTimes.reduce((a, b) => a + b, 0) / closingTimes.length) * 10) / 10 : null;
 
-  const visitSuccessPct = totalVisits > 0 ? Math.round((completedVisitsWithOutcome / totalVisits) * 1000) / 10 : 0;
-  const propertyMatchSuccessPct = leadsWithShares > 0 ? Math.round((leadsInterested.length / leadsWithShares) * 1000) / 10 : 0;
+  const visitSuccessPct = totalVisits > 0 ? Math.round((completedVisitsWithOutcome / totalVisits) * 1000) / 10 : null;
+  const propertyMatchSuccessPct = leadsWithShares > 0 ? Math.round((leadsInterested.length / leadsWithShares) * 1000) / 10 : null;
 
   const buckets = [
     { label: "0-7 days", min: 0, max: 7 },

@@ -72,7 +72,7 @@ export default async function EmployeePerformancePage({ searchParams }: { search
                   <td className="px-4 py-2.5">{e.followUps}</td>
                   <td className="px-4 py-2.5">{e.visits}</td>
                   <td className="px-4 py-2.5 font-semibold text-[#1FA971]">{e.dealsClosed}</td>
-                  <td className="px-4 py-2.5">{e.conversionPct}%</td>
+                  <td className="px-4 py-2.5">{e.conversionPct !== null ? `${e.conversionPct}%` : <span className="text-[#8A94A6]">Insufficient data</span>}</td>
                   <td className="px-4 py-2.5">₹{e.brokerageGenerated.toLocaleString("en-IN")}</td>
                   <td className="px-4 py-2.5">{e.avgResponseTimeHours !== null ? `${e.avgResponseTimeHours}h` : "—"}</td>
                   <td className="px-4 py-2.5">{e.avgLeadAgeDays}d</td>

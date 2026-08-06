@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
 import { getOrganizationId } from "./organization";
+import { startOfIstDay, endOfIstDay } from "./ist-date";
 import type { LeadStatus } from "@prisma/client";
 
 const OWNER_DASHBOARD_CACHE_TTL_SECONDS = 30;
@@ -98,10 +99,8 @@ export async function getOwnerDashboardData(): Promise<OwnerDashboardData> {
 
 async function computeOwnerDashboardData(organizationId: string): Promise<OwnerDashboardData> {
   const now = new Date();
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
+  const startOfToday = startOfIstDay(now);
+  const endOfToday = endOfIstDay(now);
 
   const [
     newLeads,
