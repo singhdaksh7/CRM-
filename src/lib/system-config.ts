@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { getOrganizationId } from "./organization";
 import { cached, invalidateCache } from "./cache";
+import { logger } from "./logger";
 
 const SYSTEM_CONFIG_CACHE_TTL_SECONDS = 60;
 
@@ -138,10 +139,25 @@ export function mergeSystemConfig(overrides: Partial<SystemConfigValues> | null 
   };
 }
 
+/**
+ * Falls back to DEFAULT_SYSTEM_CONFIG - never throws - even if the
+ * `system_configs` table itself doesn't exist yet (the Phase 3 migration
+ * hasn't been applied to this database). This function is now called from
+ * core write paths (lead creation, visit completion, lead scoring, the
+ * notification sweep) via scoring.ts/lead-matching.ts/notifications.ts/
+ * rules/lead-health.ts/rules/property-health.ts - a missing table here must
+ * degrade to "use the old hardcoded defaults", never break lead creation.
+ */
 export async function getSystemConfig(organizationId?: string): Promise<SystemConfigValues> {
   const orgId = organizationId ?? getOrganizationId();
   return cached(`system-config:${orgId}`, SYSTEM_CONFIG_CACHE_TTL_SECONDS, async () => {
-    const row = await prisma.systemConfig.findUnique({ where: { organizationId: orgId } });
+    let row;
+    try {
+      row = await prisma.systemConfig.findUnique({ where: { organizationId: orgId } });
+    } catch (err) {
+      logger.warn("system_config_lookup_failed", { organizationId: orgId, message: err instanceof Error ? err.message : String(err) });
+      return DEFAULT_SYSTEM_CONFIG;
+    }
     if (!row) return DEFAULT_SYSTEM_CONFIG;
     try {
       return mergeSystemConfig(JSON.parse(row.values) as Partial<SystemConfigValues>);

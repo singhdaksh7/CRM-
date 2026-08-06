@@ -66,6 +66,14 @@ describe("getSystemConfig - defaults preserve old behavior", () => {
   });
 });
 
+describe("getSystemConfig - missing-table fallback", () => {
+  it("falls back to DEFAULT_SYSTEM_CONFIG (never throws) when the system_configs table doesn't exist yet on this database", async () => {
+    systemConfigFindUnique.mockRejectedValue(new Error('The table `public.system_configs` does not exist in the current database.'));
+    const config = await getSystemConfig("org_default");
+    expect(config).toEqual(DEFAULT_SYSTEM_CONFIG);
+  });
+});
+
 describe("getSystemConfig - organization isolation", () => {
   it("looks up the row scoped to the given organizationId, never a different org's config", async () => {
     systemConfigFindUnique.mockResolvedValue(null);

@@ -3,6 +3,7 @@ import { cached } from "./cache";
 import { withTiming } from "./perf";
 import { getOrganizationId } from "./organization";
 import { istMonthKey, istMonthLabel } from "./ist-date";
+import { logger } from "./logger";
 import type { LostDealReasonCategory } from "@prisma/client";
 
 const LOST_DEAL_ANALYTICS_CACHE_TTL_SECONDS = 60;
@@ -25,7 +26,11 @@ export interface LostDealAnalyticsData {
   topReasonLast90Days: { reason: string; count: number }[];
   /** Deals lost with no category recorded - a data-quality signal, not a real reason bucket. */
   uncategorizedCount: number;
+  /** True when the Deal.lostReasonCategory column doesn't exist on the connected database yet (the Phase 3 migration hasn't been applied) - distinguishes "no data" from "can't be measured yet" so the page can show an accurate message instead of implying there simply are no lost deals. */
+  migrationPending: boolean;
 }
+
+const EMPTY_RESULT: LostDealAnalyticsData = { totalLost: 0, byReason: [], trend: [], topReasonLast90Days: [], uncategorizedCount: 0, migrationPending: true };
 
 export async function getLostDealAnalytics(): Promise<LostDealAnalyticsData> {
   const organizationId = getOrganizationId();
@@ -39,11 +44,20 @@ async function computeLostDealAnalytics(organizationId: string): Promise<LostDea
   const rangeStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
   const ninetyDaysAgo = new Date(now.getTime() - 90 * 864e5);
 
-  const [byCategory, lostDeals, recentByCategory] = await Promise.all([
-    prisma.deal.groupBy({ by: ["lostReasonCategory"], where: { organizationId, status: "LOST" }, _count: { _all: true } }),
-    prisma.deal.findMany({ where: { organizationId, status: "LOST", closedAt: { gte: rangeStart } }, select: { closedAt: true } }),
-    prisma.deal.groupBy({ by: ["lostReasonCategory"], where: { organizationId, status: "LOST", closedAt: { gte: ninetyDaysAgo } }, _count: { _all: true } }),
-  ]);
+  let byCategory, lostDeals, recentByCategory;
+  try {
+    [byCategory, lostDeals, recentByCategory] = await Promise.all([
+      prisma.deal.groupBy({ by: ["lostReasonCategory"], where: { organizationId, status: "LOST" }, _count: { _all: true } }),
+      prisma.deal.findMany({ where: { organizationId, status: "LOST", closedAt: { gte: rangeStart } }, select: { closedAt: true } }),
+      prisma.deal.groupBy({ by: ["lostReasonCategory"], where: { organizationId, status: "LOST", closedAt: { gte: ninetyDaysAgo } }, _count: { _all: true } }),
+    ]);
+  } catch (err) {
+    // Deal.lostReasonCategory doesn't exist on this database yet (the
+    // Phase 3 migration hasn't been applied) - degrade to an explicit
+    // "not measurable yet" result instead of a 500 for this whole page.
+    logger.warn("lost_deal_analytics_query_failed", { organizationId, message: err instanceof Error ? err.message : String(err) });
+    return EMPTY_RESULT;
+  }
 
   const totalLost = byCategory.reduce((sum, c) => sum + c._count._all, 0);
   const uncategorizedCount = byCategory.find((c) => c.lostReasonCategory === null)?._count._all ?? 0;
@@ -57,6 +71,7 @@ async function computeLostDealAnalytics(organizationId: string): Promise<LostDea
 
   return {
     totalLost,
+    migrationPending: false,
     uncategorizedCount,
     byReason: byCategory
       .filter((c) => c.lostReasonCategory !== null)
