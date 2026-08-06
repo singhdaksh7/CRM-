@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-auth";
-import { propertySchema } from "@/lib/validators";
+import { createPropertySchema } from "@/lib/validators";
 import { generateCode } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
     if (bhk) where.bhk = Number(bhk);
     const furnishing = sp.get("furnishing");
     if (furnishing) where.furnishing = furnishing;
+    const inventorySource = sp.get("inventorySource");
+    if (inventorySource) where.inventorySource = inventorySource;
     const minBudget = sp.get("minBudget");
     const maxBudget = sp.get("maxBudget");
     if (minBudget || maxBudget) {
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const body = await req.json();
-    const data = propertySchema.parse(body);
+    const data = createPropertySchema.parse(body);
     const count = await prisma.property.count();
 
     const property = await prisma.property.create({

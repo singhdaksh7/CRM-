@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getOrganizationId } from "@/lib/organization";
@@ -91,11 +92,11 @@ export default async function InventoryPartnerDetailPage({ params }: { params: P
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {partner.properties.map((prop) => (
-              <a key={prop.id} href={`/properties/${prop.id}`} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs hover:border-[#3366FF]/40 transition block">
+              <Link key={prop.id} href={`/properties/${prop.id}`} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs hover:border-[#3366FF]/40 transition block">
                 <p className="font-semibold text-[#1B2430]">{prop.title}</p>
                 <p className="text-xs text-[#596579] mt-1">{prop.area} - {prop.propertyCode}</p>
                 <Badge tone={prop.status === "AVAILABLE" ? "green" : "slate"} className="mt-2">{prop.status}</Badge>
-              </a>
+              </Link>
             ))}
           </div>
         )}

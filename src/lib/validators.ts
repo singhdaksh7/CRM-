@@ -55,11 +55,40 @@ export const propertySchema = z.object({
   videoUrl: optionalUrl,
   virtualTourUrl: optionalUrl,
   floorPlanImage: z.string().optional().nullable(),
-  ownerName: z.string().min(2),
-  ownerPhone: z.string().min(8),
+  // Required for DIRECT inventory, absent for INDIRECT - enforced by
+  // createPropertySchema's cross-field refine below, not here, so
+  // propertySchema.partial() (used for PATCH) stays unaffected.
+  ownerName: z.string().min(2).optional().nullable(),
+  ownerPhone: z.string().min(8).optional().nullable(),
   ownerAlternatePhone: alternatePhoneField,
   ownerNotes: z.string().optional().nullable(),
+  // Phase 4 - Direct vs Indirect inventory
+  inventorySource: z.enum(["DIRECT", "INDIRECT"]).default("DIRECT"),
+  partnerId: z.string().optional().nullable(),
+  // Phase 4 - Internal Property View (never exposed on the public catalogue)
+  buildingName: z.string().optional().nullable(),
+  flatNumber: z.string().optional().nullable(),
+  gateNumber: z.string().optional().nullable(),
+  propertySource: z.string().optional().nullable(),
+  keyAvailability: z.string().optional().nullable(),
+  entryInstructions: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
+  negotiationNotes: z.string().optional().nullable(),
+  hiddenRemarks: z.string().optional().nullable(),
 });
+
+/**
+ * Full-create validation only (see comment above ownerName/ownerPhone) -
+ * PATCH keeps using propertySchema.partial() directly since ZodEffects
+ * (what .refine() returns) has no .partial() method.
+ */
+export const createPropertySchema = propertySchema.refine(
+  (data) => data.inventorySource !== "DIRECT" || (!!data.ownerName && !!data.ownerPhone),
+  { message: "Owner name and phone are required for direct inventory", path: ["ownerName"] }
+).refine(
+  (data) => data.inventorySource !== "INDIRECT" || !!data.partnerId,
+  { message: "An inventory partner is required for indirect inventory", path: ["partnerId"] }
+);
 
 export const leadSchema = z.object({
   clientName: z.string().min(2),

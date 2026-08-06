@@ -30,6 +30,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...data,
         ...(amenities ? { amenities: JSON.stringify(amenities) } : {}),
         ...(images ? { images: JSON.stringify(images) } : {}),
+        // Phase 4 - photo-freshness signal for property health, distinct from
+        // the generic updatedAt (which changes on ANY edit, not just photos).
+        ...(images || data.coverImage !== undefined ? { imagesUpdatedAt: new Date() } : {}),
         ...(availableFrom !== undefined ? { availableFrom: availableFrom ? new Date(availableFrom) : null } : {}),
         // A coordinate submitted alongside a placeId came from the address
         // search's confirmed geocode result (see property-address-search.tsx).

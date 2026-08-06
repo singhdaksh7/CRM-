@@ -827,8 +827,11 @@ model Property {
   // Owner (private - never exposed on public page)
   // ownerName/ownerPhone remain the source of truth for legacy properties;
   // ownerId links to a full Owner CRM record when one exists (Phase 1).
-  ownerName           String
-  ownerPhone          String
+  // Phase 4: made nullable - an INDIRECT property (see inventorySource
+  // below) legitimately has no owner at all, only an InventoryPartner.
+  // createPropertySchema still requires these for DIRECT inventory.
+  ownerName           String?
+  ownerPhone          String?
   ownerAlternatePhone String?
   ownerNotes          String?
   ownerId             String?

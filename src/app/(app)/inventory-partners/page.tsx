@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { LinkButton } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export default async function InventoryPartnersPage({ searchParams }: { searchPa
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {partners.map((p) => (
-            <a
+            <Link
               key={p.id}
               href={`/inventory-partners/${p.id}`}
               className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs hover:border-[#3366FF]/40 transition block"
@@ -70,7 +71,7 @@ export default async function InventoryPartnersPage({ searchParams }: { searchPa
                 <span className="text-[#596579]">{p.partnerCode}</span>
                 <span className="font-semibold text-[#3366FF]">{activeCounts.get(p.id) ?? 0} active propert{(activeCounts.get(p.id) ?? 0) === 1 ? "y" : "ies"}</span>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       )}
