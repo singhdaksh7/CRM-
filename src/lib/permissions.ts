@@ -2,6 +2,7 @@ import type { Role } from "@prisma/client";
 
 export const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
+  { href: "/executive-dashboard", label: "My Dashboard", roles: ["ADMIN", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/owner-dashboard", label: "Owner Dashboard", roles: ["ADMIN"] as Role[] },
   { href: "/properties", label: "Properties", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },
   { href: "/inventory-partners", label: "Inventory Partners", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },

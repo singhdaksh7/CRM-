@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/form";
 import { toast } from "sonner";
@@ -29,7 +29,11 @@ export default function LoginPage() {
       return;
     }
     toast.success("Welcome back!");
-    router.push("/dashboard");
+    // Phase 4 - Field Executives land on their own mobile-first dashboard;
+    // everyone else keeps the shared /dashboard. Old bookmarks to /dashboard
+    // still work - proxy.ts bounces a FIELD_EXECUTIVE visiting it onward.
+    const freshSession = await getSession();
+    router.push(freshSession?.user?.role === "FIELD_EXECUTIVE" ? "/executive-dashboard" : "/dashboard");
     router.refresh();
   }
 

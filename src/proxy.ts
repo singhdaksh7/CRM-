@@ -27,8 +27,17 @@ export default auth((req) => {
 
   const role = req.auth.user.role;
   if (pathname.startsWith("/api")) return NextResponse.next();
+
+  // Phase 4 - role-aware landing page. A Field Executive visiting the
+  // shared /dashboard (e.g. an old bookmark) bounces onward to their own
+  // dashboard rather than seeing the desktop-oriented shared one.
+  const homePath = role === "FIELD_EXECUTIVE" ? "/executive-dashboard" : "/dashboard";
+  if (role === "FIELD_EXECUTIVE" && pathname === "/dashboard") {
+    return NextResponse.redirect(new URL(homePath, req.nextUrl.origin));
+  }
+
   if (!canAccess(role, pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
+    return NextResponse.redirect(new URL(homePath, req.nextUrl.origin));
   }
 
   return NextResponse.next();

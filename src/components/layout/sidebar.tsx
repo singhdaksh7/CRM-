@@ -19,14 +19,18 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  Crown
+  Crown,
+  Briefcase,
+  Handshake
 } from "lucide-react";
 import { useState } from "react";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/dashboard": LayoutDashboard,
+  "/executive-dashboard": Briefcase,
   "/owner-dashboard": Crown,
   "/properties": Building2,
+  "/inventory-partners": Handshake,
   "/leads": Users,
   "/visits": CalendarClock,
   "/follow-ups": BellRing,
