@@ -4,6 +4,8 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { propertySchema } from "@/lib/validators";
 import { notifyAffectedCataloguesOfPropertyChange } from "@/lib/property-share-alerts";
 import { logger } from "@/lib/logger";
+import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
+import { getOrganizationId } from "@/lib/organization";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -19,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireSession(["ADMIN", "DATA_MANAGER"]);
+    const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
     const body = await req.json();
     const { amenities, images, availableFrom, ...data } = propertySchema.partial().parse(body);
@@ -56,6 +58,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }
       } catch (err) {
         logger.error("property_share_alert_failed", { propertyId: id, message: err instanceof Error ? err.message : String(err) });
+      }
+
+      // Phase 4, Objective 8 - complete property history, not just
+      // inventory-status changes. One event per kind of change actually
+      // made in this request, not a generic catch-all.
+      const organizationId = getOrganizationId(session.user.id);
+      if (data.status && data.status !== existing.status) {
+        await appendPropertyTimelineEvent({ organizationId, propertyId: id, eventType: "STATUS_CHANGED", fromValue: existing.status, toValue: data.status, actorId: session.user.id });
+      }
+      if (data.monthlyRent !== undefined && data.monthlyRent !== existing.monthlyRent) {
+        await appendPropertyTimelineEvent({ organizationId, propertyId: id, eventType: "RENT_UPDATED", fromValue: existing.monthlyRent?.toString(), toValue: data.monthlyRent?.toString(), actorId: session.user.id });
+      }
+      if (data.salePrice !== undefined && data.salePrice !== existing.salePrice) {
+        await appendPropertyTimelineEvent({ organizationId, propertyId: id, eventType: "PRICE_UPDATED", fromValue: existing.salePrice?.toString(), toValue: data.salePrice?.toString(), actorId: session.user.id });
       }
     }
 

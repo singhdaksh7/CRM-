@@ -9,6 +9,8 @@ import { PropertyMapPanel } from "@/components/properties/property-map-panel";
 import { NearbyPropertiesPanel } from "@/components/properties/nearby-properties-panel";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
 import { PropertyReportPanel } from "@/components/properties/property-report-panel";
+import { PropertyTimelinePanel } from "@/components/properties/property-timeline-panel";
+import { getPropertyTimeline } from "@/lib/property-timeline";
 import { HealthCard } from "@/components/rules/health-card";
 import { SuggestionList } from "@/components/rules/suggestion-list";
 import { getPropertyHealth, getPropertySuggestions } from "@/lib/rules";
@@ -18,7 +20,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const property = await prisma.property.findUnique({ where: { id }, include: { partner: true } });
   if (!property) notFound();
-  const [health, suggestions] = await Promise.all([getPropertyHealth(property.id), getPropertySuggestions(property.id)]);
+  const [health, suggestions, timelineEvents] = await Promise.all([getPropertyHealth(property.id), getPropertySuggestions(property.id), getPropertyTimeline(property.id)]);
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
@@ -184,6 +186,21 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
           {/* Objectives 7 & 10 - executive-facing issue/unavailability reporting */}
           <PropertyReportPanel propertyId={property.id} />
+
+          {/* Objective 8 & Change 11 - complete property history + last verified */}
+          <PropertyTimelinePanel
+            propertyId={property.id}
+            lastVerifiedAt={property.lastVerifiedAt?.toISOString() ?? null}
+            events={timelineEvents.map((e) => ({
+              id: e.id,
+              eventType: e.eventType,
+              fromValue: e.fromValue,
+              toValue: e.toValue,
+              note: e.note,
+              createdAt: e.createdAt.toISOString(),
+              actor: e.actor ? { name: e.actor.name } : null,
+            }))}
+          />
 
           {/* Meta Details */}
           <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">

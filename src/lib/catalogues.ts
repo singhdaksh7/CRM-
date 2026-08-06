@@ -11,6 +11,7 @@ import { isWithinCustomerCareWindow } from "@/integrations/whatsapp/whatsapp-win
 import { getWhatsAppTemplate, renderTemplateBody } from "@/integrations/whatsapp/whatsapp-templates";
 import { getPublicCatalogueUrl, buildCatalogueMessageText, toPublicCatalogueDTO } from "./catalogue-dto";
 import { getCoverImageUrls } from "./property-images";
+import { appendPropertyTimelineEvent } from "./property-timeline";
 import type { PublicCatalogueDTO } from "./catalogue-dto";
 import type { Role } from "@prisma/client";
 
@@ -303,6 +304,20 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
       propertyId: catalogue.properties[0]?.propertyId,
     },
   });
+
+  // Phase 4, Objective 8 - complete property history includes catalogue
+  // sends, not just inventory-status changes.
+  await Promise.all(
+    catalogue.properties.filter((cp) => !cp.removedAt).map((cp) =>
+      appendPropertyTimelineEvent({
+        organizationId: catalogue.organizationId,
+        propertyId: cp.propertyId,
+        eventType: "CATALOGUE_SENT",
+        note: `Catalogue "${catalogue.title}"`,
+        actorId: sentByUserId,
+      })
+    )
+  );
 
   await logActivity({
     leadId: catalogue.leadId,

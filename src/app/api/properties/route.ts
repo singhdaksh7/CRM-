@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-auth";
 import { createPropertySchema } from "@/lib/validators";
 import { generateCode } from "@/lib/utils";
+import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
+import { getOrganizationId } from "@/lib/organization";
 
 export async function GET(req: NextRequest) {
   try {
@@ -79,6 +81,14 @@ export async function POST(req: NextRequest) {
         ...(data.latitude != null && data.placeId ? { geocodeStatus: "SUCCESS" as const, geocodedAt: new Date() } : {}),
       },
     });
+
+    await appendPropertyTimelineEvent({
+      organizationId: getOrganizationId(session.user.id),
+      propertyId: property.id,
+      eventType: "CREATED",
+      actorId: session.user.id,
+    });
+
     return NextResponse.json({ property }, { status: 201 });
   } catch (err) {
     return handleApiError(err);
