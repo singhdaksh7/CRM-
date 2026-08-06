@@ -16,6 +16,10 @@ export default async function BrokerageAnalyticsPage() {
 
       <ReportsTabs />
 
+      <p className="rounded-xl border border-dashed border-[#E7ECF2] bg-[#FAFBFC] p-3 text-xs text-[#8A94A6]">
+        Deal and payment data comes from the Deals/Payments API only - there is no Deal or Deal Detail screen in the product yet, so figures here may be sparse relative to real business volume.
+      </p>
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiCard label="Total Revenue" value={`₹${data.totalRevenue.toLocaleString("en-IN")}`} icon={TrendingUp} tone="indigo" />
         <KpiCard label="Collected" value={`₹${data.collectedBrokerage.toLocaleString("en-IN")}`} icon={CheckCircle2} tone="green" />

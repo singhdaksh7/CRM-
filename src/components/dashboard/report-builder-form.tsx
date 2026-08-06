@@ -54,7 +54,7 @@ export function ReportBuilderForm() {
         Export CSV
       </a>
       <p className="text-xs text-[#8A94A6]">
-        Downloads a CSV (opens in Excel) branded with KP Properties, generation date, generated-by, and the filters used. Leave dates blank for all-time.
+        Excel-compatible CSV branded with KP Properties, generation date, generated-by, and the filters used. Leave dates blank for all-time. PDF and native .xlsx export are not available yet.
       </p>
     </div>
   );

@@ -16,6 +16,10 @@ export default async function LostDealAnalysisPage() {
 
       <ReportsTabs />
 
+      <p className="rounded-xl border border-dashed border-[#E7ECF2] bg-[#FAFBFC] p-3 text-xs text-[#8A94A6]">
+        Deal data comes from the Deals API only - there is no Deal or Deal Detail screen in the product yet, so this report reflects whatever deals exist via API/import, not a curated set an Admin manages here. Treat these numbers as directional until a Deal UI ships.
+      </p>
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiCard label="Total Lost Deals" value={data.totalLost} icon={XCircle} tone="red" />
         <KpiCard label="Uncategorized" value={data.uncategorizedCount} icon={AlertTriangle} tone="amber" hint="Missing a lost reason category" />
@@ -29,7 +33,7 @@ export default async function LostDealAnalysisPage() {
 
       {data.byReason.length === 0 && (
         <p className="rounded-xl border border-dashed border-[#E7ECF2] bg-white p-4 text-sm text-[#8A94A6]">
-          No lost deals with a recorded reason category yet. Mark a deal &quot;Closed Lost&quot; with a reason category to populate this report.
+          No lost deals with a recorded reason category yet.
         </p>
       )}
     </div>

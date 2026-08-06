@@ -23,6 +23,9 @@ export default async function OwnerDashboardPage() {
           <KpiCard label="Brokerage Pending" value={`₹${data.today.brokeragePending.toLocaleString("en-IN")}`} icon={Wallet} tone="amber" />
           <KpiCard label="Brokerage Received" value={`₹${data.today.brokerageReceived.toLocaleString("en-IN")}`} icon={CheckCircle2} tone="green" />
         </div>
+        <p className="mt-2 text-xs text-[#8A94A6]">
+          Brokerage figures come from the Payments API - there is no Deal or Payment screen in the product yet, so treat these as directional until that UI ships.
+        </p>
       </div>
 
       <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
