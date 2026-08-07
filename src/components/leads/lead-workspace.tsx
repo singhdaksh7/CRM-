@@ -17,6 +17,7 @@ import { HealthCard } from "@/components/rules/health-card";
 import { SuggestionList } from "@/components/rules/suggestion-list";
 import type { HealthScoreResult, Suggestion } from "@/lib/rules";
 import { computeLeadTimelineSummary } from "@/lib/timeline-summary";
+import { NewMatchesPanel } from "./new-matches-panel";
 
 interface ScoreFactor {
   label: string;
@@ -49,6 +50,8 @@ type LeadWithRelations = {
   followUps: { id: string; type: string; dueDate: Date; status: string; notes: string | null; owner: User | null }[];
   visits: { id: string; visitDate: Date; visitTime: string; status: string; outcome: string | null; property: { id: string; title: string }; assignedTo: User | null; employeeNotes: string | null }[];
   sharedProperties: { id: string; propertyIds: string; createdAt: Date; whatsappLink: string }[];
+  matchRecommendations: React.ComponentProps<typeof NewMatchesPanel>["recommendations"];
+  catalogueShares: React.ComponentProps<typeof NewMatchesPanel>["catalogues"];
 };
 
 const TABS = ["overview", "whatsapp", "catalogues", "documents", "activity", "followups", "visits", "shared"] as const;
@@ -218,6 +221,7 @@ function OverviewTab({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
+        <NewMatchesPanel recommendations={lead.matchRecommendations} catalogues={lead.catalogueShares} canManage={canManage} />
         <ScorePanel lead={lead} onRecalculate={recalculateScore} saving={saving} />
         {health && <HealthCard title="Lead Health" health={health} />}
         <SuggestionList suggestions={suggestions} onTabAction={onTabAction} />

@@ -19,6 +19,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       followUps: { orderBy: { dueDate: "asc" }, include: { owner: true } },
       visits: { orderBy: { visitDate: "desc" }, include: { property: true, assignedTo: true } },
       sharedProperties: { orderBy: { createdAt: "desc" } },
+      matchRecommendations: { where: { status: "PENDING" }, orderBy: { score: "desc" }, include: { property: { select: { id: true, propertyCode: true, title: true, area: true, bhk: true, monthlyRent: true, salePrice: true, listingType: true, inventorySource: true, status: true, coverImage: true, lastVerifiedAt: true, pendingVerification: true } } } },
+      catalogueShares: { where: { status: "ACTIVE" }, select: { id: true, title: true, version: true }, orderBy: { updatedAt: "desc" } },
     },
   });
   if (!lead) notFound();
