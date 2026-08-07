@@ -157,14 +157,21 @@ export const employeeSchema = z.object({
   email: z.string().email(),
   phone: z.string().optional().nullable(),
   role: z.enum(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"]),
-  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  status: z.enum(["PENDING_SETUP", "ACTIVE", "INACTIVE"]).optional(),
   notes: z.string().optional().nullable(),
-  password: z.string().min(6).optional(),
   maxActiveLeads: z.number().int().positive().optional(),
   isAvailable: z.boolean().optional(),
   speciality: z.enum(["RENT", "SALE", "COMMERCIAL", "RESIDENTIAL", "ALL"]).optional(),
   autoAssignEnabled: z.boolean().optional(),
   serviceAreas: z.array(z.string()).optional(),
+});
+
+export const accountSetupPasswordSchema = z.object({
+  password: z.string().min(8, "Password must be at least 8 characters").max(128).refine((value) => value.trim().length > 0, "Password cannot be blank"),
+  confirmPassword: z.string(),
+}).refine((value) => value.password === value.confirmPassword, {
+  path: ["confirmPassword"],
+  message: "Passwords do not match",
 });
 
 export const assignmentRuleSchema = z.object({

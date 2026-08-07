@@ -8,6 +8,7 @@ import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagina
 import { getOrganizationId } from "@/lib/organization";
 import { withTiming } from "@/lib/perf";
 import { cached } from "@/lib/cache";
+import { SetupLinkActions } from "@/components/employees/setup-link-actions";
 
 export default async function EmployeesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
@@ -50,7 +51,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
               <th className="px-4 py-3.5">Visits</th>
               <th className="px-4 py-3.5">Follow-ups</th>
               <th className="px-4 py-3.5">Availability</th>
-              <th className="px-4 py-3.5">Status</th>
+              <th className="px-4 py-3.5">Account</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#EFF4FF] text-[#596579]">
@@ -72,7 +73,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
                 <td className="px-4 py-3.5">
                   {e.role === "FIELD_EXECUTIVE" ? <Badge tone={e.isAvailable ? "green" : "slate"}>{e.isAvailable ? "Available" : "Unavailable"}</Badge> : "-"}
                 </td>
-                <td className="px-4 py-3.5"><StatusToggle employeeId={e.id} status={e.status} /></td>
+                <td className="px-4 py-3.5 space-y-2"><StatusToggle employeeId={e.id} status={e.status} />{e.status === "PENDING_SETUP" && <SetupLinkActions employeeId={e.id} employeeName={e.name} />}</td>
               </tr>
             ))}
           </tbody>

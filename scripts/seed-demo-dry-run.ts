@@ -23,6 +23,8 @@ import {
   checkPhase4EnumTypesExist,
   checkPhase5SchemaCompatibility,
   checkPhase5EnumTypesExist,
+  checkAccountSetupSchemaCompatibility,
+  checkPendingSetupEnumCompatibility,
 } from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
@@ -209,6 +211,22 @@ export async function runDryRun(
     );
   } catch (e) {
     record("Phase 5+6 enum types", false, (e as Error).message);
+  }
+
+  try {
+    const accountSetupCheck = await checkAccountSetupSchemaCompatibility(client);
+    record("Employee account setup schema compatibility", accountSetupCheck.ok,
+      accountSetupCheck.ok ? "account setup token table is compatible" : `missing: ${accountSetupCheck.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`);
+  } catch (e) {
+    record("Employee account setup schema compatibility", false, (e as Error).message);
+  }
+
+  try {
+    const pendingSetupCheck = await checkPendingSetupEnumCompatibility(client);
+    record("EmployeeStatus.PENDING_SETUP compatibility", pendingSetupCheck.ok,
+      pendingSetupCheck.ok ? "PENDING_SETUP exists in production" : "PENDING_SETUP is missing in production");
+  } catch (e) {
+    record("EmployeeStatus.PENDING_SETUP compatibility", false, (e as Error).message);
   }
 
   // --- NotificationType enum compatibility against the actual production

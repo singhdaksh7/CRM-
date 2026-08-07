@@ -3,7 +3,7 @@ import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
-import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES } from "../src/lib/demo-data/schema-compat";
+import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS } from "../src/lib/demo-data/schema-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -40,6 +40,7 @@ const HEALTHY_PHASE4_COLUMNS = REQUIRED_PHASE4_TABLES.map((r) => ({ table_name: 
 const HEALTHY_PHASE4_ENUM_TYPES = REQUIRED_PHASE4_ENUM_TYPES.map((typname) => ({ typname }));
 const HEALTHY_PHASE5_COLUMNS = REQUIRED_PHASE5_TABLES.map((r) => ({ table_name: r.table, column_name: r.column }));
 const HEALTHY_PHASE5_ENUM_TYPES = REQUIRED_PHASE5_ENUM_TYPES.map((typname) => ({ typname }));
+const HEALTHY_ACCOUNT_SETUP_COLUMNS = REQUIRED_ACCOUNT_SETUP_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
 
 /** Dispatches on the raw SQL text so the different $queryRawUnsafe call sites (catalogue schema check, Phase 4 schema check, Phase 4 enum-type check, production enum check) each get shaped fixture data instead of one being fed another's rows. */
 function makeQueryRawUnsafe(overrides?: {
@@ -49,6 +50,8 @@ function makeQueryRawUnsafe(overrides?: {
   phase5Columns?: typeof HEALTHY_PHASE5_COLUMNS;
   phase5EnumTypes?: typeof HEALTHY_PHASE5_ENUM_TYPES;
   notificationEnumRows?: typeof HEALTHY_NOTIFICATION_ENUM_ROWS;
+  accountSetupColumns?: typeof HEALTHY_ACCOUNT_SETUP_COLUMNS;
+  pendingSetupEnumRows?: { enumlabel: string }[];
 }) {
   const catalogueColumns = overrides?.catalogueColumns ?? HEALTHY_CATALOGUE_COLUMNS;
   const phase4Columns = overrides?.phase4Columns ?? HEALTHY_PHASE4_COLUMNS;
@@ -56,10 +59,14 @@ function makeQueryRawUnsafe(overrides?: {
   const phase5Columns = overrides?.phase5Columns ?? HEALTHY_PHASE5_COLUMNS;
   const phase5EnumTypes = overrides?.phase5EnumTypes ?? HEALTHY_PHASE5_ENUM_TYPES;
   const notificationEnumRows = overrides?.notificationEnumRows ?? HEALTHY_NOTIFICATION_ENUM_ROWS;
+  const accountSetupColumns = overrides?.accountSetupColumns ?? HEALTHY_ACCOUNT_SETUP_COLUMNS;
+  const pendingSetupEnumRows = overrides?.pendingSetupEnumRows ?? [{ enumlabel: "PENDING_SETUP" }];
   return vi.fn().mockImplementation((query: string, tables?: string[]) => {
+    if (query.includes("EmployeeStatus")) return Promise.resolve(pendingSetupEnumRows);
     if (query.includes("pg_enum")) return Promise.resolve(notificationEnumRows);
     if (query.includes("pg_type")) return Promise.resolve(Array.isArray(tables) && tables.includes("DealOfferSide") ? phase5EnumTypes : phase4EnumTypes);
     if (Array.isArray(tables) && tables.includes("deal_offers")) return Promise.resolve(phase5Columns);
+    if (Array.isArray(tables) && tables.includes("account_setup_tokens")) return Promise.resolve(accountSetupColumns);
     if (Array.isArray(tables) && tables.includes("inventory_partners")) return Promise.resolve(phase4Columns);
     return Promise.resolve(catalogueColumns);
   });
@@ -293,6 +300,24 @@ describe("runDryRun - each required failure condition", () => {
     const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
     expect(allPassed).toBe(false);
     expect(checks.find((c) => c.name === "Phase 5+6 enum types")?.detail).toContain("DealOfferSide");
+  });
+
+  it("FAILs employee account setup compatibility when its token table is incomplete", async () => {
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({
+      accountSetupColumns: HEALTHY_ACCOUNT_SETUP_COLUMNS.filter((column) => column.column_name !== "tokenHash"),
+    });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    expect(checks.find((c) => c.name === "Employee account setup schema compatibility")?.detail).toContain("tokenHash");
+  });
+
+  it("FAILs employee account setup compatibility when PENDING_SETUP is absent", async () => {
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({ pendingSetupEnumRows: [] });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    expect(checks.find((c) => c.name === "EmployeeStatus.PENDING_SETUP compatibility")?.passed).toBe(false);
   });
 });
 

@@ -160,3 +160,25 @@ export const REQUIRED_PHASE5_TABLES: readonly RequiredColumn[] = [
 export const REQUIRED_PHASE5_ENUM_TYPES = ["DealOfferSide", "RequirementBroadcastStatus", "MatchRecommendationStatus"] as const;
 export async function checkPhase5SchemaCompatibility(client: RawQueryClient) { return checkCatalogueSchemaCompatibility(client, REQUIRED_PHASE5_TABLES); }
 export async function checkPhase5EnumTypesExist(client: RawQueryClient) { return checkPhase4EnumTypesExist(client, REQUIRED_PHASE5_ENUM_TYPES); }
+
+export const REQUIRED_ACCOUNT_SETUP_COLUMNS: readonly RequiredColumn[] = [
+  { table: "account_setup_tokens", column: "id" },
+  { table: "account_setup_tokens", column: "organizationId" },
+  { table: "account_setup_tokens", column: "userId" },
+  { table: "account_setup_tokens", column: "tokenHash" },
+  { table: "account_setup_tokens", column: "expiresAt" },
+  { table: "account_setup_tokens", column: "usedAt" },
+  { table: "account_setup_tokens", column: "createdAt" },
+];
+
+export async function checkAccountSetupSchemaCompatibility(client: RawQueryClient) {
+  return checkCatalogueSchemaCompatibility(client, REQUIRED_ACCOUNT_SETUP_COLUMNS);
+}
+
+export async function checkPendingSetupEnumCompatibility(client: RawQueryClient): Promise<EnumTypeCheckResult> {
+  const rows = await client.$queryRawUnsafe<{ enumlabel: string }[]>(
+    `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='EmployeeStatus'`
+  );
+  const present = new Set(rows.map((row) => row.enumlabel));
+  return { ok: present.has("PENDING_SETUP"), missing: present.has("PENDING_SETUP") ? [] : ["PENDING_SETUP"] };
+}

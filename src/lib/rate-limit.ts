@@ -42,6 +42,7 @@ export interface RateLimitRule {
 /** Named, env-overridable rate-limit presets for each public/sensitive surface. */
 export const RATE_LIMITS: Record<string, RateLimitRule> = {
   login: { limit: Number(process.env.RATE_LIMIT_LOGIN_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_LOGIN_WINDOW_SECONDS ?? 300) },
+  accountSetup: { limit: Number(process.env.RATE_LIMIT_ACCOUNT_SETUP_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_ACCOUNT_SETUP_WINDOW_SECONDS ?? 900) },
   publicCatalogue: { limit: Number(process.env.RATE_LIMIT_CATALOGUE_MAX ?? 60), windowSeconds: Number(process.env.RATE_LIMIT_CATALOGUE_WINDOW_SECONDS ?? 60) },
   webhook: { limit: Number(process.env.RATE_LIMIT_WEBHOOK_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_WEBHOOK_WINDOW_SECONDS ?? 60) },
   import: { limit: Number(process.env.RATE_LIMIT_IMPORT_MAX ?? 5), windowSeconds: Number(process.env.RATE_LIMIT_IMPORT_WINDOW_SECONDS ?? 300) },

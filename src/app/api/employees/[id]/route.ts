@@ -41,7 +41,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!existing) throw new ApiError(404, "Employee not found");
 
     const body = await req.json();
-    const { serviceAreas, ...data } = employeeSchema.partial().omit({ password: true }).parse(body);
+    const { serviceAreas, ...data } = employeeSchema.partial().parse(body);
+    if (existing.status === "PENDING_SETUP" && data.status === "ACTIVE") {
+      throw new ApiError(409, "Complete account setup before activating this employee");
+    }
 
     const employee = await prisma.user.update({
       where: { id },

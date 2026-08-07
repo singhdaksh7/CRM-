@@ -226,6 +226,7 @@ enum ActivityType {
 }
 
 enum EmployeeStatus {
+  PENDING_SETUP
   ACTIVE
   INACTIVE
 }
@@ -569,46 +570,47 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                 User[]
-  properties            Property[]
-  leads                 Lead[]
-  leadTransfers         LeadTransfer[]
-  sharedPropertyLogs    SharedPropertyLog[]
-  visits                Visit[]
-  followUps             FollowUp[]
-  activities            Activity[]
-  notifications         Notification[]
-  assignmentRules       LeadAssignmentRule[]
-  employeeServiceAreas  EmployeeServiceArea[]
-  leadScoreHistory      LeadScoreHistory[]
-  whatsappConversations WhatsAppConversation[]
-  whatsappMessages      WhatsAppMessage[]
-  catalogueShares       CatalogueShare[]
-  catalogueInteractions CatalogueInteraction[]
-  webhookEvents         IntegrationWebhookEvent[]
-  owners                Owner[]
-  deals                 Deal[]
-  brokerageCalculations BrokerageCalculation[]
-  payments              Payment[]
-  documents             Document[]
-  propertyImages        PropertyImage[]
-  importJobs            ImportJob[]
-  auditLogs             AuditLog[]
-  backupRecords         BackupRecord[]
-  restoreValidations    RestoreValidation[]
-  savedViews            SavedView[]
-  systemConfig          SystemConfig?
-  automationRules       AutomationRule[]
-  inventoryPartners     InventoryPartner[]
-  propertyTimelineEvents PropertyTimelineEvent[]
+  users                       User[]
+  properties                  Property[]
+  leads                       Lead[]
+  leadTransfers               LeadTransfer[]
+  sharedPropertyLogs          SharedPropertyLog[]
+  visits                      Visit[]
+  followUps                   FollowUp[]
+  activities                  Activity[]
+  notifications               Notification[]
+  assignmentRules             LeadAssignmentRule[]
+  employeeServiceAreas        EmployeeServiceArea[]
+  leadScoreHistory            LeadScoreHistory[]
+  whatsappConversations       WhatsAppConversation[]
+  whatsappMessages            WhatsAppMessage[]
+  catalogueShares             CatalogueShare[]
+  catalogueInteractions       CatalogueInteraction[]
+  webhookEvents               IntegrationWebhookEvent[]
+  owners                      Owner[]
+  deals                       Deal[]
+  brokerageCalculations       BrokerageCalculation[]
+  payments                    Payment[]
+  documents                   Document[]
+  propertyImages              PropertyImage[]
+  importJobs                  ImportJob[]
+  auditLogs                   AuditLog[]
+  backupRecords               BackupRecord[]
+  restoreValidations          RestoreValidation[]
+  savedViews                  SavedView[]
+  systemConfig                SystemConfig?
+  automationRules             AutomationRule[]
+  inventoryPartners           InventoryPartner[]
+  propertyTimelineEvents      PropertyTimelineEvent[]
   propertyAvailabilityReports PropertyAvailabilityReport[]
-  propertyReports       PropertyReport[]
-  visitFeedback         VisitFeedback[]
-  leadAssignmentHistory LeadAssignmentHistory[]
-  catalogueVersionEvents CatalogueVersionEvent[]
-  dealOffers            DealOffer[]
-  requirementBroadcasts RequirementBroadcast[]
-  matchRecommendations  MatchRecommendation[]
+  propertyReports             PropertyReport[]
+  visitFeedback               VisitFeedback[]
+  leadAssignmentHistory       LeadAssignmentHistory[]
+  catalogueVersionEvents      CatalogueVersionEvent[]
+  dealOffers                  DealOffer[]
+  requirementBroadcasts       RequirementBroadcast[]
+  matchRecommendations        MatchRecommendation[]
+  accountSetupTokens          AccountSetupToken[]
 
   @@map("organizations")
 }
@@ -671,24 +673,41 @@ model User {
   automationRulesCreated    AutomationRule[]
 
   // Phase 4 - Field Operations
-  inventoryPartnersCreated       InventoryPartner[]           @relation("InventoryPartnerCreatedBy")
-  propertiesLastVerified         Property[]                   @relation("PropertyLastVerifiedBy")
-  propertyTimelineEventsActed    PropertyTimelineEvent[]      @relation("PropertyTimelineEventActor")
-  availabilityReportsSubmitted   PropertyAvailabilityReport[] @relation("AvailabilityReportedBy")
-  availabilityReportsReviewed    PropertyAvailabilityReport[] @relation("AvailabilityReportReviewedBy")
-  propertyReportsSubmitted       PropertyReport[]             @relation("PropertyReportedBy")
-  propertyReportsResolved        PropertyReport[]             @relation("PropertyReportResolvedBy")
-  visitFeedbackSubmitted         VisitFeedback[]              @relation("VisitFeedbackSubmittedBy")
-  leadAssignmentHistoryTo        LeadAssignmentHistory[]      @relation("AssignmentHistoryTo")
-  catalogueExecutiveStatusUpdates CatalogueShareProperty[]    @relation("CatalogueExecutiveStatusUpdatedBy")
-  catalogueVersionEventsActed    CatalogueVersionEvent[]      @relation("CatalogueVersionEventActor")
-  propertyFavorites              PropertyFavorite[]
-  propertyViewLogs               PropertyViewLog[]
-  dealOffers                     DealOffer[]
-  requirementBroadcasts          RequirementBroadcast[]
-  matchRecommendations           MatchRecommendation[]
+  inventoryPartnersCreated        InventoryPartner[]           @relation("InventoryPartnerCreatedBy")
+  propertiesLastVerified          Property[]                   @relation("PropertyLastVerifiedBy")
+  propertyTimelineEventsActed     PropertyTimelineEvent[]      @relation("PropertyTimelineEventActor")
+  availabilityReportsSubmitted    PropertyAvailabilityReport[] @relation("AvailabilityReportedBy")
+  availabilityReportsReviewed     PropertyAvailabilityReport[] @relation("AvailabilityReportReviewedBy")
+  propertyReportsSubmitted        PropertyReport[]             @relation("PropertyReportedBy")
+  propertyReportsResolved         PropertyReport[]             @relation("PropertyReportResolvedBy")
+  visitFeedbackSubmitted          VisitFeedback[]              @relation("VisitFeedbackSubmittedBy")
+  leadAssignmentHistoryTo         LeadAssignmentHistory[]      @relation("AssignmentHistoryTo")
+  catalogueExecutiveStatusUpdates CatalogueShareProperty[]     @relation("CatalogueExecutiveStatusUpdatedBy")
+  catalogueVersionEventsActed     CatalogueVersionEvent[]      @relation("CatalogueVersionEventActor")
+  propertyFavorites               PropertyFavorite[]
+  propertyViewLogs                PropertyViewLog[]
+  dealOffers                      DealOffer[]
+  requirementBroadcasts           RequirementBroadcast[]
+  matchRecommendations            MatchRecommendation[]
+  accountSetupTokens              AccountSetupToken[]
 
   @@map("users")
+}
+
+model AccountSetupToken {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, userId])
+  @@index([expiresAt])
+  @@map("account_setup_tokens")
 }
 
 // ---------------------------------------------------------------------------
@@ -734,24 +753,24 @@ model EmployeeServiceArea {
 // ---------------------------------------------------------------------------
 
 model Notification {
-  id             String           @id @default(cuid())
-  organizationId String           @default("org_default")
-  organization   Organization     @relation(fields: [organizationId], references: [id])
-  userId         String?
-  user           User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           Role?
-  type           NotificationType
-  title          String
-  message        String
-  leadId         String?
-  visitId        String?
-  propertyId     String?
-  followUpId     String?
+  id                 String            @id @default(cuid())
+  organizationId     String            @default("org_default")
+  organization       Organization      @relation(fields: [organizationId], references: [id])
+  userId             String?
+  user               User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role               Role?
+  type               NotificationType
+  title              String
+  message            String
+  leadId             String?
+  visitId            String?
+  propertyId         String?
+  followUpId         String?
   inventoryPartnerId String? // Phase 4 - Field Operations
   inventoryPartner   InventoryPartner? @relation(fields: [inventoryPartnerId], references: [id])
-  isRead         Boolean          @default(false)
-  readAt         DateTime?
-  createdAt      DateTime         @default(now())
+  isRead             Boolean           @default(false)
+  readAt             DateTime?
+  createdAt          DateTime          @default(now())
 
   @@index([userId, isRead])
   @@index([role, isRead])
@@ -849,24 +868,24 @@ model Property {
   partner         InventoryPartner? @relation(fields: [partnerId], references: [id])
 
   // Phase 4 - Internal Property View (never in customer-facing catalogue DTOs)
-  buildingName        String?
-  flatNumber          String?
-  gateNumber          String?
-  propertySource      String?
-  keyAvailability     String?
-  entryInstructions   String?
-  internalNotes       String?
-  negotiationNotes    String?
-  hiddenRemarks       String?
-  imagesUpdatedAt     DateTime?
+  buildingName      String?
+  flatNumber        String?
+  gateNumber        String?
+  propertySource    String?
+  keyAvailability   String?
+  entryInstructions String?
+  internalNotes     String?
+  negotiationNotes  String?
+  hiddenRemarks     String?
+  imagesUpdatedAt   DateTime?
 
   // Phase 4 - Availability Verification
   pendingVerification Boolean @default(false)
 
   // Phase 4 - Property Last Verified
-  lastVerifiedAt      DateTime?
-  lastVerifiedById    String?
-  lastVerifiedBy      User?     @relation("PropertyLastVerifiedBy", fields: [lastVerifiedById], references: [id])
+  lastVerifiedAt   DateTime?
+  lastVerifiedById String?
+  lastVerifiedBy   User?     @relation("PropertyLastVerifiedBy", fields: [lastVerifiedById], references: [id])
 
   createdById String?
   createdBy   User?    @relation("PropertyCreatedBy", fields: [createdById], references: [id])
@@ -1097,23 +1116,23 @@ model FollowUp {
 // ---------------------------------------------------------------------------
 
 model Activity {
-  id             String       @id @default(cuid())
-  organizationId String       @default("org_default")
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  leadId         String?
-  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  crmOwnerId     String?
-  crmOwner       Owner?       @relation(fields: [crmOwnerId], references: [id], onDelete: Cascade)
-  dealId         String?
-  deal           Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  id                 String            @id @default(cuid())
+  organizationId     String            @default("org_default")
+  organization       Organization      @relation(fields: [organizationId], references: [id])
+  leadId             String?
+  lead               Lead?             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  crmOwnerId         String?
+  crmOwner           Owner?            @relation(fields: [crmOwnerId], references: [id], onDelete: Cascade)
+  dealId             String?
+  deal               Deal?             @relation(fields: [dealId], references: [id], onDelete: Cascade)
   inventoryPartnerId String? // Phase 4 - Field Operations
   inventoryPartner   InventoryPartner? @relation(fields: [inventoryPartnerId], references: [id], onDelete: Cascade)
-  actorId        String?
-  actor          User?        @relation("ActivityActor", fields: [actorId], references: [id])
-  type           ActivityType
-  description    String
-  metadata       String? // JSON blob for extra context
-  createdAt      DateTime     @default(now())
+  actorId            String?
+  actor              User?             @relation("ActivityActor", fields: [actorId], references: [id])
+  type               ActivityType
+  description        String
+  metadata           String? // JSON blob for extra context
+  createdAt          DateTime          @default(now())
 
   @@index([crmOwnerId])
   @@index([dealId])
@@ -1217,9 +1236,9 @@ model CatalogueShare {
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
-  properties     CatalogueShareProperty[]
-  interactions   CatalogueInteraction[]
-  versionEvents  CatalogueVersionEvent[]
+  properties    CatalogueShareProperty[]
+  interactions  CatalogueInteraction[]
+  versionEvents CatalogueVersionEvent[]
 
   @@index([organizationId, leadId])
   @@map("catalogue_shares")
@@ -1252,8 +1271,8 @@ model CatalogueShareProperty {
 
   // Phase 4 - catalogue versioning (soft-removal, never a hard delete -
   // existing CatalogueInteraction rows reference propertyId and must stay valid)
-  removedAt      DateTime?
-  removedReason  String?
+  removedAt     DateTime?
+  removedReason String?
 
   @@unique([catalogueShareId, propertyId])
   @@map("catalogue_share_properties")
@@ -1364,9 +1383,9 @@ model Deal {
   ownerId    String?
   owner      Owner?    @relation(fields: [ownerId], references: [id])
 
-  agreedAmount    Int?
-  brokeragePct    Float?
-  brokerageAmount Int?
+  agreedAmount            Int?
+  brokeragePct            Float?
+  brokerageAmount         Int?
   // Internal reporting only. These fields do not represent collection,
   // invoicing, payment status, or a payment instruction of any kind.
   expectedBrokerageAmount Int?
@@ -1377,11 +1396,11 @@ model Deal {
   assignedToId String?
   assignedTo   User?   @relation("DealAssignedTo", fields: [assignedToId], references: [id])
 
-  expectedCloseDate DateTime?
-  closedAt          DateTime?
-  lostReason        String?
+  expectedCloseDate  DateTime?
+  closedAt           DateTime?
+  lostReason         String?
   lostReasonCategory LostDealReasonCategory?
-  notes             String?
+  notes              String?
 
   createdById String?
   createdBy   User?    @relation("DealCreatedBy", fields: [createdById], references: [id])
@@ -1406,17 +1425,17 @@ model Deal {
 /// Append-only negotiation ledger. There is deliberately no update/delete
 /// workflow for offers; corrections are represented by a subsequent offer.
 model DealOffer {
-  id             String       @id @default(cuid())
-  organizationId String       @default("org_default")
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  id             String        @id @default(cuid())
+  organizationId String        @default("org_default")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
   dealId         String
-  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  deal           Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
   amount         Int
   side           DealOfferSide
   note           String?
   createdById    String
-  createdBy      User         @relation(fields: [createdById], references: [id])
-  createdAt      DateTime     @default(now())
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
 
   @@index([organizationId, dealId, createdAt])
   @@map("deal_offers")
@@ -1438,19 +1457,19 @@ enum RequirementBroadcastStatus {
 }
 
 model RequirementBroadcast {
-  id                  String                     @id @default(cuid())
-  organizationId      String                     @default("org_default")
-  organization        Organization               @relation(fields: [organizationId], references: [id])
+  id                  String                          @id @default(cuid())
+  organizationId      String                          @default("org_default")
+  organization        Organization                    @relation(fields: [organizationId], references: [id])
   leadId              String
-  lead                Lead                       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead                Lead                            @relation(fields: [leadId], references: [id], onDelete: Cascade)
   requirementSnapshot String
   messageSnapshot     String
-  status              RequirementBroadcastStatus @default(DRAFT)
+  status              RequirementBroadcastStatus      @default(DRAFT)
   createdById         String
-  createdBy           User                       @relation(fields: [createdById], references: [id])
+  createdBy           User                            @relation(fields: [createdById], references: [id])
   sharedAt            DateTime?
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
+  createdAt           DateTime                        @default(now())
+  updatedAt           DateTime                        @updatedAt
   recipients          RequirementBroadcastRecipient[]
 
   @@index([organizationId, leadId, status])
@@ -1458,15 +1477,15 @@ model RequirementBroadcast {
 }
 
 model RequirementBroadcastRecipient {
-  id                    String               @id @default(cuid())
+  id                     String               @id @default(cuid())
   requirementBroadcastId String
-  requirementBroadcast  RequirementBroadcast @relation(fields: [requirementBroadcastId], references: [id], onDelete: Cascade)
-  inventoryPartnerId    String
-  inventoryPartner      InventoryPartner     @relation(fields: [inventoryPartnerId], references: [id])
-  selectedAt            DateTime             @default(now())
-  respondedAt           DateTime?
-  responseNote          String?
-  linkedPropertyId      String?
+  requirementBroadcast   RequirementBroadcast @relation(fields: [requirementBroadcastId], references: [id], onDelete: Cascade)
+  inventoryPartnerId     String
+  inventoryPartner       InventoryPartner     @relation(fields: [inventoryPartnerId], references: [id])
+  selectedAt             DateTime             @default(now())
+  respondedAt            DateTime?
+  responseNote           String?
+  linkedPropertyId       String?
 
   @@unique([requirementBroadcastId, inventoryPartnerId])
   @@map("requirement_broadcast_recipients")
@@ -1930,9 +1949,9 @@ model InventoryPartner {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  properties    Property[]
-  notifications Notification[]
-  activities    Activity[]
+  properties                     Property[]
+  notifications                  Notification[]
+  activities                     Activity[]
   requirementBroadcastRecipients RequirementBroadcastRecipient[]
 
   @@index([organizationId, isActive])
@@ -1954,8 +1973,8 @@ model PropertyTimelineEvent {
   toValue        String?
   note           String?
   actorId        String?
-  actor          User?    @relation("PropertyTimelineEventActor", fields: [actorId], references: [id])
-  createdAt      DateTime @default(now())
+  actor          User?        @relation("PropertyTimelineEventActor", fields: [actorId], references: [id])
+  createdAt      DateTime     @default(now())
 
   @@index([organizationId, propertyId, createdAt])
   @@map("property_timeline_events")
@@ -1980,22 +1999,22 @@ enum AvailabilityReportReason {
 // rejects creation without a real PropertyImage of purpose
 // AVAILABILITY_REPORT, to prevent fake/lazy reports.
 model PropertyAvailabilityReport {
-  id             String       @id @default(cuid())
-  organizationId String       @default("org_default")
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  id             String                   @id @default(cuid())
+  organizationId String                   @default("org_default")
+  organization   Organization             @relation(fields: [organizationId], references: [id])
   propertyId     String
-  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property       Property                 @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   visitId        String?
-  visit          Visit?       @relation(fields: [visitId], references: [id])
+  visit          Visit?                   @relation(fields: [visitId], references: [id])
   reportedById   String
-  reportedBy     User         @relation("AvailabilityReportedBy", fields: [reportedById], references: [id])
+  reportedBy     User                     @relation("AvailabilityReportedBy", fields: [reportedById], references: [id])
   reason         AvailabilityReportReason
   note           String?
   photoId        String
-  photo          PropertyImage @relation(fields: [photoId], references: [id])
+  photo          PropertyImage            @relation(fields: [photoId], references: [id])
   status         AvailabilityReportStatus @default(PENDING)
   reviewedById   String?
-  reviewedBy     User?        @relation("AvailabilityReportReviewedBy", fields: [reviewedById], references: [id])
+  reviewedBy     User?                    @relation("AvailabilityReportReviewedBy", fields: [reviewedById], references: [id])
   reviewedAt     DateTime?
   reviewNote     String?
 
@@ -2031,18 +2050,18 @@ enum PropertyReportStatus {
 // automatic inventory status change. Both feed the unified "Property Issues
 // Queue" admin view (GET /api/admin/property-issues merges both).
 model PropertyReport {
-  id             String       @id @default(cuid())
-  organizationId String       @default("org_default")
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  id             String               @id @default(cuid())
+  organizationId String               @default("org_default")
+  organization   Organization         @relation(fields: [organizationId], references: [id])
   propertyId     String
-  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property       Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   reportedById   String
-  reportedBy     User         @relation("PropertyReportedBy", fields: [reportedById], references: [id])
+  reportedBy     User                 @relation("PropertyReportedBy", fields: [reportedById], references: [id])
   type           PropertyReportType
   note           String?
   status         PropertyReportStatus @default(PENDING)
   resolvedById   String?
-  resolvedBy     User?        @relation("PropertyReportResolvedBy", fields: [resolvedById], references: [id])
+  resolvedBy     User?                @relation("PropertyReportResolvedBy", fields: [resolvedById], references: [id])
   resolvedAt     DateTime?
   resolutionNote String?
 
@@ -2096,7 +2115,7 @@ model LeadAssignmentHistory {
   toUser         User         @relation("AssignmentHistoryTo", fields: [toUserId], references: [id])
   method         String // "MANUAL_ASSIGN" | "AUTO_ASSIGN" | "BULK_AUTO_ASSIGN" | "TRANSFER"
   reason         String?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
 
   @@index([organizationId, leadId, createdAt])
   @@map("lead_assignment_history")
@@ -2107,18 +2126,18 @@ model LeadAssignmentHistory {
 // clients always see the current active property set, this log exists
 // purely for transparency/audit.
 model CatalogueVersionEvent {
-  id                String         @id @default(cuid())
-  organizationId    String         @default("org_default")
-  organization      Organization   @relation(fields: [organizationId], references: [id])
-  catalogueShareId  String
-  catalogueShare    CatalogueShare @relation(fields: [catalogueShareId], references: [id], onDelete: Cascade)
-  version           Int
-  changeType        String // "PROPERTY_REMOVED" | "PROPERTY_ADDED"
-  propertyId        String?
-  reason            String?
-  actorId           String?
-  actor             User?    @relation("CatalogueVersionEventActor", fields: [actorId], references: [id])
-  createdAt         DateTime @default(now())
+  id               String         @id @default(cuid())
+  organizationId   String         @default("org_default")
+  organization     Organization   @relation(fields: [organizationId], references: [id])
+  catalogueShareId String
+  catalogueShare   CatalogueShare @relation(fields: [catalogueShareId], references: [id], onDelete: Cascade)
+  version          Int
+  changeType       String // "PROPERTY_REMOVED" | "PROPERTY_ADDED"
+  propertyId       String?
+  reason           String?
+  actorId          String?
+  actor            User?          @relation("CatalogueVersionEventActor", fields: [actorId], references: [id])
+  createdAt        DateTime       @default(now())
 
   @@index([catalogueShareId, version])
   @@map("catalogue_version_events")
