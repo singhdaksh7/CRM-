@@ -81,13 +81,33 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   }
 
   // --- Catalogue tree (leaf -> root) ---
+  // catalogueInteraction/catalogueShareProperty each have TWO independent
+  // routes to a demo Property: through a demo-prefixed CatalogueShare
+  // (the normal case, e.g. every catalogue createDemoCatalogues() makes),
+  // OR directly through their own optional/required propertyId FK when a
+  // REAL (non-demo-prefixed) catalogue was built against a demo property via
+  // the live catalogue-builder UI - e.g. an admin QA-testing catalogue
+  // creation against demo inventory. Filtering only by catalogueShare (the
+  // original code) misses that second route entirely: the row survives,
+  // and property.deleteMany() then fails with a P2003 FK violation on
+  // catalogue_share_properties_propertyId_fkey - the exact incident this
+  // fix addresses. Deleting these rows is safe even when the parent
+  // CatalogueShare/Lead is real: they are link/log rows, not top-level
+  // business records - removing one only clears a stale reference to a
+  // property that's about to stop existing, and never deletes the real
+  // CatalogueShare/Lead itself.
   await del("catalogueInteraction", () =>
-    prisma.catalogueInteraction.deleteMany({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } })
+    prisma.catalogueInteraction.deleteMany({
+      where: { organizationId: orgId, OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
+    })
   );
   await del("catalogueShareProperty", () =>
-    prisma.catalogueShareProperty.deleteMany({ where: { catalogueShare: startsWith("cat") } })
+    prisma.catalogueShareProperty.deleteMany({
+      where: { OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
+    })
   );
   // Phase 4 - catalogue versioning log; cascades on catalogueShare too, deleted explicitly here (before catalogueShare) for an accurate per-model count.
+  // Its own propertyId field (present on some rows) is a plain string, not a foreign key (see schema.prisma) - no additional scoping needed here.
   await del("catalogueVersionEvent", () =>
     prisma.catalogueVersionEvent.deleteMany({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } })
   );
@@ -99,12 +119,32 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   );
   await del("whatsAppConversation", () => prisma.whatsAppConversation.deleteMany({ where: startsWith("wa") }));
 
-  // --- Shared property logs (relation-only, no deterministic id) ---
+  // --- Shared property logs (relation-only, no deterministic id). Same
+  // two-route reasoning as the catalogue tree above: a real Lead's shared-
+  // property log can carry an optional propertyId pointing at a demo
+  // property (shared from the live UI), independent of whether the Lead
+  // itself is demo-prefixed. The Prisma relation field here is named
+  // `Property` (capitalized, an inconsistency already present in
+  // schema.prisma), not `property` like every other model. ---
   await del("sharedPropertyLog", () =>
-    prisma.sharedPropertyLog.deleteMany({ where: { organizationId: orgId, lead: startsWith("lead") } })
+    prisma.sharedPropertyLog.deleteMany({
+      where: { organizationId: orgId, OR: [{ lead: startsWith("lead") }, { Property: startsWith("prop") }] },
+    })
   );
 
   // --- Deal tree ---
+  // Deliberately NOT widened to an OR-by-property filter like the catalogue/
+  // shared-log tables above: unlike a CatalogueShareProperty or
+  // SharedPropertyLog row, a Deal is itself a top-level real business record
+  // (with real payments/brokerage attached) - deleting a REAL deal just
+  // because its optional propertyId happens to point at a demo property
+  // would violate "incapable of deleting real records". Known limitation:
+  // if a real deal is ever linked to a demo property (only possible via
+  // manual live-UI usage, never via the demo seed itself - createDemoDeals()
+  // only ever links demo-prefixed deals to demo-prefixed properties),
+  // property.deleteMany() below would still fail with a P2003 on that one
+  // property; resolving that is a data-hygiene question for whoever created
+  // that link, not something teardown should silently paper over.
   await del("payment", () => prisma.payment.deleteMany({ where: { organizationId: orgId, deal: startsWith("deal") } }));
   await del("brokerageCalculation", () =>
     prisma.brokerageCalculation.deleteMany({ where: { organizationId: orgId, deal: startsWith("deal") } })
@@ -129,6 +169,14 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   // --- Visits, follow-ups, lead score history, activities, notifications (relation-scoped) ---
   // Phase 4 - one-to-one with Visit (cascades too, deleted explicitly here first for an accurate per-model count).
   await del("visitFeedback", () => prisma.visitFeedback.deleteMany({ where: { organizationId: orgId, visit: startsWith("visit") } }));
+  // Visit.propertyId is required (NOT NULL, no cascade) - same "real top-level
+  // record" reasoning as Deal above applies even more strongly here: a real
+  // Visit can't be partially unlinked (there's no nullable propertyId to
+  // clear), so widening this filter would mean either deleting a real visit
+  // outright or leaving a dangling reference - both worse than the current,
+  // narrow demo-id-scoped delete. createDemoVisits() only ever links
+  // demo-prefixed visits to demo-prefixed properties, so this is already
+  // complete for anything the seed itself creates.
   await del("visit", () => prisma.visit.deleteMany({ where: startsWith("visit") }));
   await del("followUp", () => prisma.followUp.deleteMany({ where: startsWith("fu") }));
   await del("leadScoreHistory", () =>
@@ -216,13 +264,19 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,
     lead, property, owner, inventoryPartner, employeeServiceArea, leadAssignmentRule, user,
   ] = await Promise.all([
-    client.catalogueInteraction.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
-    client.catalogueShareProperty.count({ where: { catalogueShare: startsWith("cat") } }),
+    client.catalogueInteraction.count({
+      where: { organizationId: orgId, OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
+    }),
+    client.catalogueShareProperty.count({
+      where: { OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
+    }),
     client.catalogueVersionEvent.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
     client.catalogueShare.count({ where: startsWith("cat") }),
     client.whatsAppMessage.count({ where: { organizationId: orgId, conversation: startsWith("wa") } }),
     client.whatsAppConversation.count({ where: startsWith("wa") }),
-    client.sharedPropertyLog.count({ where: { organizationId: orgId, lead: startsWith("lead") } }),
+    client.sharedPropertyLog.count({
+      where: { organizationId: orgId, OR: [{ lead: startsWith("lead") }, { Property: startsWith("prop") }] },
+    }),
     client.payment.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
     client.brokerageCalculation.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
     client.deal.count({ where: startsWith("deal") }),
