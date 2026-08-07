@@ -3,7 +3,7 @@ import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
-import { REQUIRED_PHASE4_TABLES } from "../src/lib/demo-data/schema-compat";
+import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES } from "../src/lib/demo-data/schema-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -35,14 +35,23 @@ const HEALTHY_CATALOGUE_COLUMNS = [
 const HEALTHY_NOTIFICATION_ENUM_ROWS = NOTIFICATION_TYPES_USED_BY_DEMO_DATA.map((enumlabel) => ({ enumlabel }));
 /** Mirrors REQUIRED_PHASE4_TABLES exactly (imported, not duplicated) so this fixture can never silently drift out of sync with what checkPhase4SchemaCompatibility actually requires. */
 const HEALTHY_PHASE4_COLUMNS = REQUIRED_PHASE4_TABLES.map((r) => ({ table_name: r.table, column_name: r.column }));
+/** Mirrors REQUIRED_PHASE4_ENUM_TYPES exactly, same reasoning as HEALTHY_PHASE4_COLUMNS above. */
+const HEALTHY_PHASE4_ENUM_TYPES = REQUIRED_PHASE4_ENUM_TYPES.map((typname) => ({ typname }));
 
-/** Dispatches on the raw SQL text so the different $queryRawUnsafe call sites (catalogue schema check, Phase 4 schema check, production enum check) each get shaped fixture data instead of one being fed another's rows. */
-function makeQueryRawUnsafe(overrides?: { catalogueColumns?: typeof HEALTHY_CATALOGUE_COLUMNS; phase4Columns?: typeof HEALTHY_PHASE4_COLUMNS; notificationEnumRows?: typeof HEALTHY_NOTIFICATION_ENUM_ROWS }) {
+/** Dispatches on the raw SQL text so the different $queryRawUnsafe call sites (catalogue schema check, Phase 4 schema check, Phase 4 enum-type check, production enum check) each get shaped fixture data instead of one being fed another's rows. */
+function makeQueryRawUnsafe(overrides?: {
+  catalogueColumns?: typeof HEALTHY_CATALOGUE_COLUMNS;
+  phase4Columns?: typeof HEALTHY_PHASE4_COLUMNS;
+  phase4EnumTypes?: typeof HEALTHY_PHASE4_ENUM_TYPES;
+  notificationEnumRows?: typeof HEALTHY_NOTIFICATION_ENUM_ROWS;
+}) {
   const catalogueColumns = overrides?.catalogueColumns ?? HEALTHY_CATALOGUE_COLUMNS;
   const phase4Columns = overrides?.phase4Columns ?? HEALTHY_PHASE4_COLUMNS;
+  const phase4EnumTypes = overrides?.phase4EnumTypes ?? HEALTHY_PHASE4_ENUM_TYPES;
   const notificationEnumRows = overrides?.notificationEnumRows ?? HEALTHY_NOTIFICATION_ENUM_ROWS;
   return vi.fn().mockImplementation((query: string, tables?: string[]) => {
     if (query.includes("pg_enum")) return Promise.resolve(notificationEnumRows);
+    if (query.includes("pg_type")) return Promise.resolve(phase4EnumTypes);
     if (Array.isArray(tables) && tables.includes("inventory_partners")) return Promise.resolve(phase4Columns);
     return Promise.resolve(catalogueColumns);
   });
@@ -212,6 +221,44 @@ describe("runDryRun - each required failure condition", () => {
     const check = checks.find((c) => c.name === "Production NotificationType enum compatibility");
     expect(check?.passed).toBe(false);
     expect(check?.detail).toContain("PROPERTY_UNAVAILABLE_AFTER_SHARE");
+
+    await main(client);
+    expect(process.exitCode).toBe(1);
+    const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
+    expect(output).not.toContain("All checks passed");
+    process.exitCode = undefined;
+  });
+
+  it("FAILs Phase 4 schema compatibility, and it propagates to allPassed=false and exit code 1, when a Phase 4 column is missing in production", async () => {
+    process.exitCode = undefined;
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({
+      phase4Columns: HEALTHY_PHASE4_COLUMNS.filter((c) => !(c.table_name === "properties" && c.column_name === "inventorySource")),
+    });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    const check = checks.find((c) => c.name === "Phase 4 schema compatibility");
+    expect(check?.passed).toBe(false);
+    expect(check?.detail).toContain("properties.inventorySource");
+
+    await main(client);
+    expect(process.exitCode).toBe(1);
+    const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
+    expect(output).not.toContain("All checks passed");
+    process.exitCode = undefined;
+  });
+
+  it("FAILs Phase 4 enum types, and it propagates to allPassed=false and exit code 1, when a Phase 4 enum type is missing in production", async () => {
+    process.exitCode = undefined;
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({
+      phase4EnumTypes: HEALTHY_PHASE4_ENUM_TYPES.filter((t) => t.typname !== "InventorySource"),
+    });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    const check = checks.find((c) => c.name === "Phase 4 enum types");
+    expect(check?.passed).toBe(false);
+    expect(check?.detail).toContain("InventorySource");
 
     await main(client);
     expect(process.exitCode).toBe(1);
