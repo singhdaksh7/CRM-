@@ -277,6 +277,17 @@ export const dealStageUpdateSchema = z.object({
   notes: z.string().optional().nullable(),
   lostReason: z.string().optional().nullable(),
   lostReasonCategory: z.enum(["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"]).optional().nullable(),
+  agreedAmount: z.number().int().positive().optional(),
+  closingDate: z.string().date().optional(),
+  closingNotes: z.string().min(1).max(2000).optional(),
+  expectedBrokerageAmount: z.number().int().nonnegative().optional(),
+  kpSharePct: z.number().min(0).max(100).optional(),
+  partnerSharePct: z.number().min(0).max(100).optional(),
+}).superRefine((value, ctx) => {
+  if (value.stage !== "CLOSED_WON") return;
+  for (const key of ["agreedAmount", "closingDate", "closingNotes", "expectedBrokerageAmount", "kpSharePct"] as const) {
+    if (value[key] === undefined) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required to close won` });
+  }
 });
 
 export const dealOfferSchema = z.object({ amount: z.number().int().positive(), side: z.enum(["CLIENT", "OWNER", "INVENTORY_PARTNER", "INTERNAL"]), note: z.string().max(2000).optional().nullable() });

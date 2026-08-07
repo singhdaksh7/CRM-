@@ -74,6 +74,7 @@ export function LeadWorkspace({
   health,
   suggestions,
   visitSuggestions,
+  providerSendConfigured,
 }: {
   lead: LeadWithRelations;
   employees: User[];
@@ -81,6 +82,7 @@ export function LeadWorkspace({
   health: HealthScoreResult | null;
   suggestions: Suggestion[];
   visitSuggestions: Record<string, Suggestion[]>;
+  providerSendConfigured: boolean;
 }) {
   const [tab, setTab] = useState<LeadTab>("overview");
   const canManage = role === "ADMIN" || role === "DATA_MANAGER";
@@ -101,7 +103,7 @@ export function LeadWorkspace({
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} health={health} suggestions={suggestions} onTabAction={(t) => setTab(t as LeadTab)} />}
+      {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} health={health} suggestions={suggestions} providerSendConfigured={providerSendConfigured} onTabAction={(t) => setTab(t as LeadTab)} />}
       {tab === "whatsapp" && <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} clientName={lead.clientName} />}
       {tab === "catalogues" && <CataloguesTab leadId={lead.id} canManage={canManage} canSend={true} />}
       {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
@@ -119,6 +121,7 @@ function OverviewTab({
   canManage,
   health,
   suggestions,
+  providerSendConfigured,
   onTabAction,
 }: {
   lead: LeadWithRelations;
@@ -126,6 +129,7 @@ function OverviewTab({
   canManage: boolean;
   health: HealthScoreResult | null;
   suggestions: Suggestion[];
+  providerSendConfigured: boolean;
   onTabAction: (target: string) => void;
 }) {
   const router = useRouter();
@@ -221,7 +225,7 @@ function OverviewTab({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
-        <NewMatchesPanel recommendations={lead.matchRecommendations} catalogues={lead.catalogueShares} canManage={canManage} />
+        <NewMatchesPanel leadId={lead.id} recommendations={lead.matchRecommendations} catalogues={lead.catalogueShares} canManage={canManage} providerSendConfigured={providerSendConfigured} />
         <ScorePanel lead={lead} onRecalculate={recalculateScore} saving={saving} />
         {health && <HealthCard title="Lead Health" health={health} />}
         <SuggestionList suggestions={suggestions} onTabAction={onTabAction} />

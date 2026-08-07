@@ -149,3 +149,14 @@ export async function checkPhase4EnumTypesExist(
   const missing = required.filter((t) => !present.has(t));
   return { ok: missing.length === 0, missing };
 }
+
+export const REQUIRED_PHASE5_TABLES: readonly RequiredColumn[] = [
+  { table: "deals", column: "expectedBrokerageAmount" }, { table: "deals", column: "kpSharePct" }, { table: "deals", column: "partnerSharePct" }, { table: "deals", column: "closingNotes" },
+  { table: "deal_offers", column: "organizationId" }, { table: "deal_offers", column: "dealId" }, { table: "deal_offers", column: "side" }, { table: "deal_offers", column: "createdById" },
+  { table: "requirement_broadcasts", column: "organizationId" }, { table: "requirement_broadcasts", column: "leadId" }, { table: "requirement_broadcasts", column: "requirementSnapshot" }, { table: "requirement_broadcasts", column: "messageSnapshot" }, { table: "requirement_broadcasts", column: "status" },
+  { table: "requirement_broadcast_recipients", column: "requirementBroadcastId" }, { table: "requirement_broadcast_recipients", column: "inventoryPartnerId" }, { table: "requirement_broadcast_recipients", column: "linkedPropertyId" },
+  { table: "match_recommendations", column: "organizationId" }, { table: "match_recommendations", column: "leadId" }, { table: "match_recommendations", column: "propertyId" }, { table: "match_recommendations", column: "lifecycleKey" }, { table: "match_recommendations", column: "status" },
+];
+export const REQUIRED_PHASE5_ENUM_TYPES = ["DealOfferSide", "RequirementBroadcastStatus", "MatchRecommendationStatus"] as const;
+export async function checkPhase5SchemaCompatibility(client: RawQueryClient) { return checkCatalogueSchemaCompatibility(client, REQUIRED_PHASE5_TABLES); }
+export async function checkPhase5EnumTypesExist(client: RawQueryClient) { return checkPhase4EnumTypesExist(client, REQUIRED_PHASE5_ENUM_TYPES); }

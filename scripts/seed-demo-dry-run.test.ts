@@ -3,7 +3,7 @@ import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
-import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES } from "../src/lib/demo-data/schema-compat";
+import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES } from "../src/lib/demo-data/schema-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -15,6 +15,7 @@ import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES } from "../src/lib/d
  */
 
 const ALL_MODEL_KEYS = [
+  "dealOffer", "requirementBroadcastRecipient", "requirementBroadcast", "matchRecommendation",
   "catalogueInteraction", "catalogueShareProperty", "catalogueVersionEvent", "catalogueShare",
   "whatsAppMessage", "whatsAppConversation", "sharedPropertyLog",
   "payment", "brokerageCalculation", "deal", "document",
@@ -37,21 +38,28 @@ const HEALTHY_NOTIFICATION_ENUM_ROWS = NOTIFICATION_TYPES_USED_BY_DEMO_DATA.map(
 const HEALTHY_PHASE4_COLUMNS = REQUIRED_PHASE4_TABLES.map((r) => ({ table_name: r.table, column_name: r.column }));
 /** Mirrors REQUIRED_PHASE4_ENUM_TYPES exactly, same reasoning as HEALTHY_PHASE4_COLUMNS above. */
 const HEALTHY_PHASE4_ENUM_TYPES = REQUIRED_PHASE4_ENUM_TYPES.map((typname) => ({ typname }));
+const HEALTHY_PHASE5_COLUMNS = REQUIRED_PHASE5_TABLES.map((r) => ({ table_name: r.table, column_name: r.column }));
+const HEALTHY_PHASE5_ENUM_TYPES = REQUIRED_PHASE5_ENUM_TYPES.map((typname) => ({ typname }));
 
 /** Dispatches on the raw SQL text so the different $queryRawUnsafe call sites (catalogue schema check, Phase 4 schema check, Phase 4 enum-type check, production enum check) each get shaped fixture data instead of one being fed another's rows. */
 function makeQueryRawUnsafe(overrides?: {
   catalogueColumns?: typeof HEALTHY_CATALOGUE_COLUMNS;
   phase4Columns?: typeof HEALTHY_PHASE4_COLUMNS;
   phase4EnumTypes?: typeof HEALTHY_PHASE4_ENUM_TYPES;
+  phase5Columns?: typeof HEALTHY_PHASE5_COLUMNS;
+  phase5EnumTypes?: typeof HEALTHY_PHASE5_ENUM_TYPES;
   notificationEnumRows?: typeof HEALTHY_NOTIFICATION_ENUM_ROWS;
 }) {
   const catalogueColumns = overrides?.catalogueColumns ?? HEALTHY_CATALOGUE_COLUMNS;
   const phase4Columns = overrides?.phase4Columns ?? HEALTHY_PHASE4_COLUMNS;
   const phase4EnumTypes = overrides?.phase4EnumTypes ?? HEALTHY_PHASE4_ENUM_TYPES;
+  const phase5Columns = overrides?.phase5Columns ?? HEALTHY_PHASE5_COLUMNS;
+  const phase5EnumTypes = overrides?.phase5EnumTypes ?? HEALTHY_PHASE5_ENUM_TYPES;
   const notificationEnumRows = overrides?.notificationEnumRows ?? HEALTHY_NOTIFICATION_ENUM_ROWS;
   return vi.fn().mockImplementation((query: string, tables?: string[]) => {
     if (query.includes("pg_enum")) return Promise.resolve(notificationEnumRows);
-    if (query.includes("pg_type")) return Promise.resolve(phase4EnumTypes);
+    if (query.includes("pg_type")) return Promise.resolve(Array.isArray(tables) && tables.includes("DealOfferSide") ? phase5EnumTypes : phase4EnumTypes);
+    if (Array.isArray(tables) && tables.includes("deal_offers")) return Promise.resolve(phase5Columns);
     if (Array.isArray(tables) && tables.includes("inventory_partners")) return Promise.resolve(phase4Columns);
     return Promise.resolve(catalogueColumns);
   });
@@ -265,6 +273,26 @@ describe("runDryRun - each required failure condition", () => {
     const output = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
     expect(output).not.toContain("All checks passed");
     process.exitCode = undefined;
+  });
+
+  it("FAILs Phase 5+6 schema compatibility when a required column is missing", async () => {
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({
+      phase5Columns: HEALTHY_PHASE5_COLUMNS.filter((c) => !(c.table_name === "deal_offers" && c.column_name === "side")),
+    });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    expect(checks.find((c) => c.name === "Phase 5+6 schema compatibility")?.detail).toContain("deal_offers.side");
+  });
+
+  it("FAILs Phase 5+6 enum compatibility when an enum type is missing", async () => {
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({
+      phase5EnumTypes: HEALTHY_PHASE5_ENUM_TYPES.filter((t) => t.typname !== "DealOfferSide"),
+    });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    expect(checks.find((c) => c.name === "Phase 5+6 enum types")?.detail).toContain("DealOfferSide");
   });
 });
 

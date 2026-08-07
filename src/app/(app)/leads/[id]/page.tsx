@@ -6,6 +6,7 @@ import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { LeadWorkspace } from "@/components/leads/lead-workspace";
 import { getLeadHealth, getLeadSuggestions, computeVisitSuggestions } from "@/lib/rules";
 import { Phone, Mail, MapPin, Wallet } from "lucide-react";
+import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -72,7 +73,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         {lead.additionalRequirements && <p className="mt-3 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] p-3 text-sm text-[#596579]">{lead.additionalRequirements}</p>}
       </div>
 
-      <LeadWorkspace lead={lead} employees={employees} role={session!.user.role} health={health} suggestions={suggestions} visitSuggestions={visitSuggestions} />
+      <LeadWorkspace lead={lead} employees={employees} role={session!.user.role} health={health} suggestions={suggestions} visitSuggestions={visitSuggestions} providerSendConfigured={getWhatsAppConfigStatus().metaReady} />
     </div>
   );
 }
