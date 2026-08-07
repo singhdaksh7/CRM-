@@ -16,6 +16,7 @@ type CountableClient = Record<ModelDelegateKeys, { count(args: unknown): Promise
 type ModelDelegateKeys =
   | "catalogueInteraction"
   | "catalogueShareProperty"
+  | "catalogueVersionEvent"
   | "catalogueShare"
   | "whatsAppMessage"
   | "whatsAppConversation"
@@ -24,12 +25,18 @@ type ModelDelegateKeys =
   | "brokerageCalculation"
   | "deal"
   | "document"
+  | "visitFeedback"
   | "visit"
   | "followUp"
   | "leadScoreHistory"
   | "activity"
   | "notification"
   | "savedView"
+  | "propertyAvailabilityReport"
+  | "propertyReport"
+  | "propertyFavorite"
+  | "propertyViewLog"
+  | "propertyImage"
   | "lead"
   | "property"
   | "owner"
@@ -80,6 +87,10 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   await del("catalogueShareProperty", () =>
     prisma.catalogueShareProperty.deleteMany({ where: { catalogueShare: startsWith("cat") } })
   );
+  // Phase 4 - catalogue versioning log; cascades on catalogueShare too, deleted explicitly here (before catalogueShare) for an accurate per-model count.
+  await del("catalogueVersionEvent", () =>
+    prisma.catalogueVersionEvent.deleteMany({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } })
+  );
   await del("catalogueShare", () => prisma.catalogueShare.deleteMany({ where: startsWith("cat") }));
 
   // --- WhatsApp tree ---
@@ -116,6 +127,8 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   );
 
   // --- Visits, follow-ups, lead score history, activities, notifications (relation-scoped) ---
+  // Phase 4 - one-to-one with Visit (cascades too, deleted explicitly here first for an accurate per-model count).
+  await del("visitFeedback", () => prisma.visitFeedback.deleteMany({ where: { organizationId: orgId, visit: startsWith("visit") } }));
   await del("visit", () => prisma.visit.deleteMany({ where: startsWith("visit") }));
   await del("followUp", () => prisma.followUp.deleteMany({ where: startsWith("fu") }));
   await del("leadScoreHistory", () =>
@@ -150,6 +163,20 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   // --- Saved views (owned by demo employees) ---
   await del("savedView", () => prisma.savedView.deleteMany({ where: { organizationId: orgId, user: startsWith("emp") } }));
 
+  // --- Property Issues Queue + engagement (Phase 4) - all property-relation-scoped, deleted before
+  // `property` below. PropertyAvailabilityReport must come before propertyImage: its photoId FK to
+  // PropertyImage has no onDelete: Cascade (the whole point is a real required evidence photo), so a
+  // dangling report would block deleting the photo it points to. PropertyFavorite/PropertyViewLog have
+  // no organizationId column of their own (always scoped through userId/propertyId) - the nested
+  // `property: startsWith("prop")` relation filter is what keeps this org+prefix-scoped. ---
+  await del("propertyAvailabilityReport", () =>
+    prisma.propertyAvailabilityReport.deleteMany({ where: { organizationId: orgId, property: startsWith("prop") } })
+  );
+  await del("propertyReport", () => prisma.propertyReport.deleteMany({ where: { organizationId: orgId, property: startsWith("prop") } }));
+  await del("propertyFavorite", () => prisma.propertyFavorite.deleteMany({ where: { property: startsWith("prop") } }));
+  await del("propertyViewLog", () => prisma.propertyViewLog.deleteMany({ where: { property: startsWith("prop") } }));
+  await del("propertyImage", () => prisma.propertyImage.deleteMany({ where: { organizationId: orgId, property: startsWith("prop") } }));
+
   // --- Core entities ---
   await del("lead", () => prisma.lead.deleteMany({ where: startsWith("lead") }));
   await del("property", () => prisma.property.deleteMany({ where: startsWith("prop") }));
@@ -182,14 +209,16 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
   const startsWith = (prefix: string) => ({ organizationId: orgId, id: { startsWith: `${p}${prefix}-` } });
 
   const [
-    catalogueInteraction, catalogueShareProperty, catalogueShare,
+    catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     payment, brokerageCalculation, deal, document,
-    visit, followUp, leadScoreHistory, activity, notification, savedView,
+    visitFeedback, visit, followUp, leadScoreHistory, activity, notification, savedView,
+    propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,
     lead, property, owner, inventoryPartner, employeeServiceArea, leadAssignmentRule, user,
   ] = await Promise.all([
     client.catalogueInteraction.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
     client.catalogueShareProperty.count({ where: { catalogueShare: startsWith("cat") } }),
+    client.catalogueVersionEvent.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
     client.catalogueShare.count({ where: startsWith("cat") }),
     client.whatsAppMessage.count({ where: { organizationId: orgId, conversation: startsWith("wa") } }),
     client.whatsAppConversation.count({ where: startsWith("wa") }),
@@ -203,6 +232,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
         OR: [{ property: startsWith("prop") }, { lead: startsWith("lead") }, { owner: startsWith("owner") }, { deal: startsWith("deal") }],
       },
     }),
+    client.visitFeedback.count({ where: { organizationId: orgId, visit: startsWith("visit") } }),
     client.visit.count({ where: startsWith("visit") }),
     client.followUp.count({ where: startsWith("fu") }),
     client.leadScoreHistory.count({ where: { organizationId: orgId, lead: startsWith("lead") } }),
@@ -222,6 +252,11 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
       },
     }),
     client.savedView.count({ where: { organizationId: orgId, user: startsWith("emp") } }),
+    client.propertyAvailabilityReport.count({ where: { organizationId: orgId, property: startsWith("prop") } }),
+    client.propertyReport.count({ where: { organizationId: orgId, property: startsWith("prop") } }),
+    client.propertyFavorite.count({ where: { property: startsWith("prop") } }),
+    client.propertyViewLog.count({ where: { property: startsWith("prop") } }),
+    client.propertyImage.count({ where: { organizationId: orgId, property: startsWith("prop") } }),
     client.lead.count({ where: startsWith("lead") }),
     client.property.count({ where: startsWith("prop") }),
     client.owner.count({ where: startsWith("owner") }),
@@ -232,10 +267,11 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
   ]);
 
   return {
-    catalogueInteraction, catalogueShareProperty, catalogueShare,
+    catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     payment, brokerageCalculation, deal, document,
-    visit, followUp, leadScoreHistory, activity, notification, savedView,
+    visitFeedback, visit, followUp, leadScoreHistory, activity, notification, savedView,
+    propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,
     lead, property, owner, inventoryPartner, employeeServiceArea, leadAssignmentRule, user,
   };
 }

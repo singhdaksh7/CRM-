@@ -4,7 +4,28 @@ import { runGlobalSearch } from "../search/entity-search";
 import { getLeadHealth, getLeadHealthOverview } from "../rules/lead-health";
 import { getPropertyHealth, getPropertyHealthOverview } from "../rules/property-health";
 import { matchPropertiesToLead } from "../matching";
+import { toPublicCatalogueDTO } from "../catalogue-dto";
 import { DEMO_ORGANIZATION_ID, DEMO_ID_PREFIX } from "./constants";
+
+/**
+ * Mirrors catalogues.ts's private CATALOGUE_SENDER_INCLUDE - deliberately
+ * NOT importing getCatalogueById/getCatalogueById from ../catalogues here:
+ * that module (via ./api-auth) pulls in next-auth and `server-only`, which
+ * throws ("This module cannot be imported from a Client Component module")
+ * under this framework's plain `tsx` script execution (no Next.js runtime
+ * present) - confirmed by trying it. toPublicCatalogueDTO itself has no such
+ * dependency (catalogue-dto.ts only takes a type-only import from
+ * ../catalogues for exactly this reason), so it's safe to call directly.
+ */
+const DEMO_VERIFY_CATALOGUE_INCLUDE = {
+  properties: {
+    include: { property: { include: { owner: true, partner: true } }, addedByUser: { select: { id: true, name: true } }, executiveStatusUpdatedBy: { select: { id: true, name: true } } },
+    orderBy: { sortOrder: "asc" as const },
+  },
+  lead: { include: { assignedTo: { select: { id: true, name: true } } } },
+  createdBy: { select: { id: true, name: true } },
+  organization: { select: { id: true, name: true } },
+};
 
 export interface VerificationReport {
   propertyMatching: Record<string, { matchCount: number; topKind: string | null }>;
@@ -18,6 +39,18 @@ export interface VerificationReport {
   commandPalette: { resultCount: number };
   healthScores: { leadLabels: string[]; propertyLabels: string[]; leadOverview: unknown; propertyOverview: unknown };
   exportsOk: boolean;
+  /** Phase 4 - Field Operations relationship integrity + public-DTO leak-guard, checked against live seeded data. */
+  phase4: {
+    indirectPropertiesWithoutPartner: number;
+    directPropertiesWithPartner: number;
+    visitFeedbackOutsideDemoScope: number;
+    availabilityReportOutsideDemoScope: number;
+    propertyReportOutsideDemoScope: number;
+    catalogueVersionEventOutsideDemoScope: number;
+    favoritesOutsideDemoScope: number;
+    viewLogsOutsideDemoScope: number;
+    publicCatalogueLeakGuardOk: boolean;
+  };
   ok: boolean;
   errors: string[];
 }
@@ -149,6 +182,110 @@ export async function runVerification(params: {
   // --- Exports --- also depends on report-builder.ts (see Reports above) - skipped on this branch, not an error.
   const exportsOk = false;
 
+  // --- Phase 4: Field Operations relationship integrity + public-DTO leak-guard ---
+  // Structural FK integrity (a VisitFeedback row referencing a non-existent
+  // Visit, say) is impossible by construction - Postgres enforces the
+  // foreign key. What this checks instead is *scope drift*: every Phase 4
+  // row this seed created should reference another demo-prefixed row, never
+  // a real production one, even though nothing at the schema level requires
+  // that (these tables use org-scoping, not id-prefix-scoping, for their FKs).
+  let phase4: VerificationReport["phase4"] = {
+    indirectPropertiesWithoutPartner: -1,
+    directPropertiesWithPartner: -1,
+    visitFeedbackOutsideDemoScope: -1,
+    availabilityReportOutsideDemoScope: -1,
+    propertyReportOutsideDemoScope: -1,
+    catalogueVersionEventOutsideDemoScope: -1,
+    favoritesOutsideDemoScope: -1,
+    viewLogsOutsideDemoScope: -1,
+    publicCatalogueLeakGuardOk: false,
+  };
+  try {
+    const propPrefix = `${DEMO_ID_PREFIX}prop-`;
+    const empPrefix = `${DEMO_ID_PREFIX}emp-`;
+    const catPrefix = `${DEMO_ID_PREFIX}cat-`;
+    const visitPrefix = `${DEMO_ID_PREFIX}visit-`;
+
+    const indirectPropertiesWithoutPartner = await prisma.property.count({
+      where: { organizationId: orgId, id: { startsWith: propPrefix }, inventorySource: "INDIRECT", partnerId: null },
+    });
+    const directPropertiesWithPartner = await prisma.property.count({
+      where: { organizationId: orgId, id: { startsWith: propPrefix }, inventorySource: "DIRECT", NOT: { partnerId: null } },
+    });
+    const visitFeedbackOutsideDemoScope = await prisma.visitFeedback.count({
+      where: { organizationId: orgId, NOT: { visit: { id: { startsWith: visitPrefix } } } },
+    });
+    const availabilityReportOutsideDemoScope = await prisma.propertyAvailabilityReport.count({
+      where: {
+        organizationId: orgId,
+        OR: [{ property: { id: { not: { startsWith: propPrefix } } } }, { reportedBy: { id: { not: { startsWith: empPrefix } } } }],
+      },
+    });
+    const propertyReportOutsideDemoScope = await prisma.propertyReport.count({
+      where: {
+        organizationId: orgId,
+        OR: [{ property: { id: { not: { startsWith: propPrefix } } } }, { reportedBy: { id: { not: { startsWith: empPrefix } } } }],
+      },
+    });
+    const catalogueVersionEventOutsideDemoScope = await prisma.catalogueVersionEvent.count({
+      where: { organizationId: orgId, NOT: { catalogueShare: { id: { startsWith: catPrefix } } } },
+    });
+    const favoritesOutsideDemoScope = await prisma.propertyFavorite.count({
+      where: { OR: [{ property: { id: { not: { startsWith: propPrefix } } } }, { user: { id: { not: { startsWith: empPrefix } } } }] },
+    });
+    const viewLogsOutsideDemoScope = await prisma.propertyViewLog.count({
+      where: { OR: [{ property: { id: { not: { startsWith: propPrefix } } } }, { user: { id: { not: { startsWith: empPrefix } } } }] },
+    });
+
+    // Live leak-guard against real seeded data, on top of catalogue-dto.test.ts's
+    // fixture-based unit tests - reuses the exact production DTO builder
+    // (toPublicCatalogueDTO), never a re-implementation.
+    let publicCatalogueLeakGuardOk = false;
+    const full = await prisma.catalogueShare.findFirst({
+      where: { organizationId: orgId, id: { startsWith: catPrefix } },
+      include: DEMO_VERIFY_CATALOGUE_INCLUDE,
+    });
+    if (full) {
+      const dto = toPublicCatalogueDTO(full);
+      const serialized = JSON.stringify(dto);
+      const internalFieldMarkers = [
+        "buildingName", "flatNumber", "gateNumber", "propertySource", "keyAvailability",
+        "entryInstructions", "internalNotes", "negotiationNotes", "hiddenRemarks",
+      ];
+      publicCatalogueLeakGuardOk = internalFieldMarkers.every((marker) => !serialized.includes(marker));
+    } else {
+      publicCatalogueLeakGuardOk = true; // nothing to check - not a failure
+    }
+
+    phase4 = {
+      indirectPropertiesWithoutPartner,
+      directPropertiesWithPartner,
+      visitFeedbackOutsideDemoScope,
+      availabilityReportOutsideDemoScope,
+      propertyReportOutsideDemoScope,
+      catalogueVersionEventOutsideDemoScope,
+      favoritesOutsideDemoScope,
+      viewLogsOutsideDemoScope,
+      publicCatalogueLeakGuardOk,
+    };
+
+    const issues: string[] = [];
+    if (indirectPropertiesWithoutPartner > 0) issues.push(`${indirectPropertiesWithoutPartner} INDIRECT demo properties have no partnerId`);
+    if (directPropertiesWithPartner > 0) issues.push(`${directPropertiesWithPartner} DIRECT demo properties unexpectedly have a partnerId`);
+    if (visitFeedbackOutsideDemoScope > 0) issues.push(`${visitFeedbackOutsideDemoScope} VisitFeedback row(s) reference a non-demo visit`);
+    if (availabilityReportOutsideDemoScope > 0)
+      issues.push(`${availabilityReportOutsideDemoScope} PropertyAvailabilityReport row(s) reference a non-demo property/reporter`);
+    if (propertyReportOutsideDemoScope > 0) issues.push(`${propertyReportOutsideDemoScope} PropertyReport row(s) reference a non-demo property/reporter`);
+    if (catalogueVersionEventOutsideDemoScope > 0)
+      issues.push(`${catalogueVersionEventOutsideDemoScope} CatalogueVersionEvent row(s) reference a non-demo catalogue`);
+    if (favoritesOutsideDemoScope > 0) issues.push(`${favoritesOutsideDemoScope} PropertyFavorite row(s) reference a non-demo user/property`);
+    if (viewLogsOutsideDemoScope > 0) issues.push(`${viewLogsOutsideDemoScope} PropertyViewLog row(s) reference a non-demo user/property`);
+    if (!publicCatalogueLeakGuardOk) issues.push("Public catalogue DTO leak-guard failed against live seeded data - an internal-only field name leaked into the serialized public DTO");
+    if (issues.length > 0) errors.push(`phase4: ${issues.join("; ")}`);
+  } catch (e) {
+    errors.push(`phase4: ${(e as Error).message}`);
+  }
+
   return {
     propertyMatching,
     dashboard,
@@ -160,6 +297,7 @@ export async function runVerification(params: {
     commandPalette,
     healthScores,
     exportsOk,
+    phase4,
     ok: errors.length === 0,
     errors,
   };

@@ -38,6 +38,10 @@ import { createDemoCatalogues } from "../src/lib/demo-data/catalogues";
 import { createDemoDeals } from "../src/lib/demo-data/deals";
 import { createDemoDocuments } from "../src/lib/demo-data/documents";
 import { createDemoNotificationHistory } from "../src/lib/demo-data/notifications";
+import { createDemoVisitFeedback } from "../src/lib/demo-data/visit-feedback";
+import { createDemoPropertyIssues } from "../src/lib/demo-data/property-issues";
+import { createDemoCatalogueEngagement } from "../src/lib/demo-data/catalogue-engagement";
+import { createDemoPropertyEngagement } from "../src/lib/demo-data/property-engagement";
 import { runVerification } from "../src/lib/demo-data/verify";
 import { recalculateLeadScore } from "../src/lib/scoring";
 import { matchPropertiesToLead } from "../src/lib/matching";
@@ -61,6 +65,12 @@ async function main() {
     catalogues: DEMO_SEED_PLAN.catalogues,
     "deals (supporting data)": DEMO_SEED_PLAN.deals,
     inventoryPartners: DEMO_SEED_PLAN.inventoryPartners,
+    visitFeedback: DEMO_SEED_PLAN.visitFeedback,
+    availabilityReports: DEMO_SEED_PLAN.availabilityReports,
+    propertyReports: DEMO_SEED_PLAN.propertyReports,
+    "catalogueVersionEvents (min)": DEMO_SEED_PLAN.minCatalogueVersionEvents,
+    propertyFavorites: DEMO_SEED_PLAN.propertyFavorites,
+    propertyViewLogs: DEMO_SEED_PLAN.propertyViewLogs,
   });
 
   // --- Validate the matching distribution BEFORE any write - same pure
@@ -127,6 +137,22 @@ async function main() {
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.notifications} notifications (Hot Lead, Visit Today, Payment Pending, Catalogue Opened, Property Unavailable, Follow-up Due)...`);
   const notifications = await createDemoNotificationHistory(rng, employees.all, leads.all, properties.all, DEMO_SEED_PLAN.notifications);
 
+  // --- Phase 4 workflow demo scenarios. Deliberately run last, after every
+  // other seed step, so nothing downstream can overwrite the specific
+  // Property.updatedAt/lastVerifiedAt/pendingVerification/status values these
+  // rely on (see property-issues.ts's Inventory Freshness scenario comment). ---
+  console.log("[seed-demo] Creating visit feedback for completed demo visits...");
+  const visitFeedback = await createDemoVisitFeedback(rng, visits);
+
+  console.log("[seed-demo] Creating Property Issues Queue scenarios (availability reports, property reports, freshness bands)...");
+  const propertyIssues = await createDemoPropertyIssues(rng, properties.all, employees.fieldExecutives, employees.admin);
+
+  console.log("[seed-demo] Creating catalogue executive engagement + version history...");
+  const catalogueEngagement = await createDemoCatalogueEngagement(rng, catalogues.all, employees.admin);
+
+  console.log("[seed-demo] Creating executive Favorites + Recently Viewed...");
+  const propertyEngagement = await createDemoPropertyEngagement(rng, properties.all, employees.fieldExecutives);
+
   console.log("[seed-demo] Re-computing lead-property matches against what was actually written (should be identical to the pre-write projection above)...");
   const availableProperties = properties.all.filter((p) => p.status === "AVAILABLE");
   let totalMatchPairs = 0;
@@ -155,14 +181,17 @@ async function main() {
 
   const elapsedMs = Date.now() - startedAt;
   const totalRecords =
-    employees.all.length + owners.length + properties.all.length + leads.all.length + followUps.length + visits.length +
-    catalogues.all.length + deals.all.length + documents.all.length + notifications.length;
+    employees.all.length + owners.length + partners.length + properties.all.length + leads.all.length + followUps.length + visits.length +
+    catalogues.all.length + deals.all.length + documents.all.length + notifications.length +
+    visitFeedback.all.length + propertyIssues.availabilityReports.length + propertyIssues.propertyReports.length +
+    catalogueEngagement.versionEventCount + propertyEngagement.favorites.length + propertyEngagement.viewLogs.length;
 
   console.log("\n========================================");
   console.log(" KP Properties - Demo Seed Complete");
   console.log("========================================");
   console.log(`Employees:                 ${employees.all.length} (target ${DEMO_SEED_PLAN.employees})`);
   console.log(`Owners:                    ${owners.length} (target ${DEMO_SEED_PLAN.owners})`);
+  console.log(`Inventory Partners:        ${partners.length} (target ${DEMO_SEED_PLAN.inventoryPartners})`);
   console.log(`Properties:                ${properties.all.length} (target ${DEMO_SEED_PLAN.properties})`);
   console.log(`Leads:                     ${leads.all.length} (target ${DEMO_SEED_PLAN.leads})`);
   console.log(`Visits:                    ${visits.length} (target ${DEMO_SEED_PLAN.visits})`);
@@ -171,6 +200,12 @@ async function main() {
   console.log(`Documents:                 ${documents.all.length} (target ${DEMO_SEED_PLAN.documents})`);
   console.log(`Catalogues:                ${catalogues.all.length} (target ${DEMO_SEED_PLAN.catalogues})`);
   console.log(`Deals (supporting data):   ${deals.all.length} (target ${DEMO_SEED_PLAN.deals})`);
+  console.log(`Visit feedback:            ${visitFeedback.all.length} (target ${DEMO_SEED_PLAN.visitFeedback})`);
+  console.log(`Availability reports:      ${propertyIssues.availabilityReports.length} (target ${DEMO_SEED_PLAN.availabilityReports})`);
+  console.log(`Property reports:          ${propertyIssues.propertyReports.length} (target ${DEMO_SEED_PLAN.propertyReports})`);
+  console.log(`Catalogue version events:  ${catalogueEngagement.versionEventCount} (target >= ${DEMO_SEED_PLAN.minCatalogueVersionEvents})`);
+  console.log(`Property favorites:        ${propertyEngagement.favorites.length} (target ${DEMO_SEED_PLAN.propertyFavorites})`);
+  console.log(`Property view logs:        ${propertyEngagement.viewLogs.length} (target ${DEMO_SEED_PLAN.propertyViewLogs})`);
   console.log(`Total records inserted:    ${totalRecords}`);
   console.log(`Lead-property match pairs: ${totalMatchPairs} (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches})`);
   console.log(`Leads outside ${minMatch}-${maxMatch} match range: ${leadsOutsideTargetRange.length === 0 ? "none" : JSON.stringify(leadsOutsideTargetRange)}`);
@@ -184,6 +219,24 @@ async function main() {
   }
   if (leadsOutsideTargetRange.length > 0) {
     problems.push(`${leadsOutsideTargetRange.length} lead(s) outside ${minMatch}-${maxMatch} match range: ${JSON.stringify(leadsOutsideTargetRange)}.`);
+  }
+  if (visitFeedback.all.length !== DEMO_SEED_PLAN.visitFeedback) {
+    problems.push(`Visit feedback count is ${visitFeedback.all.length}, expected ${DEMO_SEED_PLAN.visitFeedback}.`);
+  }
+  if (propertyIssues.availabilityReports.length !== DEMO_SEED_PLAN.availabilityReports) {
+    problems.push(`Availability report count is ${propertyIssues.availabilityReports.length}, expected ${DEMO_SEED_PLAN.availabilityReports}.`);
+  }
+  if (propertyIssues.propertyReports.length !== DEMO_SEED_PLAN.propertyReports) {
+    problems.push(`Property report count is ${propertyIssues.propertyReports.length}, expected ${DEMO_SEED_PLAN.propertyReports}.`);
+  }
+  if (catalogueEngagement.versionEventCount < DEMO_SEED_PLAN.minCatalogueVersionEvents) {
+    problems.push(`Catalogue version event count is ${catalogueEngagement.versionEventCount}, expected >= ${DEMO_SEED_PLAN.minCatalogueVersionEvents}.`);
+  }
+  if (propertyEngagement.favorites.length !== DEMO_SEED_PLAN.propertyFavorites) {
+    problems.push(`Property favorite count is ${propertyEngagement.favorites.length}, expected ${DEMO_SEED_PLAN.propertyFavorites}.`);
+  }
+  if (propertyEngagement.viewLogs.length !== DEMO_SEED_PLAN.propertyViewLogs) {
+    problems.push(`Property view log count is ${propertyEngagement.viewLogs.length}, expected ${DEMO_SEED_PLAN.propertyViewLogs}.`);
   }
 
   if (problems.length > 0) {

@@ -15,10 +15,11 @@ import { REQUIRED_PHASE4_TABLES } from "../src/lib/demo-data/schema-compat";
  */
 
 const ALL_MODEL_KEYS = [
-  "catalogueInteraction", "catalogueShareProperty", "catalogueShare",
+  "catalogueInteraction", "catalogueShareProperty", "catalogueVersionEvent", "catalogueShare",
   "whatsAppMessage", "whatsAppConversation", "sharedPropertyLog",
   "payment", "brokerageCalculation", "deal", "document",
-  "visit", "followUp", "leadScoreHistory", "activity", "notification", "savedView",
+  "visitFeedback", "visit", "followUp", "leadScoreHistory", "activity", "notification", "savedView",
+  "propertyAvailabilityReport", "propertyReport", "propertyFavorite", "propertyViewLog", "propertyImage",
   "lead", "property", "owner", "inventoryPartner", "employeeServiceArea", "leadAssignmentRule",
 ] as const;
 
