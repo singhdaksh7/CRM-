@@ -1,0 +1,7 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireSession, handleApiError } from "@/lib/api-auth";
+import { getOrganizationId } from "@/lib/organization";
+import { matchPropertiesToLead } from "@/lib/matching";
+
+export async function GET(req: NextRequest) { try { const s = await requireSession(["ADMIN", "DATA_MANAGER"]); const organizationId = getOrganizationId(s.user.id); const leads = await prisma.lead.findMany({ where: { organizationId, status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "INVALID"] } }, include: { assignedTo: { select: { id: true, name: true } }, requirementBroadcasts: { orderBy: { createdAt: "desc" }, take: 1 }, matchRecommendations: { where: { status: "PENDING" }, select: { id: true } } }, take: 250, orderBy: { createdAt: "asc" } }); const properties = await prisma.property.findMany({ where: { organizationId, status: "AVAILABLE" }, take: 1000 }); const rows = leads.map((lead) => { const count = matchPropertiesToLead(properties, lead).length; return { lead, matchCount: count, matchStatus: count === 0 ? "NO_MATCHES" : count <= 2 ? "LIMITED_MATCHES" : "MATCHES_AVAILABLE", newMatchAvailable: lead.matchRecommendations.length > 0 }; }); const filter = req.nextUrl.searchParams.get("status"); return NextResponse.json({ requirements: filter ? rows.filter((r) => r.matchStatus === filter) : rows }); } catch (e) { return handleApiError(e); } }

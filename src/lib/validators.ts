@@ -279,6 +279,9 @@ export const dealStageUpdateSchema = z.object({
   lostReasonCategory: z.enum(["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"]).optional().nullable(),
 });
 
+export const dealOfferSchema = z.object({ amount: z.number().int().positive(), side: z.enum(["CLIENT", "OWNER", "INVENTORY_PARTNER", "INTERNAL"]), note: z.string().max(2000).optional().nullable() });
+export const requirementBroadcastSchema = z.object({ leadId: z.string(), partnerIds: z.array(z.string()).min(1).max(100), status: z.enum(["DRAFT", "SHARED"]).default("DRAFT") });
+
 export const brokerageCalculationSchema = z.object({
   type: z.enum(["RENTAL", "SALE"]),
   baseAmount: z.number().int().positive(),

@@ -44,7 +44,7 @@ export async function transitionDealStage(params: {
   if (params.actorRole === "FIELD_EXECUTIVE" && deal.assignedToId !== params.actorId) {
     throw new ApiError(403, "Forbidden");
   }
-  const check = validateStageTransition({ currentStatus: deal.status, nextStage: params.stage, lostReason: params.lostReason });
+  const check = validateStageTransition({ currentStatus: deal.status, currentStage: deal.stage, nextStage: params.stage, lostReason: params.lostReason });
   if (!check.allowed) throw new ApiError(deal.status !== "OPEN" ? 409 : 400, check.reason!);
 
   const terminal = terminalStatusFor(params.stage);

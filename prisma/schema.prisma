@@ -606,6 +606,9 @@ model Organization {
   visitFeedback         VisitFeedback[]
   leadAssignmentHistory LeadAssignmentHistory[]
   catalogueVersionEvents CatalogueVersionEvent[]
+  dealOffers            DealOffer[]
+  requirementBroadcasts RequirementBroadcast[]
+  matchRecommendations  MatchRecommendation[]
 
   @@map("organizations")
 }
@@ -681,6 +684,9 @@ model User {
   catalogueVersionEventsActed    CatalogueVersionEvent[]      @relation("CatalogueVersionEventActor")
   propertyFavorites              PropertyFavorite[]
   propertyViewLogs               PropertyViewLog[]
+  dealOffers                     DealOffer[]
+  requirementBroadcasts          RequirementBroadcast[]
+  matchRecommendations           MatchRecommendation[]
 
   @@map("users")
 }
@@ -877,6 +883,7 @@ model Property {
   timelineEvents           PropertyTimelineEvent[]
   availabilityReports      PropertyAvailabilityReport[]
   reports                  PropertyReport[]
+  matchRecommendations     MatchRecommendation[]
   favoritedBy              PropertyFavorite[]
   viewLogs                 PropertyViewLog[]
 
@@ -950,6 +957,8 @@ model Lead {
   deals                 Deal[]
   documents             Document[]
   assignmentHistory     LeadAssignmentHistory[]
+  requirementBroadcasts RequirementBroadcast[]
+  matchRecommendations  MatchRecommendation[]
 
   @@index([organizationId, phone])
   @@index([organizationId, assignedToId])
@@ -1358,6 +1367,12 @@ model Deal {
   agreedAmount    Int?
   brokeragePct    Float?
   brokerageAmount Int?
+  // Internal reporting only. These fields do not represent collection,
+  // invoicing, payment status, or a payment instruction of any kind.
+  expectedBrokerageAmount Int?
+  kpSharePct              Float?
+  partnerSharePct         Float?
+  closingNotes            String?
 
   assignedToId String?
   assignedTo   User?   @relation("DealAssignedTo", fields: [assignedToId], references: [id])
@@ -1377,6 +1392,7 @@ model Deal {
   payments              Payment[]
   documents             Document[]
   activities            Activity[]
+  offers                DealOffer[]
 
   @@index([organizationId, status])
   @@index([organizationId, stage])
@@ -1385,6 +1401,103 @@ model Deal {
   @@index([ownerId])
   @@index([propertyId])
   @@map("deals")
+}
+
+/// Append-only negotiation ledger. There is deliberately no update/delete
+/// workflow for offers; corrections are represented by a subsequent offer.
+model DealOffer {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  dealId         String
+  deal           Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  amount         Int
+  side           DealOfferSide
+  note           String?
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, dealId, createdAt])
+  @@map("deal_offers")
+}
+
+enum DealOfferSide {
+  CLIENT
+  OWNER
+  INVENTORY_PARTNER
+  INTERNAL
+}
+
+enum RequirementBroadcastStatus {
+  DRAFT
+  SHARED
+  RESPONSE_RECEIVED
+  MATCH_FOUND
+  CLOSED
+}
+
+model RequirementBroadcast {
+  id                  String                     @id @default(cuid())
+  organizationId      String                     @default("org_default")
+  organization        Organization               @relation(fields: [organizationId], references: [id])
+  leadId              String
+  lead                Lead                       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  requirementSnapshot String
+  messageSnapshot     String
+  status              RequirementBroadcastStatus @default(DRAFT)
+  createdById         String
+  createdBy           User                       @relation(fields: [createdById], references: [id])
+  sharedAt            DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  recipients          RequirementBroadcastRecipient[]
+
+  @@index([organizationId, leadId, status])
+  @@map("requirement_broadcasts")
+}
+
+model RequirementBroadcastRecipient {
+  id                    String               @id @default(cuid())
+  requirementBroadcastId String
+  requirementBroadcast  RequirementBroadcast @relation(fields: [requirementBroadcastId], references: [id], onDelete: Cascade)
+  inventoryPartnerId    String
+  inventoryPartner      InventoryPartner     @relation(fields: [inventoryPartnerId], references: [id])
+  selectedAt            DateTime             @default(now())
+  respondedAt           DateTime?
+  responseNote          String?
+  linkedPropertyId      String?
+
+  @@unique([requirementBroadcastId, inventoryPartnerId])
+  @@map("requirement_broadcast_recipients")
+}
+
+enum MatchRecommendationStatus {
+  PENDING
+  IGNORED
+  ADDED_TO_CATALOGUE
+}
+
+model MatchRecommendation {
+  id             String                    @id @default(cuid())
+  organizationId String                    @default("org_default")
+  organization   Organization              @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead                      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property                  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  score          Int
+  lifecycleKey   String
+  status         MatchRecommendationStatus @default(PENDING)
+  ignoredAt      DateTime?
+  handledById    String?
+  handledBy      User?                     @relation(fields: [handledById], references: [id])
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@unique([organizationId, leadId, propertyId, lifecycleKey])
+  @@index([organizationId, leadId, status])
+  @@map("match_recommendations")
 }
 
 // ---------------------------------------------------------------------------
@@ -1820,6 +1933,7 @@ model InventoryPartner {
   properties    Property[]
   notifications Notification[]
   activities    Activity[]
+  requirementBroadcastRecipients RequirementBroadcastRecipient[]
 
   @@index([organizationId, isActive])
   @@index([organizationId, phone])

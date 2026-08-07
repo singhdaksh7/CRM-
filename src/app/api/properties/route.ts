@@ -5,6 +5,7 @@ import { createPropertySchema } from "@/lib/validators";
 import { generateCode } from "@/lib/utils";
 import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
+import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
 
 export async function GET(req: NextRequest) {
   try {
@@ -88,6 +89,8 @@ export async function POST(req: NextRequest) {
       eventType: "CREATED",
       actorId: session.user.id,
     });
+    // Recommendations are internal and idempotent; never share or message a client here.
+    void recommendPropertyToWaitingLeads(property.id, `created:${property.id}:${property.updatedAt.toISOString()}`);
 
     return NextResponse.json({ property }, { status: 201 });
   } catch (err) {

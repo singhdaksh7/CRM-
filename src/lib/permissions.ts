@@ -9,6 +9,8 @@ export const NAV_ITEMS = [
   // (see propertySchema-consuming routes) - this entry only controls page access.
   { href: "/properties", label: "Properties", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/inventory-partners", label: "Inventory Partners", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },
+  { href: "/requirements", label: "Requirements", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },
+  { href: "/deals", label: "Deals", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/leads", label: "Leads", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/visits", label: "Visits", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/follow-ups", label: "Follow-ups", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },

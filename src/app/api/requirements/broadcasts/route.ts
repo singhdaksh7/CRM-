@@ -1,0 +1,10 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
+import { getOrganizationId } from "@/lib/organization";
+import { requirementBroadcastSchema } from "@/lib/validators";
+import { sanitizeRequirement, requirementMessage } from "@/lib/requirement-network";
+import { logActivity } from "@/lib/activity";
+import { recordAudit } from "@/lib/audit";
+
+export async function POST(req: NextRequest) { try { const s = await requireSession(["ADMIN", "DATA_MANAGER"]); const organizationId = getOrganizationId(s.user.id); const data = requirementBroadcastSchema.parse(await req.json()); const lead = await prisma.lead.findFirst({ where: { id: data.leadId, organizationId } }); if (!lead) throw new ApiError(404, "Lead not found"); const partners = await prisma.inventoryPartner.findMany({ where: { id: { in: data.partnerIds }, organizationId, isActive: true }, select: { id: true } }); if (partners.length !== data.partnerIds.length) throw new ApiError(400, "All selected partners must be active and in this organization"); const snapshot = sanitizeRequirement(lead); const broadcast = await prisma.requirementBroadcast.create({ data: { organizationId, leadId: lead.id, requirementSnapshot: JSON.stringify(snapshot), messageSnapshot: requirementMessage(snapshot), status: data.status, createdById: s.user.id, sharedAt: data.status === "SHARED" ? new Date() : null, recipients: { create: partners.map((p) => ({ inventoryPartnerId: p.id })) } }, include: { recipients: true } }); await logActivity({ leadId: lead.id, type: "MATCHING_STARTED", description: `Requirement broadcast ${data.status.toLowerCase()} for ${partners.length} inventory partner(s)`, actorId: s.user.id, metadata: { broadcastId: broadcast.id } }); await recordAudit({ userId: s.user.id, action: "CREATE", entityType: "RequirementBroadcast", entityId: broadcast.id, newValues: { leadId: lead.id, partnerIds: partners.map((p) => p.id), status: data.status } }); return NextResponse.json({ broadcast }, { status: 201 }); } catch (e) { return handleApiError(e); } }
