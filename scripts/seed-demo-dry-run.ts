@@ -17,7 +17,7 @@ import { DEMO_SEED_PLAN } from "../src/lib/demo-data/plan";
 import { previewTeardownCounts } from "../src/lib/demo-data/teardown";
 import { buildAndValidateProjectedDataset, type DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { createReadOnlyClient, UnexpectedWriteError } from "../src/lib/demo-data/read-only-guard";
-import { checkCatalogueSchemaCompatibility, checkPhase4SchemaCompatibility } from "../src/lib/demo-data/schema-compat";
+import { checkCatalogueSchemaCompatibility, checkPhase4SchemaCompatibility, checkPhase4EnumTypesExist } from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
 export interface CheckResult {
@@ -158,6 +158,23 @@ export async function runDryRun(
     );
   } catch (e) {
     record("Phase 4 schema compatibility", false, (e as Error).message);
+  }
+
+  // --- Phase 4 enum TYPE existence - a column-existence check alone can't
+  // distinguish "column exists, enum type fully populated" from "column
+  // exists but references an incomplete/partially-applied enum type" -
+  // checked explicitly via pg_type. ---
+  try {
+    const phase4EnumCheck = await checkPhase4EnumTypesExist(client);
+    console.log(`Phase 4 enum types: ${phase4EnumCheck.ok ? "OK - all required Phase 4 enum types present" : "MISSING TYPES"}`);
+    for (const t of phase4EnumCheck.missing) console.log(`  - enum type "${t}" is missing`);
+    record(
+      "Phase 4 enum types",
+      phase4EnumCheck.ok,
+      phase4EnumCheck.ok ? "all required Phase 4 enum types present" : `missing: ${phase4EnumCheck.missing.join(", ")}`
+    );
+  } catch (e) {
+    record("Phase 4 enum types", false, (e as Error).message);
   }
 
   // --- NotificationType enum compatibility against the actual production
