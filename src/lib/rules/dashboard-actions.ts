@@ -51,6 +51,8 @@ async function computeActionCenterItems(organizationId: string, role: Role, user
   documentExpiryCutoff.setDate(documentExpiryCutoff.getDate() + 14);
   const whatsappFailureCutoff = new Date(now);
   whatsappFailureCutoff.setDate(whatsappFailureCutoff.getDate() - 3);
+  const negotiationStaleCutoff = new Date(now.getTime() - 7 * 86400000);
+  const oldNoMatchCutoff = new Date(now.getTime() - 7 * 86400000);
 
   const groups = await Promise.all([
     safe("overdueFollowUps", () => overdueFollowUpRules(organizationId, scopedUserId)),
@@ -66,9 +68,29 @@ async function computeActionCenterItems(organizationId: string, role: Role, user
     safe("paymentsOverdue", () => paymentsOverdueRules(organizationId, now)),
     safe("documentsExpiring", () => documentsExpiringRules(organizationId, now, documentExpiryCutoff)),
     safe("failedWhatsApp", () => failedWhatsAppRules(organizationId, whatsappFailureCutoff)),
+    safe("newMatchRecommendations", () => newMatchRecommendationRules(organizationId, scopedUserId)),
+    safe("staleNegotiations", () => staleNegotiationRules(organizationId, scopedUserId, negotiationStaleCutoff)),
+    safe("oldNoMatchRequirements", () => oldNoMatchRequirementRules(organizationId, scopedUserId, oldNoMatchCutoff)),
   ]);
 
   return sortRulesBySeverity(groups.flat());
+}
+
+async function newMatchRecommendationRules(organizationId: string, userId?: string): Promise<RuleResult[]> {
+  const rows = await prisma.lead.findMany({ where: { organizationId, matchRecommendations: { some: { status: "PENDING" } }, ...(userId ? { assignedToId: userId } : {}) }, select: { id: true, clientName: true, _count: { select: { matchRecommendations: { where: { status: "PENDING" } } } } }, take: PER_RULE_LIMIT });
+  return rows.map(l => makeRule({ id: `new-matches-${l.id}`, category: "LEAD", severity: "HIGH", title: "New matching inventory", description: `${l.clientName} has ${l._count.matchRecommendations} new propert${l._count.matchRecommendations === 1 ? "y" : "ies"} not yet reviewed`, reason: "New inventory matched this active requirement and has not been shared.", entityType: "LEAD", entityId: l.id, actionLabel: "Review matches", actionHref: `/leads/${l.id}` }));
+}
+
+async function staleNegotiationRules(organizationId: string, userId: string | undefined, cutoff: Date): Promise<RuleResult[]> {
+  const rows = await prisma.deal.findMany({ where: { organizationId, status: "OPEN", stage: "NEGOTIATION", updatedAt: { lt: cutoff }, ...(userId ? { assignedToId: userId } : {}) }, select: { id: true, dealCode: true, updatedAt: true }, take: PER_RULE_LIMIT });
+  return rows.map(d => makeRule({ id: `stale-negotiation-${d.id}`, category: "DEAL", severity: "HIGH", title: "Negotiation needs follow-up", description: `${d.dealCode} has had no update since ${d.updatedAt.toLocaleDateString("en-IN")}`, reason: "Open negotiation has been inactive for more than seven days.", entityType: "DEAL", entityId: d.id, actionLabel: "Open negotiation", actionHref: `/deals/${d.id}` }));
+}
+
+async function oldNoMatchRequirementRules(organizationId: string, userId: string | undefined, cutoff: Date): Promise<RuleResult[]> {
+  const notifications = await prisma.notification.findMany({ where: { organizationId, type: "NO_MATCHES_FOUND", createdAt: { lt: cutoff }, leadId: { not: null } }, select: { leadId: true }, distinct: ["leadId"], take: PER_RULE_LIMIT });
+  const leadIds = notifications.flatMap(n => n.leadId ? [n.leadId] : []);
+  const rows = await prisma.lead.findMany({ where: { id: { in: leadIds }, organizationId, status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "INVALID"] }, ...(userId ? { assignedToId: userId } : {}) }, select: { id: true, clientName: true }, take: PER_RULE_LIMIT });
+  return rows.map(r => makeRule({ id: `old-no-match-${r.id}`, category: "LEAD", severity: "MEDIUM", title: "Requirement still has no match", description: `${r.clientName} has waited more than seven days for inventory`, reason: "The requirement should be reviewed or broadcast to inventory partners.", entityType: "LEAD", entityId: r.id, actionLabel: "Open requirement", actionHref: "/requirements" }));
 }
 
 async function overdueFollowUpRules(organizationId: string, userId?: string): Promise<RuleResult[]> {

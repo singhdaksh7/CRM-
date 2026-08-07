@@ -17,6 +17,7 @@ import { HealthCard } from "@/components/rules/health-card";
 import { SuggestionList } from "@/components/rules/suggestion-list";
 import type { HealthScoreResult, Suggestion } from "@/lib/rules";
 import { computeLeadTimelineSummary } from "@/lib/timeline-summary";
+import { NewMatchesPanel } from "./new-matches-panel";
 
 interface ScoreFactor {
   label: string;
@@ -49,6 +50,8 @@ type LeadWithRelations = {
   followUps: { id: string; type: string; dueDate: Date; status: string; notes: string | null; owner: User | null }[];
   visits: { id: string; visitDate: Date; visitTime: string; status: string; outcome: string | null; property: { id: string; title: string }; assignedTo: User | null; employeeNotes: string | null }[];
   sharedProperties: { id: string; propertyIds: string; createdAt: Date; whatsappLink: string }[];
+  matchRecommendations: React.ComponentProps<typeof NewMatchesPanel>["recommendations"];
+  catalogueShares: React.ComponentProps<typeof NewMatchesPanel>["catalogues"];
 };
 
 const TABS = ["overview", "whatsapp", "catalogues", "documents", "activity", "followups", "visits", "shared"] as const;
@@ -71,6 +74,7 @@ export function LeadWorkspace({
   health,
   suggestions,
   visitSuggestions,
+  providerSendConfigured,
 }: {
   lead: LeadWithRelations;
   employees: User[];
@@ -78,6 +82,7 @@ export function LeadWorkspace({
   health: HealthScoreResult | null;
   suggestions: Suggestion[];
   visitSuggestions: Record<string, Suggestion[]>;
+  providerSendConfigured: boolean;
 }) {
   const [tab, setTab] = useState<LeadTab>("overview");
   const canManage = role === "ADMIN" || role === "DATA_MANAGER";
@@ -98,7 +103,7 @@ export function LeadWorkspace({
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} health={health} suggestions={suggestions} onTabAction={(t) => setTab(t as LeadTab)} />}
+      {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} health={health} suggestions={suggestions} providerSendConfigured={providerSendConfigured} onTabAction={(t) => setTab(t as LeadTab)} />}
       {tab === "whatsapp" && <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} clientName={lead.clientName} />}
       {tab === "catalogues" && <CataloguesTab leadId={lead.id} canManage={canManage} canSend={true} />}
       {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
@@ -116,6 +121,7 @@ function OverviewTab({
   canManage,
   health,
   suggestions,
+  providerSendConfigured,
   onTabAction,
 }: {
   lead: LeadWithRelations;
@@ -123,6 +129,7 @@ function OverviewTab({
   canManage: boolean;
   health: HealthScoreResult | null;
   suggestions: Suggestion[];
+  providerSendConfigured: boolean;
   onTabAction: (target: string) => void;
 }) {
   const router = useRouter();
@@ -218,6 +225,7 @@ function OverviewTab({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
+        <NewMatchesPanel leadId={lead.id} recommendations={lead.matchRecommendations} catalogues={lead.catalogueShares} canManage={canManage} providerSendConfigured={providerSendConfigured} />
         <ScorePanel lead={lead} onRecalculate={recalculateScore} saving={saving} />
         {health && <HealthCard title="Lead Health" health={health} />}
         <SuggestionList suggestions={suggestions} onTabAction={onTabAction} />

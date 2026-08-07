@@ -15,6 +15,7 @@ import { DEMO_ID_PREFIX, DEMO_ORGANIZATION_ID } from "./constants";
  */
 
 const MODEL_NAMES = [
+  "dealOffer", "requirementBroadcastRecipient", "requirementBroadcast", "matchRecommendation",
   "catalogueInteraction", "catalogueShareProperty", "catalogueVersionEvent", "catalogueShare",
   "whatsAppMessage", "whatsAppConversation", "sharedPropertyLog",
   "payment", "brokerageCalculation", "deal", "document",

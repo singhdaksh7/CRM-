@@ -137,11 +137,16 @@ function toFormValues(p?: Property): FormValues {
   };
 }
 
-export function PropertyForm({ property }: { property?: Property }) {
+export function PropertyForm({ property, initialInventorySource, initialPartnerId }: { property?: Property; initialInventorySource?: "INDIRECT"; initialPartnerId?: string }) {
   const router = useRouter();
   const isEdit = !!property;
   const [submitting, setSubmitting] = useState(false);
-  const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: toFormValues(property) });
+  const defaults = toFormValues(property);
+  if (!property && initialInventorySource) {
+    defaults.inventorySource = initialInventorySource;
+    defaults.partnerId = initialPartnerId ?? "";
+  }
+  const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: defaults });
   const listingType = watch("listingType");
   const amenities = watch("amenities");
   const inventorySource = watch("inventorySource");

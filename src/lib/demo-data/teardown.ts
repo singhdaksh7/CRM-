@@ -14,6 +14,10 @@ import { DEMO_ID_PREFIX, DEMO_ORGANIZATION_ID } from "./constants";
  */
 type CountableClient = Record<ModelDelegateKeys, { count(args: unknown): Promise<number> }>;
 type ModelDelegateKeys =
+  | "dealOffer"
+  | "requirementBroadcastRecipient"
+  | "requirementBroadcast"
+  | "matchRecommendation"
   | "catalogueInteraction"
   | "catalogueShareProperty"
   | "catalogueVersionEvent"
@@ -79,6 +83,20 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
     const { count } = await fn();
     deletedCounts[label] = count;
   }
+
+  // --- Phase 5+6 workflow children ---
+  await del("matchRecommendation", () => prisma.matchRecommendation.deleteMany({
+    where: { organizationId: orgId, OR: [{ lead: startsWith("lead") }, { property: startsWith("prop") }] },
+  }));
+  await del("requirementBroadcastRecipient", () => prisma.requirementBroadcastRecipient.deleteMany({
+    where: { requirementBroadcast: startsWith("broadcast") },
+  }));
+  await del("requirementBroadcast", () => prisma.requirementBroadcast.deleteMany({
+    where: { organizationId: orgId, OR: [{ id: { startsWith: `${p}broadcast-` } }, { lead: startsWith("lead") }] },
+  }));
+  await del("dealOffer", () => prisma.dealOffer.deleteMany({
+    where: { organizationId: orgId, deal: startsWith("deal") },
+  }));
 
   // --- Catalogue tree (leaf -> root) ---
   // catalogueInteraction/catalogueShareProperty each have TWO independent
@@ -257,6 +275,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
   const startsWith = (prefix: string) => ({ organizationId: orgId, id: { startsWith: `${p}${prefix}-` } });
 
   const [
+    dealOffer, requirementBroadcastRecipient, requirementBroadcast, matchRecommendation,
     catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     payment, brokerageCalculation, deal, document,
@@ -264,6 +283,10 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,
     lead, property, owner, inventoryPartner, employeeServiceArea, leadAssignmentRule, user,
   ] = await Promise.all([
+    client.dealOffer.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
+    client.requirementBroadcastRecipient.count({ where: { requirementBroadcast: startsWith("broadcast") } }),
+    client.requirementBroadcast.count({ where: { organizationId: orgId, OR: [{ id: { startsWith: `${p}broadcast-` } }, { lead: startsWith("lead") }] } }),
+    client.matchRecommendation.count({ where: { organizationId: orgId, OR: [{ lead: startsWith("lead") }, { property: startsWith("prop") }] } }),
     client.catalogueInteraction.count({
       where: { organizationId: orgId, OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
     }),
@@ -321,6 +344,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
   ]);
 
   return {
+    dealOffer, requirementBroadcastRecipient, requirementBroadcast, matchRecommendation,
     catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     payment, brokerageCalculation, deal, document,

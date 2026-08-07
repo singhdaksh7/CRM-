@@ -6,6 +6,8 @@ import { notifyAffectedCataloguesOfPropertyChange } from "@/lib/property-share-a
 import { logger } from "@/lib/logger";
 import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
+import { shouldRematchProperty } from "@/lib/property-rematch";
+import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -46,6 +48,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // it was already shared with a client shouldn't silently go unnoticed by
     // whoever built that catalogue. Never let this alerting fail the update.
     if (existing) {
+      if (shouldRematchProperty(existing, property)) {
+        // Internal recommendation only; it never invokes WhatsApp or mutates a catalogue.
+        void recommendPropertyToWaitingLeads(property.id, `property:${property.id}:${property.updatedAt.toISOString()}`);
+      }
       try {
         if (data.status && data.status !== "AVAILABLE" && data.status !== existing.status) {
           await notifyAffectedCataloguesOfPropertyChange(id, "UNAVAILABLE");

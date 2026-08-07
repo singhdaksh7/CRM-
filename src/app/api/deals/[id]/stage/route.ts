@@ -16,6 +16,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       notes: data.notes,
       lostReason: data.lostReason,
       lostReasonCategory: data.lostReasonCategory,
+      agreedAmount: data.agreedAmount,
+      closingDate: data.closingDate,
+      closingNotes: data.closingNotes,
+      expectedBrokerageAmount: data.expectedBrokerageAmount,
+      kpSharePct: data.kpSharePct,
+      partnerSharePct: data.partnerSharePct,
       actorId: session.user.id,
       actorRole: session.user.role,
     });

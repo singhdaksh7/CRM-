@@ -59,6 +59,18 @@ describe("dealStageUpdateSchema", () => {
   it("rejects an unknown stage", () => {
     expect(dealStageUpdateSchema.safeParse({ stage: "PENDING" }).success).toBe(false);
   });
+
+  it("requires complete commercial closure details for CLOSED_WON", () => {
+    expect(dealStageUpdateSchema.safeParse({ stage: "CLOSED_WON" }).success).toBe(false);
+    expect(dealStageUpdateSchema.safeParse({
+      stage: "CLOSED_WON", agreedAmount: 45000, closingDate: "2026-08-07",
+      closingNotes: "Agreement signed", expectedBrokerageAmount: 45000, kpSharePct: 100,
+    }).success).toBe(true);
+  });
+
+  it("rejects invalid closure percentages and dates", () => {
+    expect(dealStageUpdateSchema.safeParse({ stage: "CLOSED_WON", agreedAmount: 1, closingDate: "today", closingNotes: "x", expectedBrokerageAmount: 0, kpSharePct: 101 }).success).toBe(false);
+  });
 });
 
 describe("brokerageCalculationSchema", () => {

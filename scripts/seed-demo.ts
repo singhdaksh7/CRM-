@@ -42,6 +42,7 @@ import { createDemoVisitFeedback } from "../src/lib/demo-data/visit-feedback";
 import { createDemoPropertyIssues } from "../src/lib/demo-data/property-issues";
 import { createDemoCatalogueEngagement } from "../src/lib/demo-data/catalogue-engagement";
 import { createDemoPropertyEngagement } from "../src/lib/demo-data/property-engagement";
+import { createDemoPhase5Scenarios } from "../src/lib/demo-data/phase5";
 import { runVerification } from "../src/lib/demo-data/verify";
 import { recalculateLeadScore } from "../src/lib/scoring";
 import { matchPropertiesToLead } from "../src/lib/matching";
@@ -153,6 +154,9 @@ async function main() {
   console.log("[seed-demo] Creating executive Favorites + Recently Viewed...");
   const propertyEngagement = await createDemoPropertyEngagement(rng, properties.all, employees.fieldExecutives);
 
+  console.log("[seed-demo] Creating deterministic Phase 5+6 negotiation, broadcast, recommendation, and prepared-message scenarios...");
+  const phase5 = await createDemoPhase5Scenarios({ deals: deals.all, leads: leads.all, properties: properties.all, partners, catalogues: catalogues.all, actor: employees.admin });
+
   console.log("[seed-demo] Re-computing lead-property matches against what was actually written (should be identical to the pre-write projection above)...");
   const availableProperties = properties.all.filter((p) => p.status === "AVAILABLE");
   let totalMatchPairs = 0;
@@ -184,7 +188,8 @@ async function main() {
     employees.all.length + owners.length + partners.length + properties.all.length + leads.all.length + followUps.length + visits.length +
     catalogues.all.length + deals.all.length + documents.all.length + notifications.length +
     visitFeedback.all.length + propertyIssues.availabilityReports.length + propertyIssues.propertyReports.length +
-    catalogueEngagement.versionEventCount + propertyEngagement.favorites.length + propertyEngagement.viewLogs.length;
+    catalogueEngagement.versionEventCount + propertyEngagement.favorites.length + propertyEngagement.viewLogs.length +
+    phase5.dealOffers + phase5.broadcasts + phase5.broadcastRecipients + phase5.matchRecommendations + phase5.preparedWhatsAppMessages;
 
   console.log("\n========================================");
   console.log(" KP Properties - Demo Seed Complete");
@@ -206,6 +211,11 @@ async function main() {
   console.log(`Catalogue version events:  ${catalogueEngagement.versionEventCount} (target >= ${DEMO_SEED_PLAN.minCatalogueVersionEvents})`);
   console.log(`Property favorites:        ${propertyEngagement.favorites.length} (target ${DEMO_SEED_PLAN.propertyFavorites})`);
   console.log(`Property view logs:        ${propertyEngagement.viewLogs.length} (target ${DEMO_SEED_PLAN.propertyViewLogs})`);
+  console.log(`Deal offers:               ${phase5.dealOffers} (target ${DEMO_SEED_PLAN.dealOffers})`);
+  console.log(`Requirement broadcasts:    ${phase5.broadcasts} (target ${DEMO_SEED_PLAN.requirementBroadcasts})`);
+  console.log(`Broadcast recipients:      ${phase5.broadcastRecipients} (target ${DEMO_SEED_PLAN.requirementBroadcastRecipients})`);
+  console.log(`Match recommendations:     ${phase5.matchRecommendations} (target ${DEMO_SEED_PLAN.matchRecommendations})`);
+  console.log(`Prepared WhatsApp drafts:  ${phase5.preparedWhatsAppMessages} (zero automatic sends)`);
   console.log(`Total records inserted:    ${totalRecords}`);
   console.log(`Lead-property match pairs: ${totalMatchPairs} (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches})`);
   console.log(`Leads outside ${minMatch}-${maxMatch} match range: ${leadsOutsideTargetRange.length === 0 ? "none" : JSON.stringify(leadsOutsideTargetRange)}`);

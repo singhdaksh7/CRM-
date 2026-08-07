@@ -43,6 +43,11 @@ export const DEMO_SEED_PLAN = {
   propertyFavorites: 4,
   /** 2 field executives x (2 favorite-implied views + 2 additional recently-viewed). */
   propertyViewLogs: 8,
+  dealOffers: 4,
+  requirementBroadcasts: 2,
+  requirementBroadcastRecipients: 4,
+  matchRecommendations: 4,
+  preparedWhatsAppMessages: 1,
 } as const;
 
 export type DemoSeedPlan = typeof DEMO_SEED_PLAN;

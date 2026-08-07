@@ -17,7 +17,13 @@ import { DEMO_SEED_PLAN } from "../src/lib/demo-data/plan";
 import { previewTeardownCounts } from "../src/lib/demo-data/teardown";
 import { buildAndValidateProjectedDataset, type DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { createReadOnlyClient, UnexpectedWriteError } from "../src/lib/demo-data/read-only-guard";
-import { checkCatalogueSchemaCompatibility, checkPhase4SchemaCompatibility, checkPhase4EnumTypesExist } from "../src/lib/demo-data/schema-compat";
+import {
+  checkCatalogueSchemaCompatibility,
+  checkPhase4SchemaCompatibility,
+  checkPhase4EnumTypesExist,
+  checkPhase5SchemaCompatibility,
+  checkPhase5EnumTypesExist,
+} from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
 export interface CheckResult {
@@ -175,6 +181,34 @@ export async function runDryRun(
     );
   } catch (e) {
     record("Phase 4 enum types", false, (e as Error).message);
+  }
+
+  try {
+    const phase5Check = await checkPhase5SchemaCompatibility(client);
+    console.log(`Phase 5+6 schema compatibility: ${phase5Check.ok ? "OK - all required Phase 5+6 tables/columns present" : "MISSING COLUMNS"}`);
+    for (const m of phase5Check.missing) console.log(`  - ${m.table}.${m.column} is missing`);
+    record(
+      "Phase 5+6 schema compatibility",
+      phase5Check.ok,
+      phase5Check.ok
+        ? "all required Phase 5+6 tables/columns present"
+        : `missing: ${phase5Check.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`
+    );
+  } catch (e) {
+    record("Phase 5+6 schema compatibility", false, (e as Error).message);
+  }
+
+  try {
+    const phase5EnumCheck = await checkPhase5EnumTypesExist(client);
+    console.log(`Phase 5+6 enum types: ${phase5EnumCheck.ok ? "OK - all required Phase 5+6 enum types present" : "MISSING TYPES"}`);
+    for (const t of phase5EnumCheck.missing) console.log(`  - enum type "${t}" is missing`);
+    record(
+      "Phase 5+6 enum types",
+      phase5EnumCheck.ok,
+      phase5EnumCheck.ok ? "all required Phase 5+6 enum types present" : `missing: ${phase5EnumCheck.missing.join(", ")}`
+    );
+  } catch (e) {
+    record("Phase 5+6 enum types", false, (e as Error).message);
   }
 
   // --- NotificationType enum compatibility against the actual production
