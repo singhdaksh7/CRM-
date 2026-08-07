@@ -9,6 +9,8 @@
 export const DEMO_SEED_PLAN = {
   employees: 8,
   owners: 20,
+  /** Phase 4 - roughly a third of demo properties link to one of these instead of a direct owner. */
+  inventoryPartners: 10,
   properties: 50,
   leads: 20,
   visits: 15,
@@ -20,6 +22,27 @@ export const DEMO_SEED_PLAN = {
   deals: 10,
   minLeadPropertyMatches: 25,
   leadPropertyMatchRange: { min: 3, max: 8 },
+
+  // --- Phase 4 workflow demo scenarios (release-readiness closure pass) ---
+  /** One feedback record per COMPLETED demo visit - see visits.ts's bucket split (35% of `visits` above). */
+  visitFeedback: 5,
+  /** One PENDING + one APPROVED PropertyAvailabilityReport, each with a required evidence photo. */
+  availabilityReports: 2,
+  /** One PENDING + one RESOLVED general PropertyReport. */
+  propertyReports: 2,
+  /**
+   * Data-dependent, not a fixed count: removes up to 2 properties from
+   * whichever demo catalogue happens to have the most shareProperties (each
+   * catalogue is sized 2-5 via rng.int - see catalogues.ts), so the exact
+   * number depends on that draw. Checked with >= in seed-demo-verify.ts,
+   * same idiom as minLeadPropertyMatches above, rather than a brittle exact
+   * equality on a value this framework doesn't fully control.
+   */
+  minCatalogueVersionEvents: 1,
+  /** 2 field executives x 2 favorited properties each. */
+  propertyFavorites: 4,
+  /** 2 field executives x (2 favorite-implied views + 2 additional recently-viewed). */
+  propertyViewLogs: 8,
 } as const;
 
 export type DemoSeedPlan = typeof DEMO_SEED_PLAN;

@@ -1,4 +1,4 @@
-import type { Owner, Prisma, Property, PropertyType, User } from "@prisma/client";
+import type { InventoryPartner, Owner, Prisma, Property, PropertyType, User } from "@prisma/client";
 import { prisma } from "../prisma";
 import { Rng } from "./rng";
 import { demoId, demoCode, demoPhone, AREAS, AREA_COORDS, AMENITIES_POOL, RENT_BUDGET_TIERS, DEMO_ORGANIZATION_ID } from "./constants";
@@ -76,7 +76,8 @@ export function buildPropertyData(
   i: number,
   owners: Owner[],
   employees: { admin: User; dataManagers: User[] },
-  assetsByType: Record<PropertyType, string[]>
+  assetsByType: Record<PropertyType, string[]>,
+  partners: InventoryPartner[] = []
 ): Prisma.PropertyUncheckedCreateInput {
   const creators = [employees.admin, ...employees.dataManagers];
   const type = rng.weightedPick(TYPE_WEIGHTS);
@@ -118,6 +119,16 @@ export function buildPropertyData(
   const owner = isNoOwnerScenario ? null : owners[(i * 3 + 7) % owners.length];
   const creator = rng.pick(creators);
 
+  // Phase 4 - Direct vs Indirect inventory. Pure index arithmetic (no rng
+  // draw) so this never perturbs the shared Rng stream that
+  // validate.ts's twin projection depends on staying byte-identical to the
+  // real seed run - see buildAndValidateProjectedDataset's doc comment.
+  // Roughly 1 in 3 properties (~33%, close to the "~40%" target) are
+  // INDIRECT, skipped entirely when no partners exist yet (dry-run/validate
+  // may pass an empty array).
+  const isIndirectScenario = partners.length > 0 && i % 3 === 0;
+  const partner = isIndirectScenario ? partners[(i * 5 + 3) % partners.length] : null;
+
   const data: Prisma.PropertyUncheckedCreateInput = {
     id: demoId("prop", i),
     organizationId: DEMO_ORGANIZATION_ID,
@@ -154,11 +165,13 @@ export function buildPropertyData(
     videoUrl: null,
     virtualTourUrl: null,
     floorPlanImage: null,
-    ownerName: owner?.name ?? "Owner details pending",
-    ownerPhone: owner?.phone ?? demoPhone(i, 700),
-    ownerAlternatePhone: owner?.alternatePhone ?? null,
-    ownerNotes: owner?.notes ?? null,
-    ownerId: owner?.id ?? null,
+    ownerName: isIndirectScenario ? null : (owner?.name ?? "Owner details pending"),
+    ownerPhone: isIndirectScenario ? null : (owner?.phone ?? demoPhone(i, 700)),
+    ownerAlternatePhone: isIndirectScenario ? null : (owner?.alternatePhone ?? null),
+    ownerNotes: isIndirectScenario ? null : (owner?.notes ?? null),
+    ownerId: isIndirectScenario ? null : (owner?.id ?? null),
+    inventorySource: isIndirectScenario ? "INDIRECT" : "DIRECT",
+    partnerId: partner?.id ?? null,
     createdById: creator.id,
     createdAt: isStaleInactiveScenario ? rng.pastDate(60, 120) : rng.pastDate(1, 90),
     updatedAt: isStaleInactiveScenario ? rng.pastDate(45, 60) : rng.pastDate(0, 20),
@@ -185,13 +198,14 @@ export async function createDemoProperties(
   rng: Rng,
   owners: Owner[],
   employees: { admin: User; dataManagers: User[] },
-  count: number = PROPERTY_COUNT
+  count: number = PROPERTY_COUNT,
+  partners: InventoryPartner[] = []
 ): Promise<DemoPropertySet> {
   const assetsByType = ensureDemoPropertyAssets();
   const properties: Property[] = [];
 
   for (let i = 1; i <= count; i++) {
-    const data = buildPropertyData(rng, i, owners, employees, assetsByType);
+    const data = buildPropertyData(rng, i, owners, employees, assetsByType, partners);
     properties.push(await prisma.property.create({ data }));
   }
 

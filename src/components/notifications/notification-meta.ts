@@ -33,6 +33,12 @@ import {
   ImageOff,
   Handshake,
   FileClock,
+  FileWarning,
+  CheckCircle2,
+  Ban,
+  Flag,
+  CheckCheck,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 import type { Notification, NotificationType } from "@prisma/client";
@@ -72,6 +78,13 @@ export const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   PROPERTY_MISSING_PHOTOS: ImageOff,
   DEAL_NEGOTIATION_STALE: Handshake,
   DOCUMENT_EXPIRING: FileClock,
+  // Phase 4 - Field Operations
+  AVAILABILITY_REPORT_SUBMITTED: FileWarning,
+  AVAILABILITY_REPORT_APPROVED: CheckCircle2,
+  AVAILABILITY_REPORT_REJECTED: Ban,
+  PROPERTY_REPORT_SUBMITTED: Flag,
+  PROPERTY_REPORT_RESOLVED: CheckCheck,
+  INTERNAL_CATALOGUE_SHARED: FolderOpen,
 };
 
 export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
@@ -109,6 +122,13 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   PROPERTY_MISSING_PHOTOS: "Property Missing Photos",
   DEAL_NEGOTIATION_STALE: "Negotiation Stalled",
   DOCUMENT_EXPIRING: "Document Expiring",
+  // Phase 4 - Field Operations
+  AVAILABILITY_REPORT_SUBMITTED: "Availability Report Submitted",
+  AVAILABILITY_REPORT_APPROVED: "Availability Report Approved",
+  AVAILABILITY_REPORT_REJECTED: "Availability Report Rejected",
+  PROPERTY_REPORT_SUBMITTED: "Property Report Submitted",
+  PROPERTY_REPORT_RESOLVED: "Property Report Resolved",
+  INTERNAL_CATALOGUE_SHARED: "Internal Catalogue Shared",
 };
 
 export function notificationHref(n: Notification): string | null {

@@ -9,6 +9,7 @@ import { getOrganizationId } from "@/lib/organization";
 import { checkVisitConflict } from "@/lib/visit-conflict";
 import { recordAudit } from "@/lib/audit";
 import { runAutomationRules } from "@/lib/automation-rules";
+import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import type { LeadStatus, VisitOutcome } from "@prisma/client";
 
 // Visit outcome -> lead status mapping (a small, low-risk slice of the
@@ -18,6 +19,13 @@ const OUTCOME_TO_LEAD_STATUS: Partial<Record<VisitOutcome, LeadStatus>> = {
   READY_FOR_NEGOTIATION: "NEGOTIATION",
   WANTS_ANOTHER_PROPERTY: "QUALIFIED",
   NOT_INTERESTED: "NOT_INTERESTED",
+  // Phase 4 - Field Operations
+  SHORTLISTED: "QUALIFIED",
+  REJECTED: "NOT_INTERESTED",
+  NEGOTIATION_IN_PROGRESS: "NEGOTIATION",
+  // CUSTOMER_NO_SHOW / OWNER_NO_SHOW / FOLLOW_UP_NEEDED intentionally
+  // unmapped - they fall through to the existing "VISIT_COMPLETED" default
+  // below, same as any other outcome not in this table.
 };
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -95,6 +103,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       });
       await recalculateLeadScore(existing.leadId, "VISIT_COMPLETED");
       await runAutomationRules({ trigger: "VISIT_COMPLETED", visitId: existing.id, leadId: existing.leadId, organizationId });
+
+      // Phase 4, Objective 6 - every visit outcome updates Timeline, Lead,
+      // Property, Analytics, and Audit Log. Lead/Analytics already covered
+      // above (lead.status update + recalculateLeadScore feeds Lead Health).
+      if (data.outcome) {
+        await logActivity({ leadId: existing.leadId, type: "VISIT_OUTCOME_RECORDED", description: `Visit outcome recorded: ${data.outcome.replace(/_/g, " ")}`, actorId: session.user.id });
+        await recordAudit({
+          userId: session.user.id,
+          action: "OTHER",
+          entityType: "Visit",
+          entityId: existing.id,
+          newValues: { event: "visit_outcome_recorded", outcome: data.outcome },
+        });
+        await appendPropertyTimelineEvent({
+          organizationId,
+          propertyId: existing.propertyId,
+          eventType: "VISIT_COMPLETED",
+          toValue: data.outcome,
+          actorId: session.user.id,
+        });
+      }
     } else if (data.status === "RESCHEDULED" && existing.status !== "RESCHEDULED") {
       await logActivity({ leadId: existing.leadId, type: "STATUS_CHANGED", description: "Visit rescheduled", actorId: session.user.id });
       if (existing.assignedToId) {

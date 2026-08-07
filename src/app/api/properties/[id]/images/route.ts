@@ -6,7 +6,7 @@ import { uploadPropertyImage, listPropertyImages, getPropertyImageUrl } from "@/
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import type { PropertyImagePurpose } from "@prisma/client";
 
-const PURPOSES = new Set<PropertyImagePurpose>(["IMAGE", "FLOOR_PLAN"]);
+const PURPOSES = new Set<PropertyImagePurpose>(["IMAGE", "FLOOR_PLAN", "AVAILABILITY_REPORT"]);
 
 /** Lists active images for a property with fresh, short-lived delivery URLs - every authenticated role may view listing images. */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

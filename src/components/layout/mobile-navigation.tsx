@@ -8,7 +8,7 @@ export function MobileNavigation({ role }: { role: Role }) {
 
   const items = isFieldExec
     ? [
-        { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Home", href: "/executive-dashboard", icon: LayoutDashboard },
         { label: "Leads", href: "/leads", icon: Users },
         { label: "Visits", href: "/visits", icon: CalendarClock },
         { label: "Properties", href: "/properties", icon: Building2 },

@@ -16,6 +16,7 @@ type CountableClient = Record<ModelDelegateKeys, { count(args: unknown): Promise
 type ModelDelegateKeys =
   | "catalogueInteraction"
   | "catalogueShareProperty"
+  | "catalogueVersionEvent"
   | "catalogueShare"
   | "whatsAppMessage"
   | "whatsAppConversation"
@@ -24,15 +25,22 @@ type ModelDelegateKeys =
   | "brokerageCalculation"
   | "deal"
   | "document"
+  | "visitFeedback"
   | "visit"
   | "followUp"
   | "leadScoreHistory"
   | "activity"
   | "notification"
   | "savedView"
+  | "propertyAvailabilityReport"
+  | "propertyReport"
+  | "propertyFavorite"
+  | "propertyViewLog"
+  | "propertyImage"
   | "lead"
   | "property"
   | "owner"
+  | "inventoryPartner"
   | "employeeServiceArea"
   | "leadAssignmentRule"
   | "user";
@@ -73,11 +81,35 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   }
 
   // --- Catalogue tree (leaf -> root) ---
+  // catalogueInteraction/catalogueShareProperty each have TWO independent
+  // routes to a demo Property: through a demo-prefixed CatalogueShare
+  // (the normal case, e.g. every catalogue createDemoCatalogues() makes),
+  // OR directly through their own optional/required propertyId FK when a
+  // REAL (non-demo-prefixed) catalogue was built against a demo property via
+  // the live catalogue-builder UI - e.g. an admin QA-testing catalogue
+  // creation against demo inventory. Filtering only by catalogueShare (the
+  // original code) misses that second route entirely: the row survives,
+  // and property.deleteMany() then fails with a P2003 FK violation on
+  // catalogue_share_properties_propertyId_fkey - the exact incident this
+  // fix addresses. Deleting these rows is safe even when the parent
+  // CatalogueShare/Lead is real: they are link/log rows, not top-level
+  // business records - removing one only clears a stale reference to a
+  // property that's about to stop existing, and never deletes the real
+  // CatalogueShare/Lead itself.
   await del("catalogueInteraction", () =>
-    prisma.catalogueInteraction.deleteMany({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } })
+    prisma.catalogueInteraction.deleteMany({
+      where: { organizationId: orgId, OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
+    })
   );
   await del("catalogueShareProperty", () =>
-    prisma.catalogueShareProperty.deleteMany({ where: { catalogueShare: startsWith("cat") } })
+    prisma.catalogueShareProperty.deleteMany({
+      where: { OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
+    })
+  );
+  // Phase 4 - catalogue versioning log; cascades on catalogueShare too, deleted explicitly here (before catalogueShare) for an accurate per-model count.
+  // Its own propertyId field (present on some rows) is a plain string, not a foreign key (see schema.prisma) - no additional scoping needed here.
+  await del("catalogueVersionEvent", () =>
+    prisma.catalogueVersionEvent.deleteMany({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } })
   );
   await del("catalogueShare", () => prisma.catalogueShare.deleteMany({ where: startsWith("cat") }));
 
@@ -87,12 +119,32 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   );
   await del("whatsAppConversation", () => prisma.whatsAppConversation.deleteMany({ where: startsWith("wa") }));
 
-  // --- Shared property logs (relation-only, no deterministic id) ---
+  // --- Shared property logs (relation-only, no deterministic id). Same
+  // two-route reasoning as the catalogue tree above: a real Lead's shared-
+  // property log can carry an optional propertyId pointing at a demo
+  // property (shared from the live UI), independent of whether the Lead
+  // itself is demo-prefixed. The Prisma relation field here is named
+  // `Property` (capitalized, an inconsistency already present in
+  // schema.prisma), not `property` like every other model. ---
   await del("sharedPropertyLog", () =>
-    prisma.sharedPropertyLog.deleteMany({ where: { organizationId: orgId, lead: startsWith("lead") } })
+    prisma.sharedPropertyLog.deleteMany({
+      where: { organizationId: orgId, OR: [{ lead: startsWith("lead") }, { Property: startsWith("prop") }] },
+    })
   );
 
   // --- Deal tree ---
+  // Deliberately NOT widened to an OR-by-property filter like the catalogue/
+  // shared-log tables above: unlike a CatalogueShareProperty or
+  // SharedPropertyLog row, a Deal is itself a top-level real business record
+  // (with real payments/brokerage attached) - deleting a REAL deal just
+  // because its optional propertyId happens to point at a demo property
+  // would violate "incapable of deleting real records". Known limitation:
+  // if a real deal is ever linked to a demo property (only possible via
+  // manual live-UI usage, never via the demo seed itself - createDemoDeals()
+  // only ever links demo-prefixed deals to demo-prefixed properties),
+  // property.deleteMany() below would still fail with a P2003 on that one
+  // property; resolving that is a data-hygiene question for whoever created
+  // that link, not something teardown should silently paper over.
   await del("payment", () => prisma.payment.deleteMany({ where: { organizationId: orgId, deal: startsWith("deal") } }));
   await del("brokerageCalculation", () =>
     prisma.brokerageCalculation.deleteMany({ where: { organizationId: orgId, deal: startsWith("deal") } })
@@ -115,6 +167,16 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   );
 
   // --- Visits, follow-ups, lead score history, activities, notifications (relation-scoped) ---
+  // Phase 4 - one-to-one with Visit (cascades too, deleted explicitly here first for an accurate per-model count).
+  await del("visitFeedback", () => prisma.visitFeedback.deleteMany({ where: { organizationId: orgId, visit: startsWith("visit") } }));
+  // Visit.propertyId is required (NOT NULL, no cascade) - same "real top-level
+  // record" reasoning as Deal above applies even more strongly here: a real
+  // Visit can't be partially unlinked (there's no nullable propertyId to
+  // clear), so widening this filter would mean either deleting a real visit
+  // outright or leaving a dangling reference - both worse than the current,
+  // narrow demo-id-scoped delete. createDemoVisits() only ever links
+  // demo-prefixed visits to demo-prefixed properties, so this is already
+  // complete for anything the seed itself creates.
   await del("visit", () => prisma.visit.deleteMany({ where: startsWith("visit") }));
   await del("followUp", () => prisma.followUp.deleteMany({ where: startsWith("fu") }));
   await del("leadScoreHistory", () =>
@@ -149,10 +211,26 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   // --- Saved views (owned by demo employees) ---
   await del("savedView", () => prisma.savedView.deleteMany({ where: { organizationId: orgId, user: startsWith("emp") } }));
 
+  // --- Property Issues Queue + engagement (Phase 4) - all property-relation-scoped, deleted before
+  // `property` below. PropertyAvailabilityReport must come before propertyImage: its photoId FK to
+  // PropertyImage has no onDelete: Cascade (the whole point is a real required evidence photo), so a
+  // dangling report would block deleting the photo it points to. PropertyFavorite/PropertyViewLog have
+  // no organizationId column of their own (always scoped through userId/propertyId) - the nested
+  // `property: startsWith("prop")` relation filter is what keeps this org+prefix-scoped. ---
+  await del("propertyAvailabilityReport", () =>
+    prisma.propertyAvailabilityReport.deleteMany({ where: { organizationId: orgId, property: startsWith("prop") } })
+  );
+  await del("propertyReport", () => prisma.propertyReport.deleteMany({ where: { organizationId: orgId, property: startsWith("prop") } }));
+  await del("propertyFavorite", () => prisma.propertyFavorite.deleteMany({ where: { property: startsWith("prop") } }));
+  await del("propertyViewLog", () => prisma.propertyViewLog.deleteMany({ where: { property: startsWith("prop") } }));
+  await del("propertyImage", () => prisma.propertyImage.deleteMany({ where: { organizationId: orgId, property: startsWith("prop") } }));
+
   // --- Core entities ---
   await del("lead", () => prisma.lead.deleteMany({ where: startsWith("lead") }));
   await del("property", () => prisma.property.deleteMany({ where: startsWith("prop") }));
   await del("owner", () => prisma.owner.deleteMany({ where: startsWith("owner") }));
+  // Phase 4 - must come after property (Property.partnerId references this table, no cascade set).
+  await del("inventoryPartner", () => prisma.inventoryPartner.deleteMany({ where: startsWith("partner") }));
 
   // --- Employee-scoped config, then employees themselves ---
   await del("employeeServiceArea", () =>
@@ -179,18 +257,26 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
   const startsWith = (prefix: string) => ({ organizationId: orgId, id: { startsWith: `${p}${prefix}-` } });
 
   const [
-    catalogueInteraction, catalogueShareProperty, catalogueShare,
+    catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     payment, brokerageCalculation, deal, document,
-    visit, followUp, leadScoreHistory, activity, notification, savedView,
-    lead, property, owner, employeeServiceArea, leadAssignmentRule, user,
+    visitFeedback, visit, followUp, leadScoreHistory, activity, notification, savedView,
+    propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,
+    lead, property, owner, inventoryPartner, employeeServiceArea, leadAssignmentRule, user,
   ] = await Promise.all([
-    client.catalogueInteraction.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
-    client.catalogueShareProperty.count({ where: { catalogueShare: startsWith("cat") } }),
+    client.catalogueInteraction.count({
+      where: { organizationId: orgId, OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
+    }),
+    client.catalogueShareProperty.count({
+      where: { OR: [{ catalogueShare: startsWith("cat") }, { property: startsWith("prop") }] },
+    }),
+    client.catalogueVersionEvent.count({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } }),
     client.catalogueShare.count({ where: startsWith("cat") }),
     client.whatsAppMessage.count({ where: { organizationId: orgId, conversation: startsWith("wa") } }),
     client.whatsAppConversation.count({ where: startsWith("wa") }),
-    client.sharedPropertyLog.count({ where: { organizationId: orgId, lead: startsWith("lead") } }),
+    client.sharedPropertyLog.count({
+      where: { organizationId: orgId, OR: [{ lead: startsWith("lead") }, { Property: startsWith("prop") }] },
+    }),
     client.payment.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
     client.brokerageCalculation.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
     client.deal.count({ where: startsWith("deal") }),
@@ -200,6 +286,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
         OR: [{ property: startsWith("prop") }, { lead: startsWith("lead") }, { owner: startsWith("owner") }, { deal: startsWith("deal") }],
       },
     }),
+    client.visitFeedback.count({ where: { organizationId: orgId, visit: startsWith("visit") } }),
     client.visit.count({ where: startsWith("visit") }),
     client.followUp.count({ where: startsWith("fu") }),
     client.leadScoreHistory.count({ where: { organizationId: orgId, lead: startsWith("lead") } }),
@@ -219,19 +306,26 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
       },
     }),
     client.savedView.count({ where: { organizationId: orgId, user: startsWith("emp") } }),
+    client.propertyAvailabilityReport.count({ where: { organizationId: orgId, property: startsWith("prop") } }),
+    client.propertyReport.count({ where: { organizationId: orgId, property: startsWith("prop") } }),
+    client.propertyFavorite.count({ where: { property: startsWith("prop") } }),
+    client.propertyViewLog.count({ where: { property: startsWith("prop") } }),
+    client.propertyImage.count({ where: { organizationId: orgId, property: startsWith("prop") } }),
     client.lead.count({ where: startsWith("lead") }),
     client.property.count({ where: startsWith("prop") }),
     client.owner.count({ where: startsWith("owner") }),
+    client.inventoryPartner.count({ where: startsWith("partner") }),
     client.employeeServiceArea.count({ where: { organizationId: orgId, employee: startsWith("emp") } }),
     client.leadAssignmentRule.count({ where: startsWith("rule") }),
     client.user.count({ where: startsWith("emp") }),
   ]);
 
   return {
-    catalogueInteraction, catalogueShareProperty, catalogueShare,
+    catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     payment, brokerageCalculation, deal, document,
-    visit, followUp, leadScoreHistory, activity, notification, savedView,
-    lead, property, owner, employeeServiceArea, leadAssignmentRule, user,
+    visitFeedback, visit, followUp, leadScoreHistory, activity, notification, savedView,
+    propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,
+    lead, property, owner, inventoryPartner, employeeServiceArea, leadAssignmentRule, user,
   };
 }

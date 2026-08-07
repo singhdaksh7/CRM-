@@ -8,6 +8,7 @@ import { recalculateLeadScore } from "@/lib/scoring";
 import { createNotification } from "@/lib/notifications";
 import { checkVisitConflict } from "@/lib/visit-conflict";
 import { recordAudit } from "@/lib/audit";
+import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 
 export async function GET(req: NextRequest) {
   try {
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
     await logActivity({ leadId: data.leadId, type: "VISIT_SCHEDULED", description: `Visit scheduled for ${data.visitDate} at ${data.visitTime}`, actorId: session.user.id });
     await prisma.lead.update({ where: { id: data.leadId }, data: { status: "VISIT_SCHEDULED" } });
     await recalculateLeadScore(data.leadId, "VISIT_SCHEDULED");
+    await appendPropertyTimelineEvent({ organizationId, propertyId: data.propertyId, eventType: "VISIT_SCHEDULED", actorId: session.user.id });
 
     if (data.assignedToId) {
       await createNotification({

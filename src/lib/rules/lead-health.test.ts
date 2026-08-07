@@ -24,6 +24,9 @@ function baseInput(overrides: Partial<LeadHealthInput> = {}): LeadHealthInput {
     catalogueViewedCount: 0,
     clientInterestCount: 0,
     failedWhatsAppCount: 0,
+    recentFeedbackRejectionCount: 0,
+    recentFeedbackPositiveCount: 0,
+    hasNegotiationRequiredFeedback: false,
     now: NOW,
     ...overrides,
   };
@@ -123,5 +126,20 @@ describe("computeLeadHealth", () => {
     );
     expect(result.warnings.some((w) => /no client contact/i.test(w.detail))).toBe(false);
     expect(result.warnings.some((w) => /stuck in/i.test(w.detail))).toBe(false);
+  });
+
+  it("penalizes feedback indicating family or owner rejection", () => {
+    const result = computeLeadHealth(baseInput({ recentFeedbackRejectionCount: 1 }));
+    expect(result.warnings.some((w) => /feedback indicates rejection/i.test(w.label))).toBe(true);
+  });
+
+  it("rewards positive visit feedback", () => {
+    const result = computeLeadHealth(baseInput({ recentFeedbackPositiveCount: 1 }));
+    expect(result.positives.some((p) => /positive visit feedback/i.test(p.label))).toBe(true);
+  });
+
+  it("rewards feedback flagging negotiation as required", () => {
+    const result = computeLeadHealth(baseInput({ hasNegotiationRequiredFeedback: true }));
+    expect(result.positives.some((p) => /negotiation required per feedback/i.test(p.label))).toBe(true);
   });
 });

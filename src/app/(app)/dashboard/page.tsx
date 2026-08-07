@@ -15,6 +15,8 @@ import { ActionCenterList } from "@/components/dashboard/action-center-list";
 import { HealthOverviewCard } from "@/components/dashboard/health-overview-card";
 import { DemoDataBanner } from "@/components/dashboard/demo-data-banner";
 import { isDemoDataLoaded } from "@/lib/demo-data/status";
+import { getFieldOpsSummary } from "@/lib/field-ops-summary-data";
+import { FieldOpsSummaryPanel } from "@/components/dashboard/field-ops-summary-panel";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -69,6 +71,13 @@ export default async function DashboardPage() {
         <KpiCard label="Visit Requests Today" value={data.visitRequestsReceivedToday} icon={CalendarPlus} tone="amber" />
         <KpiCard label="Awaiting Shortlist" value={data.leadsAwaitingShortlistCount} icon={ListChecks} tone="red" />
       </div>
+
+      {/* Objective 12 - Manager Dashboard field-ops widgets */}
+      {(session.user.role === "ADMIN" || session.user.role === "DATA_MANAGER") && (
+        <Suspense fallback={<PanelSkeleton />}>
+          <FieldOpsSummarySection userId={session.user.id} />
+        </Suspense>
+      )}
 
       {/* Smart Action Center - Phase 1 deterministic rule engine */}
       <Suspense fallback={<PanelSkeleton />}>
@@ -138,6 +147,12 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
       </div>
     </>
   );
+}
+
+async function FieldOpsSummarySection({ userId }: { userId: string }) {
+  const organizationId = getOrganizationId(userId);
+  const summary = await getFieldOpsSummary(organizationId);
+  return <FieldOpsSummaryPanel summary={summary} />;
 }
 
 async function SmartActionCenter({ role, userId }: { role: Role; userId: string }) {

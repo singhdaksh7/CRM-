@@ -1,8 +1,9 @@
-import type { Lead, Owner, Property } from "@prisma/client";
+import type { Lead, Owner, InventoryPartner, Property } from "@prisma/client";
 import { Rng, DEMO_SEED } from "./rng";
 import { DEMO_SEED_PLAN } from "./plan";
 import { buildEmployeeStubs, type DemoEmployeeSet } from "./employees";
 import { buildOwnerData } from "./owners";
+import { buildInventoryPartnerData } from "./inventory-partners";
 import { buildPropertyData } from "./properties";
 import { buildLeadData } from "./leads";
 import { matchPropertiesToLead } from "../matching";
@@ -51,10 +52,19 @@ export function buildAndValidateProjectedDataset(): DatasetValidationResult {
     owners.push(buildOwnerData(rng, i, employees) as unknown as Owner);
   }
 
+  // Phase 4 - built here (same rng stream position as the real
+  // createDemoInventoryPartners call in scripts/seed-demo.ts, between
+  // owners and properties) so this projection stays byte-identical to
+  // what seed:demo will actually create - see this file's doc comment.
+  const partners: InventoryPartner[] = [];
+  for (let i = 1; i <= DEMO_SEED_PLAN.inventoryPartners; i++) {
+    partners.push(buildInventoryPartnerData(rng, i, employees) as unknown as InventoryPartner);
+  }
+
   const assetsByType = ensureDemoPropertyAssets();
   const properties: Property[] = [];
   for (let i = 1; i <= DEMO_SEED_PLAN.properties; i++) {
-    properties.push(buildPropertyData(rng, i, owners, employees, assetsByType) as unknown as Property);
+    properties.push(buildPropertyData(rng, i, owners, employees, assetsByType, partners) as unknown as Property);
   }
   const availableProperties = properties.filter((p) => p.status === "AVAILABLE");
 

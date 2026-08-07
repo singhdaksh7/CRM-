@@ -80,6 +80,30 @@ function documentSvg(label: string): string {
 </svg>`;
 }
 
+const AVAILABILITY_REPORT_ASSET_DIR = path.join(process.cwd(), "public", "demo-assets", "availability-reports");
+
+/**
+ * Phase 4 - PropertyAvailabilityReport.photoId is a required FK to a real
+ * PropertyImage (purpose AVAILABILITY_REPORT), enforced at the route layer
+ * to prevent fake/lazy reports. Demo data must exercise that same required
+ * relationship, not bypass it - so this generates one placeholder "photo
+ * evidence" asset, idempotent, same pattern as the other asset helpers here.
+ */
+export function ensureDemoAvailabilityReportAsset(): string {
+  fs.mkdirSync(AVAILABILITY_REPORT_ASSET_DIR, { recursive: true });
+  const fileName = "evidence-photo.svg";
+  const filePath = path.join(AVAILABILITY_REPORT_ASSET_DIR, fileName);
+  if (!fs.existsSync(filePath)) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#596579"/>
+  <text x="600" y="380" font-family="Arial, sans-serif" font-size="52" font-weight="700" fill="#ffffff" text-anchor="middle">Availability Report Photo</text>
+  <text x="600" y="440" font-family="Arial, sans-serif" font-size="26" fill="rgba(255,255,255,0.85)" text-anchor="middle">Demo evidence placeholder - not a real photo</text>
+</svg>`;
+    fs.writeFileSync(filePath, svg, "utf-8");
+  }
+  return `/demo-assets/availability-reports/${fileName}`;
+}
+
 /** One placeholder per document category used by demo-data/documents.ts. Idempotent, same pattern as property assets above. */
 export function ensureDemoDocumentAssets(categories: string[]): Record<string, string> {
   fs.mkdirSync(DOCUMENT_ASSET_DIR, { recursive: true });

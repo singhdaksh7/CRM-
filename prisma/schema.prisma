@@ -128,6 +128,16 @@ enum VisitOutcome {
   NOT_INTERESTED
   WANTS_ANOTHER_PROPERTY
   READY_FOR_NEGOTIATION
+  // Phase 4 - Field Operations. Property-availability outcomes ("Property
+  // Locked"/"Already Rented"/"Already Sold") deliberately do NOT live here -
+  // they go through PropertyAvailabilityReport instead (photo-evidence
+  // required), keeping this enum about lead/visit interest only.
+  CUSTOMER_NO_SHOW
+  OWNER_NO_SHOW
+  NEGOTIATION_IN_PROGRESS
+  SHORTLISTED
+  REJECTED
+  FOLLOW_UP_NEEDED
 }
 
 enum FollowUpType {
@@ -196,6 +206,23 @@ enum ActivityType {
   PAYMENT_RECEIVED
   DOCUMENT_UPLOADED
   DOCUMENT_DELETED
+  // Phase 4 - Field Operations
+  EXECUTIVE_ASSIGNED
+  VISIT_OUTCOME_RECORDED
+  VISIT_FEEDBACK_SUBMITTED
+  PROPERTY_AVAILABILITY_REPORTED
+  PROPERTY_AVAILABILITY_APPROVED
+  PROPERTY_AVAILABILITY_REJECTED
+  PROPERTY_REPORTED
+  PROPERTY_REPORT_RESOLVED
+  PROPERTY_TIMELINE_EVENT
+  PROPERTY_VERIFIED
+  CATALOGUE_INTERNAL_SHARED
+  CATALOGUE_PROPERTY_STATUS_UPDATED
+  CATALOGUE_VERSION_CHANGED
+  INVENTORY_PARTNER_CREATED
+  INVENTORY_PARTNER_UPDATED
+  CALL_INITIATED
 }
 
 enum EmployeeStatus {
@@ -258,6 +285,15 @@ enum NotificationType {
   PROPERTY_MISSING_PHOTOS
   DEAL_NEGOTIATION_STALE
   DOCUMENT_EXPIRING
+  // Phase 4 - Field Operations. EXECUTIVE_ASSIGNED deliberately omitted -
+  // the existing LEAD_ASSIGNED notification already covers that event; a
+  // second type for the same event would duplicate notifications.
+  AVAILABILITY_REPORT_SUBMITTED
+  AVAILABILITY_REPORT_APPROVED
+  AVAILABILITY_REPORT_REJECTED
+  PROPERTY_REPORT_SUBMITTED
+  PROPERTY_REPORT_RESOLVED
+  INTERNAL_CATALOGUE_SHARED
 }
 
 // ---------------------------------------------------------------------------
@@ -563,6 +599,13 @@ model Organization {
   savedViews            SavedView[]
   systemConfig          SystemConfig?
   automationRules       AutomationRule[]
+  inventoryPartners     InventoryPartner[]
+  propertyTimelineEvents PropertyTimelineEvent[]
+  propertyAvailabilityReports PropertyAvailabilityReport[]
+  propertyReports       PropertyReport[]
+  visitFeedback         VisitFeedback[]
+  leadAssignmentHistory LeadAssignmentHistory[]
+  catalogueVersionEvents CatalogueVersionEvent[]
 
   @@map("organizations")
 }
@@ -624,6 +667,21 @@ model User {
   systemConfigsUpdated      SystemConfig[]
   automationRulesCreated    AutomationRule[]
 
+  // Phase 4 - Field Operations
+  inventoryPartnersCreated       InventoryPartner[]           @relation("InventoryPartnerCreatedBy")
+  propertiesLastVerified         Property[]                   @relation("PropertyLastVerifiedBy")
+  propertyTimelineEventsActed    PropertyTimelineEvent[]      @relation("PropertyTimelineEventActor")
+  availabilityReportsSubmitted   PropertyAvailabilityReport[] @relation("AvailabilityReportedBy")
+  availabilityReportsReviewed    PropertyAvailabilityReport[] @relation("AvailabilityReportReviewedBy")
+  propertyReportsSubmitted       PropertyReport[]             @relation("PropertyReportedBy")
+  propertyReportsResolved        PropertyReport[]             @relation("PropertyReportResolvedBy")
+  visitFeedbackSubmitted         VisitFeedback[]              @relation("VisitFeedbackSubmittedBy")
+  leadAssignmentHistoryTo        LeadAssignmentHistory[]      @relation("AssignmentHistoryTo")
+  catalogueExecutiveStatusUpdates CatalogueShareProperty[]    @relation("CatalogueExecutiveStatusUpdatedBy")
+  catalogueVersionEventsActed    CatalogueVersionEvent[]      @relation("CatalogueVersionEventActor")
+  propertyFavorites              PropertyFavorite[]
+  propertyViewLogs               PropertyViewLog[]
+
   @@map("users")
 }
 
@@ -683,6 +741,8 @@ model Notification {
   visitId        String?
   propertyId     String?
   followUpId     String?
+  inventoryPartnerId String? // Phase 4 - Field Operations
+  inventoryPartner   InventoryPartner? @relation(fields: [inventoryPartnerId], references: [id])
   isRead         Boolean          @default(false)
   readAt         DateTime?
   createdAt      DateTime         @default(now())
@@ -767,12 +827,40 @@ model Property {
   // Owner (private - never exposed on public page)
   // ownerName/ownerPhone remain the source of truth for legacy properties;
   // ownerId links to a full Owner CRM record when one exists (Phase 1).
-  ownerName           String
-  ownerPhone          String
+  // Phase 4: made nullable - an INDIRECT property (see inventorySource
+  // below) legitimately has no owner at all, only an InventoryPartner.
+  // createPropertySchema still requires these for DIRECT inventory.
+  ownerName           String?
+  ownerPhone          String?
   ownerAlternatePhone String?
   ownerNotes          String?
   ownerId             String?
   owner               Owner?  @relation(fields: [ownerId], references: [id])
+
+  // Phase 4 - Field Operations: Direct vs Indirect inventory
+  inventorySource InventorySource   @default(DIRECT)
+  partnerId       String?
+  partner         InventoryPartner? @relation(fields: [partnerId], references: [id])
+
+  // Phase 4 - Internal Property View (never in customer-facing catalogue DTOs)
+  buildingName        String?
+  flatNumber          String?
+  gateNumber          String?
+  propertySource      String?
+  keyAvailability     String?
+  entryInstructions   String?
+  internalNotes       String?
+  negotiationNotes    String?
+  hiddenRemarks       String?
+  imagesUpdatedAt     DateTime?
+
+  // Phase 4 - Availability Verification
+  pendingVerification Boolean @default(false)
+
+  // Phase 4 - Property Last Verified
+  lastVerifiedAt      DateTime?
+  lastVerifiedById    String?
+  lastVerifiedBy      User?     @relation("PropertyLastVerifiedBy", fields: [lastVerifiedById], references: [id])
 
   createdById String?
   createdBy   User?    @relation("PropertyCreatedBy", fields: [createdById], references: [id])
@@ -786,10 +874,22 @@ model Property {
   deals                    Deal[]
   documents                Document[]
   propertyImages           PropertyImage[]
+  timelineEvents           PropertyTimelineEvent[]
+  availabilityReports      PropertyAvailabilityReport[]
+  reports                  PropertyReport[]
+  favoritedBy              PropertyFavorite[]
+  viewLogs                 PropertyViewLog[]
 
   @@index([ownerId])
   @@index([organizationId, status])
+  @@index([organizationId, inventorySource])
+  @@index([partnerId])
   @@map("properties")
+}
+
+enum InventorySource {
+  DIRECT
+  INDIRECT
 }
 
 // ---------------------------------------------------------------------------
@@ -849,6 +949,7 @@ model Lead {
   catalogueShares       CatalogueShare[]
   deals                 Deal[]
   documents             Document[]
+  assignmentHistory     LeadAssignmentHistory[]
 
   @@index([organizationId, phone])
   @@index([organizationId, assignedToId])
@@ -949,6 +1050,9 @@ model Visit {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  feedback            VisitFeedback?
+  availabilityReports PropertyAvailabilityReport[]
+
   @@map("visits")
 }
 
@@ -993,6 +1097,8 @@ model Activity {
   crmOwner       Owner?       @relation(fields: [crmOwnerId], references: [id], onDelete: Cascade)
   dealId         String?
   deal           Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  inventoryPartnerId String? // Phase 4 - Field Operations
+  inventoryPartner   InventoryPartner? @relation(fields: [inventoryPartnerId], references: [id], onDelete: Cascade)
   actorId        String?
   actor          User?        @relation("ActivityActor", fields: [actorId], references: [id])
   type           ActivityType
@@ -1002,6 +1108,7 @@ model Activity {
 
   @@index([crmOwnerId])
   @@index([dealId])
+  @@index([inventoryPartnerId])
   @@map("activities")
 }
 
@@ -1097,11 +1204,13 @@ model CatalogueShare {
   expiresAt        DateTime?
   viewCount        Int                   @default(0)
   lastViewedAt     DateTime?
+  version          Int                   @default(1) // Phase 4 - bumped whenever a property is removed/added post-send; token stays stable so "latest version" just means the current active property set
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
-  properties   CatalogueShareProperty[]
-  interactions CatalogueInteraction[]
+  properties     CatalogueShareProperty[]
+  interactions   CatalogueInteraction[]
+  versionEvents  CatalogueVersionEvent[]
 
   @@index([organizationId, leadId])
   @@map("catalogue_shares")
@@ -1125,8 +1234,28 @@ model CatalogueShareProperty {
   addedByUser      User?          @relation(fields: [addedByUserId], references: [id])
   createdAt        DateTime       @default(now())
 
+  // Phase 4 - executive per-property engagement checklist
+  executiveStatus            CatalogueExecutiveStatus @default(PENDING)
+  executiveStatusUpdatedAt   DateTime?
+  executiveStatusUpdatedById String?
+  executiveStatusUpdatedBy   User?                    @relation("CatalogueExecutiveStatusUpdatedBy", fields: [executiveStatusUpdatedById], references: [id])
+  executiveStatusNote        String?
+
+  // Phase 4 - catalogue versioning (soft-removal, never a hard delete -
+  // existing CatalogueInteraction rows reference propertyId and must stay valid)
+  removedAt      DateTime?
+  removedReason  String?
+
   @@unique([catalogueShareId, propertyId])
   @@map("catalogue_share_properties")
+}
+
+enum CatalogueExecutiveStatus {
+  PENDING
+  SHOWN
+  CUSTOMER_LIKED
+  SHORTLISTED
+  REJECTED
 }
 
 model CatalogueInteraction {
@@ -1422,6 +1551,8 @@ model PropertyImage {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
+  availabilityReports PropertyAvailabilityReport[] // Phase 4 - required evidence photo
+
   @@index([organizationId, propertyId])
   @@index([propertyId, status, sortOrder])
   @@map("property_images")
@@ -1430,6 +1561,7 @@ model PropertyImage {
 enum PropertyImagePurpose {
   IMAGE
   FLOOR_PLAN
+  AVAILABILITY_REPORT // Phase 4 - required photo evidence for a PropertyAvailabilityReport
 }
 
 enum PropertyImageStatus {
@@ -1655,4 +1787,252 @@ model AutomationRule {
 
   @@index([organizationId, trigger, isActive])
   @@map("automation_rules")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 - Field Operations & Property Workflow
+// ---------------------------------------------------------------------------
+
+// Not every property comes through a broker in Delhi - could be another
+// company, a dealer, a builder, or a society office. "Inventory Partner" is
+// deliberately generic. One partner owns many indirect properties; details
+// are never duplicated onto each Property row (see Property.partnerId).
+model InventoryPartner {
+  id                    String       @id @default(cuid())
+  organizationId        String       @default("org_default")
+  organization          Organization @relation(fields: [organizationId], references: [id])
+  partnerCode           String       @unique
+  name                  String
+  company               String?
+  phone                 String
+  alternatePhone        String?
+  localities            String       @default("[]") // JSON array of strings, same convention as Property.amenities
+  notes                 String?
+  commissionSplitPct    Float?
+  isActive              Boolean      @default(true)
+  lastInventoryUpdateAt DateTime?
+
+  createdById String?
+  createdBy   User?    @relation("InventoryPartnerCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  properties    Property[]
+  notifications Notification[]
+  activities    Activity[]
+
+  @@index([organizationId, isActive])
+  @@index([organizationId, phone])
+  @@map("inventory_partners")
+}
+
+// Append-only complete property history: status changes, catalogue
+// sends/views, visits, price/rent updates, verification events. Nothing is
+// ever updated or deleted from this table - see appendPropertyTimelineEvent.
+model PropertyTimelineEvent {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  eventType      String // free-text label, not an enum, so new event labels never need a migration
+  fromValue      String?
+  toValue        String?
+  note           String?
+  actorId        String?
+  actor          User?    @relation("PropertyTimelineEventActor", fields: [actorId], references: [id])
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, propertyId, createdAt])
+  @@map("property_timeline_events")
+}
+
+enum AvailabilityReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AvailabilityReportReason {
+  ALREADY_RENTED
+  ALREADY_SOLD
+  PROPERTY_LOCKED
+  OWNER_UNREACHABLE
+  OTHER
+}
+
+// Executive-reported "this property may not actually be available" flow.
+// photoId is required (not just documented as required) - the review route
+// rejects creation without a real PropertyImage of purpose
+// AVAILABILITY_REPORT, to prevent fake/lazy reports.
+model PropertyAvailabilityReport {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  visitId        String?
+  visit          Visit?       @relation(fields: [visitId], references: [id])
+  reportedById   String
+  reportedBy     User         @relation("AvailabilityReportedBy", fields: [reportedById], references: [id])
+  reason         AvailabilityReportReason
+  note           String?
+  photoId        String
+  photo          PropertyImage @relation(fields: [photoId], references: [id])
+  status         AvailabilityReportStatus @default(PENDING)
+  reviewedById   String?
+  reviewedBy     User?        @relation("AvailabilityReportReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  reviewNote     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([propertyId])
+  @@map("property_availability_reports")
+}
+
+enum PropertyReportType {
+  WRONG_RENT
+  WRONG_PHOTOS
+  WRONG_AREA
+  OWNER_NOT_RESPONDING
+  DUPLICATE_LISTING
+  PROPERTY_CLOSED
+  ALREADY_RENTED
+  ALREADY_SOLD
+  NEEDS_NEW_PHOTOS
+  REQUIRES_VERIFICATION
+}
+
+enum PropertyReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+// General data-quality reporting queue - distinct from
+// PropertyAvailabilityReport because its resolve semantics don't drive an
+// automatic inventory status change. Both feed the unified "Property Issues
+// Queue" admin view (GET /api/admin/property-issues merges both).
+model PropertyReport {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  reportedById   String
+  reportedBy     User         @relation("PropertyReportedBy", fields: [reportedById], references: [id])
+  type           PropertyReportType
+  note           String?
+  status         PropertyReportStatus @default(PENDING)
+  resolvedById   String?
+  resolvedBy     User?        @relation("PropertyReportResolvedBy", fields: [resolvedById], references: [id])
+  resolvedAt     DateTime?
+  resolutionNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@index([propertyId])
+  @@map("property_reports")
+}
+
+// One structured feedback record per visit, submitted/edited by the
+// executive after the visit. Feeds Lead Health and Property Health.
+model VisitFeedback {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  visitId        String       @unique
+  visit          Visit        @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  customerLiked       String? // JSON array of strings
+  customerDisliked    String? // JSON array of strings
+  budgetIssue         Boolean @default(false)
+  areaIssue           Boolean @default(false)
+  parkingIssue        Boolean @default(false)
+  familyRejected      Boolean @default(false)
+  ownerRejected       Boolean @default(false)
+  willVisitAgain      Boolean @default(false)
+  negotiationRequired Boolean @default(false)
+  additionalNotes     String?
+
+  submittedById String
+  submittedBy   User     @relation("VisitFeedbackSubmittedBy", fields: [submittedById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("visit_feedback")
+}
+
+// Closes a documented gap: only /transfer wrote assignment history before
+// Phase 4 (via LeadTransfer, kept exactly as-is). This table is written from
+// all four assignment code paths (assign, auto-assign, bulk-auto-assign,
+// transfer) so every assignment - not just re-assignments - is auditable.
+model LeadAssignmentHistory {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  toUserId       String
+  toUser         User         @relation("AssignmentHistoryTo", fields: [toUserId], references: [id])
+  method         String // "MANUAL_ASSIGN" | "AUTO_ASSIGN" | "BULK_AUTO_ASSIGN" | "TRANSFER"
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, leadId, createdAt])
+  @@map("lead_assignment_history")
+}
+
+// Append-only log of catalogue version changes (property removed/added
+// after a catalogue was already sent). The token/link never changes -
+// clients always see the current active property set, this log exists
+// purely for transparency/audit.
+model CatalogueVersionEvent {
+  id                String         @id @default(cuid())
+  organizationId    String         @default("org_default")
+  organization      Organization   @relation(fields: [organizationId], references: [id])
+  catalogueShareId  String
+  catalogueShare    CatalogueShare @relation(fields: [catalogueShareId], references: [id], onDelete: Cascade)
+  version           Int
+  changeType        String // "PROPERTY_REMOVED" | "PROPERTY_ADDED"
+  propertyId        String?
+  reason            String?
+  actorId           String?
+  actor             User?    @relation("CatalogueVersionEventActor", fields: [actorId], references: [id])
+  createdAt         DateTime @default(now())
+
+  @@index([catalogueShareId, version])
+  @@map("catalogue_version_events")
+}
+
+model PropertyFavorite {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@map("property_favorites")
+}
+
+// Written (fire-and-forget) on every internal-property-view read. Reads are
+// always limited + de-duplicated by propertyId in application code - never
+// an unbounded scan.
+model PropertyViewLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  viewedAt   DateTime @default(now())
+
+  @@index([userId, viewedAt])
+  @@map("property_view_logs")
 }

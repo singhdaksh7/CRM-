@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost" | "whatsapp" | "outline";
-type Size = "sm" | "md" | "lg";
+type Size = "sm" | "md" | "lg" | "touch";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary: "bg-[#3366FF] text-white hover:bg-[#2952CC] active:bg-[#1F3D99] focus-visible:ring-2 focus-visible:ring-[#3366FF] shadow-xs",
@@ -18,6 +18,9 @@ const SIZE_CLASSES: Record<Size, string> = {
   sm: "px-2.5 py-1.5 text-xs rounded-xl",
   md: "px-3.5 py-2 text-sm rounded-xl",
   lg: "px-4 py-2.5 text-base rounded-xl",
+  // Phase 4 - Executive Dashboard: a real 44px+ touch target (WCAG minimum),
+  // for large touch-friendly buttons on phones (Call/WhatsApp/Maps/etc).
+  touch: "px-5 py-3 text-base rounded-xl min-h-[48px]",
 };
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

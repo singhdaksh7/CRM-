@@ -3,7 +3,7 @@ import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
 import { getOrganizationId } from "./organization";
 import { logActivity } from "./activity";
-import { notifyRoles } from "./notifications";
+import { notifyRoles, createNotification } from "./notifications";
 import { sendOutboundMessage } from "./whatsapp-messages";
 import { getConversationForLead } from "./whatsapp-conversations";
 import { normalizeIndianPhone, getWhatsAppProvider, buildRequirementSummary } from "@/integrations/whatsapp";
@@ -11,6 +11,7 @@ import { isWithinCustomerCareWindow } from "@/integrations/whatsapp/whatsapp-win
 import { getWhatsAppTemplate, renderTemplateBody } from "@/integrations/whatsapp/whatsapp-templates";
 import { getPublicCatalogueUrl, buildCatalogueMessageText, toPublicCatalogueDTO } from "./catalogue-dto";
 import { getCoverImageUrls } from "./property-images";
+import { appendPropertyTimelineEvent } from "./property-timeline";
 import type { PublicCatalogueDTO } from "./catalogue-dto";
 import type { Role } from "@prisma/client";
 
@@ -122,6 +123,27 @@ export async function createCatalogue(params: CreateCatalogueParams) {
     });
   }
 
+  // Phase 4, Objective 9 - the assigned executive automatically receives the
+  // same catalogue (no second share/token record - they open the internal
+  // version of this one). Skipped when the executive is the one who just
+  // created it themselves - no need to notify someone of their own action.
+  if (lead.assignedToId && lead.assignedToId !== params.createdByUserId) {
+    await logActivity({
+      leadId: params.leadId,
+      type: "CATALOGUE_INTERNAL_SHARED",
+      description: `Catalogue "${params.title}" automatically shared with the assigned field executive`,
+      actorId: params.createdByUserId,
+    });
+    await createNotification({
+      organizationId,
+      userId: lead.assignedToId,
+      type: "INTERNAL_CATALOGUE_SHARED",
+      title: "New catalogue for your lead",
+      message: `${lead.clientName} - catalogue "${params.title}" is ready. Open it for owner/partner details, navigation, and internal notes.`,
+      leadId: params.leadId,
+    });
+  }
+
   return catalogue;
 }
 
@@ -131,7 +153,10 @@ export async function createCatalogue(params: CreateCatalogueParams) {
 // neither of these objects is ever serialized as-is (only toPublicCatalogueDTO
 // / buildCatalogueMessageText read specific fields off them).
 const CATALOGUE_SENDER_INCLUDE = {
-  properties: { include: { property: true, addedByUser: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" as const } },
+  // Phase 4: property now also loads owner/partner so toExecutiveCatalogueDTO
+  // can resolve Direct-vs-Indirect contact details without a second query -
+  // toPublicCatalogueDTO stays a strict whitelist and never reads these.
+  properties: { include: { property: { include: { owner: true, partner: true } }, addedByUser: { select: { id: true, name: true } }, executiveStatusUpdatedBy: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" as const } },
   lead: { include: { assignedTo: { select: { id: true, name: true } } } },
   createdBy: { select: { id: true, name: true } },
   organization: { select: { id: true, name: true } },
@@ -279,6 +304,20 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
       propertyId: catalogue.properties[0]?.propertyId,
     },
   });
+
+  // Phase 4, Objective 8 - complete property history includes catalogue
+  // sends, not just inventory-status changes.
+  await Promise.all(
+    catalogue.properties.filter((cp) => !cp.removedAt).map((cp) =>
+      appendPropertyTimelineEvent({
+        organizationId: catalogue.organizationId,
+        propertyId: cp.propertyId,
+        eventType: "CATALOGUE_SENT",
+        note: `Catalogue "${catalogue.title}"`,
+        actorId: sentByUserId,
+      })
+    )
+  );
 
   await logActivity({
     leadId: catalogue.leadId,

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import type { Property } from "@prisma/client";
@@ -65,6 +66,17 @@ type FormValues = {
   ownerPhone: string;
   ownerAlternatePhone: string;
   ownerNotes: string;
+  inventorySource: "DIRECT" | "INDIRECT";
+  partnerId: string;
+  buildingName: string;
+  flatNumber: string;
+  gateNumber: string;
+  propertySource: string;
+  keyAvailability: string;
+  entryInstructions: string;
+  internalNotes: string;
+  negotiationNotes: string;
+  hiddenRemarks: string;
 };
 
 function toFormValues(p?: Property): FormValues {
@@ -107,6 +119,17 @@ function toFormValues(p?: Property): FormValues {
     coverImage: p?.coverImage ?? "",
     videoUrl: p?.videoUrl ?? "",
     virtualTourUrl: p?.virtualTourUrl ?? "",
+    inventorySource: (p?.inventorySource as "DIRECT" | "INDIRECT") ?? "DIRECT",
+    partnerId: p?.partnerId ?? "",
+    buildingName: p?.buildingName ?? "",
+    flatNumber: p?.flatNumber ?? "",
+    gateNumber: p?.gateNumber ?? "",
+    propertySource: p?.propertySource ?? "",
+    keyAvailability: p?.keyAvailability ?? "",
+    entryInstructions: p?.entryInstructions ?? "",
+    internalNotes: p?.internalNotes ?? "",
+    negotiationNotes: p?.negotiationNotes ?? "",
+    hiddenRemarks: p?.hiddenRemarks ?? "",
     ownerName: p?.ownerName ?? "",
     ownerPhone: p?.ownerPhone ?? "",
     ownerAlternatePhone: p?.ownerAlternatePhone ?? "",
@@ -121,6 +144,16 @@ export function PropertyForm({ property }: { property?: Property }) {
   const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: toFormValues(property) });
   const listingType = watch("listingType");
   const amenities = watch("amenities");
+  const inventorySource = watch("inventorySource");
+  const [partners, setPartners] = useState<{ id: string; name: string; company: string | null }[]>([]);
+
+  useEffect(() => {
+    if (inventorySource !== "INDIRECT") return;
+    fetch("/api/inventory-partners?isActive=true&take=100")
+      .then((res) => res.json())
+      .then((data) => setPartners(data.inventoryPartners ?? []))
+      .catch(() => {});
+  }, [inventorySource]);
 
   function toggleAmenity(a: string) {
     setValue("amenities", amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a]);
@@ -163,10 +196,21 @@ export function PropertyForm({ property }: { property?: Property }) {
       longitude: values.longitude,
       formattedAddress: values.formattedAddress || null,
       placeId: values.placeId || null,
-      ownerName: values.ownerName.trim(),
-      ownerPhone: values.ownerPhone.trim(),
-      ownerAlternatePhone: blankToNull(values.ownerAlternatePhone),
-      ownerNotes: values.ownerNotes.trim() === "" ? null : values.ownerNotes.trim(),
+      ownerName: values.inventorySource === "DIRECT" ? values.ownerName.trim() : null,
+      ownerPhone: values.inventorySource === "DIRECT" ? values.ownerPhone.trim() : null,
+      ownerAlternatePhone: values.inventorySource === "DIRECT" ? blankToNull(values.ownerAlternatePhone) : null,
+      ownerNotes: values.inventorySource === "DIRECT" ? (values.ownerNotes.trim() === "" ? null : values.ownerNotes.trim()) : null,
+      inventorySource: values.inventorySource,
+      partnerId: values.inventorySource === "INDIRECT" ? (values.partnerId || null) : null,
+      buildingName: blankToNull(values.buildingName),
+      flatNumber: blankToNull(values.flatNumber),
+      gateNumber: blankToNull(values.gateNumber),
+      propertySource: blankToNull(values.propertySource),
+      keyAvailability: blankToNull(values.keyAvailability),
+      entryInstructions: blankToNull(values.entryInstructions),
+      internalNotes: blankToNull(values.internalNotes),
+      negotiationNotes: blankToNull(values.negotiationNotes),
+      hiddenRemarks: blankToNull(values.hiddenRemarks),
     };
 
     try {
@@ -394,19 +438,58 @@ export function PropertyForm({ property }: { property?: Property }) {
         )}
       </Section>
 
-      <Section title="Owner Details (private, never shown publicly)">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Owner Name" required error={errors.ownerName?.message}><Input {...register("ownerName", { required: "Owner name required", minLength: { value: 2, message: "Owner name must be at least 2 characters" } })} /></Field>
-          <Field label="Owner Phone" required error={errors.ownerPhone?.message}><Input {...register("ownerPhone", { required: "Owner phone required", minLength: { value: 8, message: "Owner phone must be at least 8 characters" } })} /></Field>
-          <Field label="Alternate Phone" error={errors.ownerAlternatePhone?.message}>
-            <Input
-              {...register("ownerAlternatePhone", {
-                validate: (v) => v.trim() === "" || /^[0-9+\-\s()]{7,20}$/.test(v.trim()) || "Alternate phone must contain digits only",
-              })}
-            />
+      <Section title="Inventory Source">
+        <Field label="Is this property Direct or Indirect?" hint="Direct = you deal with the owner. Indirect = sourced through another company, dealer, builder, or society office.">
+          <Select {...register("inventorySource")}>
+            <option value="DIRECT">Direct (Owner)</option>
+            <option value="INDIRECT">Indirect (Inventory Partner)</option>
+          </Select>
+        </Field>
+      </Section>
+
+      {inventorySource === "DIRECT" ? (
+        <Section title="Owner Details (private, never shown publicly)">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Owner Name" required error={errors.ownerName?.message}><Input {...register("ownerName", { required: "Owner name required", minLength: { value: 2, message: "Owner name must be at least 2 characters" } })} /></Field>
+            <Field label="Owner Phone" required error={errors.ownerPhone?.message}><Input {...register("ownerPhone", { required: "Owner phone required", minLength: { value: 8, message: "Owner phone must be at least 8 characters" } })} /></Field>
+            <Field label="Alternate Phone" error={errors.ownerAlternatePhone?.message}>
+              <Input
+                {...register("ownerAlternatePhone", {
+                  validate: (v) => v.trim() === "" || /^[0-9+\-\s()]{7,20}$/.test(v.trim()) || "Alternate phone must contain digits only",
+                })}
+              />
+            </Field>
+            <Field label="Owner Notes"><Input {...register("ownerNotes")} /></Field>
+          </div>
+        </Section>
+      ) : (
+        <Section title="Inventory Partner (private, never shown publicly)">
+          <Field label="Partner" required error={errors.partnerId?.message}>
+            <Select {...register("partnerId", { required: inventorySource === "INDIRECT" ? "An inventory partner is required for indirect inventory" : false })}>
+              <option value="">Select an inventory partner...</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}{p.company ? ` (${p.company})` : ""}</option>
+              ))}
+            </Select>
           </Field>
-          <Field label="Owner Notes"><Input {...register("ownerNotes")} /></Field>
+          {partners.length === 0 && (
+            <p className="mt-1 text-xs text-[#8A94A6]">No active inventory partners yet - <Link href="/inventory-partners/new" className="text-[#3366FF] hover:underline">add one first</Link>.</p>
+          )}
+        </Section>
+      )}
+
+      <Section title="Internal Property View (staff only, never shown publicly)">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Building Name"><Input {...register("buildingName")} /></Field>
+          <Field label="Flat / Unit Number"><Input {...register("flatNumber")} /></Field>
+          <Field label="Gate Number"><Input {...register("gateNumber")} /></Field>
+          <Field label="Property Source" hint="e.g. Referral, Cold call, Portal, Partner network"><Input {...register("propertySource")} /></Field>
+          <Field label="Key Availability" hint="e.g. With owner, With partner, Office key box #4"><Input {...register("keyAvailability")} /></Field>
         </div>
+        <Field label="Entry Instructions"><Textarea rows={2} {...register("entryInstructions")} /></Field>
+        <Field label="Internal Notes"><Textarea rows={2} {...register("internalNotes")} /></Field>
+        <Field label="Negotiation Notes"><Textarea rows={2} {...register("negotiationNotes")} /></Field>
+        <Field label="Hidden Remarks"><Textarea rows={2} {...register("hiddenRemarks")} /></Field>
       </Section>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-[#EFF4FF]">

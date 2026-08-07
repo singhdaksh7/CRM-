@@ -4,6 +4,7 @@ import { logActivity } from "./activity";
 import { createNotification } from "./notifications";
 import { recalculateLeadScore } from "./scoring";
 import { runAutomationRules } from "./automation-rules";
+import { appendPropertyTimelineEvent } from "./property-timeline";
 import type { CatalogueInteractionType } from "@prisma/client";
 
 const VIEW_DEDUPE_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
@@ -47,6 +48,18 @@ export async function recordCatalogueView(catalogueShareId: string, viewerToken:
   await logActivity({ leadId: catalogue.leadId, type: "CATALOGUE_VIEWED", description: "Client viewed the property catalogue." });
   await recalculateLeadScore(catalogue.leadId, "CATALOGUE_VIEWED");
   await runAutomationRules({ trigger: "CATALOGUE_OPENED", catalogueShareId, leadId: catalogue.leadId, organizationId: catalogue.organizationId });
+
+  // Phase 4, Objective 8 - complete property history includes catalogue
+  // views. Same "first view only" rule as the notification below - repeat
+  // views don't spam the timeline either.
+  if (isFirstViewEver) {
+    const properties = await prisma.catalogueShareProperty.findMany({ where: { catalogueShareId, removedAt: null }, select: { propertyId: true } });
+    await Promise.all(
+      properties.map((p) =>
+        appendPropertyTimelineEvent({ organizationId: catalogue.organizationId, propertyId: p.propertyId, eventType: "CATALOGUE_VIEWED", note: `Catalogue "${catalogue.title}"` })
+      )
+    );
+  }
 
   // Only the FIRST view notifies the assigned employee - every subsequent
   // view within/across windows just increments the counter silently, per

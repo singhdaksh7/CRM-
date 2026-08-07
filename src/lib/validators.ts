@@ -55,11 +55,40 @@ export const propertySchema = z.object({
   videoUrl: optionalUrl,
   virtualTourUrl: optionalUrl,
   floorPlanImage: z.string().optional().nullable(),
-  ownerName: z.string().min(2),
-  ownerPhone: z.string().min(8),
+  // Required for DIRECT inventory, absent for INDIRECT - enforced by
+  // createPropertySchema's cross-field refine below, not here, so
+  // propertySchema.partial() (used for PATCH) stays unaffected.
+  ownerName: z.string().min(2).optional().nullable(),
+  ownerPhone: z.string().min(8).optional().nullable(),
   ownerAlternatePhone: alternatePhoneField,
   ownerNotes: z.string().optional().nullable(),
+  // Phase 4 - Direct vs Indirect inventory
+  inventorySource: z.enum(["DIRECT", "INDIRECT"]).default("DIRECT"),
+  partnerId: z.string().optional().nullable(),
+  // Phase 4 - Internal Property View (never exposed on the public catalogue)
+  buildingName: z.string().optional().nullable(),
+  flatNumber: z.string().optional().nullable(),
+  gateNumber: z.string().optional().nullable(),
+  propertySource: z.string().optional().nullable(),
+  keyAvailability: z.string().optional().nullable(),
+  entryInstructions: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
+  negotiationNotes: z.string().optional().nullable(),
+  hiddenRemarks: z.string().optional().nullable(),
 });
+
+/**
+ * Full-create validation only (see comment above ownerName/ownerPhone) -
+ * PATCH keeps using propertySchema.partial() directly since ZodEffects
+ * (what .refine() returns) has no .partial() method.
+ */
+export const createPropertySchema = propertySchema.refine(
+  (data) => data.inventorySource !== "DIRECT" || (!!data.ownerName && !!data.ownerPhone),
+  { message: "Owner name and phone are required for direct inventory", path: ["ownerName"] }
+).refine(
+  (data) => data.inventorySource !== "INDIRECT" || !!data.partnerId,
+  { message: "An inventory partner is required for indirect inventory", path: ["partnerId"] }
+);
 
 export const leadSchema = z.object({
   clientName: z.string().min(2),
@@ -105,7 +134,7 @@ export const visitSchema = z.object({
   status: z.enum(["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"]).default("SCHEDULED"),
   clientFeedback: z.string().optional().nullable(),
   employeeNotes: z.string().optional().nullable(),
-  outcome: z.enum(["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION"]).optional().nullable(),
+  outcome: z.enum(["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION", "CUSTOMER_NO_SHOW", "OWNER_NO_SHOW", "NEGOTIATION_IN_PROGRESS", "SHORTLISTED", "REJECTED", "FOLLOW_UP_NEEDED"]).optional().nullable(),
   followUpAction: z.string().optional().nullable(),
   // Route-aware conflict override (Maps & Localities phase) - set only when
   // the caller has already seen a WARNING conflict response and explicitly
@@ -309,4 +338,61 @@ export const catalogueInteractionSchema = z.object({
   clientPhone: z.string().max(20).optional(),
   preferredDate: z.string().max(40).optional(),
   preferredWindow: z.string().max(60).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4 - Field Operations & Property Workflow
+// ---------------------------------------------------------------------------
+
+export const inventoryPartnerSchema = z.object({
+  name: z.string().min(2),
+  company: z.string().optional().nullable(),
+  phone: z.string().min(8),
+  alternatePhone: z.string().optional().nullable(),
+  localities: z.array(z.string()).default([]),
+  notes: z.string().optional().nullable(),
+  commissionSplitPct: z.number().min(0).max(100).optional().nullable(),
+  isActive: z.boolean().default(true),
+});
+
+export const updateInventoryPartnerSchema = inventoryPartnerSchema.partial();
+
+export const visitFeedbackSchema = z.object({
+  customerLiked: z.array(z.string()).default([]),
+  customerDisliked: z.array(z.string()).default([]),
+  budgetIssue: z.boolean().default(false),
+  areaIssue: z.boolean().default(false),
+  parkingIssue: z.boolean().default(false),
+  familyRejected: z.boolean().default(false),
+  ownerRejected: z.boolean().default(false),
+  willVisitAgain: z.boolean().default(false),
+  negotiationRequired: z.boolean().default(false),
+  additionalNotes: z.string().optional().nullable(),
+});
+
+export const availabilityReportSchema = z.object({
+  reason: z.enum(["ALREADY_RENTED", "ALREADY_SOLD", "PROPERTY_LOCKED", "OWNER_UNREACHABLE", "OTHER"]),
+  note: z.string().max(2000).optional().nullable(),
+  photoId: z.string().min(1, "A photo is required to report a property unavailable"),
+  visitId: z.string().optional().nullable(),
+});
+
+export const availabilityReportReviewSchema = z.object({
+  decision: z.enum(["APPROVE", "REJECT"]),
+  reviewNote: z.string().max(2000).optional().nullable(),
+});
+
+export const propertyReportSchema = z.object({
+  type: z.enum(["WRONG_RENT", "WRONG_PHOTOS", "WRONG_AREA", "OWNER_NOT_RESPONDING", "DUPLICATE_LISTING", "PROPERTY_CLOSED", "ALREADY_RENTED", "ALREADY_SOLD", "NEEDS_NEW_PHOTOS", "REQUIRES_VERIFICATION"]),
+  note: z.string().max(2000).optional().nullable(),
+});
+
+export const propertyReportResolveSchema = z.object({
+  status: z.enum(["RESOLVED", "DISMISSED"]),
+  resolutionNote: z.string().max(2000).optional().nullable(),
+});
+
+export const catalogueExecutiveStatusSchema = z.object({
+  executiveStatus: z.enum(["PENDING", "SHOWN", "CUSTOMER_LIKED", "SHORTLISTED", "REJECTED"]),
+  note: z.string().max(1000).optional().nullable(),
 });

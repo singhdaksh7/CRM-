@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
@@ -7,16 +8,32 @@ import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyMapPanel } from "@/components/properties/property-map-panel";
 import { NearbyPropertiesPanel } from "@/components/properties/nearby-properties-panel";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
+import { PropertyReportPanel } from "@/components/properties/property-report-panel";
+import { PropertyTimelinePanel } from "@/components/properties/property-timeline-panel";
+import { getPropertyTimeline } from "@/lib/property-timeline";
 import { HealthCard } from "@/components/rules/health-card";
 import { SuggestionList } from "@/components/rules/suggestion-list";
-import { getPropertyHealth, getPropertySuggestions } from "@/lib/rules";
+import { getPropertyHealth, getPropertySuggestions, getInventoryFreshness } from "@/lib/rules";
 import { MapPin, Home, Phone, ShieldCheck, CheckCircle2 } from "lucide-react";
+
+// Change 15 - Inventory Freshness label tone, distinct from the numeric Property Health score.
+const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
+  FRESH: "green",
+  VERIFIED: "blue",
+  NEEDS_VERIFICATION: "amber",
+  STALE: "red",
+};
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const property = await prisma.property.findUnique({ where: { id } });
+  const property = await prisma.property.findUnique({ where: { id }, include: { partner: true } });
   if (!property) notFound();
-  const [health, suggestions] = await Promise.all([getPropertyHealth(property.id), getPropertySuggestions(property.id)]);
+  const [health, suggestions, timelineEvents, freshness] = await Promise.all([
+    getPropertyHealth(property.id),
+    getPropertySuggestions(property.id),
+    getPropertyTimeline(property.id),
+    getInventoryFreshness(property.id),
+  ]);
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
@@ -30,6 +47,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             <span className="font-mono text-xs text-[#8A94A6]">{property.propertyCode}</span>
             <Badge tone={property.listingType === "RENT" ? "blue" : "purple"}>{property.listingType === "RENT" ? "For Rent" : "For Sale"}</Badge>
             <Badge tone={PROPERTY_STATUS_TONE[property.status]}>{enumToLabel(property.status)}</Badge>
+            <Badge tone={property.inventorySource === "DIRECT" ? "indigo" : "orange"}>{property.inventorySource === "DIRECT" ? "Direct" : "Indirect"}</Badge>
+            {property.pendingVerification && <Badge tone="amber">Pending Verification</Badge>}
+            {freshness && <Badge tone={FRESHNESS_TONE[freshness]}>{freshness.replace(/_/g, " ")}</Badge>}
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">{property.title}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-[#596579]">
@@ -145,19 +165,56 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             </div>
           </div>
 
-          {/* Internal Owner Panel */}
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-              <Phone className="h-4 w-4 text-[#3366FF]" /> Owner Information
-            </h3>
-            <div className="space-y-2 text-sm text-[#596579]">
-              <Row label="Name" value={property.ownerName} />
-              <Row label="Phone" value={property.ownerPhone} />
-              {property.ownerAlternatePhone && <Row label="Alternate" value={property.ownerAlternatePhone} />}
-              {property.ownerNotes && <Row label="Notes" value={property.ownerNotes} />}
+          {/* Objective 2 - Direct shows Owner Details, Indirect shows Inventory Partner Details */}
+          {property.inventorySource === "DIRECT" ? (
+            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
+                <Phone className="h-4 w-4 text-[#3366FF]" /> Owner Information
+              </h3>
+              <div className="space-y-2 text-sm text-[#596579]">
+                <Row label="Name" value={property.ownerName} />
+                <Row label="Phone" value={property.ownerPhone} />
+                {property.ownerAlternatePhone && <Row label="Alternate" value={property.ownerAlternatePhone} />}
+                {property.ownerNotes && <Row label="Notes" value={property.ownerNotes} />}
+              </div>
+              <p className="mt-3 text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
             </div>
-            <p className="mt-3 text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
-          </div>
+          ) : (
+            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
+                <Phone className="h-4 w-4 text-[#3366FF]" /> Inventory Partner
+              </h3>
+              {property.partner ? (
+                <div className="space-y-2 text-sm text-[#596579]">
+                  <Row label="Name" value={property.partner.name} />
+                  {property.partner.company && <Row label="Company" value={property.partner.company} />}
+                  <Row label="Phone" value={property.partner.phone} />
+                  <Link href={`/inventory-partners/${property.partner.id}`} className="mt-2 inline-block text-xs font-semibold text-[#3366FF] hover:underline">View partner profile →</Link>
+                </div>
+              ) : (
+                <p className="text-sm text-[#596579]">No inventory partner linked - edit this property to link one.</p>
+              )}
+              <p className="mt-3 text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
+            </div>
+          )}
+
+          {/* Objectives 7 & 10 - executive-facing issue/unavailability reporting */}
+          <PropertyReportPanel propertyId={property.id} />
+
+          {/* Objective 8 & Change 11 - complete property history + last verified */}
+          <PropertyTimelinePanel
+            propertyId={property.id}
+            lastVerifiedAt={property.lastVerifiedAt?.toISOString() ?? null}
+            events={timelineEvents.map((e) => ({
+              id: e.id,
+              eventType: e.eventType,
+              fromValue: e.fromValue,
+              toValue: e.toValue,
+              note: e.note,
+              createdAt: e.createdAt.toISOString(),
+              actor: e.actor ? { name: e.actor.name } : null,
+            }))}
+          />
 
           {/* Meta Details */}
           <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
