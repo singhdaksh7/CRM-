@@ -26,7 +26,7 @@ WHERE schemaname = 'public'
   AND tablename IN ('deal_offers','requirement_broadcasts','requirement_broadcast_recipients','match_recommendations')
 ORDER BY tablename, indexname;
 
-SELECT c.conname, c.conrelid::regclass AS table_name, c.confrelid::regclass AS references_table,
+SELECT c.conname, c.conrelid::regclass::text AS table_name, c.confrelid::regclass::text AS references_table,
        pg_get_constraintdef(c.oid) AS definition
 FROM pg_constraint c
 WHERE c.conname IN (
