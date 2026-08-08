@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
-export function StatusToggle({ employeeId, status }: { employeeId: string; status: "ACTIVE" | "INACTIVE" }) {
+export function StatusToggle({ employeeId, status }: { employeeId: string; status: "PENDING_SETUP" | "ACTIVE" | "INACTIVE" }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
   async function toggle() {
+    if (status === "PENDING_SETUP") return;
     setSaving(true);
     const res = await fetch(`/api/employees/${employeeId}`, {
       method: "PATCH",
@@ -21,8 +22,8 @@ export function StatusToggle({ employeeId, status }: { employeeId: string; statu
   }
 
   return (
-    <button onClick={toggle} disabled={saving} className="disabled:opacity-50">
-      <Badge tone={status === "ACTIVE" ? "green" : "slate"}>{status === "ACTIVE" ? "Active" : "Inactive"}</Badge>
+    <button onClick={toggle} disabled={saving || status === "PENDING_SETUP"} className="disabled:cursor-default disabled:opacity-70">
+      <Badge tone={status === "ACTIVE" ? "green" : status === "PENDING_SETUP" ? "amber" : "slate"}>{status === "ACTIVE" ? "Active" : status === "PENDING_SETUP" ? "Pending Setup" : "Disabled"}</Badge>
     </button>
   );
 }

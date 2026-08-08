@@ -5,6 +5,7 @@ import { recordAudit } from "./audit";
 import { logger } from "./logger";
 import { propertySchema, leadSchema, ownerSchema, employeeSchema } from "./validators";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
 import type { ImportEntityType } from "@prisma/client";
 
 const NUMERIC_FIELDS: Record<ImportEntityType, string[]> = {
@@ -243,7 +244,7 @@ async function createEntity(entityType: ImportEntityType, data: Record<string, u
       return lead.id;
     }
     case "EMPLOYEES": {
-      const passwordHash = await bcrypt.hash("Welcome@123", 10);
+      const passwordHash = await bcrypt.hash(randomUUID(), 10);
       const user = await prisma.user.create({
         data: {
           organizationId,
@@ -252,6 +253,7 @@ async function createEntity(entityType: ImportEntityType, data: Record<string, u
           phone: (data.phone as string) ?? null,
           role: data.role as never,
           passwordHash,
+          status: "PENDING_SETUP",
         },
       });
       return user.id;

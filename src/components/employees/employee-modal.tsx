@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Plus, X } from "lucide-react";
+import { SetupLinkActions } from "./setup-link-actions";
 
 export function AddEmployeeModal() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState<{ id: string; name: string; setupUrl: string } | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -37,8 +39,9 @@ export function AddEmployeeModal() {
     });
     setSaving(false);
     if (res.ok) {
-      toast.success("Employee added (default password: Welcome@123)");
-      setOpen(false);
+      const body = await res.json();
+      toast.success("Employee created in Pending Setup status");
+      setCreated({ id: body.employee.id, name: body.employee.name, setupUrl: body.setupUrl });
       setForm({ name: "", email: "", phone: "", role: "FIELD_EXECUTIVE", speciality: "ALL", maxActiveLeads: 20, serviceAreas: "" });
       router.refresh();
     } else {
@@ -57,8 +60,15 @@ export function AddEmployeeModal() {
           <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-base font-semibold text-slate-900">Add Employee</h3>
-              <button aria-label="Close" onClick={() => setOpen(false)}><X className="h-5 w-5 text-slate-400" /></button>
+              <button aria-label="Close" onClick={() => { setOpen(false); setCreated(null); }}><X className="h-5 w-5 text-slate-400" /></button>
             </div>
+            {created ? (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">Employee created successfully. Share this one-time setup link manually.</p>
+                <SetupLinkActions employeeId={created.id} employeeName={created.name} initialSetupUrl={created.setupUrl} />
+                <div className="flex justify-end"><Button onClick={() => { setOpen(false); setCreated(null); }}>Done</Button></div>
+              </div>
+            ) : (
             <form onSubmit={submit} className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
               <Field label="Full Name" required>
                 <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -100,6 +110,7 @@ export function AddEmployeeModal() {
                 <Button type="submit" loading={saving}>Add Employee</Button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}

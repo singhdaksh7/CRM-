@@ -7,11 +7,13 @@ import { StatusToggle } from "@/components/employees/status-toggle";
 import { EmployeeAssignmentSettings } from "@/components/employees/assignment-settings";
 import { formatDate, formatDateTime, enumToLabel } from "@/lib/utils";
 import { Mail, Phone } from "lucide-react";
+import { getOrganizationId } from "@/lib/organization";
+import { SetupLinkActions } from "@/components/employees/setup-link-actions";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const employee = await prisma.user.findUnique({
-    where: { id },
+  const employee = await prisma.user.findFirst({
+    where: { id, organizationId: getOrganizationId() },
     include: {
       assignedLeads: { orderBy: { createdAt: "desc" } },
       assignedVisits: { include: { property: true, lead: true }, orderBy: { visitDate: "desc" } },
@@ -46,6 +48,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
           <StatusToggle employeeId={employee.id} status={employee.status} />
         </div>
         {employee.notes && <p className="mt-3 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] p-3 text-sm text-[#596579]">{employee.notes}</p>}
+        {employee.status === "PENDING_SETUP" && <div className="mt-4"><SetupLinkActions employeeId={employee.id} employeeName={employee.name} /></div>}
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

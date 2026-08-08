@@ -1,8 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { prisma } from "./prisma";
 import { checkRateLimit, clientIp } from "./rate-limit";
+import { verifyCredentials } from "./credential-auth";
 import type { Role } from "@prisma/client";
 
 declare module "next-auth" {
@@ -39,13 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const limitResult = await checkRateLimit("login", `${ip}:${email.toLowerCase()}`);
         if (!limitResult.allowed) return null;
 
-        const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-        if (!user || user.status !== "ACTIVE") return null;
-
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
-
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return verifyCredentials(email, password);
       },
     }),
   ],
