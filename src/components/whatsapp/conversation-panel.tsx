@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, Textarea } from "@/components/ui/form";
@@ -49,21 +49,32 @@ export function ConversationPanel({ leadId, canManage, clientName }: { leadId: s
   const [simulatedText, setSimulatedText] = useState(SIMULATED_REPLIES[0]);
   const [simulating, setSimulating] = useState(false);
 
-  async function load() {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
-    const res = await fetch(`/api/leads/${leadId}/whatsapp`);
-    if (res.ok) {
-      const data = await res.json();
-      setConversation(data.conversation);
-      setMessages(data.messages ?? []);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/whatsapp`, { signal });
+      if (signal?.aborted) return;
+      if (res.ok) {
+        const data = await res.json();
+        if (signal?.aborted) return;
+        setConversation(data.conversation);
+        setMessages(data.messages ?? []);
+      }
+    } catch {
+      if (!signal?.aborted) setLoading(false);
+      return;
     }
-    setLoading(false);
-  }
+    if (!signal?.aborted) setLoading(false);
+  }, [leadId]);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadId]);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => void load(controller.signal), 0);
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [load]);
 
   async function startConversation() {
     setStarting(true);

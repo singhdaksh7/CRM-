@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -208,24 +208,33 @@ export function PropertyMatchingWorkspace({
   const [created, setCreated] = useState<CreatedCatalogue | null>(null);
   const [sending, setSending] = useState(false);
 
-  function fetchMatches() {
+  const fetchMatches = useCallback((signal?: AbortSignal) => {
     setLoading(true);
-    fetch(`/api/leads/${lead.id}/match?tolerance=${tolerance}&radius=${radius}`)
+    fetch(`/api/leads/${lead.id}/match?tolerance=${tolerance}&radius=${radius}`, { signal })
       .then((r) => r.json())
       .then((data: { sections: SectionedMatches }) => {
+        if (signal?.aborted) return;
         setSections(data.sections);
         const order: SectionKey[] = ["bestMatches", "nearBudget", "nearbyLocalities", "slightlyAboveBudget", "otherSuggestions"];
         const firstNonEmpty = order.find((k) => (data.sections?.[k]?.length ?? 0) > 0);
         setOpenSections(firstNonEmpty ? new Set([firstNonEmpty]) : new Set());
       })
-      .catch(() => toast.error("Failed to load matching properties"))
-      .finally(() => setLoading(false));
-  }
+      .catch(() => {
+        if (!signal?.aborted) toast.error("Failed to load matching properties");
+      })
+      .finally(() => {
+        if (!signal?.aborted) setLoading(false);
+      });
+  }, [lead.id, radius, tolerance]);
 
   useEffect(() => {
-    fetchMatches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lead.id, tolerance, radius]);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => fetchMatches(controller.signal), 0);
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [fetchMatches]);
 
   const allMatchesById = useMemo(() => {
     const map = new Map<string, MatchResult>();
@@ -565,7 +574,7 @@ export function PropertyMatchingWorkspace({
               <option value="newest">Newest listed</option>
             </Select>
           </label>
-          <Button size="sm" variant="secondary" onClick={fetchMatches} loading={loading}>
+          <Button size="sm" variant="secondary" onClick={() => fetchMatches()} loading={loading}>
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
           <Button size="sm" variant="secondary" onClick={() => setPickerOpen(true)}>
