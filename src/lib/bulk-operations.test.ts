@@ -10,6 +10,8 @@ const ownerUpdate = vi.fn();
 const recordAudit = vi.fn();
 const matchPropertiesToLead = vi.fn();
 const createCatalogue = vi.fn();
+const partnerFindFirst = vi.fn();
+const timelineCreateMany = vi.fn();
 
 vi.mock("./prisma", () => ({
   prisma: {
@@ -21,13 +23,16 @@ vi.mock("./prisma", () => ({
       update: (...a: unknown[]) => propertyUpdate(...a),
     },
     owner: { update: (...a: unknown[]) => ownerUpdate(...a) },
+    inventoryPartner: { findFirst: (...a: unknown[]) => partnerFindFirst(...a) },
+    propertyTimelineEvent: { createMany: (...a: unknown[]) => timelineCreateMany(...a) },
+    $transaction: async (callback: (tx: unknown) => Promise<unknown>) => callback({ property: { update: (...a: unknown[]) => propertyUpdate(...a) }, propertyTimelineEvent: { createMany: (...a: unknown[]) => timelineCreateMany(...a) } }),
   },
 }));
 vi.mock("./audit", () => ({ recordAudit: (...a: unknown[]) => recordAudit(...a) }));
 vi.mock("./matching", () => ({ matchPropertiesToLead: (...a: unknown[]) => matchPropertiesToLead(...a) }));
 vi.mock("./catalogues", () => ({ createCatalogue: (...a: unknown[]) => createCatalogue(...a) }));
 
-import { bulkAssignLeads, bulkUpdateLeadStatus, bulkScheduleFollowUp, bulkGenerateCatalogues, bulkUpdatePropertyAvailability, bulkVerifyPropertyOwners, bulkAddPropertyTags } from "./bulk-operations";
+import { bulkAssignLeads, bulkUpdateLeadStatus, bulkScheduleFollowUp, bulkGenerateCatalogues, bulkUpdatePropertyAvailability, bulkVerifyPropertyOwners, bulkAddPropertyTags, bulkManageInventory } from "./bulk-operations";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -155,4 +160,14 @@ describe("bulkAddPropertyTags", () => {
     expect(result.succeeded).toBe(1);
     expect(JSON.parse(propertyUpdate.mock.calls[0][0].data.tags)).toEqual(["premium"]);
   });
+});
+
+describe("Phase 7 bulk inventory management", () => {
+  const indirect = { id: "p1", propertyCode: "PROP-1", inventorySource: "INDIRECT", partnerId: null, listingType: "RENT", monthlyRent: 25000, salePrice: null, area: "Janakpuri" };
+  it("changes partner only for indirect inventory and audits the summary", async () => { propertyFindMany.mockResolvedValue([indirect]); partnerFindFirst.mockResolvedValue({ id: "partner-1" }); propertyUpdate.mockResolvedValue({}); const result = await bulkManageInventory({ ids: ["p1"], organizationId: "org-a", actorUserId: "u1", action: "PARTNER", partnerId: "partner-1" }); expect(result.succeeded).toBe(1); expect(propertyUpdate).toHaveBeenCalledWith({ where: { id: "p1" }, data: { partnerId: "partner-1" } }); expect(recordAudit).toHaveBeenCalledWith(expect.objectContaining({ entityType: "PropertyBulkUpdate" })); });
+  it("rejects partner changes on direct inventory", async () => { propertyFindMany.mockResolvedValue([{ ...indirect, inventorySource: "DIRECT" }]); partnerFindFirst.mockResolvedValue({ id: "partner-1" }); const result = await bulkManageInventory({ ids: ["p1"], organizationId: "org-a", actorUserId: "u1", action: "PARTNER", partnerId: "partner-1" }); expect(result.failed).toBe(1); expect(propertyUpdate).not.toHaveBeenCalled(); });
+  it("marks selected properties as needing verification", async () => { propertyFindMany.mockResolvedValue([indirect]); await bulkManageInventory({ ids: ["p1"], organizationId: "org-a", actorUserId: "u1", action: "NEEDS_VERIFICATION" }); expect(propertyUpdate).toHaveBeenCalledWith({ where: { id: "p1" }, data: { pendingVerification: true } }); });
+  it("applies a percentage price adjustment from existing rent", async () => { propertyFindMany.mockResolvedValue([indirect]); await bulkManageInventory({ ids: ["p1"], organizationId: "org-a", actorUserId: "u1", action: "PRICE", priceMode: "PERCENT", priceValue: 10 }); expect(propertyUpdate).toHaveBeenCalledWith({ where: { id: "p1" }, data: { monthlyRent: 27500 } }); });
+  it("blocks negative price results", async () => { propertyFindMany.mockResolvedValue([indirect]); const result = await bulkManageInventory({ ids: ["p1"], organizationId: "org-a", actorUserId: "u1", action: "PRICE", priceMode: "PERCENT", priceValue: -200 }); expect(result.failed).toBe(1); expect(propertyUpdate).not.toHaveBeenCalled(); });
+  it("reports cross-organization/missing ids without mutating them", async () => { propertyFindMany.mockResolvedValue([]); const result = await bulkManageInventory({ ids: ["foreign"], organizationId: "org-a", actorUserId: "u1", action: "NEEDS_VERIFICATION" }); expect(result.results[0]).toMatchObject({ id: "foreign", success: false }); });
 });

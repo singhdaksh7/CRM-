@@ -50,6 +50,7 @@ export const DEMO_SEED_PLAN = {
   preparedWhatsAppMessages: 1,
   whatsappInboxConversations: 4,
   whatsappInboxMessages: 10,
+  inventoryImportFixtureRows: 15,
 } as const;
 
 export type DemoSeedPlan = typeof DEMO_SEED_PLAN;

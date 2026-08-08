@@ -30,6 +30,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "exceljs": "^4.4.0",
     "firebase-admin": "^14.2.0",
     "ioredis": "^6.0.0",
     "lucide-react": "^1.28.0",

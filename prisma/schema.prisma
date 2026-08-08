@@ -486,10 +486,13 @@ enum ImportEntityType {
 
 enum ImportStatus {
   PENDING
+  DRAFT
   VALIDATING
   VALIDATED
   IMPORTING
+  RUNNING
   COMPLETED
+  COMPLETED_WITH_ERRORS
   FAILED
   ROLLED_BACK
 }
@@ -500,6 +503,32 @@ enum ImportRecordStatus {
   IMPORTED
   DUPLICATE
   SKIPPED
+  WARNING
+  FAILED
+}
+
+enum InventoryImportMode {
+  CREATE_ONLY
+  UPSERT_SAFE
+  UPDATE_EXISTING_ONLY
+}
+
+enum ImportPartialPolicy {
+  REQUIRE_ALL_ROWS_VALID
+  IMPORT_VALID_ROWS
+}
+
+enum PropertyDuplicateClass {
+  EXACT_DUPLICATE
+  PROBABLE_DUPLICATE
+  POSSIBLE_DUPLICATE
+  NEW
+}
+
+enum PropertyImportAction {
+  CREATE
+  UPDATE_EXISTING
+  SKIP
 }
 
 enum AuditAction {
@@ -607,6 +636,7 @@ model Organization {
   documents                   Document[]
   propertyImages              PropertyImage[]
   importJobs                  ImportJob[]
+  importMappingPresets        ImportMappingPreset[]
   auditLogs                   AuditLog[]
   backupRecords               BackupRecord[]
   restoreValidations          RestoreValidation[]
@@ -679,6 +709,7 @@ model User {
   documentsUploaded             Document[]               @relation("DocumentUploadedBy")
   propertyImagesUploaded        PropertyImage[]          @relation("PropertyImageUploadedBy")
   importJobsCreated             ImportJob[]              @relation("ImportJobCreatedBy")
+  importMappingPresetsCreated   ImportMappingPreset[]    @relation("ImportMappingPresetCreatedBy")
   auditLogs                     AuditLog[]
   backupsTriggered              BackupRecord[]           @relation("BackupTriggeredBy")
   restoreValidationsDone        RestoreValidation[]      @relation("RestoreValidatedBy")
@@ -849,8 +880,11 @@ model Property {
   propertyAgeYears Int?
   builtUpAreaSqft  Int
   carpetAreaSqft   Int?
+  dimension        String?
+  possessionNotes  String?
   facing           Facing?
   parkingAvailable Boolean           @default(false)
+  liftAvailable    Boolean           @default(false)
   tenantPreference TenantPreference?
   availableFrom    DateTime?
   amenities        String            @default("[]") // JSON array of strings
@@ -1753,47 +1787,86 @@ enum DocumentCategory {
 // ---------------------------------------------------------------------------
 
 model ImportJob {
-  id             String           @id @default(cuid())
-  organizationId String           @default("org_default")
-  organization   Organization     @relation(fields: [organizationId], references: [id])
-  entityType     ImportEntityType
-  fileName       String
-  status         ImportStatus     @default(PENDING)
+  id              String              @id @default(cuid())
+  organizationId  String              @default("org_default")
+  organization    Organization        @relation(fields: [organizationId], references: [id])
+  entityType      ImportEntityType
+  fileName        String
+  sheetName       String?
+  status          ImportStatus        @default(PENDING)
+  importMode      InventoryImportMode @default(CREATE_ONLY)
+  partialPolicy   ImportPartialPolicy @default(REQUIRE_ALL_ROWS_VALID)
+  allowBlankClear Boolean             @default(false)
+  fileHash        String?
 
   totalRows     Int @default(0)
   validRows     Int @default(0)
   invalidRows   Int @default(0)
   importedRows  Int @default(0)
   duplicateRows Int @default(0)
+  warningRows   Int @default(0)
+  errorRows     Int @default(0)
+  createdRows   Int @default(0)
+  updatedRows   Int @default(0)
+  skippedRows   Int @default(0)
+  failedRows    Int @default(0)
 
   columnMapping String // JSON: { targetField: sourceColumn }
   errorLog      String? // JSON array of { row, error }
 
-  createdById String?
-  createdBy   User?     @relation("ImportJobCreatedBy", fields: [createdById], references: [id])
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
+  createdById  String?
+  createdBy    User?     @relation("ImportJobCreatedBy", fields: [createdById], references: [id])
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  rolledBackAt DateTime?
 
   records ImportRecord[]
 
   @@index([organizationId, entityType])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
   @@map("import_jobs")
 }
 
 model ImportRecord {
-  id           String             @id @default(cuid())
-  importJobId  String
-  importJob    ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
-  rowNumber    Int
-  status       ImportRecordStatus
-  rawData      String // JSON of the source row
-  errorMessage String?
-  entityId     String? // id of the created record, if imported
-  createdAt    DateTime           @default(now())
+  id               String                  @id @default(cuid())
+  importJobId      String
+  importJob        ImportJob               @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  rowNumber        Int
+  status           ImportRecordStatus
+  rawData          String // JSON of the source row
+  errorMessage     String?
+  entityId         String? // id of the created record, if imported
+  action           PropertyImportAction?
+  duplicateClass   PropertyDuplicateClass?
+  validationErrors String?
+  warnings         String?
+  beforeSummary    String?
+  afterSummary     String?
+  createdAt        DateTime                @default(now())
 
   @@index([importJobId, status])
   @@map("import_records")
+}
+
+model ImportMappingPreset {
+  id              String           @id @default(cuid())
+  organizationId  String           @default("org_default")
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String
+  entityType      ImportEntityType @default(PROPERTIES)
+  headerSignature String
+  columnMapping   String
+  createdById     String?
+  createdBy       User?            @relation("ImportMappingPresetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId, entityType])
+  @@index([organizationId, headerSignature])
+  @@map("import_mapping_presets")
 }
 
 // ---------------------------------------------------------------------------

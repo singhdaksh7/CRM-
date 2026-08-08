@@ -10,7 +10,7 @@ import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagina
 import { withTiming } from "@/lib/perf";
 import { getCoverImageUrls } from "@/lib/property-images";
 import { getOrganizationId } from "@/lib/organization";
-import { Plus } from "lucide-react";
+import { Plus, Upload, History } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 
 export default async function PropertiesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -55,11 +55,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
           <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Property Inventory</h1>
           <p className="mt-1 text-sm text-[#596579]">{totalCount} active listings in Delhi-NCR portfolio</p>
         </div>
-        {canCreate && (
-          <LinkButton href="/properties/new" className="w-full sm:w-auto">
-            <Plus className="h-4 w-4" /> Add Property
-          </LinkButton>
-        )}
+        {canCreate && <div className="flex flex-wrap gap-2"><LinkButton href="/properties/import/history" variant="secondary"><History className="h-4 w-4"/> Import history</LinkButton><LinkButton href="/properties/import" variant="secondary"><Upload className="h-4 w-4"/> Import Excel/CSV</LinkButton><LinkButton href="/properties/new"><Plus className="h-4 w-4" /> Add Property</LinkButton></div>}
       </div>
 
       <PropertyFilters view={view} />

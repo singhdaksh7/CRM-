@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, handleApiError } from "@/lib/api-auth";
+import { ApiError, requireSession, handleApiError } from "@/lib/api-auth";
 import { createImportJobSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
 import { runImport } from "@/lib/imports";
@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const data = createImportJobSchema.parse(body);
+    if (data.entityType === "PROPERTIES") {
+      throw new ApiError(400, "Property imports must use the inventory import preview and confirmation workflow");
+    }
 
     const { job, outcomes } = await runImport({
       entityType: data.entityType,

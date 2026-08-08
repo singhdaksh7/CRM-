@@ -27,6 +27,8 @@ import {
   checkPendingSetupEnumCompatibility,
   checkPhase8SchemaCompatibility,
   checkPhase8EnumCompatibility,
+  checkPhase7SchemaCompatibility,
+  checkPhase7EnumCompatibility,
 } from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
@@ -231,6 +233,15 @@ export async function runDryRun(
     const phase8Enums = await checkPhase8EnumCompatibility(client);
     record("Phase 8 WhatsApp enum compatibility", phase8Enums.ok, phase8Enums.ok ? "all contact states exist" : `missing: ${phase8Enums.missing.join(", ")}`);
   } catch (e) { record("Phase 8 WhatsApp enum compatibility", false, (e as Error).message); }
+
+  try {
+    const phase7 = await checkPhase7SchemaCompatibility(client);
+    record("Phase 7 inventory import schema compatibility", phase7.ok, phase7.ok ? "all Phase 7 columns exist" : `missing: ${phase7.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`);
+  } catch (e) { record("Phase 7 inventory import schema compatibility", false, (e as Error).message); }
+  try {
+    const phase7Enums = await checkPhase7EnumCompatibility(client);
+    record("Phase 7 inventory import enum compatibility", phase7Enums.ok, phase7Enums.ok ? "all Phase 7 enum types exist" : `missing: ${phase7Enums.missing.join(", ")}`);
+  } catch (e) { record("Phase 7 inventory import enum compatibility", false, (e as Error).message); }
 
   try {
     const pendingSetupCheck = await checkPendingSetupEnumCompatibility(client);
