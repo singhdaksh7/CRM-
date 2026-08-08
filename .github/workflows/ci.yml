@@ -82,3 +82,4 @@ jobs:
           path: .next
           retention-days: 7
           if-no-files-found: error
+          include-hidden-files: true
