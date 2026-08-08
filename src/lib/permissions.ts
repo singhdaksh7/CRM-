@@ -12,6 +12,7 @@ export const NAV_ITEMS = [
   { href: "/requirements", label: "Requirements", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },
   { href: "/deals", label: "Deals", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/leads", label: "Leads", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
+  { href: "/whatsapp", label: "WhatsApp", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/visits", label: "Visits", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/follow-ups", label: "Follow-ups", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/documents", label: "Documents", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },

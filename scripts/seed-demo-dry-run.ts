@@ -25,6 +25,8 @@ import {
   checkPhase5EnumTypesExist,
   checkAccountSetupSchemaCompatibility,
   checkPendingSetupEnumCompatibility,
+  checkPhase8SchemaCompatibility,
+  checkPhase8EnumCompatibility,
 } from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
@@ -220,6 +222,15 @@ export async function runDryRun(
   } catch (e) {
     record("Employee account setup schema compatibility", false, (e as Error).message);
   }
+
+  try {
+    const phase8 = await checkPhase8SchemaCompatibility(client);
+    record("Phase 8 WhatsApp inbox schema compatibility", phase8.ok, phase8.ok ? "all Phase 8 columns exist" : `missing: ${phase8.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`);
+  } catch (e) { record("Phase 8 WhatsApp inbox schema compatibility", false, (e as Error).message); }
+  try {
+    const phase8Enums = await checkPhase8EnumCompatibility(client);
+    record("Phase 8 WhatsApp enum compatibility", phase8Enums.ok, phase8Enums.ok ? "all contact states exist" : `missing: ${phase8Enums.missing.join(", ")}`);
+  } catch (e) { record("Phase 8 WhatsApp enum compatibility", false, (e as Error).message); }
 
   try {
     const pendingSetupCheck = await checkPendingSetupEnumCompatibility(client);

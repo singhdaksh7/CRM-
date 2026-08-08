@@ -47,7 +47,7 @@ export interface MessageStatusResult {
  * "unsupported" - a media type this app doesn't process (image/video/audio/
  * document/location/etc.); `text` is a safe placeholder, never raw media data.
  */
-export type InboundMessageKind = "text" | "button_reply" | "interactive_reply" | "unsupported";
+export type InboundMessageKind = "text" | "button_reply" | "interactive_reply" | "image" | "document" | "unsupported";
 
 export interface InboundWebhookMessage {
   externalEventId: string;
@@ -56,6 +56,9 @@ export interface InboundWebhookMessage {
   text: string;
   kind: InboundMessageKind;
   timestamp: Date;
+  displayName?: string;
+  providerPhoneNumberId?: string;
+  media?: { id: string; mimeType?: string; filename?: string; caption?: string };
 }
 
 export interface WhatsAppDiagnosticsResult {
@@ -69,6 +72,8 @@ export interface StatusWebhookEvent {
   providerMessageId: string;
   status: WhatsAppMessageStatus;
   timestamp: Date;
+  errorCode?: string;
+  errorMessage?: string;
 }
 
 export interface ParsedWebhookPayload {

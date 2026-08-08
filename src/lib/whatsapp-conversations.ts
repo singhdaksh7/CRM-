@@ -15,7 +15,8 @@ const DEFAULT_PAGE_SIZE = 50;
  * leadId alone, which is exactly the flexibility the schema comment calls for.
  */
 export async function findOrCreateConversation(leadId: string) {
-  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
+  const organizationId = getOrganizationId();
+  const lead = await prisma.lead.findFirstOrThrow({ where: { id: leadId, organizationId } });
   const phoneNumber = normalizeIndianPhone(lead.phone, loadWhatsAppConfig().defaultCountryCode);
   if (!phoneNumber) {
     throw new ApiError(400, `Lead's phone number "${lead.phone}" is not a valid Indian number - cannot start a WhatsApp conversation.`);
@@ -27,10 +28,8 @@ export async function findOrCreateConversation(leadId: string) {
   if (existing) return existing;
 
   const provider = getWhatsAppProvider();
-  const organizationId = getOrganizationId();
-
   const conversation = await prisma.whatsAppConversation.create({
-    data: { organizationId, leadId, phoneNumber, provider: provider.name },
+    data: { organizationId, leadId, phoneNumber, provider: provider.name, contactState: "LINKED", assignedToId: lead.assignedToId },
   });
 
   await logActivity({
@@ -63,7 +62,7 @@ export async function touchConversationTimestamps(conversationId: string, direct
     where: { id: conversationId },
     data: {
       lastMessageAt: at,
-      ...(direction === "INBOUND" ? { lastInboundAt: at } : { lastOutboundAt: at }),
+      ...(direction === "INBOUND" ? { lastInboundAt: at, unreadCount: { increment: 1 } } : { lastOutboundAt: at }),
     },
   });
 }

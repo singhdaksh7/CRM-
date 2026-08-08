@@ -205,12 +205,13 @@ describe("MetaWhatsAppProvider - parseInboundWebhook", () => {
     expect(messages[0].text).toContain("Reschedule");
   });
 
-  it("marks an image/media message as unsupported without extracting any media data", () => {
+  it("parses private image metadata without fetching media", () => {
     const provider = new MetaWhatsAppProvider(baseConfig());
     const payload = entryWith({ messages: [{ id: "m4", from: "919876543210", type: "image", image: { id: "media123", mime_type: "image/jpeg" }, timestamp: "1700000000" }] });
     const { messages } = provider.parseInboundWebhook(payload);
-    expect(messages[0].kind).toBe("unsupported");
-    expect(messages[0].text).toBe("[Unsupported message: image]");
+    expect(messages[0].kind).toBe("image");
+    expect(messages[0].text).toBe("[Image]");
+    expect(messages[0].media).toEqual({ id: "media123", mimeType: "image/jpeg" });
   });
 
   it("parses sent/delivered/read/failed status events", () => {

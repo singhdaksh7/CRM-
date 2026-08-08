@@ -81,6 +81,8 @@ export function getWhatsAppConfigStatus() {
   })();
 
   const presence = (v: string | undefined): "configured" | "missing" => (v ? "configured" : "missing");
+  const displayPhone = process.env.WHATSAPP_DISPLAY_PHONE_NUMBER?.replace(/\D/g, "");
+  const maskedPhone = displayPhone ? `${"•".repeat(Math.max(0, displayPhone.length - 4))}${displayPhone.slice(-4)}` : "Not configured";
 
   return {
     provider,
@@ -102,5 +104,6 @@ export function getWhatsAppConfigStatus() {
           process.env.WHATSAPP_BUSINESS_ACCOUNT_ID &&
           process.env.WHATSAPP_APP_SECRET
       ),
+    maskedPhone,
   };
 }

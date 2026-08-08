@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const whatsAppMessageCreate = vi.fn();
 const whatsAppMessageUpdate = vi.fn();
 const whatsAppMessageFindUnique = vi.fn();
+const whatsAppMessageFindFirst = vi.fn();
 const leadUpdate = vi.fn();
 const leadFindUnique = vi.fn();
 
@@ -12,6 +13,7 @@ vi.mock("./prisma", () => ({
       create: (...a: unknown[]) => whatsAppMessageCreate(...a),
       update: (...a: unknown[]) => whatsAppMessageUpdate(...a),
       findUnique: (...a: unknown[]) => whatsAppMessageFindUnique(...a),
+      findFirst: (...a: unknown[]) => whatsAppMessageFindFirst(...a),
     },
     lead: {
       update: (...a: unknown[]) => leadUpdate(...a),
@@ -68,6 +70,7 @@ const { ApiError } = await import("./api-auth");
 const NOW = new Date("2026-01-15T12:00:00.000Z");
 
 beforeEach(() => {
+  whatsAppMessageFindFirst.mockResolvedValue(null);
   vi.clearAllMocks();
   providerName = "META_CLOUD";
   vi.useFakeTimers();

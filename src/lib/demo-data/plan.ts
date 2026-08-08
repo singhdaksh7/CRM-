@@ -48,6 +48,8 @@ export const DEMO_SEED_PLAN = {
   requirementBroadcastRecipients: 4,
   matchRecommendations: 4,
   preparedWhatsAppMessages: 1,
+  whatsappInboxConversations: 4,
+  whatsappInboxMessages: 10,
 } as const;
 
 export type DemoSeedPlan = typeof DEMO_SEED_PLAN;

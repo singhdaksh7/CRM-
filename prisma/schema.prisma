@@ -223,6 +223,12 @@ enum ActivityType {
   INVENTORY_PARTNER_CREATED
   INVENTORY_PARTNER_UPDATED
   CALL_INITIATED
+  // Phase 8 - employee-controlled WhatsApp CRM inbox
+  WHATSAPP_INBOUND
+  WHATSAPP_OUTBOUND
+  WHATSAPP_CATALOGUE_SENT
+  WHATSAPP_PROPERTY_SENT
+  WHATSAPP_CONVERSATION_LINKED
 }
 
 enum EmployeeStatus {
@@ -312,6 +318,12 @@ enum WhatsAppConversationStatus {
   CLOSED
 }
 
+enum WhatsAppContactState {
+  LINKED
+  UNKNOWN
+  AMBIGUOUS
+}
+
 enum WhatsAppDirection {
   INBOUND
   OUTBOUND
@@ -324,6 +336,7 @@ enum WhatsAppMessageType {
   DOCUMENT
   CATALOGUE
   SYSTEM
+  INTERACTIVE
 }
 
 enum WhatsAppMessageStatus {
@@ -640,37 +653,38 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignedLeads             Lead[]                   @relation("AssignedEmployee")
-  assignedVisits            Visit[]                  @relation("AssignedFieldExecutive")
-  visitConflictOverrides    Visit[]                  @relation("VisitConflictOverrideBy")
-  followUps                 FollowUp[]               @relation("FollowUpOwner")
-  activities                Activity[]               @relation("ActivityActor")
-  sharedProperties          SharedPropertyLog[]      @relation("SharedBy")
-  leadTransfersFrom         LeadTransfer[]           @relation("TransferFrom")
-  leadTransfersTo           LeadTransfer[]           @relation("TransferTo")
-  propertiesAdded           Property[]               @relation("PropertyCreatedBy")
-  serviceAreas              EmployeeServiceArea[]
-  assignmentRules           LeadAssignmentRule[]     @relation("AssignmentRuleEmployee")
-  notifications             Notification[]
-  whatsappMessagesSent      WhatsAppMessage[]
-  cataloguesCreated         CatalogueShare[]
-  catalogueShareProperties  CatalogueShareProperty[]
-  ownersCreated             Owner[]                  @relation("OwnerCreatedBy")
-  ownersVerified            Owner[]                  @relation("OwnerVerifiedBy")
-  dealsAssigned             Deal[]                   @relation("DealAssignedTo")
-  dealsCreated              Deal[]                   @relation("DealCreatedBy")
-  brokerageCalculationsMade BrokerageCalculation[]   @relation("BrokerageCalculatedBy")
-  brokerageIncentives       BrokerageCalculation[]   @relation("BrokerageIncentiveEmployee")
-  paymentsRecorded          Payment[]                @relation("PaymentRecordedBy")
-  documentsUploaded         Document[]               @relation("DocumentUploadedBy")
-  propertyImagesUploaded    PropertyImage[]          @relation("PropertyImageUploadedBy")
-  importJobsCreated         ImportJob[]              @relation("ImportJobCreatedBy")
-  auditLogs                 AuditLog[]
-  backupsTriggered          BackupRecord[]           @relation("BackupTriggeredBy")
-  restoreValidationsDone    RestoreValidation[]      @relation("RestoreValidatedBy")
-  savedViews                SavedView[]
-  systemConfigsUpdated      SystemConfig[]
-  automationRulesCreated    AutomationRule[]
+  assignedLeads                 Lead[]                   @relation("AssignedEmployee")
+  assignedVisits                Visit[]                  @relation("AssignedFieldExecutive")
+  visitConflictOverrides        Visit[]                  @relation("VisitConflictOverrideBy")
+  followUps                     FollowUp[]               @relation("FollowUpOwner")
+  activities                    Activity[]               @relation("ActivityActor")
+  sharedProperties              SharedPropertyLog[]      @relation("SharedBy")
+  leadTransfersFrom             LeadTransfer[]           @relation("TransferFrom")
+  leadTransfersTo               LeadTransfer[]           @relation("TransferTo")
+  propertiesAdded               Property[]               @relation("PropertyCreatedBy")
+  serviceAreas                  EmployeeServiceArea[]
+  assignmentRules               LeadAssignmentRule[]     @relation("AssignmentRuleEmployee")
+  notifications                 Notification[]
+  whatsappMessagesSent          WhatsAppMessage[]
+  whatsappConversationsAssigned WhatsAppConversation[]   @relation("WhatsAppConversationAssignee")
+  cataloguesCreated             CatalogueShare[]
+  catalogueShareProperties      CatalogueShareProperty[]
+  ownersCreated                 Owner[]                  @relation("OwnerCreatedBy")
+  ownersVerified                Owner[]                  @relation("OwnerVerifiedBy")
+  dealsAssigned                 Deal[]                   @relation("DealAssignedTo")
+  dealsCreated                  Deal[]                   @relation("DealCreatedBy")
+  brokerageCalculationsMade     BrokerageCalculation[]   @relation("BrokerageCalculatedBy")
+  brokerageIncentives           BrokerageCalculation[]   @relation("BrokerageIncentiveEmployee")
+  paymentsRecorded              Payment[]                @relation("PaymentRecordedBy")
+  documentsUploaded             Document[]               @relation("DocumentUploadedBy")
+  propertyImagesUploaded        PropertyImage[]          @relation("PropertyImageUploadedBy")
+  importJobsCreated             ImportJob[]              @relation("ImportJobCreatedBy")
+  auditLogs                     AuditLog[]
+  backupsTriggered              BackupRecord[]           @relation("BackupTriggeredBy")
+  restoreValidationsDone        RestoreValidation[]      @relation("RestoreValidatedBy")
+  savedViews                    SavedView[]
+  systemConfigsUpdated          SystemConfig[]
+  automationRulesCreated        AutomationRule[]
 
   // Phase 4 - Field Operations
   inventoryPartnersCreated        InventoryPartner[]           @relation("InventoryPartnerCreatedBy")
@@ -1154,25 +1168,36 @@ model Activity {
 // ---------------------------------------------------------------------------
 
 model WhatsAppConversation {
-  id             String                     @id @default(cuid())
-  organizationId String                     @default("org_default")
-  organization   Organization               @relation(fields: [organizationId], references: [id])
-  leadId         String
-  lead           Lead                       @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  phoneNumber    String
-  provider       WhatsAppProviderName
-  status         WhatsAppConversationStatus @default(OPEN)
-  lastMessageAt  DateTime?
-  lastInboundAt  DateTime?
-  lastOutboundAt DateTime?
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
+  id                    String                     @id @default(cuid())
+  organizationId        String                     @default("org_default")
+  organization          Organization               @relation(fields: [organizationId], references: [id])
+  leadId                String?
+  lead                  Lead?                      @relation(fields: [leadId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  assignedToId          String?
+  assignedTo            User?                      @relation("WhatsAppConversationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  phoneNumber           String
+  displayName           String?
+  contactState          WhatsAppContactState       @default(UNKNOWN)
+  provider              WhatsAppProviderName
+  providerPhoneNumberId String?
+  providerMetadata      String?
+  status                WhatsAppConversationStatus @default(OPEN)
+  unreadCount           Int                        @default(0)
+  crmReadAt             DateTime?
+  lastMessageAt         DateTime?
+  lastInboundAt         DateTime?
+  lastOutboundAt        DateTime?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
 
   messages        WhatsAppMessage[]
   catalogueShares CatalogueShare[]
 
   @@unique([leadId, phoneNumber])
   @@index([organizationId, status])
+  @@index([organizationId, phoneNumber])
+  @@index([organizationId, assignedToId, lastMessageAt])
+  @@index([organizationId, unreadCount, lastMessageAt])
   @@map("whatsapp_conversations")
 }
 
@@ -1186,11 +1211,18 @@ model WhatsAppMessage {
   messageType       WhatsAppMessageType   @default(TEXT)
   provider          WhatsAppProviderName
   providerMessageId String?               @unique
+  idempotencyKey    String?               @unique
   content           String
   mediaUrl          String?
+  mediaObjectKey    String?
+  mediaMimeType     String?
+  mediaFilename     String?
+  mediaSizeBytes    Int?
+  caption           String?
   templateName      String?
   status            WhatsAppMessageStatus @default(QUEUED)
   errorMessage      String?
+  providerErrorCode String?
   metadata          String? // JSON blob - e.g. { catalogueShareId }
   sentByUserId      String?
   sentBy            User?                 @relation(fields: [sentByUserId], references: [id])
@@ -1198,6 +1230,7 @@ model WhatsAppMessage {
   replyToMessage    WhatsAppMessage?      @relation("MessageReply", fields: [replyToMessageId], references: [id])
   repliesTo         WhatsAppMessage[]     @relation("MessageReply")
   createdAt         DateTime              @default(now())
+  providerTimestamp DateTime?
   sentAt            DateTime?
   deliveredAt       DateTime?
   readAt            DateTime?

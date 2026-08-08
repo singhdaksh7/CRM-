@@ -34,6 +34,16 @@ const touchConversationTimestamps = vi.fn();
 vi.mock("@/lib/whatsapp-conversations", () => ({ touchConversationTimestamps: (...a: unknown[]) => touchConversationTimestamps(...a) }));
 const handleInboundReplyEffects = vi.fn();
 vi.mock("@/lib/whatsapp-messages", () => ({ handleInboundReplyEffects: (...a: unknown[]) => handleInboundReplyEffects(...a) }));
+const resolveInboundConversation = vi.fn();
+const recordInboundMessage = vi.fn();
+const updateDeliveryStatus = vi.fn();
+vi.mock("@/lib/whatsapp-inbox", () => ({
+  resolveInboundConversation: (...a: unknown[]) => resolveInboundConversation(...a),
+  recordInboundMessage: (...a: unknown[]) => recordInboundMessage(...a),
+  updateDeliveryStatus: (...a: unknown[]) => updateDeliveryStatus(...a),
+  sanitizeMediaFilename: (name: string) => name,
+  validateInboundMedia: vi.fn(),
+}));
 
 let rateLimitAllowed = true;
 vi.mock("@/lib/rate-limit", () => ({
@@ -84,6 +94,8 @@ beforeEach(() => {
   verifySignatureResult = true;
   parseResult = { messages: [], statuses: [] };
   rateLimitAllowed = true;
+  resolveInboundConversation.mockResolvedValue({ id: "conv1", leadId: "lead1" });
+  recordInboundMessage.mockResolvedValue({ message: { id: "wm1" } });
 });
 
 function makeRequest(url: string, init?: RequestInit) {
@@ -166,32 +178,26 @@ describe("POST /api/integrations/whatsapp/webhook - lead resolution", () => {
 
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
 
-    expect(messageCreate).toHaveBeenCalledTimes(1);
-    expect(handleInboundReplyEffects).toHaveBeenCalledWith("lead1", "hello");
-    expect(notifyRoles).not.toHaveBeenCalled();
+    expect(resolveInboundConversation).toHaveBeenCalledWith(expect.objectContaining({ phoneNumber: "919876543210" }));
+    expect(recordInboundMessage).toHaveBeenCalledTimes(1);
   });
 
-  it("notifies Admin/Data Manager and does not create a message when zero conversations match (unknown contact)", async () => {
+  it("persists an unlinked conversation when no lead matches (unknown contact)", async () => {
     parseResult = { messages: [inboundMessage()], statuses: [] };
-    conversationFindMany.mockResolvedValue([]);
+    resolveInboundConversation.mockResolvedValue({ id: "unknown-conv", leadId: null, contactState: "UNKNOWN" });
 
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
 
-    expect(messageCreate).not.toHaveBeenCalled();
-    expect(notifyRoles).toHaveBeenCalledWith(["ADMIN", "DATA_MANAGER"], expect.objectContaining({ type: "WHATSAPP_UNKNOWN_CONTACT" }));
-    expect(recordAudit).toHaveBeenCalledWith(expect.objectContaining({ newValues: expect.objectContaining({ event: "whatsapp_unknown_contact" }) }));
+    expect(recordInboundMessage).toHaveBeenCalledWith(expect.objectContaining({ conversationId: "unknown-conv" }));
   });
 
-  it("notifies Admin/Data Manager and does not guess when multiple conversations match the same phone number", async () => {
+  it("persists an ambiguous unlinked conversation without guessing a lead", async () => {
     parseResult = { messages: [inboundMessage()], statuses: [] };
-    conversationFindMany.mockResolvedValue([{ id: "conv1", leadId: "lead1" }, { id: "conv2", leadId: "lead2" }]);
+    resolveInboundConversation.mockResolvedValue({ id: "ambiguous-conv", leadId: null, contactState: "AMBIGUOUS" });
 
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
 
-    expect(messageCreate).not.toHaveBeenCalled();
-    expect(handleInboundReplyEffects).not.toHaveBeenCalled();
-    expect(notifyRoles).toHaveBeenCalledWith(["ADMIN", "DATA_MANAGER"], expect.objectContaining({ type: "WHATSAPP_MULTIPLE_LEAD_MATCH" }));
-    expect(recordAudit).toHaveBeenCalledWith(expect.objectContaining({ newValues: expect.objectContaining({ event: "whatsapp_multiple_lead_match", matchCount: 2 }) }));
+    expect(recordInboundMessage).toHaveBeenCalledWith(expect.objectContaining({ conversationId: "ambiguous-conv" }));
   });
 
   it("does not reprocess a duplicate inbound event (same externalEventId twice)", async () => {
@@ -202,7 +208,7 @@ describe("POST /api/integrations/whatsapp/webhook - lead resolution", () => {
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
 
-    expect(messageCreate).toHaveBeenCalledTimes(1);
+    expect(recordInboundMessage).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -213,25 +219,25 @@ describe("POST /api/integrations/whatsapp/webhook - status updates", () => {
 
   it("applies a forward status transition (SENT -> DELIVERED)", async () => {
     parseResult = { messages: [], statuses: [statusEvent("wamid.1", "DELIVERED")] };
-    messageFindUnique.mockResolvedValue({ id: "wm1", status: "SENT", conversation: { leadId: "lead1" } });
+    updateDeliveryStatus.mockResolvedValue({ applied: true, message: { id: "wm1", status: "DELIVERED" } });
 
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
 
-    expect(messageUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "wm1" }, data: expect.objectContaining({ status: "DELIVERED" }) }));
+    expect(updateDeliveryStatus).toHaveBeenCalledWith(expect.objectContaining({ status: "DELIVERED" }));
   });
 
   it("rejects a stale downgrade (READ -> DELIVERED) without updating the row", async () => {
     parseResult = { messages: [], statuses: [statusEvent("wamid.1", "DELIVERED")] };
-    messageFindUnique.mockResolvedValue({ id: "wm1", status: "READ", conversation: { leadId: "lead1" } });
+    updateDeliveryStatus.mockResolvedValue({ applied: false, message: { id: "wm1", status: "READ" } });
 
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
 
-    expect(messageUpdate).not.toHaveBeenCalled();
+    expect(updateDeliveryStatus).toHaveBeenCalled();
   });
 
   it("rejects a duplicate identical status (READ -> READ)", async () => {
     parseResult = { messages: [], statuses: [statusEvent("wamid.1", "READ")] };
-    messageFindUnique.mockResolvedValue({ id: "wm1", status: "READ", conversation: { leadId: "lead1" } });
+    updateDeliveryStatus.mockResolvedValue({ applied: false, message: { id: "wm1", status: "READ" } });
 
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
 
@@ -240,7 +246,7 @@ describe("POST /api/integrations/whatsapp/webhook - status updates", () => {
 
   it("ignores a status event for an unknown provider message id", async () => {
     parseResult = { messages: [], statuses: [statusEvent("wamid.missing", "DELIVERED")] };
-    messageFindUnique.mockResolvedValue(null);
+    updateDeliveryStatus.mockResolvedValue({ applied: false, message: null });
 
     await POST(makeRequest("https://x.test/webhook", { method: "POST", body: "{}" }));
 

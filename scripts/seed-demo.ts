@@ -43,6 +43,7 @@ import { createDemoPropertyIssues } from "../src/lib/demo-data/property-issues";
 import { createDemoCatalogueEngagement } from "../src/lib/demo-data/catalogue-engagement";
 import { createDemoPropertyEngagement } from "../src/lib/demo-data/property-engagement";
 import { createDemoPhase5Scenarios } from "../src/lib/demo-data/phase5";
+import { createDemoPhase8Inbox } from "../src/lib/demo-data/phase8";
 import { runVerification } from "../src/lib/demo-data/verify";
 import { recalculateLeadScore } from "../src/lib/scoring";
 import { matchPropertiesToLead } from "../src/lib/matching";
@@ -156,6 +157,8 @@ async function main() {
 
   console.log("[seed-demo] Creating deterministic Phase 5+6 negotiation, broadcast, recommendation, and prepared-message scenarios...");
   const phase5 = await createDemoPhase5Scenarios({ deals: deals.all, leads: leads.all, properties: properties.all, partners, catalogues: catalogues.all, actor: employees.admin });
+  console.log("[seed-demo] Creating deterministic MOCK-only Phase 8 WhatsApp inbox scenarios (zero provider calls)...");
+  const phase8 = await createDemoPhase8Inbox(leads.all, employees.all);
 
   console.log("[seed-demo] Re-computing lead-property matches against what was actually written (should be identical to the pre-write projection above)...");
   const availableProperties = properties.all.filter((p) => p.status === "AVAILABLE");
@@ -189,7 +192,7 @@ async function main() {
     catalogues.all.length + deals.all.length + documents.all.length + notifications.length +
     visitFeedback.all.length + propertyIssues.availabilityReports.length + propertyIssues.propertyReports.length +
     catalogueEngagement.versionEventCount + propertyEngagement.favorites.length + propertyEngagement.viewLogs.length +
-    phase5.dealOffers + phase5.broadcasts + phase5.broadcastRecipients + phase5.matchRecommendations + phase5.preparedWhatsAppMessages;
+    phase5.dealOffers + phase5.broadcasts + phase5.broadcastRecipients + phase5.matchRecommendations + phase5.preparedWhatsAppMessages + phase8.conversations + phase8.messages;
 
   console.log("\n========================================");
   console.log(" KP Properties - Demo Seed Complete");
@@ -216,6 +219,7 @@ async function main() {
   console.log(`Broadcast recipients:      ${phase5.broadcastRecipients} (target ${DEMO_SEED_PLAN.requirementBroadcastRecipients})`);
   console.log(`Match recommendations:     ${phase5.matchRecommendations} (target ${DEMO_SEED_PLAN.matchRecommendations})`);
   console.log(`Prepared WhatsApp drafts:  ${phase5.preparedWhatsAppMessages} (zero automatic sends)`);
+  console.log(`WhatsApp inbox:            ${phase8.conversations} conversations / ${phase8.messages} messages (MOCK, zero provider calls)`);
   console.log(`Total records inserted:    ${totalRecords}`);
   console.log(`Lead-property match pairs: ${totalMatchPairs} (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches})`);
   console.log(`Leads outside ${minMatch}-${maxMatch} match range: ${leadsOutsideTargetRange.length === 0 ? "none" : JSON.stringify(leadsOutsideTargetRange)}`);
