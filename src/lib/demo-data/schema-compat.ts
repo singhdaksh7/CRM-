@@ -182,3 +182,21 @@ export async function checkPendingSetupEnumCompatibility(client: RawQueryClient)
   const present = new Set(rows.map((row) => row.enumlabel));
   return { ok: present.has("PENDING_SETUP"), missing: present.has("PENDING_SETUP") ? [] : ["PENDING_SETUP"] };
 }
+
+export const REQUIRED_PHASE8_COLUMNS: readonly RequiredColumn[] = [
+  { table: "whatsapp_conversations", column: "assignedToId" }, { table: "whatsapp_conversations", column: "displayName" },
+  { table: "whatsapp_conversations", column: "contactState" }, { table: "whatsapp_conversations", column: "providerPhoneNumberId" },
+  { table: "whatsapp_conversations", column: "providerMetadata" }, { table: "whatsapp_conversations", column: "unreadCount" },
+  { table: "whatsapp_conversations", column: "crmReadAt" }, { table: "whatsapp_messages", column: "idempotencyKey" },
+  { table: "whatsapp_messages", column: "mediaObjectKey" }, { table: "whatsapp_messages", column: "mediaMimeType" },
+  { table: "whatsapp_messages", column: "mediaFilename" }, { table: "whatsapp_messages", column: "mediaSizeBytes" },
+  { table: "whatsapp_messages", column: "caption" }, { table: "whatsapp_messages", column: "providerErrorCode" },
+  { table: "whatsapp_messages", column: "providerTimestamp" },
+];
+export async function checkPhase8SchemaCompatibility(client: RawQueryClient) { return checkCatalogueSchemaCompatibility(client, REQUIRED_PHASE8_COLUMNS); }
+export async function checkPhase8EnumCompatibility(client: RawQueryClient): Promise<EnumTypeCheckResult> {
+  const required = ["WhatsAppContactState.LINKED", "WhatsAppContactState.UNKNOWN", "WhatsAppContactState.AMBIGUOUS", "WhatsAppMessageType.INTERACTIVE", "ActivityType.WHATSAPP_INBOUND", "ActivityType.WHATSAPP_OUTBOUND", "ActivityType.WHATSAPP_CATALOGUE_SENT", "ActivityType.WHATSAPP_PROPERTY_SENT", "ActivityType.WHATSAPP_CONVERSATION_LINKED"];
+  const rows = await client.$queryRawUnsafe<{ typname: string; enumlabel: string }[]>(`SELECT t.typname, e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname IN ('WhatsAppContactState','WhatsAppMessageType','ActivityType')`);
+  const present = new Set(rows.map((row) => `${row.typname}.${row.enumlabel}`)); const missing = required.filter((value) => !present.has(value));
+  return { ok: missing.length === 0, missing };
+}

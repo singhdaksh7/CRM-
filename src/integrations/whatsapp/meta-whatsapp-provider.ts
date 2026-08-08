@@ -236,9 +236,12 @@ export class MetaWhatsAppProvider implements WhatsAppProviderClient {
         const changes = (entry.changes as Record<string, unknown>[]) ?? [];
         for (const change of changes) {
           const value = change.value as Record<string, unknown>;
+          const metadata = value?.metadata as { phone_number_id?: string } | undefined;
+          const contacts = (value?.contacts as Array<{ wa_id?: string; profile?: { name?: string } }>) ?? [];
 
           for (const m of (value?.messages as Record<string, unknown>[]) ?? []) {
-            const { text, kind } = extractInboundText(m);
+            const { text, kind, media } = extractInboundText(m);
+            const contact = contacts.find((candidate) => candidate.wa_id === String(m.from));
             messages.push({
               externalEventId: `msg_${m.id}`,
               providerMessageId: String(m.id),
@@ -246,6 +249,9 @@ export class MetaWhatsAppProvider implements WhatsAppProviderClient {
               text,
               kind,
               timestamp: new Date(Number(m.timestamp) * 1000),
+              displayName: contact?.profile?.name,
+              providerPhoneNumberId: metadata?.phone_number_id,
+              media,
             });
           }
 
@@ -257,6 +263,8 @@ export class MetaWhatsAppProvider implements WhatsAppProviderClient {
               providerMessageId: String(s.id),
               status: mapped,
               timestamp: new Date(Number(s.timestamp) * 1000),
+              errorCode: String(((s.errors as Array<{ code?: number }>)?.[0]?.code) ?? "") || undefined,
+              errorMessage: String(((s.errors as Array<{ title?: string }>)?.[0]?.title) ?? "") || undefined,
             });
           }
         }
@@ -303,7 +311,7 @@ export class MetaWhatsAppProvider implements WhatsAppProviderClient {
   }
 }
 
-function extractInboundText(m: Record<string, unknown>): { text: string; kind: InboundMessageKind } {
+function extractInboundText(m: Record<string, unknown>): { text: string; kind: InboundMessageKind; media?: InboundWebhookMessage["media"] } {
   const type = String(m.type ?? "text");
 
   if (type === "text") {
@@ -317,6 +325,14 @@ function extractInboundText(m: Record<string, unknown>): { text: string; kind: I
     const interactive = m.interactive as { button_reply?: { title?: string }; list_reply?: { title?: string } } | undefined;
     const label = interactive?.button_reply?.title ?? interactive?.list_reply?.title;
     return { text: label ? `[Reply: ${label}]` : "[Interactive reply]", kind: "interactive_reply" };
+  }
+  if (type === "image") {
+    const media = m.image as { id?: string; mime_type?: string; caption?: string } | undefined;
+    return { text: media?.caption ?? "[Image]", kind: "image", media: media?.id ? { id: media.id, mimeType: media.mime_type, caption: media.caption } : undefined };
+  }
+  if (type === "document") {
+    const media = m.document as { id?: string; mime_type?: string; filename?: string; caption?: string } | undefined;
+    return { text: media?.caption ?? `[Document${media?.filename ? `: ${media.filename}` : ""}]`, kind: "document", media: media?.id ? { id: media.id, mimeType: media.mime_type, filename: media.filename, caption: media.caption } : undefined };
   }
   // image, video, audio, document, sticker, location, contacts, unknown, etc.
   // - never attempt to fetch/store media while storage remains disabled.

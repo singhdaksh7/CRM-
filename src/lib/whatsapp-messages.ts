@@ -14,22 +14,31 @@ import type { WhatsAppMessageStatus, WhatsAppMessageType } from "@prisma/client"
 
 interface SendMessageParams {
   leadId: string;
+  conversationId?: string;
   sentByUserId: string;
   content: string;
   messageType?: WhatsAppMessageType;
   templateName?: string;
   catalogueUrl?: string;
   metadata?: Record<string, unknown>;
+  idempotencyKey?: string;
 }
 
 /** Sends an outbound message through whichever provider is configured, persisting every state transition. */
 export async function sendOutboundMessage(params: SendMessageParams) {
   if (!params.content?.trim()) throw new ApiError(400, "Message content is required");
 
-  const conversation = await findOrCreateConversation(params.leadId);
   const organizationId = getOrganizationId();
+  const conversation = params.conversationId
+    ? await prisma.whatsAppConversation.findFirst({ where: { id: params.conversationId, organizationId, leadId: params.leadId } })
+    : await findOrCreateConversation(params.leadId);
+  if (!conversation) throw new ApiError(404, "Conversation not found");
   const provider = getWhatsAppProvider();
   const messageType = params.messageType ?? "TEXT";
+  if (params.idempotencyKey) {
+    const existing = await prisma.whatsAppMessage.findFirst({ where: { organizationId, idempotencyKey: params.idempotencyKey } });
+    if (existing) return { message: existing, clickToChatUrl: undefined };
+  }
 
   // Meta's customer-service-window and template-approval rules only apply
   // to the real Meta Cloud API - Mock and Click-to-Chat have no such
@@ -63,6 +72,7 @@ export async function sendOutboundMessage(params: SendMessageParams) {
       status: "QUEUED",
       sentByUserId: params.sentByUserId,
       metadata: params.metadata ? JSON.stringify(params.metadata) : null,
+      idempotencyKey: params.idempotencyKey,
     },
   });
 
@@ -89,7 +99,7 @@ export async function sendOutboundMessage(params: SendMessageParams) {
     await touchConversationTimestamps(conversation.id, "OUTBOUND");
     await logActivity({
       leadId: params.leadId,
-      type: "WHATSAPP_MESSAGE_SENT",
+      type: params.metadata?.propertyId ? "WHATSAPP_PROPERTY_SENT" : messageType === "CATALOGUE" ? "WHATSAPP_CATALOGUE_SENT" : "WHATSAPP_OUTBOUND",
       description: `${messageType === "CATALOGUE" ? "Catalogue" : "WhatsApp"} message sent (${provider.name.replace(/_/g, " ")})`,
       actorId: params.sentByUserId,
     });
@@ -149,16 +159,19 @@ export async function retryMessage(messageId: string, sentByUserId: string) {
   const message = await prisma.whatsAppMessage.findUnique({ where: { id: messageId }, include: { conversation: true } });
   if (!message) throw new ApiError(404, "Message not found");
   if (message.status !== "FAILED") throw new ApiError(400, "Only failed messages can be retried");
+  if (!message.conversation.leadId) throw new ApiError(400, "Link this conversation to a lead before retrying");
 
   const existingMetadata = message.metadata ? JSON.parse(message.metadata) : {};
 
   const result = await sendOutboundMessage({
     leadId: message.conversation.leadId,
+    conversationId: message.conversationId,
     sentByUserId,
     content: message.content,
     messageType: message.messageType,
     templateName: message.templateName ?? undefined,
     metadata: { ...existingMetadata, retryOf: message.id },
+    idempotencyKey: `retry:${message.id}`,
   });
 
   await logActivity({
@@ -237,7 +250,7 @@ export async function simulateStatus(messageId: string, targetStatus: Extract<Wh
   const updated = await prisma.whatsAppMessage.update({ where: { id: messageId }, data });
 
   if (targetStatus === "FAILED") {
-    await notifyMessageFailed(message.conversation.leadId, message.organizationId, "Simulated failure");
+    if (message.conversation.leadId) await notifyMessageFailed(message.conversation.leadId, message.organizationId, "Simulated failure");
   }
 
   return updated;

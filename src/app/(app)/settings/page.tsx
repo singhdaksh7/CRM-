@@ -47,6 +47,7 @@ export default async function SettingsPage() {
           }
         />
         <ConfigRow label="Phone Number ID" status={whatsapp.phoneNumberId} />
+        <Row label="WhatsApp Number" value={whatsapp.maskedPhone} />
         <ConfigRow label="Business Account ID" status={whatsapp.businessAccountId} />
         <ConfigRow label="Access Token" status={whatsapp.accessToken} />
         <ConfigRow label="Verify Token" status={whatsapp.verifyToken} />

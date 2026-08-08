@@ -68,12 +68,29 @@ async function computeActionCenterItems(organizationId: string, role: Role, user
     safe("paymentsOverdue", () => paymentsOverdueRules(organizationId, now)),
     safe("documentsExpiring", () => documentsExpiringRules(organizationId, now, documentExpiryCutoff)),
     safe("failedWhatsApp", () => failedWhatsAppRules(organizationId, whatsappFailureCutoff)),
+    safe("whatsappInbox", () => whatsappInboxRules(organizationId, scopedUserId)),
     safe("newMatchRecommendations", () => newMatchRecommendationRules(organizationId, scopedUserId)),
     safe("staleNegotiations", () => staleNegotiationRules(organizationId, scopedUserId, negotiationStaleCutoff)),
     safe("oldNoMatchRequirements", () => oldNoMatchRequirementRules(organizationId, scopedUserId, oldNoMatchCutoff)),
   ]);
 
   return sortRulesBySeverity(groups.flat());
+}
+
+async function whatsappInboxRules(organizationId: string, userId?: string): Promise<RuleResult[]> {
+  const scope = { organizationId, ...(userId ? { assignedToId: userId } : {}) };
+  const [unread, unknown, failed, followUps] = await Promise.all([
+    prisma.whatsAppConversation.count({ where: { ...scope, unreadCount: { gt: 0 } } }),
+    prisma.whatsAppConversation.count({ where: { ...scope, contactState: { in: ["UNKNOWN", "AMBIGUOUS"] } } }),
+    prisma.whatsAppMessage.count({ where: { organizationId, status: "FAILED", direction: "OUTBOUND", ...(userId ? { conversation: { assignedToId: userId } } : {}) } }),
+    prisma.followUp.count({ where: { organizationId, type: "WHATSAPP", status: { in: ["PENDING", "OVERDUE"] }, ...(userId ? { ownerId: userId } : {}) } }),
+  ]);
+  const rows: RuleResult[] = [];
+  if (unread) rows.push(makeRule({ id: "whatsapp-unread", category: "LEAD", severity: "HIGH", title: `${unread} unread WhatsApp conversation${unread === 1 ? "" : "s"}`, description: "Clients are waiting for a human response.", reason: "Inbound messages remain unread in the CRM inbox.", entityType: "WHATSAPP", entityId: "inbox", actionLabel: "Open inbox", actionHref: "/whatsapp?filter=unread" }));
+  if (unknown) rows.push(makeRule({ id: "whatsapp-unknown", category: "LEAD", severity: "HIGH", title: `${unknown} unknown contact${unknown === 1 ? " needs" : "s need"} linking`, description: "Inbound contacts have not been linked to a lead.", reason: "The CRM never guesses ambiguous or unknown lead matches.", entityType: "WHATSAPP", entityId: "unknown", actionLabel: "Review contacts", actionHref: "/whatsapp?filter=unknown" }));
+  if (failed) rows.push(makeRule({ id: "whatsapp-failed-summary", category: "LEAD", severity: "HIGH", title: `${failed} failed message${failed === 1 ? "" : "s"} need retry`, description: "Manual review is required before retrying.", reason: "WhatsApp retries are never automatic.", entityType: "WHATSAPP", entityId: "failed", actionLabel: "Open inbox", actionHref: "/whatsapp" }));
+  if (followUps) rows.push(makeRule({ id: "whatsapp-followups", category: "FOLLOW_UP", severity: "MEDIUM", title: `${followUps} lead${followUps === 1 ? "" : "s"} awaiting WhatsApp follow-up`, description: "Scheduled WhatsApp follow-ups need employee action.", reason: "Follow-up recommendations never send a client message automatically.", entityType: "WHATSAPP", entityId: "followups", actionLabel: "Review follow-ups", actionHref: "/follow-ups" }));
+  return rows;
 }
 
 async function newMatchRecommendationRules(organizationId: string, userId?: string): Promise<RuleResult[]> {
@@ -411,7 +428,7 @@ async function failedWhatsAppRules(organizationId: string, since: Date): Promise
         category: "LEAD",
         severity: "HIGH",
         title: "WhatsApp message failed",
-        description: `A message to ${m.conversation!.lead.clientName} failed to send${m.errorMessage ? `: ${m.errorMessage}` : ""}`,
+        description: `A message to ${m.conversation!.lead!.clientName} failed to send${m.errorMessage ? `: ${m.errorMessage}` : ""}`,
         reason: "Delivery failure may mean the client is not receiving updates.",
         entityType: "LEAD",
         entityId: m.conversation!.leadId!,

@@ -3,7 +3,7 @@ import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
-import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS } from "../src/lib/demo-data/schema-compat";
+import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS, REQUIRED_PHASE8_COLUMNS } from "../src/lib/demo-data/schema-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -41,6 +41,7 @@ const HEALTHY_PHASE4_ENUM_TYPES = REQUIRED_PHASE4_ENUM_TYPES.map((typname) => ({
 const HEALTHY_PHASE5_COLUMNS = REQUIRED_PHASE5_TABLES.map((r) => ({ table_name: r.table, column_name: r.column }));
 const HEALTHY_PHASE5_ENUM_TYPES = REQUIRED_PHASE5_ENUM_TYPES.map((typname) => ({ typname }));
 const HEALTHY_ACCOUNT_SETUP_COLUMNS = REQUIRED_ACCOUNT_SETUP_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
+const HEALTHY_PHASE8_COLUMNS = REQUIRED_PHASE8_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
 
 /** Dispatches on the raw SQL text so the different $queryRawUnsafe call sites (catalogue schema check, Phase 4 schema check, Phase 4 enum-type check, production enum check) each get shaped fixture data instead of one being fed another's rows. */
 function makeQueryRawUnsafe(overrides?: {
@@ -62,11 +63,17 @@ function makeQueryRawUnsafe(overrides?: {
   const accountSetupColumns = overrides?.accountSetupColumns ?? HEALTHY_ACCOUNT_SETUP_COLUMNS;
   const pendingSetupEnumRows = overrides?.pendingSetupEnumRows ?? [{ enumlabel: "PENDING_SETUP" }];
   return vi.fn().mockImplementation((query: string, tables?: string[]) => {
+    if (query.includes("WhatsAppContactState")) return Promise.resolve([
+      ...["LINKED", "UNKNOWN", "AMBIGUOUS"].map((enumlabel) => ({ typname: "WhatsAppContactState", enumlabel })),
+      { typname: "WhatsAppMessageType", enumlabel: "INTERACTIVE" },
+      ...["WHATSAPP_INBOUND", "WHATSAPP_OUTBOUND", "WHATSAPP_CATALOGUE_SENT", "WHATSAPP_PROPERTY_SENT", "WHATSAPP_CONVERSATION_LINKED"].map((enumlabel) => ({ typname: "ActivityType", enumlabel })),
+    ]);
     if (query.includes("EmployeeStatus")) return Promise.resolve(pendingSetupEnumRows);
     if (query.includes("pg_enum")) return Promise.resolve(notificationEnumRows);
     if (query.includes("pg_type")) return Promise.resolve(Array.isArray(tables) && tables.includes("DealOfferSide") ? phase5EnumTypes : phase4EnumTypes);
     if (Array.isArray(tables) && tables.includes("deal_offers")) return Promise.resolve(phase5Columns);
     if (Array.isArray(tables) && tables.includes("account_setup_tokens")) return Promise.resolve(accountSetupColumns);
+    if (Array.isArray(tables) && tables.includes("whatsapp_conversations")) return Promise.resolve(HEALTHY_PHASE8_COLUMNS);
     if (Array.isArray(tables) && tables.includes("inventory_partners")) return Promise.resolve(phase4Columns);
     return Promise.resolve(catalogueColumns);
   });

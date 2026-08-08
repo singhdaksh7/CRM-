@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { checkCatalogueSchemaCompatibility, REQUIRED_CATALOGUE_COLUMNS } from "./schema-compat";
+import { checkCatalogueSchemaCompatibility, checkPhase8EnumCompatibility, REQUIRED_CATALOGUE_COLUMNS } from "./schema-compat";
 
 function makeClient(columns: { table_name: string; column_name: string }[]) {
   return { $queryRawUnsafe: vi.fn().mockResolvedValue(columns) };
@@ -32,5 +32,23 @@ describe("checkCatalogueSchemaCompatibility", () => {
     const result = await checkCatalogueSchemaCompatibility(makeClient([]));
     expect(result.ok).toBe(false);
     expect(result.missing).toHaveLength(REQUIRED_CATALOGUE_COLUMNS.length);
+  });
+});
+
+describe("checkPhase8EnumCompatibility", () => {
+  it("passes when every contact state exists", async () => {
+    const client = { $queryRawUnsafe: vi.fn().mockResolvedValue([
+      ...["LINKED", "UNKNOWN", "AMBIGUOUS"].map((enumlabel) => ({ typname: "WhatsAppContactState", enumlabel })),
+      { typname: "WhatsAppMessageType", enumlabel: "INTERACTIVE" },
+      ...["WHATSAPP_INBOUND", "WHATSAPP_OUTBOUND", "WHATSAPP_CATALOGUE_SENT", "WHATSAPP_PROPERTY_SENT", "WHATSAPP_CONVERSATION_LINKED"].map((enumlabel) => ({ typname: "ActivityType", enumlabel })),
+    ]) };
+    await expect(checkPhase8EnumCompatibility(client)).resolves.toEqual({ ok: true, missing: [] });
+  });
+  it("reports all missing contact states together", async () => {
+    const client = { $queryRawUnsafe: vi.fn().mockResolvedValue([{ typname: "WhatsAppContactState", enumlabel: "LINKED" }]) };
+    const result = await checkPhase8EnumCompatibility(client);
+    expect(result.ok).toBe(false);
+    expect(result.missing).toContain("WhatsAppContactState.UNKNOWN");
+    expect(result.missing).toContain("ActivityType.WHATSAPP_INBOUND");
   });
 });

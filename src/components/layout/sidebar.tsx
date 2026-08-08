@@ -23,6 +23,7 @@ import {
   Briefcase,
   Handshake,
   ShieldAlert
+  ,MessageCircle
 } from "lucide-react";
 import { useState } from "react";
 
@@ -34,6 +35,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/inventory-partners": Handshake,
   "/admin/property-issues": ShieldAlert,
   "/leads": Users,
+  "/whatsapp": MessageCircle,
   "/visits": CalendarClock,
   "/follow-ups": BellRing,
   "/documents": FileText,
