@@ -131,3 +131,48 @@ export async function bulkAddPropertyTags(ids: string[], tags: string[], organiz
     await recordAudit({ userId: actorUserId, action: "UPDATE", entityType: "Property", entityId: id, oldValues: { tags: property.tags }, newValues: { tags: merged } });
   });
 }
+
+export async function bulkManageInventory(params: {
+  ids: string[]; organizationId: string; actorUserId: string;
+  action: "PARTNER" | "NEEDS_VERIFICATION" | "LOCALITY" | "PRICE";
+  partnerId?: string; area?: string; priceMode?: "SET" | "PERCENT"; priceValue?: number;
+}): Promise<BulkResult> {
+  const properties = await prisma.property.findMany({ where: { id: { in: params.ids }, organizationId: params.organizationId } });
+  if (params.action === "PARTNER") {
+    if (!params.partnerId) throw new Error("Choose an inventory partner");
+    const partner = await prisma.inventoryPartner.findFirst({ where: { id: params.partnerId, organizationId: params.organizationId, isActive: true } });
+    if (!partner) throw new Error("Inventory partner not found");
+  }
+  const results: BulkResult["results"] = [];
+  const timeline: { organizationId: string; propertyId: string; eventType: string; fromValue?: string | null; toValue?: string | null; note?: string; actorId: string }[] = [];
+  await prisma.$transaction(async (tx) => {
+    for (const property of properties) {
+      try {
+        if (params.action === "PARTNER") {
+          if (property.inventorySource !== "INDIRECT") throw new Error("Inventory Partner applies only to INDIRECT properties");
+          await tx.property.update({ where: { id: property.id }, data: { partnerId: params.partnerId } });
+          timeline.push({ organizationId: params.organizationId, propertyId: property.id, eventType: "BULK_PARTNER_UPDATED", fromValue: property.partnerId, toValue: params.partnerId, actorId: params.actorUserId });
+        } else if (params.action === "NEEDS_VERIFICATION") {
+          await tx.property.update({ where: { id: property.id }, data: { pendingVerification: true } });
+          timeline.push({ organizationId: params.organizationId, propertyId: property.id, eventType: "BULK_NEEDS_VERIFICATION", actorId: params.actorUserId });
+        } else if (params.action === "LOCALITY") {
+          if (!params.area?.trim()) throw new Error("Locality is required");
+          await tx.property.update({ where: { id: property.id }, data: { area: params.area.trim() } });
+          timeline.push({ organizationId: params.organizationId, propertyId: property.id, eventType: "BULK_LOCALITY_UPDATED", fromValue: property.area, toValue: params.area.trim(), actorId: params.actorUserId });
+        } else {
+          const oldPrice = property.listingType === "RENT" ? property.monthlyRent : property.salePrice;
+          if (oldPrice == null && params.priceMode === "PERCENT") throw new Error("Cannot adjust a blank price by percentage");
+          const next = params.priceMode === "SET" ? params.priceValue! : Math.round(oldPrice! * (1 + params.priceValue! / 100));
+          if (!Number.isFinite(next) || next <= 0) throw new Error("Price result must be positive");
+          await tx.property.update({ where: { id: property.id }, data: property.listingType === "RENT" ? { monthlyRent: next } : { salePrice: next } });
+          timeline.push({ organizationId: params.organizationId, propertyId: property.id, eventType: "BULK_PRICE_UPDATED", fromValue: String(oldPrice ?? ""), toValue: String(next), actorId: params.actorUserId });
+        }
+        results.push({ id: property.id, success: true });
+      } catch (error) { results.push({ id: property.id, success: false, error: error instanceof Error ? error.message : "Update failed" }); }
+    }
+    if (timeline.length) await tx.propertyTimelineEvent.createMany({ data: timeline });
+  });
+  for (const missing of params.ids.filter((id) => !properties.some((property) => property.id === id))) results.push({ id: missing, success: false, error: "Property not found in this organization" });
+  await recordAudit({ userId: params.actorUserId, action: "UPDATE", entityType: "PropertyBulkUpdate", newValues: { event: "BULK_PROPERTY_UPDATE", action: params.action, requested: params.ids.length, succeeded: results.filter((result) => result.success).length } });
+  return { total: params.ids.length, succeeded: results.filter((result) => result.success).length, failed: results.filter((result) => !result.success).length, results };
+}

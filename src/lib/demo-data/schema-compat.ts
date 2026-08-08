@@ -200,3 +200,27 @@ export async function checkPhase8EnumCompatibility(client: RawQueryClient): Prom
   const present = new Set(rows.map((row) => `${row.typname}.${row.enumlabel}`)); const missing = required.filter((value) => !present.has(value));
   return { ok: missing.length === 0, missing };
 }
+
+export const REQUIRED_PHASE7_COLUMNS: readonly RequiredColumn[] = [
+  { table: "properties", column: "dimension" }, { table: "properties", column: "possessionNotes" }, { table: "properties", column: "liftAvailable" },
+  { table: "import_jobs", column: "sheetName" }, { table: "import_jobs", column: "importMode" }, { table: "import_jobs", column: "partialPolicy" },
+  { table: "import_jobs", column: "allowBlankClear" }, { table: "import_jobs", column: "warningRows" }, { table: "import_jobs", column: "errorRows" },
+  { table: "import_jobs", column: "fileHash" }, { table: "import_jobs", column: "createdRows" }, { table: "import_jobs", column: "updatedRows" }, { table: "import_jobs", column: "skippedRows" }, { table: "import_jobs", column: "failedRows" }, { table: "import_jobs", column: "rolledBackAt" },
+  { table: "import_records", column: "action" }, { table: "import_records", column: "duplicateClass" }, { table: "import_records", column: "validationErrors" },
+  { table: "import_records", column: "warnings" }, { table: "import_records", column: "beforeSummary" }, { table: "import_records", column: "afterSummary" },
+  { table: "import_mapping_presets", column: "id" }, { table: "import_mapping_presets", column: "organizationId" }, { table: "import_mapping_presets", column: "name" }, { table: "import_mapping_presets", column: "entityType" }, { table: "import_mapping_presets", column: "headerSignature" }, { table: "import_mapping_presets", column: "columnMapping" }, { table: "import_mapping_presets", column: "createdById" }, { table: "import_mapping_presets", column: "createdAt" }, { table: "import_mapping_presets", column: "updatedAt" },
+];
+export const REQUIRED_PHASE7_ENUM_TYPES = ["InventoryImportMode", "ImportPartialPolicy", "PropertyDuplicateClass", "PropertyImportAction"] as const;
+export const REQUIRED_PHASE7_ENUM_VALUES = [
+  "InventoryImportMode.CREATE_ONLY", "InventoryImportMode.UPSERT_SAFE", "InventoryImportMode.UPDATE_EXISTING_ONLY",
+  "ImportPartialPolicy.REQUIRE_ALL_ROWS_VALID", "ImportPartialPolicy.IMPORT_VALID_ROWS",
+  "PropertyDuplicateClass.EXACT_DUPLICATE", "PropertyDuplicateClass.PROBABLE_DUPLICATE", "PropertyDuplicateClass.POSSIBLE_DUPLICATE", "PropertyDuplicateClass.NEW",
+  "PropertyImportAction.CREATE", "PropertyImportAction.UPDATE_EXISTING", "PropertyImportAction.SKIP",
+  "ImportStatus.DRAFT", "ImportStatus.RUNNING", "ImportStatus.COMPLETED_WITH_ERRORS", "ImportRecordStatus.WARNING", "ImportRecordStatus.FAILED",
+] as const;
+export async function checkPhase7SchemaCompatibility(client: RawQueryClient) { return checkCatalogueSchemaCompatibility(client, REQUIRED_PHASE7_COLUMNS); }
+export async function checkPhase7EnumCompatibility(client: RawQueryClient): Promise<EnumTypeCheckResult> {
+  const rows = await client.$queryRawUnsafe<{ typname: string; enumlabel: string }[]>(`SELECT t.typname, e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname IN ('InventoryImportMode','ImportPartialPolicy','PropertyDuplicateClass','PropertyImportAction','ImportStatus','ImportRecordStatus')`);
+  const present = new Set(rows.map((row) => `${row.typname}.${row.enumlabel}`)); const missing = REQUIRED_PHASE7_ENUM_VALUES.filter((value) => !present.has(value));
+  return { ok: missing.length === 0, missing: [...missing] };
+}

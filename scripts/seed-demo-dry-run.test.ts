@@ -3,7 +3,7 @@ import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
-import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS, REQUIRED_PHASE8_COLUMNS } from "../src/lib/demo-data/schema-compat";
+import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS, REQUIRED_PHASE8_COLUMNS, REQUIRED_PHASE7_COLUMNS, REQUIRED_PHASE7_ENUM_VALUES } from "../src/lib/demo-data/schema-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -42,6 +42,8 @@ const HEALTHY_PHASE5_COLUMNS = REQUIRED_PHASE5_TABLES.map((r) => ({ table_name: 
 const HEALTHY_PHASE5_ENUM_TYPES = REQUIRED_PHASE5_ENUM_TYPES.map((typname) => ({ typname }));
 const HEALTHY_ACCOUNT_SETUP_COLUMNS = REQUIRED_ACCOUNT_SETUP_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
 const HEALTHY_PHASE8_COLUMNS = REQUIRED_PHASE8_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
+const HEALTHY_PHASE7_COLUMNS = REQUIRED_PHASE7_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
+const HEALTHY_PHASE7_ENUM_TYPES = REQUIRED_PHASE7_ENUM_VALUES.map((value) => { const [typname, enumlabel] = value.split("."); return { typname, enumlabel }; });
 
 /** Dispatches on the raw SQL text so the different $queryRawUnsafe call sites (catalogue schema check, Phase 4 schema check, Phase 4 enum-type check, production enum check) each get shaped fixture data instead of one being fed another's rows. */
 function makeQueryRawUnsafe(overrides?: {
@@ -53,6 +55,8 @@ function makeQueryRawUnsafe(overrides?: {
   notificationEnumRows?: typeof HEALTHY_NOTIFICATION_ENUM_ROWS;
   accountSetupColumns?: typeof HEALTHY_ACCOUNT_SETUP_COLUMNS;
   pendingSetupEnumRows?: { enumlabel: string }[];
+  phase7Columns?: typeof HEALTHY_PHASE7_COLUMNS;
+  phase7EnumTypes?: typeof HEALTHY_PHASE7_ENUM_TYPES;
 }) {
   const catalogueColumns = overrides?.catalogueColumns ?? HEALTHY_CATALOGUE_COLUMNS;
   const phase4Columns = overrides?.phase4Columns ?? HEALTHY_PHASE4_COLUMNS;
@@ -62,18 +66,22 @@ function makeQueryRawUnsafe(overrides?: {
   const notificationEnumRows = overrides?.notificationEnumRows ?? HEALTHY_NOTIFICATION_ENUM_ROWS;
   const accountSetupColumns = overrides?.accountSetupColumns ?? HEALTHY_ACCOUNT_SETUP_COLUMNS;
   const pendingSetupEnumRows = overrides?.pendingSetupEnumRows ?? [{ enumlabel: "PENDING_SETUP" }];
+  const phase7Columns = overrides?.phase7Columns ?? HEALTHY_PHASE7_COLUMNS;
+  const phase7EnumTypes = overrides?.phase7EnumTypes ?? HEALTHY_PHASE7_ENUM_TYPES;
   return vi.fn().mockImplementation((query: string, tables?: string[]) => {
     if (query.includes("WhatsAppContactState")) return Promise.resolve([
       ...["LINKED", "UNKNOWN", "AMBIGUOUS"].map((enumlabel) => ({ typname: "WhatsAppContactState", enumlabel })),
       { typname: "WhatsAppMessageType", enumlabel: "INTERACTIVE" },
       ...["WHATSAPP_INBOUND", "WHATSAPP_OUTBOUND", "WHATSAPP_CATALOGUE_SENT", "WHATSAPP_PROPERTY_SENT", "WHATSAPP_CONVERSATION_LINKED"].map((enumlabel) => ({ typname: "ActivityType", enumlabel })),
     ]);
+    if (query.includes("InventoryImportMode")) return Promise.resolve(phase7EnumTypes);
     if (query.includes("EmployeeStatus")) return Promise.resolve(pendingSetupEnumRows);
     if (query.includes("pg_enum")) return Promise.resolve(notificationEnumRows);
-    if (query.includes("pg_type")) return Promise.resolve(Array.isArray(tables) && tables.includes("DealOfferSide") ? phase5EnumTypes : phase4EnumTypes);
+    if (query.includes("pg_type")) return Promise.resolve(Array.isArray(tables) && tables.includes("DealOfferSide") ? phase5EnumTypes : Array.isArray(tables) && tables.includes("InventoryImportMode") ? phase7EnumTypes : phase4EnumTypes);
     if (Array.isArray(tables) && tables.includes("deal_offers")) return Promise.resolve(phase5Columns);
     if (Array.isArray(tables) && tables.includes("account_setup_tokens")) return Promise.resolve(accountSetupColumns);
     if (Array.isArray(tables) && tables.includes("whatsapp_conversations")) return Promise.resolve(HEALTHY_PHASE8_COLUMNS);
+    if (Array.isArray(tables) && tables.includes("import_mapping_presets")) return Promise.resolve(phase7Columns);
     if (Array.isArray(tables) && tables.includes("inventory_partners")) return Promise.resolve(phase4Columns);
     return Promise.resolve(catalogueColumns);
   });
@@ -325,6 +333,15 @@ describe("runDryRun - each required failure condition", () => {
     const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
     expect(allPassed).toBe(false);
     expect(checks.find((c) => c.name === "EmployeeStatus.PENDING_SETUP compatibility")?.passed).toBe(false);
+  });
+
+  it("FAILs Phase 7 compatibility when its schema and enum types are not applied", async () => {
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({ phase7Columns: [], phase7EnumTypes: [] });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    expect(checks.find((c) => c.name === "Phase 7 inventory import schema compatibility")?.passed).toBe(false);
+    expect(checks.find((c) => c.name === "Phase 7 inventory import enum compatibility")?.passed).toBe(false);
   });
 });
 
