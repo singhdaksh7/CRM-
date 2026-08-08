@@ -7,12 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/form";
 import { toast } from "sonner";
 
-const DEMO_ACCOUNTS = [
-  { role: "Admin", email: "admin@delhibrokercrm.com", password: "Admin@123" },
-  { role: "Data Manager", email: "kanchan@delhibrokercrm.com", password: "Kanchan@123" },
-  { role: "Field Executive", email: "sagar@delhibrokercrm.com", password: "Sagar@123" },
-];
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -67,25 +61,6 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <div className="mt-6 rounded-2xl border border-[#E7ECF2] bg-[#F5F7FA] p-4 text-xs text-[#596579]">
-          <p className="mb-2 font-semibold uppercase tracking-wider text-[#8A94A6]">Quick Sign-In Demo Roles</p>
-          <div className="space-y-1.5">
-            {DEMO_ACCOUNTS.map((a) => (
-              <button
-                key={a.email}
-                type="button"
-                onClick={() => {
-                  setEmail(a.email);
-                  setPassword(a.password);
-                }}
-                className="flex w-full items-center justify-between rounded-xl p-2 hover:bg-[#F3F6FA] transition-colors text-left"
-              >
-                <span className="font-semibold text-[#1B2430]">{a.role}</span>
-                <span className="font-mono text-[#8A94A6]">{a.email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
