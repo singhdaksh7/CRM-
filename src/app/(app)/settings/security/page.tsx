@@ -12,8 +12,9 @@ export const metadata = { title: "Security" };
  * /settings nav entry is ADMIN-only but this child path is explicitly
  * self-service (see SELF_SERVICE_PATHS in src/lib/permissions.ts).
  *
- * Only the signed-in user's own row is read, and only non-secret columns are
- * selected - no passwordHash ever reaches this component.
+ * Only the signed-in user's own row is read, and the select list is limited
+ * to non-secret columns, so no credential material ever reaches this
+ * component.
  */
 export default async function SecuritySettingsPage() {
   const session = await auth();
