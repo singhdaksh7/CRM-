@@ -1,4 +1,5 @@
 import { formatINR } from "./utils";
+export { catalogueSpecChips } from "./catalogue-specs";
 import { renderCatalogueMessage } from "@/integrations/whatsapp";
 import type { CatalogueStatus } from "@prisma/client";
 // Type-only import: erased at compile time, so this never triggers
@@ -10,10 +11,14 @@ import type { getCatalogueByToken } from "./catalogues";
 
 type CatalogueForDTO = Awaited<ReturnType<typeof getCatalogueByToken>>;
 
-export function budgetSummary(lead: { requirementType: string; preferredBhk: number | null; preferredLocation: string; minBudget: number; maxBudget: number }): string {
-  const bhk = lead.preferredBhk ? `${lead.preferredBhk} BHK ` : "";
+export function budgetSummary(lead: { requirementType: string; preferredBhk: number | null; preferredLocation: string; minBudget: number; maxBudget: number; assetClass?: string | null }): string {
+  // Commercial requirements have no BHK by design, so the phrase is built from
+  // the asset class instead of reading like a residential enquiry.
+  const commercial = lead.assetClass === "COMMERCIAL";
+  const bhk = !commercial && lead.preferredBhk ? `${lead.preferredBhk} BHK ` : "";
   const kind = lead.requirementType === "RENT" ? "rental" : "sale";
-  return `a ${bhk}${kind} property in ${lead.preferredLocation} within ${formatINR(lead.minBudget, { compact: true })}–${formatINR(lead.maxBudget, { compact: true })}`;
+  const noun = commercial ? "commercial property" : "property";
+  return `a ${bhk}${kind} ${noun} in ${lead.preferredLocation} within ${formatINR(lead.minBudget, { compact: true })}–${formatINR(lead.maxBudget, { compact: true })}`;
 }
 
 export function getPublicCatalogueUrl(token: string): string {
@@ -51,6 +56,11 @@ export interface PublicCatalogueProperty {
   title: string;
   area: string;
   address: string | null;
+  /** RESIDENTIAL | COMMERCIAL - required so the public view never renders residential-only specs for a commercial listing. */
+  assetClass: string;
+  propertyType: string;
+  workstations: number | null;
+  cabins: number | null;
   bhk: number;
   bathrooms: number;
   furnishing: string;
@@ -155,6 +165,10 @@ export function toPublicCatalogueDTO(catalogue: CatalogueForDTO): PublicCatalogu
         title: p.title,
         area: p.area,
         address: addressVisible ? p.address : null,
+        assetClass: p.assetClass,
+        propertyType: p.propertyType,
+        workstations: p.workstations,
+        cabins: p.cabins,
         bhk: p.bhk,
         bathrooms: p.bathrooms,
         furnishing: p.furnishing,
@@ -198,6 +212,10 @@ export interface ExecutiveCatalogueProperty {
   landmark: string | null;
   latitude: number | null;
   longitude: number | null;
+  assetClass: string;
+  propertyType: string;
+  workstations: number | null;
+  cabins: number | null;
   bhk: number;
   bathrooms: number;
   furnishing: string;
@@ -259,6 +277,10 @@ export function toExecutiveCatalogueDTO(catalogue: CatalogueForDTO): ExecutiveCa
           landmark: p.landmark,
           latitude: p.latitude,
           longitude: p.longitude,
+          assetClass: p.assetClass,
+          propertyType: p.propertyType,
+          workstations: p.workstations,
+          cabins: p.cabins,
           bhk: p.bhk,
           bathrooms: p.bathrooms,
           furnishing: p.furnishing,
