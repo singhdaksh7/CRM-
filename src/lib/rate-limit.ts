@@ -43,6 +43,17 @@ export interface RateLimitRule {
 export const RATE_LIMITS: Record<string, RateLimitRule> = {
   login: { limit: Number(process.env.RATE_LIMIT_LOGIN_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_LOGIN_WINDOW_SECONDS ?? 300) },
   accountSetup: { limit: Number(process.env.RATE_LIMIT_ACCOUNT_SETUP_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_ACCOUNT_SETUP_WINDOW_SECONDS ?? 900) },
+  // Employee authentication & account lifecycle. `forgotPassword` is public
+  // and unauthenticated, so it is the tightest. `passwordReset` covers both
+  // validating a token and submitting a new password - it is the anti
+  // token-brute-force limit, and 10 attempts per 15 minutes per IP is
+  // nowhere near enough to search a 256-bit space, while staying invisible
+  // to a real employee opening the link from WhatsApp.
+  forgotPassword: { limit: Number(process.env.RATE_LIMIT_FORGOT_PASSWORD_MAX ?? 5), windowSeconds: Number(process.env.RATE_LIMIT_FORGOT_PASSWORD_WINDOW_SECONDS ?? 900) },
+  passwordReset: { limit: Number(process.env.RATE_LIMIT_PASSWORD_RESET_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_PASSWORD_RESET_WINDOW_SECONDS ?? 900) },
+  passwordChange: { limit: Number(process.env.RATE_LIMIT_PASSWORD_CHANGE_MAX ?? 10), windowSeconds: Number(process.env.RATE_LIMIT_PASSWORD_CHANGE_WINDOW_SECONDS ?? 900) },
+  // Admin-issued credential links and account status changes, keyed per admin.
+  accountAdminAction: { limit: Number(process.env.RATE_LIMIT_ACCOUNT_ADMIN_ACTION_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_ACCOUNT_ADMIN_ACTION_WINDOW_SECONDS ?? 300) },
   publicCatalogue: { limit: Number(process.env.RATE_LIMIT_CATALOGUE_MAX ?? 60), windowSeconds: Number(process.env.RATE_LIMIT_CATALOGUE_WINDOW_SECONDS ?? 60) },
   webhook: { limit: Number(process.env.RATE_LIMIT_WEBHOOK_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_WEBHOOK_WINDOW_SECONDS ?? 60) },
   import: { limit: Number(process.env.RATE_LIMIT_IMPORT_MAX ?? 5), windowSeconds: Number(process.env.RATE_LIMIT_IMPORT_WINDOW_SECONDS ?? 300) },

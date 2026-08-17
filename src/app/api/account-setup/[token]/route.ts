@@ -4,8 +4,12 @@ import { accountSetupPasswordSchema } from "@/lib/validators";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { handleApiError, ApiError } from "@/lib/api-auth";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   try {
+    // Validation is rate limited too, not just submission - otherwise the GET
+    // is a free oracle for brute-forcing the setup token space.
+    const limit = await checkRateLimit("accountSetup", clientIp(req));
+    if (!limit.allowed) return rateLimitResponse(limit);
     const { token } = await params;
     const details = await inspectAccountSetupToken(token);
     if (!details) throw new ApiError(404, "This setup link is invalid or has expired");

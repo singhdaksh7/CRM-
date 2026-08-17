@@ -41,9 +41,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!existing) throw new ApiError(404, "Employee not found");
 
     const body = await req.json();
-    const { serviceAreas, ...data } = employeeSchema.partial().parse(body);
-    if (existing.status === "PENDING_SETUP" && data.status === "ACTIVE") {
-      throw new ApiError(409, "Complete account setup before activating this employee");
+    const { serviceAreas, status, ...data } = employeeSchema.partial().parse(body);
+    // Account status is no longer a plain field update. Disabling has to
+    // revoke live sessions (authVersion) and destroy outstanding setup/reset
+    // links, and enabling has to choose between ACTIVE and PENDING_SETUP -
+    // none of which a generic profile PATCH should do as a side effect. A
+    // status change routed through here would silently skip all of that, so
+    // it is rejected outright rather than partially honoured.
+    if (status !== undefined && status !== existing.status) {
+      throw new ApiError(400, "Use the account status controls to enable or disable an employee");
     }
 
     const employee = await prisma.user.update({

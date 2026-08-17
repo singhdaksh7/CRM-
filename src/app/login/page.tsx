@@ -1,11 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn, getSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input, Field } from "@/components/ui/form";
+import { PasswordInput } from "@/components/ui/password-input";
 import { toast } from "sonner";
+
+/**
+ * One-time banners the login page understands, all driven by a query
+ * parameter the previous flow redirected with. The parameter is stripped from
+ * the URL once shown so a refresh (or a shared screenshot of the address bar)
+ * doesn't repeat it.
+ */
+const FLASH_MESSAGES: Record<string, string> = {
+  setup: "Password created successfully. You can now sign in.",
+  reset: "Password updated successfully. Please sign in.",
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,9 +27,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("setup") === "success") {
-      toast.success("Password created successfully. You can now sign in.");
-      window.history.replaceState(null, "", "/login");
+    const params = new URLSearchParams(window.location.search);
+    for (const [key, message] of Object.entries(FLASH_MESSAGES)) {
+      if (params.get(key) === "success") {
+        toast.success(message);
+        window.history.replaceState(null, "", "/login");
+        break;
+      }
     }
   }, []);
 
@@ -24,9 +41,12 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     const res = await signIn("credentials", { email, password, redirect: false });
-    setLoading(false);
     if (res?.error) {
-      toast.error("Invalid email or password");
+      setLoading(false);
+      // Deliberately identical for an unknown email, a wrong password, a
+      // pending account and a disabled one - the server can't tell us which
+      // it was, and the user must not learn it either.
+      toast.error("Invalid email or password.");
       return;
     }
     toast.success("Welcome back!");
@@ -34,6 +54,8 @@ export default function LoginPage() {
     // everyone else keeps the shared /dashboard. Old bookmarks to /dashboard
     // still work - proxy.ts bounces a FIELD_EXECUTIVE visiting it onward.
     const freshSession = await getSession();
+    // Left loading through the redirect on purpose: re-enabling the button
+    // here would let an impatient double-tap fire a second sign-in.
     router.push(freshSession?.user?.role === "FIELD_EXECUTIVE" ? "/executive-dashboard" : "/dashboard");
     router.refresh();
   }
@@ -51,14 +73,37 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-[#E7ECF2] bg-white p-6 sm:p-8 shadow-xs">
           <Field label="Email Address">
-            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@delhibrokercrm.com" />
+            <Input
+              type="email"
+              required
+              autoComplete="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              disabled={loading}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@delhibrokercrm.com"
+            />
           </Field>
           <Field label="Password">
-            <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <PasswordInput
+              required
+              autoComplete="current-password"
+              disabled={loading}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
           </Field>
-          <Button type="submit" loading={loading} className="w-full justify-center text-sm py-2.5 font-semibold">
+          <Button type="submit" loading={loading} disabled={loading} className="w-full justify-center text-sm py-2.5 font-semibold">
             Sign In to CRM
           </Button>
+          <p className="text-center text-sm">
+            <Link href="/forgot-password" className="font-semibold text-[#3366FF] hover:underline">
+              Forgot Password?
+            </Link>
+          </p>
         </form>
 
       </div>
