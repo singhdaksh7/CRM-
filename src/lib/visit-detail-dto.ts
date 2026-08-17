@@ -16,7 +16,9 @@
  */
 
 import { formatINR } from "./utils";
-import { computeVisitProgress, interestLabelFromRating, type VisitProgress } from "./visits";
+// Pure helpers only - this module is a view model and must stay free of
+// Prisma/auth imports so it can be unit-tested and rendered anywhere.
+import { computeVisitProgress, interestLabelFromRating, type VisitProgress } from "./visit-progress";
 import type { Role, VisitPropertyStatus, VisitStatus } from "@prisma/client";
 
 export interface VisitDetailProperty {

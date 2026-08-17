@@ -8,7 +8,9 @@ import { Badge, VISIT_PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { bestDirectionsUrl } from "@/lib/external-directions";
 import { enumToLabel } from "@/lib/utils";
-import { RATING_DESCRIPTIONS } from "@/lib/visits";
+// Pure helpers only - importing from @/lib/visits here would pull Prisma and
+// the notification/auth stack into the client bundle.
+import { RATING_DESCRIPTIONS } from "@/lib/visit-progress";
 import type { VisitDetailDTO, VisitDetailProperty } from "@/lib/visit-detail-dto";
 
 /**
