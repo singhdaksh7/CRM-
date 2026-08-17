@@ -20,7 +20,7 @@ const MODEL_NAMES = [
   "whatsAppMessage", "whatsAppConversation", "sharedPropertyLog",
   "portalOperation", "externalLeadEvent", "portalListing", "propertyPortalConnection",
   "payment", "brokerageCalculation", "deal", "document",
-  "visitFeedback", "visit", "followUp", "leadScoreHistory", "activity", "notification", "savedView",
+  "visitFeedback", "visitProperty", "visit", "followUp", "leadScoreHistory", "activity", "notification", "savedView",
   "propertyAvailabilityReport", "propertyReport", "propertyFavorite", "propertyViewLog", "propertyImage",
   "lead", "property", "owner", "inventoryPartner", "employeeServiceArea", "leadAssignmentRule", "user",
 ] as const;

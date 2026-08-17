@@ -17,6 +17,8 @@ import { DemoDataBanner } from "@/components/dashboard/demo-data-banner";
 import { isDemoDataLoaded } from "@/lib/demo-data/status";
 import { getFieldOpsSummary } from "@/lib/field-ops-summary-data";
 import { FieldOpsSummaryPanel } from "@/components/dashboard/field-ops-summary-panel";
+import { getManagerVisitBoard } from "@/lib/visit-analytics-data";
+import { ManagerVisitBoard } from "@/components/dashboard/manager-visit-board";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -76,6 +78,14 @@ export default async function DashboardPage() {
         <SegmentPanel title="Inventory segments" values={data.inventorySegments} />
         <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5"><div className="flex justify-between"><h2 className="font-semibold">Portal operations</h2><Link className="text-xs text-[#3366FF]" href="/reports/portals">Report</Link></div><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><span>Today <b>{data.portalKpis.today}</b></span><span>This week <b>{data.portalKpis.week}</b></span><span>Review <b>{data.portalKpis.needsReview + data.portalKpis.ambiguous}</b></span><span>Failed <b>{data.portalKpis.failed}</b></span><span>Conflicts <b>{data.portalKpis.conflicts}</b></span><span>Dead letters <b>{data.portalKpis.deadLetters}</b></span></div><p className="mt-3 text-xs text-[#596579]">Top source: {data.portalKpis.topSource?.replaceAll("_", " ") ?? "No portal data"}</p></div>
       </section>
+
+      {/* Manager view of today's field work: Visits Today / Upcoming /
+          In Progress / Completed Today, with a per-visit progress summary. */}
+      {(session.user.role === "ADMIN" || session.user.role === "DATA_MANAGER") && (
+        <Suspense fallback={<PanelSkeleton />}>
+          <ManagerVisitBoardSection userId={session.user.id} />
+        </Suspense>
+      )}
 
       {/* Objective 12 - Manager Dashboard field-ops widgets */}
       {(session.user.role === "ADMIN" || session.user.role === "DATA_MANAGER") && (
@@ -154,6 +164,11 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
       </div>
     </>
   );
+}
+
+async function ManagerVisitBoardSection({ userId }: { userId: string }) {
+  const board = await getManagerVisitBoard(getOrganizationId(userId));
+  return <ManagerVisitBoard board={board} />;
 }
 
 async function FieldOpsSummarySection({ userId }: { userId: string }) {

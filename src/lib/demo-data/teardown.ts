@@ -229,6 +229,9 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   // --- Visits, follow-ups, lead score history, activities, notifications (relation-scoped) ---
   // Phase 4 - one-to-one with Visit (cascades too, deleted explicitly here first for an accurate per-model count).
   await del("visitFeedback", () => prisma.visitFeedback.deleteMany({ where: { organizationId: orgId, visit: startsWith("visit") } }));
+  // VisitProperty cascades on visit delete, but is removed explicitly first so
+  // the per-model teardown count is accurate rather than silently zero.
+  await del("visitProperty", () => prisma.visitProperty.deleteMany({ where: { organizationId: orgId, visit: startsWith("visit") } }));
   // Visit.propertyId is required (NOT NULL, no cascade) - same "real top-level
   // record" reasoning as Deal above applies even more strongly here: a real
   // Visit can't be partially unlinked (there's no nullable propertyId to

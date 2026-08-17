@@ -88,7 +88,8 @@ async function main() {
       // Residential generators + the additive commercial/portal rows (see plan.ts).
       ["property", counts.property, DEMO_SEED_PLAN.properties + DEMO_SEED_PLAN.portalCommercialProperties],
       ["lead", counts.lead, DEMO_SEED_PLAN.leads + DEMO_SEED_PLAN.portalLeads],
-      ["visit", counts.visit, DEMO_SEED_PLAN.visits],
+      // Randomized bucket visits + the three hand-built workflow visits.
+      ["visit", counts.visit, DEMO_SEED_PLAN.visits + DEMO_SEED_PLAN.workflowVisits],
       ["followUp", counts.followUp, DEMO_SEED_PLAN.followUps],
       ["document", counts.document, DEMO_SEED_PLAN.documents],
       ["catalogueShare", counts.catalogueShare, DEMO_SEED_PLAN.catalogues],

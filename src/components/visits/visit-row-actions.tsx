@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { VisitFeedbackDialog } from "./visit-feedback-dialog";
 import { enumToLabel } from "@/lib/utils";
 
-const VISIT_STATUSES = ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"];
+const VISIT_STATUSES = ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "IN_PROGRESS", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"];
 const OUTCOMES = [
   "HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION",
   // Phase 4 - Field Operations

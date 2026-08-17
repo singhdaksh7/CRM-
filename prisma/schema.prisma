@@ -220,6 +220,26 @@ enum VisitStatus {
   RESCHEDULED
   CANCELLED
   CLIENT_NO_SHOW
+  // Catalogue -> Visit workflow. The executive has pressed [Start Visit] and
+  // is physically working through the visit's properties. Appended at the END
+  // of the enum so the migration only ever needs ADD VALUE - existing stored
+  // values keep their ordinals and no row is rewritten.
+  IN_PROGRESS
+}
+
+// Per-property progress inside one multi-property visit. Deliberately NOT
+// folded into VisitOutcome (which grades whole-visit lead interest) nor into
+// CatalogueExecutiveStatus (catalogue engagement before anyone leaves the
+// office). UNAVAILABLE is the terminal state written when the executive
+// reuses the existing Phase 4 PropertyAvailabilityReport flow from inside a
+// visit: the visit-property row records "could not be shown", while the
+// availability decision itself still lives in that Phase 4 table.
+enum VisitPropertyStatus {
+  PENDING
+  VISITED
+  SKIPPED
+  CLIENT_REJECTED
+  UNAVAILABLE
 }
 
 enum VisitOutcome {
@@ -723,6 +743,7 @@ model Organization {
   leadTransfers               LeadTransfer[]
   sharedPropertyLogs          SharedPropertyLog[]
   visits                      Visit[]
+  visitProperties             VisitProperty[]
   followUps                   FollowUp[]
   activities                  Activity[]
   notifications               Notification[]
@@ -802,6 +823,9 @@ model User {
   assignedLeads                 Lead[]                   @relation("AssignedEmployee")
   assignedVisits                Visit[]                  @relation("AssignedFieldExecutive")
   visitConflictOverrides        Visit[]                  @relation("VisitConflictOverrideBy")
+  createdVisits                 Visit[]                  @relation("VisitCreatedBy")
+  visitPropertiesVisited        VisitProperty[]          @relation("VisitPropertyVisitedBy")
+  scheduledCatalogueRequests    CatalogueInteraction[]   @relation("CatalogueRequestScheduledBy")
   followUps                     FollowUp[]               @relation("FollowUpOwner")
   activities                    Activity[]               @relation("ActivityActor")
   sharedProperties              SharedPropertyLog[]      @relation("SharedBy")
@@ -1108,6 +1132,7 @@ model Property {
 
   sharedIn                 SharedPropertyLog[]
   visits                   Visit[]
+  visitProperties          VisitProperty[]
   catalogueShareProperties CatalogueShareProperty[]
   catalogueInteractions    CatalogueInteraction[]
   deals                    Deal[]
@@ -1432,13 +1457,81 @@ model Visit {
   conflictOverrideBy       User?               @relation("VisitConflictOverrideBy", fields: [conflictOverrideByUserId], references: [id])
   conflictOverrideAt       DateTime?
 
+  // Catalogue -> Visit workflow.
+  //
+  // `propertyId` above stays REQUIRED and keeps its original meaning for
+  // every pre-existing single-property visit. For a multi-property visit it
+  // holds the FIRST selected property, so all legacy readers
+  // (visit.property.title, checkVisitConflict, suggested-route, reports)
+  // keep working untouched. The authoritative property set is `properties`
+  // below; the migration backfills exactly one VisitProperty row per existing
+  // visit so old and new readers agree from the moment it is applied.
+  catalogueShareId String?
+  catalogueShare   CatalogueShare? @relation(fields: [catalogueShareId], references: [id])
+  createdById      String?
+  createdBy        User?           @relation("VisitCreatedBy", fields: [createdById], references: [id])
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  /// Overall client interest captured on [Complete Visit], 1-5. Raw star value
+  /// is the source of truth; any LOW_INTEREST/MAYBE/INTERESTED/HIGHLY_INTERESTED
+  /// label is derived for display only (see src/lib/visits.ts).
+  overallRating      Int?
+  completionSummary  String?
+  cancellationReason String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   feedback            VisitFeedback?
   availabilityReports PropertyAvailabilityReport[]
+  properties          VisitProperty[]
+  /// The client-side catalogue visit request(s) this visit was confirmed from.
+  /// Empty for a visit an Admin created directly rather than from a request.
+  requestInteractions CatalogueInteraction[] @relation("VisitFromCatalogueRequest")
 
+  @@index([organizationId, visitDate])
+  @@index([organizationId, assignedToId, visitDate])
   @@map("visits")
+}
+
+/// One property inside one visit. Created for every visit (including
+/// single-property ones) so there is exactly one code path for progress.
+model VisitProperty {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  visitId        String
+  visit          Visit        @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id])
+
+  sequence Int                 @default(0)
+  status   VisitPropertyStatus @default(PENDING)
+
+  visitedAt   DateTime?
+  visitedById String?
+  visitedBy   User?     @relation("VisitPropertyVisitedBy", fields: [visitedById], references: [id])
+
+  /// Client reaction to THIS property, 1-5 stars. Structured integer, not a
+  /// decorative UI value - reporting reads it directly.
+  reactionRating Int?
+  reactionNote   String?
+  /// Optional, only meaningful for SKIPPED/UNAVAILABLE.
+  skipReason String?
+  /// Post-visit shortlist. Kept here rather than in a second shortlist system;
+  /// CatalogueShareProperty.executiveStatus = SHORTLISTED is mirrored when the
+  /// visit came from a catalogue, so the existing catalogue shortlist stays
+  /// the single client-facing source of truth.
+  isPreferred Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([visitId, propertyId])
+  @@index([organizationId, propertyId])
+  @@index([visitId, sequence])
+  @@map("visit_properties")
 }
 
 // ---------------------------------------------------------------------------
@@ -1615,6 +1708,7 @@ model CatalogueShare {
   properties    CatalogueShareProperty[]
   interactions  CatalogueInteraction[]
   versionEvents CatalogueVersionEvent[]
+  visits        Visit[]
 
   @@index([organizationId, leadId])
   @@map("catalogue_shares")
@@ -1677,7 +1771,29 @@ model CatalogueInteraction {
   metadata         String? // JSON blob - e.g. { dedupeKey, preferredDate, preferredWindow }
   createdAt        DateTime                 @default(now())
 
+  // Catalogue -> Visit workflow.
+  //
+  // A VISIT_REQUESTED interaction IS the client's visit request. The public
+  // catalogue page never books anything: it records this row plus a
+  // VISIT_CONFIRMATION FollowUp, and nothing else. No Visit exists until an
+  // Admin reviews the request and presses [Confirm Visit]; the confirmed
+  // Visit is then stamped here.
+  //
+  // `scheduledVisitId` doubles as the single-use guard. Confirmation claims
+  // the request rows with a guarded `updateMany ... where scheduledVisitId is
+  // null` inside the same transaction that creates the Visit - the same
+  // idiom completePasswordReset uses to consume a reset token exactly once.
+  // A racing second confirmation claims 0 rows, throws, and rolls back its
+  // whole transaction (the Visit included), so a double-submit can never
+  // produce two Visits for one request.
+  scheduledVisitId String?
+  scheduledVisit   Visit?                   @relation("VisitFromCatalogueRequest", fields: [scheduledVisitId], references: [id])
+  scheduledAt      DateTime?
+  scheduledById    String?
+  scheduledBy      User?                    @relation("CatalogueRequestScheduledBy", fields: [scheduledById], references: [id])
+
   @@index([catalogueShareId, type])
+  @@index([organizationId, type, scheduledVisitId])
   @@map("catalogue_interactions")
 }
 

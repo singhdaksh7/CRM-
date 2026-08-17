@@ -5,19 +5,26 @@ import { formatDate, enumToLabel, formatINR } from "@/lib/utils";
 import { QuickActions } from "./quick-actions";
 import { MapPin, Clock } from "lucide-react";
 import type { ExecutiveDashboardData } from "@/lib/executive-dashboard-data";
+import { computeVisitProgress } from "@/lib/visits";
 
 type Visit = ExecutiveDashboardData["todaysVisits"][number];
 
 export function VisitCard({ visit }: { visit: Visit }) {
+  const progress = computeVisitProgress(visit.properties);
   return (
     <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-semibold text-[#1B2430]">{visit.lead.clientName}</p>
-          <p className="text-xs text-[#596579] flex items-center gap-1 mt-0.5"><Clock className="h-3 w-3" /> {new Date(visit.visitDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at {visit.visitTime}</p>
-          <p className="text-xs text-[#596579] flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" /> {visit.property.title} - {visit.property.area}</p>
+          <p className="text-xs text-[#596579] flex items-center gap-1 mt-0.5"><Clock className="h-3 w-3" /> {new Date(visit.visitDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })} at {visit.visitTime}</p>
+          <p className="text-xs text-[#596579] flex items-center gap-1 mt-0.5">
+            <MapPin className="h-3 w-3" />
+            {progress.total} {progress.total === 1 ? "property" : "properties"}
+            {progress.remaining > 0 && progress.resolved > 0 && <> &middot; {progress.remaining} remaining</>}
+          </p>
+          {progress.resolved > 0 && <p className="text-xs font-semibold text-[#3366FF] mt-0.5">{progress.label}</p>}
         </div>
-        <Badge tone={VISIT_STATUS_TONE[visit.status]}>{enumToLabel(visit.status)}</Badge>
+        <Badge tone={VISIT_STATUS_TONE[visit.status] ?? "slate"}>{enumToLabel(visit.status)}</Badge>
       </div>
       <QuickActions
         clientPhone={visit.lead.phone}
@@ -27,8 +34,15 @@ export function VisitCard({ visit }: { visit: Visit }) {
         catalogueHref={`/leads/${visit.lead.id}`}
         leadId={visit.lead.id}
       />
-      <Link href={`/leads/${visit.lead.id}`} className="block text-center text-xs font-semibold text-[#3366FF] hover:underline">Open Lead →</Link>
-      <Link href="/visits" className="block text-center text-xs font-semibold text-[#596579] hover:underline">Update visit status/outcome/feedback in Visits →</Link>
+      {/* Primary action: open the visit and run the on-site workflow. Large
+          touch target - this card is used on a phone, in the field. */}
+      <Link
+        href={`/visits/${visit.id}`}
+        className="flex min-h-[48px] items-center justify-center rounded-xl bg-[#3366FF] text-sm font-bold text-white transition-colors hover:bg-[#2952CC]"
+      >
+        Open Visit →
+      </Link>
+      <Link href={`/leads/${visit.lead.id}`} className="block text-center text-xs font-semibold text-[#596579] hover:underline">Open Lead →</Link>
     </div>
   );
 }
