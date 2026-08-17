@@ -28,6 +28,9 @@ function property(overrides: Record<string, unknown> = {}) {
     title: "F Block 2BHK",
     propertyCode: "PROP-1",
     propertyType: "APARTMENT",
+    assetClass: "RESIDENTIAL",
+    workstations: null,
+    cabins: null,
     listingType: "RENT",
     area: "Janakpuri",
     address: "F Block, near the metro",
@@ -241,5 +244,40 @@ describe("requirement summary", () => {
     expect(withNote).toContain("Needs covered parking");
     expect(withoutNote).not.toContain("Needs covered parking");
     expect(withNote.startsWith(withoutNote)).toBe(true);
+  });
+});
+
+/**
+ * Commercial properties store bhk = 0 and bathrooms = 0 by design. The visit
+ * DTO must therefore carry the asset class through to the field-executive UI,
+ * so a commercial site visit is never described as "0 BHK".
+ */
+describe("commercial visit properties", () => {
+  const commercialVisitProperty = {
+    id: "vp3",
+    propertyId: "propC",
+    sequence: 0,
+    status: "PENDING" as const,
+    visitedAt: null,
+    reactionRating: null,
+    reactionNote: null,
+    skipReason: null,
+    isPreferred: false,
+    visitedBy: null,
+    property: property({ id: "propC", title: "Nehru Place office floor", assetClass: "COMMERCIAL", propertyType: "COMMERCIAL_OFFICE", bhk: 0, workstations: 40, cabins: 4 }),
+  };
+
+  it("carries the asset class and commercial counts through to the UI", () => {
+    const dto = toVisitDetailDTO(visit({ properties: [commercialVisitProperty] }), SAGAR);
+    expect(dto.properties[0].assetClass).toBe("COMMERCIAL");
+    expect(dto.properties[0].workstations).toBe(40);
+    expect(dto.properties[0].cabins).toBe(4);
+    expect(dto.properties[0].propertyType).toBe("COMMERCIAL_OFFICE");
+  });
+
+  it("still reports RESIDENTIAL for ordinary inventory", () => {
+    const dto = toVisitDetailDTO(visit(), SAGAR);
+    expect(dto.properties[0].assetClass).toBe("RESIDENTIAL");
+    expect(dto.properties[0].workstations).toBeNull();
   });
 });

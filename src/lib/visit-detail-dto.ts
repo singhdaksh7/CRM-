@@ -28,6 +28,10 @@ export interface VisitDetailProperty {
   title: string;
   propertyCode: string;
   propertyType: string;
+  /** RESIDENTIAL | COMMERCIAL - commercial records carry bhk = 0 by design, so the UI must not print a BHK for them. */
+  assetClass: string;
+  workstations: number | null;
+  cabins: number | null;
   listingType: string;
   /** Locality. Always shown - internal staff need to know where they are going. */
   area: string;
@@ -157,6 +161,9 @@ interface VisitPropertyInput {
     title: string;
     propertyCode: string;
     propertyType: string;
+    assetClass: string;
+    workstations: number | null;
+    cabins: number | null;
     listingType: string;
     area: string;
     address: string;
@@ -247,6 +254,9 @@ export function toVisitDetailDTO(visit: VisitInput, viewer: { id: string; role: 
           title: p.title,
           propertyCode: p.propertyCode,
           propertyType: p.propertyType,
+          assetClass: p.assetClass,
+          workstations: p.workstations,
+          cabins: p.cabins,
           listingType: p.listingType,
           area: p.area,
           address: p.address,
