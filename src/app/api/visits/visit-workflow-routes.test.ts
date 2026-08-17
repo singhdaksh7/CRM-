@@ -230,4 +230,32 @@ describe("POST /api/catalogues/[id]/schedule-visit", () => {
     const res = await catalogueScheduleRoute(req({ ...body, visitDate: "nonsense" }), { params: params({ id: "cat1" }) });
     expect(res.status).toBe(400);
   });
+
+  it("carries the pending client request rows through so confirmation consumes them", async () => {
+    const res = await catalogueScheduleRoute(
+      req({ ...body, requestInteractionIds: ["req1", "req2"] }),
+      { params: params({ id: "cat1" }) }
+    );
+    expect(res.status).toBe(201);
+    expect(scheduleVisitFromCatalogue).toHaveBeenCalledWith(
+      expect.objectContaining({ requestInteractionIds: ["req1", "req2"] })
+    );
+  });
+
+  it("surfaces an already-confirmed request as 409, not as a second visit", async () => {
+    scheduleVisitFromCatalogue.mockRejectedValueOnce(new MockApiError(409, "This visit request has already been scheduled."));
+    const res = await catalogueScheduleRoute(
+      req({ ...body, requestInteractionIds: ["req1"] }),
+      { params: params({ id: "cat1" }) }
+    );
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({ error: expect.stringMatching(/already been scheduled/) });
+  });
+
+  it("stays a request-free endpoint when no request ids are supplied", async () => {
+    await catalogueScheduleRoute(req(body), { params: params({ id: "cat1" }) });
+    expect(scheduleVisitFromCatalogue).toHaveBeenCalledWith(
+      expect.objectContaining({ requestInteractionIds: undefined })
+    );
+  });
 });

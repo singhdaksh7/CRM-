@@ -172,6 +172,29 @@ describe("IST-anchored visit queries (root cause)", () => {
     // 2026-08-17T20:00Z is already 18 Aug in IST.
     expect(formatIstDateLabel(new Date("2026-08-17T20:00:00.000Z"))).toContain("18");
   });
+
+  it("computes the day boundary as an absolute UTC instant, so the SERVER's timezone cannot move it", () => {
+    // This is the property that makes "tomorrow in IST" behave the same on a
+    // UTC host, an Asia/Kolkata host, and an America/Los_Angeles host: the
+    // boundary is a fixed instant derived from IST, never from the host clock.
+    // 18:30:00.000Z IS 00:00 IST - the end of the IST day is the instant
+    // immediately before the next one.
+    const { lte, gte } = todaysVisitsWhere("org_default", nowLateIst).visitDate as { gte: Date; lte: Date };
+    expect(gte.toISOString()).toBe("2026-08-16T18:30:00.000Z");
+    expect(lte.toISOString()).toBe("2026-08-17T18:29:59.999Z");
+    expect((upcomingVisitsWhere("org_default", nowLateIst).visitDate as { gt: Date }).gt.toISOString()).toBe("2026-08-17T18:29:59.999Z");
+  });
+
+  it("puts tomorrow-morning-IST on the upcoming side of that boundary from anywhere in the current IST day", () => {
+    // Evaluated at three very different instants within the SAME IST day -
+    // 00:30, 12:00 and 23:00 IST. All three must agree, which they cannot do
+    // if the boundary is derived from a server-local `setHours(0,0,0,0)`.
+    for (const now of ["2026-08-16T19:00:00.000Z", "2026-08-17T06:30:00.000Z", "2026-08-17T17:30:00.000Z"]) {
+      const gt = (upcomingVisitsWhere("org_default", new Date(now)).visitDate as { gt: Date }).gt;
+      expect(tomorrowMorningIst.getTime(), `evaluated at ${now}`).toBeGreaterThan(gt.getTime());
+      expect(gt.toISOString(), `evaluated at ${now}`).toBe("2026-08-17T18:29:59.999Z");
+    }
+  });
 });
 
 describe("role scoping", () => {
