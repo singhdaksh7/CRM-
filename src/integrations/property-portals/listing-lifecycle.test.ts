@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { listingActionState } from "./listing-lifecycle";
+describe("portal listing lifecycle", () => { it("never enables contract-only publishing", () => expect(listingActionState("PUBLISH", "PARTNER_ACCESS_REQUIRED", true, "DRAFT")).toEqual({ allowed: false, reason: "PARTNER_ACCESS_REQUIRED" })); it("requires an explicit draft publish transition", () => expect(listingActionState("PUBLISH", "AVAILABLE", true, "DRAFT")).toEqual({ allowed: true })); it("does not update an unpublished listing", () => expect(listingActionState("UPDATE", "AVAILABLE", true, "DRAFT")).toEqual({ allowed: false, reason: "NOT_PUBLISHED" })); });
