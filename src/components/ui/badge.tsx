@@ -55,10 +55,20 @@ export const VISIT_STATUS_TONE: Record<string, BadgeTone> = {
   CONFIRMED: "indigo",
   CLIENT_REACHED: "purple",
   EMPLOYEE_REACHED: "purple",
+  IN_PROGRESS: "orange",
   COMPLETED: "green",
   RESCHEDULED: "amber",
   CANCELLED: "red",
   CLIENT_NO_SHOW: "red",
+};
+
+/** Per-property progress inside one multi-property visit. */
+export const VISIT_PROPERTY_STATUS_TONE: Record<string, BadgeTone> = {
+  PENDING: "slate",
+  VISITED: "green",
+  SKIPPED: "amber",
+  CLIENT_REJECTED: "red",
+  UNAVAILABLE: "red",
 };
 
 export const FOLLOWUP_STATUS_TONE: Record<string, BadgeTone> = {

@@ -134,7 +134,7 @@ export const visitSchema = z.object({
   visitDate: z.string(),
   visitTime: z.string(),
   meetingLocation: z.string().optional().nullable(),
-  status: z.enum(["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"]).default("SCHEDULED"),
+  status: z.enum(["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "IN_PROGRESS", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"]).default("SCHEDULED"),
   clientFeedback: z.string().optional().nullable(),
   employeeNotes: z.string().optional().nullable(),
   outcome: z.enum(["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION", "CUSTOMER_NO_SHOW", "OWNER_NO_SHOW", "NEGOTIATION_IN_PROGRESS", "SHORTLISTED", "REJECTED", "FOLLOW_UP_NEEDED"]).optional().nullable(),
@@ -144,6 +144,69 @@ export const visitSchema = z.object({
   // chooses to proceed anyway. See src/lib/visit-conflict.ts.
   overrideConflict: z.boolean().optional(),
   overrideReason: z.string().min(3).optional(),
+  /**
+   * Catalogue -> Visit workflow. The full set of properties selected for this
+   * visit, in display order. `propertyId` above stays required and is treated
+   * as the first/primary property, so every existing caller that sends only
+   * `propertyId` keeps working and gets a single-property visit.
+   */
+  propertyIds: z.array(z.string()).max(20).optional(),
+  catalogueShareId: z.string().optional().nullable(),
+});
+
+// ---------------------------------------------------------------------------
+// Catalogue -> Visit -> Field Executive Visit workflow
+// ---------------------------------------------------------------------------
+
+/**
+ * Confirming a visit from a catalogue, with an explicit property selection.
+ *
+ * `propertyIds` is required (min 1) precisely so no HTTP caller can trigger
+ * the "no selection = whole catalogue" server-side fallback; the Admin's
+ * selection is exactly what lands in the visit.
+ *
+ * `requestInteractionIds` names the pending client VISIT_REQUESTED rows this
+ * confirmation consumes. Optional, because an Admin may also schedule a
+ * catalogue visit that no client ever requested.
+ */
+export const catalogueScheduleVisitSchema = z.object({
+  propertyIds: z.array(z.string()).min(1).max(20),
+  assignedToId: z.string().optional().nullable(),
+  visitDate: z.string(),
+  visitTime: z.string(),
+  meetingLocation: z.string().optional().nullable(),
+  requestInteractionIds: z.array(z.string()).max(50).optional(),
+});
+
+/** 1-5 stars, whole numbers only. Rejects 0, 6, and 4.5 - the value is stored, not decorative. */
+export const starRatingSchema = z.number().int().min(1).max(5);
+
+export const visitPropertyOutcomeSchema = z.object({
+  status: z.enum(["PENDING", "VISITED", "SKIPPED", "CLIENT_REJECTED", "UNAVAILABLE"]),
+  reactionRating: starRatingSchema.optional().nullable(),
+  /** Optional free-text client feedback / executive note. Never compulsory. */
+  reactionNote: z.string().max(2000).optional().nullable(),
+  skipReason: z.string().max(500).optional().nullable(),
+});
+
+export const completeVisitSchema = z.object({
+  overallRating: starRatingSchema.optional().nullable(),
+  summary: z.string().max(2000).optional().nullable(),
+  preferredPropertyIds: z.array(z.string()).max(20).optional(),
+});
+
+export const rescheduleVisitSchema = z.object({
+  visitDate: z.string().optional(),
+  visitTime: z.string().optional(),
+  assignedToId: z.string().optional().nullable(),
+});
+
+export const cancelVisitSchema = z.object({
+  reason: z.string().min(3).max(500),
+});
+
+export const preferredPropertiesSchema = z.object({
+  propertyIds: z.array(z.string()).max(20),
 });
 
 export const followUpSchema = z.object({

@@ -17,6 +17,8 @@ import { DemoDataBanner } from "@/components/dashboard/demo-data-banner";
 import { isDemoDataLoaded } from "@/lib/demo-data/status";
 import { getFieldOpsSummary } from "@/lib/field-ops-summary-data";
 import { FieldOpsSummaryPanel } from "@/components/dashboard/field-ops-summary-panel";
+import { getManagerVisitBoard } from "@/lib/visit-analytics-data";
+import { ManagerVisitBoard } from "@/components/dashboard/manager-visit-board";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -71,6 +73,14 @@ export default async function DashboardPage() {
         <KpiCard label="Visit Requests Today" value={data.visitRequestsReceivedToday} icon={CalendarPlus} tone="amber" />
         <KpiCard label="Awaiting Shortlist" value={data.leadsAwaitingShortlistCount} icon={ListChecks} tone="red" />
       </div>
+
+      {/* Manager view of today's field work: Visits Today / Upcoming /
+          In Progress / Completed Today, with a per-visit progress summary. */}
+      {(session.user.role === "ADMIN" || session.user.role === "DATA_MANAGER") && (
+        <Suspense fallback={<PanelSkeleton />}>
+          <ManagerVisitBoardSection userId={session.user.id} />
+        </Suspense>
+      )}
 
       {/* Objective 12 - Manager Dashboard field-ops widgets */}
       {(session.user.role === "ADMIN" || session.user.role === "DATA_MANAGER") && (
@@ -147,6 +157,11 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
       </div>
     </>
   );
+}
+
+async function ManagerVisitBoardSection({ userId }: { userId: string }) {
+  const board = await getManagerVisitBoard(getOrganizationId(userId));
+  return <ManagerVisitBoard board={board} />;
 }
 
 async function FieldOpsSummarySection({ userId }: { userId: string }) {

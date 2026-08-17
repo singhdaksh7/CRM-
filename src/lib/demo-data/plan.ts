@@ -14,6 +14,14 @@ export const DEMO_SEED_PLAN = {
   properties: 50,
   leads: 20,
   visits: 15,
+  /**
+   * Three extra hand-built multi-property visits appended by
+   * createDemoWorkflowVisits on top of the 15 randomized ones above:
+   * A (3 properties, upcoming, untouched), B (2 properties, 1 visited at
+   * 4 stars, 1 pending), C (completed, 3 properties rated 2/4/5 with the
+   * 5-star one marked as the client's preferred property).
+   */
+  workflowVisits: 3,
   followUps: 20,
   notifications: 40,
   documents: 10,

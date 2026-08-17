@@ -87,7 +87,8 @@ async function main() {
       ["inventoryPartner", counts.inventoryPartner, DEMO_SEED_PLAN.inventoryPartners],
       ["property", counts.property, DEMO_SEED_PLAN.properties],
       ["lead", counts.lead, DEMO_SEED_PLAN.leads],
-      ["visit", counts.visit, DEMO_SEED_PLAN.visits],
+      // Randomized bucket visits + the three hand-built workflow visits.
+      ["visit", counts.visit, DEMO_SEED_PLAN.visits + DEMO_SEED_PLAN.workflowVisits],
       ["followUp", counts.followUp, DEMO_SEED_PLAN.followUps],
       ["document", counts.document, DEMO_SEED_PLAN.documents],
       ["catalogueShare", counts.catalogueShare, DEMO_SEED_PLAN.catalogues],

@@ -5,17 +5,29 @@ const visitFindFirst = vi.fn();
 const visitCreate = vi.fn();
 const visitUpdate = vi.fn();
 const leadUpdate = vi.fn();
+// POST now delegates the write to scheduleVisit() in src/lib/visits.ts, which
+// first checks every selected property belongs to the organization. That is
+// the only additional prisma surface this route reaches.
+const propertyFindMany = vi.fn();
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const prisma = {
     visit: {
       findFirst: (...a: unknown[]) => visitFindFirst(...a),
       create: (...a: unknown[]) => visitCreate(...a),
       update: (...a: unknown[]) => visitUpdate(...a),
     },
     lead: { update: (...a: unknown[]) => leadUpdate(...a) },
-  },
-}));
+    property: { findMany: (...a: unknown[]) => propertyFindMany(...a) },
+    // scheduleVisit now creates the visit and claims any originating client
+    // visit request inside ONE transaction. This route passes no request ids,
+    // so the claim never runs - the interactive callback just needs a client
+    // to hand back.
+    catalogueInteraction: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+  };
+  return { prisma };
+});
 
 let sessionUser: { id: string; role: string } = { id: "admin1", role: "ADMIN" };
 
@@ -73,12 +85,14 @@ const VALID_BODY = {
 beforeEach(() => {
   vi.clearAllMocks();
   sessionUser = { id: "admin1", role: "ADMIN" };
+  // The single selected property exists in this organization.
+  propertyFindMany.mockResolvedValue([{ id: "prop1", title: "Flat", area: "Janakpuri" }]);
+  visitCreate.mockResolvedValue({ id: "v1", assignedToId: "emp1", leadId: "lead1", visitDate: new Date("2026-02-10T05:30:00Z"), lead: { clientName: "Rahul" }, assignedTo: { name: "Sagar" }, properties: [] });
 });
 
 describe("POST /api/visits - conflict handling", () => {
   it("creates the visit normally when there is no conflict", async () => {
     checkVisitConflict.mockResolvedValue({ status: "NONE", detail: null, travelDurationMinutes: null, travelDistanceMeters: null, routeSource: "NONE" });
-    visitCreate.mockResolvedValue({ id: "v1", lead: { clientName: "Rahul" }, property: { title: "Flat" } });
 
     const res = await POST(jsonRequest(VALID_BODY));
     expect(res.status).toBe(201);
@@ -105,7 +119,6 @@ describe("POST /api/visits - conflict handling", () => {
 
   it("creates the visit as OVERRIDDEN and audits it when overrideConflict + reason are provided", async () => {
     checkVisitConflict.mockResolvedValue({ status: "WARNING", detail: "conflict", travelDurationMinutes: 30, travelDistanceMeters: 5000, routeSource: "GOOGLE" });
-    visitCreate.mockResolvedValue({ id: "v1", lead: { clientName: "Rahul" }, property: { title: "Flat" } });
 
     const res = await POST(jsonRequest({ ...VALID_BODY, overrideConflict: true, overrideReason: "Client insisted on this exact time" }));
     expect(res.status).toBe(201);
@@ -114,7 +127,6 @@ describe("POST /api/visits - conflict handling", () => {
   });
 
   it("skips the conflict check entirely when no employee is assigned", async () => {
-    visitCreate.mockResolvedValue({ id: "v1", lead: { clientName: "Rahul" }, property: { title: "Flat" } });
     const res = await POST(jsonRequest({ ...VALID_BODY, assignedToId: undefined }));
     expect(res.status).toBe(201);
     expect(checkVisitConflict).not.toHaveBeenCalled();
@@ -122,7 +134,6 @@ describe("POST /api/visits - conflict handling", () => {
 
   it("appends a VISIT_SCHEDULED property timeline event on creation", async () => {
     checkVisitConflict.mockResolvedValue({ status: "NONE", detail: null, travelDurationMinutes: null, travelDistanceMeters: null, routeSource: "NONE" });
-    visitCreate.mockResolvedValue({ id: "v1", lead: { clientName: "Rahul" }, property: { title: "Flat" } });
     await POST(jsonRequest(VALID_BODY));
     expect(appendPropertyTimelineEvent).toHaveBeenCalledWith(expect.objectContaining({ propertyId: "prop1", eventType: "VISIT_SCHEDULED" }));
   });
