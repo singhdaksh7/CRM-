@@ -8,6 +8,12 @@ export default auth((req) => {
     pathname === "/login" ||
     pathname.startsWith("/setup-account/") ||
     pathname.startsWith("/api/account-setup/") ||
+    // Employee auth lifecycle: a signed-out employee must be able to ask for
+    // a reset and to open the link they were sent on WhatsApp.
+    pathname === "/forgot-password" ||
+    pathname === "/api/forgot-password" ||
+    pathname.startsWith("/reset-password/") ||
+    pathname.startsWith("/api/password-reset/") ||
     pathname.startsWith("/p/") ||
     pathname.startsWith("/share/catalogue/") ||
     pathname.startsWith("/api/catalogues/") ||

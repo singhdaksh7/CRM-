@@ -6,9 +6,10 @@ import { Badge, LEAD_STATUS_TONE, VISIT_STATUS_TONE, FOLLOWUP_STATUS_TONE } from
 import { StatusToggle } from "@/components/employees/status-toggle";
 import { EmployeeAssignmentSettings } from "@/components/employees/assignment-settings";
 import { formatDate, formatDateTime, enumToLabel } from "@/lib/utils";
-import { Mail, Phone } from "lucide-react";
+import { Clock, Mail, Phone } from "lucide-react";
 import { getOrganizationId } from "@/lib/organization";
-import { SetupLinkActions } from "@/components/employees/setup-link-actions";
+import { EmployeeAccountControls } from "@/components/employees/account-controls";
+import { formatLastLogin } from "@/lib/last-login";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,13 +43,16 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               <div className="mt-1 flex flex-wrap gap-3 text-xs text-[#8A94A6]">
                 <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {employee.email}</span>
                 {employee.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {employee.phone}</span>}
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> Last sign-in: {formatLastLogin(employee.lastLoginAt)}</span>
               </div>
             </div>
           </div>
-          <StatusToggle employeeId={employee.id} status={employee.status} />
+          <StatusToggle status={employee.status} />
         </div>
         {employee.notes && <p className="mt-3 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] p-3 text-sm text-[#596579]">{employee.notes}</p>}
-        {employee.status === "PENDING_SETUP" && <div className="mt-4"><SetupLinkActions employeeId={employee.id} employeeName={employee.name} /></div>}
+        <div className="mt-4">
+          <EmployeeAccountControls employeeId={employee.id} employeeName={employee.name} status={employee.status} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
