@@ -137,6 +137,7 @@ enum PortalConnectionStatus {
   AUTH_FAILED
   PARTNER_ACCESS_REQUIRED
 }
+
 enum PortalConnectionMode {
   API
   WEBHOOK
@@ -144,6 +145,7 @@ enum PortalConnectionMode {
   EMAIL
   MANUAL
 }
+
 enum PortalCapabilityStatus {
   AVAILABLE
   CONFIGURATION_REQUIRED
@@ -151,6 +153,7 @@ enum PortalCapabilityStatus {
   NOT_SUPPORTED
   UNKNOWN
 }
+
 enum PortalListingStatus {
   DRAFT
   PUBLISHED
@@ -158,6 +161,20 @@ enum PortalListingStatus {
   SYNC_CONFLICT
   FAILED
 }
+
+enum PortalOperationStatus {
+  PENDING
+  RETRYABLE
+  SUCCEEDED
+  DEAD_LETTER
+}
+
+enum PortalConflictResolution {
+  KEEP_CRM
+  ACCEPT_PORTAL
+  REVIEW
+}
+
 enum PortalIngestionStatus {
   NEW
   RECEIVED
@@ -701,6 +718,7 @@ model Organization {
   leads                       Lead[]
   propertyPortalConnections   PropertyPortalConnection[]
   portalListings              PortalListing[]
+  portalOperations            PortalOperation[]
   externalLeadEvents          ExternalLeadEvent[]
   leadTransfers               LeadTransfer[]
   sharedPropertyLogs          SharedPropertyLog[]
@@ -979,30 +997,30 @@ model Property {
   tags             String            @default("[]") // JSON array of strings - free-form labels (Phase 2 bulk tagging), same pattern as amenities
 
   // Commercial details are optional and deliberately separate from BHK data.
-  superAreaSqft          Int?
-  frontageFeet           Float?
-  ceilingHeightFeet      Float?
-  cabins                 Int?
-  workstations           Int?
-  washrooms              Int?
-  pantryAvailable        Boolean @default(false)
-  powerLoadKw            Float?
-  commercialFitOut       CommercialFitOut?
-  goodsLiftAvailable     Boolean @default(false)
-  loadingAccessAvailable Boolean @default(false)
-  roadWidthFeet          Float?
-  cornerProperty         Boolean @default(false)
-  fireSafetyAvailable    Boolean @default(false)
-  suitableForTags        String  @default("[]")
-  leaseTermMonths        Int?
-  lockInPeriodMonths     Int?
-  noticePeriodMonths     Int?
-  escalationPercentage   Float?
+  superAreaSqft            Int?
+  frontageFeet             Float?
+  ceilingHeightFeet        Float?
+  cabins                   Int?
+  workstations             Int?
+  washrooms                Int?
+  pantryAvailable          Boolean           @default(false)
+  powerLoadKw              Float?
+  commercialFitOut         CommercialFitOut?
+  goodsLiftAvailable       Boolean           @default(false)
+  loadingAccessAvailable   Boolean           @default(false)
+  roadWidthFeet            Float?
+  cornerProperty           Boolean           @default(false)
+  fireSafetyAvailable      Boolean           @default(false)
+  suitableForTags          String            @default("[]")
+  leaseTermMonths          Int?
+  lockInPeriodMonths       Int?
+  noticePeriodMonths       Int?
+  escalationPercentage     Float?
   escalationIntervalMonths Int?
-  fitOutPeriodDays       Int?
-  camCharge              Int?
-  expectedPrice          Int?
-  ownershipTitleNotes    String?
+  fitOutPeriodDays         Int?
+  camCharge                Int?
+  expectedPrice            Int?
+  ownershipTitleNotes      String?
 
   // Media
   images         String  @default("[]") // JSON array of URLs
@@ -1087,21 +1105,21 @@ enum InventorySource {
 // ---------------------------------------------------------------------------
 
 model Lead {
-  id             String       @id @default(cuid())
-  organizationId String       @default("org_default")
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  leadCode       String       @unique
-  clientName     String
-  phone          String
-  email          String?
-  source         LeadSource
-  externalLeadId String?      @unique // dedupe key for webhook leads
-  assetClass     AssetClass   @default(RESIDENTIAL)
-  transactionType TransactionType @default(RENT)
-  portalProvider PropertyPortalProvider?
+  id                String                  @id @default(cuid())
+  organizationId    String                  @default("org_default")
+  organization      Organization            @relation(fields: [organizationId], references: [id])
+  leadCode          String                  @unique
+  clientName        String
+  phone             String
+  email             String?
+  source            LeadSource
+  externalLeadId    String?                 @unique // dedupe key for webhook leads
+  assetClass        AssetClass              @default(RESIDENTIAL)
+  transactionType   TransactionType         @default(RENT)
+  portalProvider    PropertyPortalProvider?
   externalListingId String?
-  rawPayloadHash String?
-  receivedAt     DateTime?
+  rawPayloadHash    String?
+  receivedAt        DateTime?
 
   requirementType        RequirementType
   preferredLocation      String
@@ -1118,7 +1136,7 @@ model Lead {
   commercialFitOutPref   CommercialFitOut?
   parkingRequired        Boolean?
   liftRequired           Boolean?
-  suitableForTags        String @default("[]")
+  suitableForTags        String            @default("[]")
 
   assignedToId String?
   assignedTo   User?   @relation("AssignedEmployee", fields: [assignedToId], references: [id])
@@ -1168,25 +1186,26 @@ model Lead {
 /// Provider configuration never stores raw credentials. `credentialReference`
 /// is an opaque key for a future secret manager / authorized feed.
 model PropertyPortalConnection {
-  id                  String                 @id @default(cuid())
-  organizationId      String                 @default("org_default")
-  organization        Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  provider            PropertyPortalProvider
-  status              PortalConnectionStatus @default(NOT_CONFIGURED)
-  connectionMode      PortalConnectionMode   @default(MANUAL)
-  displayName         String?
-  accountReference    String?
-  credentialReference String?
-  config              String                 @default("{}")
-  lastSyncAt          DateTime?
+  id                   String                 @id @default(cuid())
+  organizationId       String                 @default("org_default")
+  organization         Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider             PropertyPortalProvider
+  status               PortalConnectionStatus @default(NOT_CONFIGURED)
+  connectionMode       PortalConnectionMode   @default(MANUAL)
+  displayName          String?
+  accountReference     String?
+  credentialReference  String?
+  config               String                 @default("{}")
+  lastSyncAt           DateTime?
   lastSuccessfulSyncAt DateTime?
-  lastErrorAt         DateTime?
-  lastErrorSummary    String?
-  createdById         String?
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
-  listings            PortalListing[]
-  events              ExternalLeadEvent[]
+  lastErrorAt          DateTime?
+  lastErrorSummary     String?
+  createdById          String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  listings             PortalListing[]
+  events               ExternalLeadEvent[]
+  operations           PortalOperation[]
 
   @@unique([organizationId, provider, accountReference])
   @@index([organizationId, provider, status])
@@ -1194,58 +1213,93 @@ model PropertyPortalConnection {
 }
 
 model PortalListing {
-  id                String                @id @default(cuid())
-  organizationId    String                @default("org_default")
-  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  connectionId      String?
-  connection        PropertyPortalConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
-  propertyId        String
-  property          Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  provider          PropertyPortalProvider
-  externalListingId String?
-  externalUrl       String?
-  status            PortalListingStatus   @default(DRAFT)
-  publishedAt       DateTime?
-  lastSyncedAt      DateTime?
-  payloadHash       String?
-  errorSummary      String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  events            ExternalLeadEvent[]
+  id                   String                    @id @default(cuid())
+  organizationId       String                    @default("org_default")
+  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectionId         String?
+  connection           PropertyPortalConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  propertyId           String
+  property             Property                  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  provider             PropertyPortalProvider
+  externalListingId    String?
+  externalUrl          String?
+  status               PortalListingStatus       @default(DRAFT)
+  publishedAt          DateTime?
+  lastSyncedAt         DateTime?
+  payloadHash          String?
+  payloadVersion       Int                       @default(1)
+  errorSummary         String?
+  conflictFields       String? // JSON of supported fields that differ; never applied implicitly
+  portalSnapshot       String? // redacted provider state used only for human review
+  conflictDetectedAt   DateTime?
+  conflictResolvedAt   DateTime?
+  conflictResolution   PortalConflictResolution?
+  conflictResolvedById String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  events               ExternalLeadEvent[]
+  operations           PortalOperation[]
 
   @@unique([organizationId, provider, externalListingId])
   @@index([organizationId, propertyId, provider])
   @@map("portal_listings")
 }
 
+/// Internal operation ledger. Contract-only providers never execute network calls here;
+/// the ledger makes manual/authorized adapters safely retryable and auditable.
+model PortalOperation {
+  id              String                    @id @default(cuid())
+  organizationId  String                    @default("org_default")
+  organization    Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  portalListingId String?
+  portalListing   PortalListing?            @relation(fields: [portalListingId], references: [id], onDelete: SetNull)
+  connectionId    String?
+  connection      PropertyPortalConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  provider        PropertyPortalProvider
+  operationType   String
+  idempotencyKey  String
+  status          PortalOperationStatus     @default(PENDING)
+  failureReason   String?
+  attemptCount    Int                       @default(0)
+  lastAttemptAt   DateTime?
+  retryEligibleAt DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, provider, status, retryEligibleAt])
+  @@map("portal_operations")
+}
+
 /// Immutable external enquiry history. A retry is idempotent by provider +
 /// external event/lead id; ambiguous people remain reviewable rather than
 /// being silently merged.
 model ExternalLeadEvent {
-  id                String                @id @default(cuid())
-  organizationId    String                @default("org_default")
-  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                String                    @id @default(cuid())
+  organizationId    String                    @default("org_default")
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   connectionId      String?
   connection        PropertyPortalConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
   portalListingId   String?
-  portalListing     PortalListing?        @relation(fields: [portalListingId], references: [id], onDelete: SetNull)
+  portalListing     PortalListing?            @relation(fields: [portalListingId], references: [id], onDelete: SetNull)
   leadId            String?
-  lead              Lead?                 @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead              Lead?                     @relation(fields: [leadId], references: [id], onDelete: SetNull)
   provider          PropertyPortalProvider
   externalLeadId    String?
   externalEventId   String?
   externalListingId String?
-  receivedAt        DateTime              @default(now())
+  receivedAt        DateTime                  @default(now())
   message           String?
   rawPayloadHash    String
-  ingestionStatus   PortalIngestionStatus @default(RECEIVED)
+  ingestionStatus   PortalIngestionStatus     @default(RECEIVED)
   failureReason     String?
-  attemptCount      Int                   @default(0)
+  attemptCount      Int                       @default(0)
   lastAttemptAt     DateTime?
   resolvedAt        DateTime?
   resolvedById      String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
 
   @@unique([organizationId, provider, externalEventId])
   @@index([organizationId, provider, externalLeadId])

@@ -5,11 +5,12 @@
  * -> entity-search.ts for the pipeline.
  */
 
-export type SearchEntityType = "LEAD" | "PROPERTY" | "EMPLOYEE" | "VISIT" | "FOLLOW_UP" | "DOCUMENT" | "DEAL" | "PAYMENT" | "CATALOGUE" | "NOTIFICATION";
+export type SearchEntityType = "LEAD" | "PROPERTY" | "PORTAL" | "EMPLOYEE" | "VISIT" | "FOLLOW_UP" | "DOCUMENT" | "DEAL" | "PAYMENT" | "CATALOGUE" | "NOTIFICATION";
 
 export const ALL_SEARCH_ENTITY_TYPES: SearchEntityType[] = [
   "LEAD",
   "PROPERTY",
+  "PORTAL",
   "EMPLOYEE",
   "VISIT",
   "FOLLOW_UP",

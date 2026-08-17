@@ -72,9 +72,24 @@ async function computeActionCenterItems(organizationId: string, role: Role, user
     safe("newMatchRecommendations", () => newMatchRecommendationRules(organizationId, scopedUserId)),
     safe("staleNegotiations", () => staleNegotiationRules(organizationId, scopedUserId, negotiationStaleCutoff)),
     safe("oldNoMatchRequirements", () => oldNoMatchRequirementRules(organizationId, scopedUserId, oldNoMatchCutoff)),
+    safe("portalOperations", () => portalOperationRules(organizationId, role, now)),
   ]);
 
   return sortRulesBySeverity(groups.flat());
+}
+
+async function portalOperationRules(organizationId: string, role: Role, now: Date): Promise<RuleResult[]> {
+  if (role === "FIELD_EXECUTIVE") return [];
+  const [unassigned, ambiguous, failed, conflicts, degraded, stale] = await Promise.all([
+    prisma.externalLeadEvent.count({ where: { organizationId, ingestionStatus: "RECEIVED", lead: { is: { assignedToId: null } } } }),
+    prisma.externalLeadEvent.count({ where: { organizationId, ingestionStatus: { in: ["AMBIGUOUS", "NEEDS_REVIEW"] } } }),
+    prisma.externalLeadEvent.count({ where: { organizationId, ingestionStatus: "FAILED" } }),
+    prisma.portalListing.count({ where: { organizationId, status: "SYNC_CONFLICT" } }),
+    prisma.propertyPortalConnection.count({ where: { organizationId, status: { in: ["DEGRADED", "AUTH_FAILED"] } } }),
+    prisma.portalOperation.count({ where: { organizationId, status: "RETRYABLE", lastAttemptAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) } } }),
+  ]);
+  const specs: Array<[string, number, string, string, string]> = [["portal-unassigned", unassigned, "Portal leads need assignment", "New portal enquiries remain unassigned.", "/leads/portal?status=RECEIVED"], ["portal-ambiguous", ambiguous, "Ambiguous portal leads need review", "The CRM will not silently merge possible matches.", "/leads/portal?status=AMBIGUOUS"], ["portal-failed", failed, "Failed portal ingestion needs retry", "Review the authorized event before retrying.", "/leads/portal?status=FAILED"], ["portal-conflicts", conflicts, "Listing sync conflicts need review", "CRM remains the default source of truth until resolved.", "/integrations/property-portals"], ["portal-degraded", degraded, "Provider connection degraded", "Inspect configuration and last safe error.", "/integrations/property-portals"], ["portal-stale", stale, "Stale failed portal operation", "Manual retry is bounded and never calls a provider automatically.", "/integrations/property-portals"]];
+  return specs.filter(([, count]) => count > 0).map(([id, count, title, description, href]) => makeRule({ id, category: "SYSTEM", severity: "HIGH", title: `${count} ${title.toLowerCase()}`, description, reason: "Portal actions only navigate to human review; they never call providers.", entityType: "PORTAL", entityId: id, actionLabel: "Review portal work", actionHref: href }));
 }
 
 async function whatsappInboxRules(organizationId: string, userId?: string): Promise<RuleResult[]> {
