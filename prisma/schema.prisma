@@ -159,10 +159,13 @@ enum PortalListingStatus {
   FAILED
 }
 enum PortalIngestionStatus {
+  NEW
   RECEIVED
   MATCHED_EXISTING
+  AMBIGUOUS
   DUPLICATE
   NEEDS_REVIEW
+  REJECTED
   FAILED
 }
 
@@ -1199,7 +1202,7 @@ model PortalListing {
   propertyId        String
   property          Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   provider          PropertyPortalProvider
-  externalListingId String
+  externalListingId String?
   externalUrl       String?
   status            PortalListingStatus   @default(DRAFT)
   publishedAt       DateTime?
@@ -1239,6 +1242,8 @@ model ExternalLeadEvent {
   failureReason     String?
   attemptCount      Int                   @default(0)
   lastAttemptAt     DateTime?
+  resolvedAt        DateTime?
+  resolvedById      String?
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
