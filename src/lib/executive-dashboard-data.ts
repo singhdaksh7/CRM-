@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
 import { startOfIstDay, endOfIstDay } from "./ist-date";
+import { ACTIVE_VISIT_STATUSES } from "./visits";
 
 const CACHE_TTL_SECONDS = 30; // short - this is "what should I do right now" data
 
@@ -14,6 +15,9 @@ const VISIT_SELECT = {
   meetingLocation: true,
   lead: { select: { id: true, clientName: true, phone: true } },
   property: { select: { id: true, title: true, area: true, address: true, latitude: true, longitude: true, ownerName: true, ownerPhone: true } },
+  // Multi-property visits: the card shows total and remaining counts. Selected
+  // rather than _count so "remaining" can be derived without a second query.
+  properties: { select: { status: true, reactionRating: true }, orderBy: { sequence: "asc" } },
 } as const;
 
 const PROPERTY_CARD_SELECT = { id: true, title: true, area: true, propertyCode: true, coverImage: true, status: true, monthlyRent: true, salePrice: true, listingType: true } as const;
@@ -52,17 +56,23 @@ async function computeExecutiveDashboardData(userId: string): Promise<ExecutiveD
   return { todaysVisits, upcomingVisits, recentlyCompleted, recentlyReported, assignedLeads, assignedCatalogues, favorites, recentlyViewed };
 }
 
+/**
+ * TODAY. Scoped on assignedToId - the executive who must physically perform
+ * the visit - and on IST day boundaries via the shared helpers, so a visit is
+ * never bucketed by the server's timezone.
+ */
 function loadTodaysVisits(userId: string, now: Date) {
   return prisma.visit.findMany({
-    where: { assignedToId: userId, visitDate: { gte: startOfIstDay(now), lte: endOfIstDay(now) }, status: { notIn: ["COMPLETED", "CANCELLED"] } },
+    where: { assignedToId: userId, visitDate: { gte: startOfIstDay(now), lte: endOfIstDay(now) }, status: { in: ACTIVE_VISIT_STATUSES } },
     select: VISIT_SELECT,
     orderBy: { visitDate: "asc" },
   });
 }
 
+/** UPCOMING - strictly after the end of the current IST day. */
 function loadUpcomingVisits(userId: string, now: Date) {
   return prisma.visit.findMany({
-    where: { assignedToId: userId, visitDate: { gt: endOfIstDay(now) }, status: { notIn: ["COMPLETED", "CANCELLED"] } },
+    where: { assignedToId: userId, visitDate: { gt: endOfIstDay(now) }, status: { in: ACTIVE_VISIT_STATUSES } },
     select: VISIT_SELECT,
     orderBy: { visitDate: "asc" },
     take: 10,

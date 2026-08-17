@@ -213,7 +213,9 @@ export async function loadVisitForActor(visitId: string, organizationId: string,
       property: true,
       assignedTo: true,
       catalogueShare: true,
-      properties: { include: { property: true, visitedBy: true }, orderBy: { sequence: "asc" } },
+      // `partner` is needed so the detail DTO can show INDIRECT-inventory
+      // contact details under the existing DIRECT/INDIRECT exposure rule.
+      properties: { include: { property: { include: { partner: true } }, visitedBy: true }, orderBy: { sequence: "asc" } },
     },
   });
   if (!visit) throw new ApiError(404, "Visit not found");
