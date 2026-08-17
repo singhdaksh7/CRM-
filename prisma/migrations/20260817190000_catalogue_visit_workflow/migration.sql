@@ -46,6 +46,15 @@ CREATE TABLE "visit_properties" (
     CONSTRAINT "visit_properties_pkey" PRIMARY KEY ("id")
 );
 
+-- AlterTable. Catalogue visit REQUESTS resolve onto a confirmed visit.
+-- A VISIT_REQUESTED catalogue_interactions row is the client's request; it
+-- books nothing. `scheduledVisitId` is stamped only when an Admin confirms,
+-- and doubles as the single-use guard that makes double-confirmation
+-- impossible (see src/lib/visits.ts scheduleVisit).
+ALTER TABLE "catalogue_interactions" ADD COLUMN     "scheduledVisitId" TEXT,
+ADD COLUMN     "scheduledAt" TIMESTAMP(3),
+ADD COLUMN     "scheduledById" TEXT;
+
 -- CreateIndex
 CREATE INDEX "visits_organizationId_visitDate_idx" ON "visits"("organizationId", "visitDate");
 
@@ -78,6 +87,15 @@ ALTER TABLE "visit_properties" ADD CONSTRAINT "visit_properties_propertyId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "visit_properties" ADD CONSTRAINT "visit_properties_visitedById_fkey" FOREIGN KEY ("visitedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- CreateIndex
+CREATE INDEX "catalogue_interactions_organizationId_type_scheduledVisitId_idx" ON "catalogue_interactions"("organizationId", "type", "scheduledVisitId");
+
+-- AddForeignKey
+ALTER TABLE "catalogue_interactions" ADD CONSTRAINT "catalogue_interactions_scheduledVisitId_fkey" FOREIGN KEY ("scheduledVisitId") REFERENCES "visits"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "catalogue_interactions" ADD CONSTRAINT "catalogue_interactions_scheduledById_fkey" FOREIGN KEY ("scheduledById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Backfill. Every pre-existing visit gets exactly one visit_properties row
 -- mirroring its single "visits"."propertyId", so the new per-property readers

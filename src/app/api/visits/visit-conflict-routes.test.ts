@@ -10,8 +10,8 @@ const leadUpdate = vi.fn();
 // the only additional prisma surface this route reaches.
 const propertyFindMany = vi.fn();
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const prisma = {
     visit: {
       findFirst: (...a: unknown[]) => visitFindFirst(...a),
       create: (...a: unknown[]) => visitCreate(...a),
@@ -19,8 +19,15 @@ vi.mock("@/lib/prisma", () => ({
     },
     lead: { update: (...a: unknown[]) => leadUpdate(...a) },
     property: { findMany: (...a: unknown[]) => propertyFindMany(...a) },
-  },
-}));
+    // scheduleVisit now creates the visit and claims any originating client
+    // visit request inside ONE transaction. This route passes no request ids,
+    // so the claim never runs - the interactive callback just needs a client
+    // to hand back.
+    catalogueInteraction: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+  };
+  return { prisma };
+});
 
 let sessionUser: { id: string; role: string } = { id: "admin1", role: "ADMIN" };
 

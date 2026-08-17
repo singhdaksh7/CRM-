@@ -158,13 +158,24 @@ export const visitSchema = z.object({
 // Catalogue -> Visit -> Field Executive Visit workflow
 // ---------------------------------------------------------------------------
 
-/** Scheduling a visit directly from a catalogue, with an explicit property selection. */
+/**
+ * Confirming a visit from a catalogue, with an explicit property selection.
+ *
+ * `propertyIds` is required (min 1) precisely so no HTTP caller can trigger
+ * the "no selection = whole catalogue" server-side fallback; the Admin's
+ * selection is exactly what lands in the visit.
+ *
+ * `requestInteractionIds` names the pending client VISIT_REQUESTED rows this
+ * confirmation consumes. Optional, because an Admin may also schedule a
+ * catalogue visit that no client ever requested.
+ */
 export const catalogueScheduleVisitSchema = z.object({
   propertyIds: z.array(z.string()).min(1).max(20),
   assignedToId: z.string().optional().nullable(),
   visitDate: z.string(),
   visitTime: z.string(),
   meetingLocation: z.string().optional().nullable(),
+  requestInteractionIds: z.array(z.string()).max(50).optional(),
 });
 
 /** 1-5 stars, whole numbers only. Rejects 0, 6, and 4.5 - the value is stored, not decorative. */

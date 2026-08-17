@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ScheduleVisitModal } from "@/components/visits/schedule-visit-modal";
 import { SuggestedRoutePanel } from "@/components/visits/suggested-route-panel";
+import { PendingVisitRequests } from "@/components/visits/pending-visit-requests";
+import { getVisitRequestCatalogueOptions, listCatalogueVisitRequests } from "@/lib/visit-requests";
 import { EmptyState } from "@/components/ui/states";
 import { Badge, VISIT_STATUS_TONE } from "@/components/ui/badge";
 import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
@@ -70,6 +72,12 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
     ])
   );
 
+  // Pending client visit REQUESTS. A Field Executive never sees this queue -
+  // reviewing and confirming a request is an Admin/Data Manager decision, and
+  // the client's contact details ride along with it.
+  const visitRequests = canManage ? await listCatalogueVisitRequests(organizationId) : [];
+  const catalogueOptions = canManage ? await getVisitRequestCatalogueOptions(visitRequests, organizationId) : {};
+
   const grouped = new Map<string, VisitWithRelations[]>();
   if (tab === "employee") {
     for (const v of visits) {
@@ -87,6 +95,31 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
         </div>
         {canManage && <ScheduleVisitModal leads={leads} properties={properties} employees={employees} />}
       </div>
+
+      {canManage && (
+        <PendingVisitRequests
+          requests={visitRequests.map((r) => ({
+            id: r.id,
+            status: r.status,
+            catalogueShareId: r.catalogueShareId,
+            catalogueTitle: r.catalogueTitle,
+            leadId: r.leadId,
+            leadCode: r.leadCode,
+            clientName: r.clientName,
+            clientPhone: r.clientPhone,
+            requestedProperties: r.requestedProperties,
+            propertyCount: r.propertyCount,
+            requestedAtLabel: formatDate(r.requestedAt),
+            preferredDate: r.preferredDate,
+            preferredWindow: r.preferredWindow,
+            message: r.message,
+            interactionIds: r.interactionIds,
+            scheduledVisitId: r.scheduledVisitId,
+          }))}
+          catalogueOptions={catalogueOptions}
+          employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+        />
+      )}
 
       {tab === "today" && (user.role === "FIELD_EXECUTIVE" || sp.employeeId) && (
         <SuggestedRoutePanel employeeId={user.role === "FIELD_EXECUTIVE" ? user.id : sp.employeeId!} />

@@ -50,6 +50,16 @@ ALTER TABLE "visits" ADD COLUMN IF NOT EXISTS "overallRating" INTEGER;
 ALTER TABLE "visits" ADD COLUMN IF NOT EXISTS "completionSummary" TEXT;
 ALTER TABLE "visits" ADD COLUMN IF NOT EXISTS "cancellationReason" TEXT;
 
+-- Catalogue visit REQUESTS resolve onto a confirmed visit. A VISIT_REQUESTED
+-- catalogue_interactions row is the client's request and books nothing;
+-- "scheduledVisitId" is stamped only when an Admin confirms, and doubles as
+-- the single-use guard that makes double-confirmation impossible. All three
+-- columns are nullable with no default (metadata-only, no table rewrite) and
+-- the previous application version simply ignores them.
+ALTER TABLE "catalogue_interactions" ADD COLUMN IF NOT EXISTS "scheduledVisitId" TEXT;
+ALTER TABLE "catalogue_interactions" ADD COLUMN IF NOT EXISTS "scheduledAt" TIMESTAMP(3);
+ALTER TABLE "catalogue_interactions" ADD COLUMN IF NOT EXISTS "scheduledById" TEXT;
+
 CREATE TABLE IF NOT EXISTS "visit_properties" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL DEFAULT 'org_default',
@@ -73,6 +83,7 @@ CREATE INDEX IF NOT EXISTS "visits_organizationId_assignedToId_visitDate_idx" ON
 CREATE UNIQUE INDEX IF NOT EXISTS "visit_properties_visitId_propertyId_key" ON "visit_properties"("visitId", "propertyId");
 CREATE INDEX IF NOT EXISTS "visit_properties_organizationId_propertyId_idx" ON "visit_properties"("organizationId", "propertyId");
 CREATE INDEX IF NOT EXISTS "visit_properties_visitId_sequence_idx" ON "visit_properties"("visitId", "sequence");
+CREATE INDEX IF NOT EXISTS "catalogue_interactions_organizationId_type_scheduledVisitId_idx" ON "catalogue_interactions"("organizationId", "type", "scheduledVisitId");
 
 DO $$ BEGIN
   ALTER TABLE "visits" ADD CONSTRAINT "visits_catalogueShareId_fkey" FOREIGN KEY ("catalogueShareId") REFERENCES "catalogue_shares"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -91,6 +102,12 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER TABLE "visit_properties" ADD CONSTRAINT "visit_properties_visitedById_fkey" FOREIGN KEY ("visitedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "catalogue_interactions" ADD CONSTRAINT "catalogue_interactions_scheduledVisitId_fkey" FOREIGN KEY ("scheduledVisitId") REFERENCES "visits"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER TABLE "catalogue_interactions" ADD CONSTRAINT "catalogue_interactions_scheduledById_fkey" FOREIGN KEY ("scheduledById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Idempotent backfill: one visit_properties row per pre-existing visit.

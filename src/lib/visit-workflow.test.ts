@@ -28,6 +28,8 @@ const db = {
   properties: [] as Row[],
   catalogueShares: [] as Row[],
   catalogueShareProperties: [] as Row[],
+  /** VISIT_REQUESTED rows are the client's visit REQUESTS - never bookings. */
+  catalogueInteractions: [] as Row[],
   leads: [] as Row[],
 };
 
@@ -68,8 +70,8 @@ function hydrateVisit(visit: Row): Row {
   };
 }
 
-vi.mock("./prisma", () => ({
-  prisma: {
+vi.mock("./prisma", () => {
+  const prisma: Record<string, unknown> = {
     visit: {
       create: vi.fn(async ({ data }: { data: Row }) => {
         const { properties, ...rest } = data as Row & { properties?: { create: Row[] } };
@@ -113,9 +115,36 @@ vi.mock("./prisma", () => ({
       }),
     },
     catalogueShareProperty: { updateMany: vi.fn(async () => ({ count: 0 })) },
+    catalogueInteraction: {
+      findMany: vi.fn(async ({ where }: { where?: Row } = {}) => db.catalogueInteractions.filter((r) => matches(r, where))),
+      // The single-use claim. Mirrors Postgres semantics closely enough for
+      // the race test: only rows still matching the guard are updated, and
+      // the count is what the caller checks.
+      updateMany: vi.fn(async ({ where, data }: { where: Row; data: Row }) => {
+        const targets = db.catalogueInteractions.filter((r) => matches(r, where));
+        for (const t of targets) Object.assign(t, data);
+        return { count: targets.length };
+      }),
+    },
     lead: { update: vi.fn(async () => ({})), updateMany: vi.fn(async () => ({ count: 0 })) },
-  },
-}));
+    // Interactive transaction WITH rollback. Rollback is the whole point of
+    // the double-confirmation guard - the losing confirmation must take its
+    // half-created Visit down with it - so the fake models it by snapshotting
+    // every table and restoring on throw.
+    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const snapshot = Object.fromEntries(
+        Object.entries(db).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
+      ) as typeof db;
+      try {
+        return await fn(prisma);
+      } catch (err) {
+        for (const table of Object.keys(db) as (keyof typeof db)[]) db[table] = snapshot[table];
+        throw err;
+      }
+    }),
+  };
+  return { prisma };
+});
 
 const logActivity = vi.fn();
 const createNotification = vi.fn();
@@ -170,6 +199,7 @@ beforeEach(() => {
   db.visitProperties = [];
   db.catalogueShares = [];
   db.catalogueShareProperties = [];
+  db.catalogueInteractions = [];
   db.properties = [
     { id: "propF", organizationId: ORG, title: "F Block 2BHK", area: "Janakpuri", status: "AVAILABLE" },
     { id: "propM", organizationId: ORG, title: "M Block 3BHK", area: "Janakpuri", status: "AVAILABLE" },
@@ -652,5 +682,219 @@ describe("reschedule and cancel", () => {
     await cancelVisit(visit.id, ORG, ADMIN, "Client travelling");
     await expect(startVisit(visit.id, ORG, SAGAR)).rejects.toThrow(/cancelled/);
     await expect(completeVisit(visit.id, ORG, SAGAR, {})).rejects.toThrow(/cancelled/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Client request -> Admin confirmation
+//
+// Product decision: a client's "Request Visit" tap NEVER creates a Visit. It
+// records a VISIT_REQUESTED CatalogueInteraction; an Admin reviews it and
+// only [Confirm Visit] materialises Visit + VisitProperty rows. These tests
+// cover the confirmation half - the "public request creates no Visit" half
+// lives in catalogue-visit-request.test.ts, against the real public path.
+// ---------------------------------------------------------------------------
+
+/** One pending client request per property, exactly as the public page writes them. */
+function seedVisitRequest(propertyIds: string[], organizationId = ORG) {
+  return propertyIds.map((propertyId) => {
+    const row: Row = {
+      id: nextId("req"),
+      organizationId,
+      catalogueShareId: "cat1",
+      propertyId,
+      type: "VISIT_REQUESTED",
+      message: "Weekend would suit us",
+      clientName: "Rahul Sharma",
+      clientPhone: "+919876543210",
+      metadata: JSON.stringify({ preferredDate: "2026-08-18", preferredWindow: "Morning" }),
+      createdAt: new Date("2026-08-17T09:00:00.000Z"),
+      scheduledVisitId: null,
+      scheduledAt: null,
+      scheduledById: null,
+    };
+    db.catalogueInteractions.push(row);
+    return row;
+  });
+}
+
+describe("client request -> admin confirmation", () => {
+  it("confirming a request creates exactly one Visit and claims the request rows", async () => {
+    seedCatalogue(["propF", "propM", "propK"]);
+    const requests = seedVisitRequest(["propF", "propM"]);
+
+    const visit = await scheduleVisitFromCatalogue({
+      catalogueShareId: "cat1",
+      organizationId: ORG,
+      propertyIds: ["propF", "propM"],
+      assignedToId: SAGAR.id,
+      visitDate: TOMORROW_11AM_IST,
+      visitTime: "11:00",
+      createdById: ADMIN.id,
+      requestInteractionIds: requests.map((r) => r.id as string),
+    });
+
+    expect(db.visits).toHaveLength(1);
+    expect(visit.id).toBe(db.visits[0].id);
+    // VisitProperty count equals exactly what was selected at confirmation.
+    expect(db.visitProperties.filter((vp) => vp.visitId === visit.id)).toHaveLength(2);
+    // Every request row now points at the confirmed visit, so it can never be
+    // confirmed a second time.
+    expect(db.catalogueInteractions.every((r) => r.scheduledVisitId === visit.id)).toBe(true);
+    expect(db.catalogueInteractions.every((r) => r.scheduledById === ADMIN.id)).toBe(true);
+  });
+
+  it("does not widen the visit to the whole catalogue when the admin confirms a subset", async () => {
+    seedCatalogue(["propF", "propM", "propK", "propX"]);
+    const requests = seedVisitRequest(["propF", "propM", "propK"]);
+
+    // The admin removed one of the three requested properties before confirming.
+    const visit = await scheduleVisitFromCatalogue({
+      catalogueShareId: "cat1",
+      organizationId: ORG,
+      propertyIds: ["propF", "propK"],
+      visitDate: TOMORROW_11AM_IST,
+      visitTime: "11:00",
+      createdById: ADMIN.id,
+      requestInteractionIds: requests.map((r) => r.id as string),
+    });
+
+    expect(db.visitProperties.filter((vp) => vp.visitId === visit.id).map((vp) => vp.propertyId)).toEqual(["propF", "propK"]);
+  });
+
+  it("a second confirmation of the same request creates NO second visit", async () => {
+    seedCatalogue(["propF", "propM"]);
+    const requests = seedVisitRequest(["propF"]);
+    const ids = requests.map((r) => r.id as string);
+
+    const first = await scheduleVisitFromCatalogue({
+      catalogueShareId: "cat1",
+      organizationId: ORG,
+      propertyIds: ["propF"],
+      visitDate: TOMORROW_11AM_IST,
+      visitTime: "11:00",
+      createdById: ADMIN.id,
+      requestInteractionIds: ids,
+    });
+
+    await expect(
+      scheduleVisitFromCatalogue({
+        catalogueShareId: "cat1",
+        organizationId: ORG,
+        propertyIds: ["propF"],
+        visitDate: TOMORROW_11AM_IST,
+        visitTime: "14:00",
+        createdById: ADMIN.id,
+        requestInteractionIds: ids,
+      })
+    ).rejects.toThrow(/already been scheduled/);
+
+    expect(db.visits).toHaveLength(1);
+    expect(db.visits[0].id).toBe(first.id);
+  });
+
+  it("a RACING double-submit rolls the loser's visit back - the pre-check cannot save it, the guarded claim must", async () => {
+    seedCatalogue(["propF"]);
+    const requests = seedVisitRequest(["propF"]);
+    const ids = requests.map((r) => r.id as string);
+
+    // Both calls read the request as unclaimed before either writes: this is
+    // exactly the race a read-then-write check loses. Only the guarded
+    // updateMany inside the transaction can decide it.
+    const results = await Promise.allSettled([
+      scheduleVisitFromCatalogue({
+        catalogueShareId: "cat1",
+        organizationId: ORG,
+        propertyIds: ["propF"],
+        visitDate: TOMORROW_11AM_IST,
+        visitTime: "11:00",
+        createdById: ADMIN.id,
+        requestInteractionIds: ids,
+      }),
+      scheduleVisitFromCatalogue({
+        catalogueShareId: "cat1",
+        organizationId: ORG,
+        propertyIds: ["propF"],
+        visitDate: TOMORROW_11AM_IST,
+        visitTime: "11:00",
+        createdById: ADMIN.id,
+        requestInteractionIds: ids,
+      }),
+    ]);
+
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
+    // The losing transaction took its half-created Visit down with it.
+    expect(db.visits).toHaveLength(1);
+    expect(db.visitProperties).toHaveLength(1);
+  });
+
+  it("rejects request rows belonging to a different catalogue", async () => {
+    seedCatalogue(["propF"]);
+    db.catalogueInteractions.push({
+      id: "req_stray",
+      organizationId: ORG,
+      catalogueShareId: "cat_other",
+      propertyId: "propF",
+      type: "VISIT_REQUESTED",
+      scheduledVisitId: null,
+      createdAt: new Date(),
+    });
+
+    await expect(
+      scheduleVisitFromCatalogue({
+        catalogueShareId: "cat1",
+        organizationId: ORG,
+        propertyIds: ["propF"],
+        visitDate: TOMORROW_11AM_IST,
+        visitTime: "11:00",
+        requestInteractionIds: ["req_stray"],
+      })
+    ).rejects.toThrow(/do not belong to this catalogue/);
+    expect(db.visits).toHaveLength(0);
+  });
+
+  it("the confirmed visit reaches the assigned executive and Admin Upcoming, and 404s for anyone else", async () => {
+    seedCatalogue(["propF", "propM"]);
+    const requests = seedVisitRequest(["propF", "propM"]);
+
+    const visit = await scheduleVisitFromCatalogue({
+      catalogueShareId: "cat1",
+      organizationId: ORG,
+      propertyIds: ["propF", "propM"],
+      assignedToId: SAGAR.id,
+      visitDate: TOMORROW_11AM_IST,
+      visitTime: "11:00",
+      createdById: ADMIN.id,
+      requestInteractionIds: requests.map((r) => r.id as string),
+    });
+
+    const upcoming = await prisma.visit.findMany({ where: upcomingVisitsWhere(ORG, NOW_LATE_IST) });
+    expect(upcoming.map((v) => v.id)).toContain(visit.id);
+
+    await expect(loadVisitForActor(visit.id, ORG, SAGAR)).resolves.toMatchObject({ id: visit.id });
+    await expect(loadVisitForActor(visit.id, ORG, OTHER_EXEC)).rejects.toThrow(/not found/i);
+    // Cross-organization is a 404 too, never a 403 and never a leak.
+    await expect(loadVisitForActor(visit.id, OTHER_ORG, ADMIN)).rejects.toThrow(/not found/i);
+  });
+
+  it("notifies the assigned executive in-app on confirmation, and nobody else", async () => {
+    seedCatalogue(["propF"]);
+    const requests = seedVisitRequest(["propF"]);
+    createNotification.mockClear();
+
+    await scheduleVisitFromCatalogue({
+      catalogueShareId: "cat1",
+      organizationId: ORG,
+      propertyIds: ["propF"],
+      assignedToId: SAGAR.id,
+      visitDate: TOMORROW_11AM_IST,
+      visitTime: "11:00",
+      createdById: ADMIN.id,
+      requestInteractionIds: requests.map((r) => r.id as string),
+    });
+
+    expect(createNotification).toHaveBeenCalledTimes(1);
+    expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({ userId: SAGAR.id, type: "VISIT_SCHEDULED" }));
   });
 });

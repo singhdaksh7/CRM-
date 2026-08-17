@@ -720,6 +720,7 @@ model User {
   visitConflictOverrides        Visit[]                  @relation("VisitConflictOverrideBy")
   createdVisits                 Visit[]                  @relation("VisitCreatedBy")
   visitPropertiesVisited        VisitProperty[]          @relation("VisitPropertyVisitedBy")
+  scheduledCatalogueRequests    CatalogueInteraction[]   @relation("CatalogueRequestScheduledBy")
   followUps                     FollowUp[]               @relation("FollowUpOwner")
   activities                    Activity[]               @relation("ActivityActor")
   sharedProperties              SharedPropertyLog[]      @relation("SharedBy")
@@ -1210,6 +1211,9 @@ model Visit {
   feedback            VisitFeedback?
   availabilityReports PropertyAvailabilityReport[]
   properties          VisitProperty[]
+  /// The client-side catalogue visit request(s) this visit was confirmed from.
+  /// Empty for a visit an Admin created directly rather than from a request.
+  requestInteractions CatalogueInteraction[] @relation("VisitFromCatalogueRequest")
 
   @@index([organizationId, visitDate])
   @@index([organizationId, assignedToId, visitDate])
@@ -1492,7 +1496,29 @@ model CatalogueInteraction {
   metadata         String? // JSON blob - e.g. { dedupeKey, preferredDate, preferredWindow }
   createdAt        DateTime                 @default(now())
 
+  // Catalogue -> Visit workflow.
+  //
+  // A VISIT_REQUESTED interaction IS the client's visit request. The public
+  // catalogue page never books anything: it records this row plus a
+  // VISIT_CONFIRMATION FollowUp, and nothing else. No Visit exists until an
+  // Admin reviews the request and presses [Confirm Visit]; the confirmed
+  // Visit is then stamped here.
+  //
+  // `scheduledVisitId` doubles as the single-use guard. Confirmation claims
+  // the request rows with a guarded `updateMany ... where scheduledVisitId is
+  // null` inside the same transaction that creates the Visit - the same
+  // idiom completePasswordReset uses to consume a reset token exactly once.
+  // A racing second confirmation claims 0 rows, throws, and rolls back its
+  // whole transaction (the Visit included), so a double-submit can never
+  // produce two Visits for one request.
+  scheduledVisitId String?
+  scheduledVisit   Visit?                   @relation("VisitFromCatalogueRequest", fields: [scheduledVisitId], references: [id])
+  scheduledAt      DateTime?
+  scheduledById    String?
+  scheduledBy      User?                    @relation("CatalogueRequestScheduledBy", fields: [scheduledById], references: [id])
+
   @@index([catalogueShareId, type])
+  @@index([organizationId, type, scheduledVisitId])
   @@map("catalogue_interactions")
 }
 

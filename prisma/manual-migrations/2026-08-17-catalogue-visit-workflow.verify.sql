@@ -52,12 +52,32 @@ WITH enum_visit_status AS (
     AND count(*) FILTER (WHERE indexname = 'visits_organizationId_assignedToId_visitDate_idx') = 1 AS ok
   FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'visits'
 ), fk_check AS (
-  SELECT count(*) = 6 AS ok
+  SELECT count(*) = 8 AS ok
   FROM information_schema.referential_constraints
   WHERE constraint_schema = current_schema()
     AND constraint_name IN ('visits_catalogueShareId_fkey','visits_createdById_fkey',
       'visit_properties_organizationId_fkey','visit_properties_visitId_fkey',
-      'visit_properties_propertyId_fkey','visit_properties_visitedById_fkey')
+      'visit_properties_propertyId_fkey','visit_properties_visitedById_fkey',
+      'catalogue_interactions_scheduledVisitId_fkey','catalogue_interactions_scheduledById_fkey')
+), request_columns_expected(name, data_type, nullable) AS (
+  -- The visit-REQUEST resolution columns. A client request must be able to
+  -- record which confirmed visit consumed it - and must be able to be
+  -- unresolved (NULL), which is what makes it a pending request.
+  VALUES ('scheduledVisitId','text','YES'), ('scheduledAt','timestamp without time zone','YES'),
+    ('scheduledById','text','YES')
+), request_column_check AS (
+  SELECT count(c.column_name) = 3 AND bool_and(coalesce(c.data_type = e.data_type AND c.is_nullable = e.nullable, false)) AS ok
+  FROM request_columns_expected e LEFT JOIN information_schema.columns c
+    ON c.table_schema = current_schema() AND c.table_name = 'catalogue_interactions' AND c.column_name = e.name
+), request_index_check AS (
+  SELECT count(*) FILTER (WHERE indexname = 'catalogue_interactions_organizationId_type_scheduledVisitId_idx') = 1 AS ok
+  FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'catalogue_interactions'
+), request_orphan_check AS (
+  -- A resolved request must point at a visit that exists, in the same org.
+  SELECT count(*) = 0 AS ok
+  FROM "catalogue_interactions" ci
+  WHERE ci."scheduledVisitId" IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM "visits" v WHERE v."id" = ci."scheduledVisitId" AND v."organizationId" = ci."organizationId")
 ), backfill_check AS (
   -- Every visit must have at least one visit_properties row, otherwise the
   -- new detail view would render an empty property list for legacy data.
@@ -83,6 +103,9 @@ SELECT
         AND (SELECT ok FROM index_check)
         AND (SELECT ok FROM visit_index_check)
         AND (SELECT ok FROM fk_check)
+        AND (SELECT ok FROM request_column_check)
+        AND (SELECT ok FROM request_index_check)
+        AND (SELECT ok FROM request_orphan_check)
         AND (SELECT ok FROM backfill_check)
         AND (SELECT ok FROM rating_range_check)
         AND (SELECT ok FROM org_scope_check)
@@ -96,6 +119,9 @@ SELECT
   (SELECT ok FROM index_check)                   AS visit_properties_indexes_ok,
   (SELECT ok FROM visit_index_check)             AS visits_indexes_ok,
   (SELECT ok FROM fk_check)                      AS foreign_keys_ok,
+  (SELECT ok FROM request_column_check)          AS visit_request_columns_ok,
+  (SELECT ok FROM request_index_check)           AS visit_request_index_ok,
+  (SELECT ok FROM request_orphan_check)          AS visit_request_no_orphans_ok,
   (SELECT ok FROM backfill_check)                AS backfill_complete_ok,
   (SELECT ok FROM rating_range_check)            AS rating_range_ok,
   (SELECT ok FROM org_scope_check)               AS organization_scope_ok;

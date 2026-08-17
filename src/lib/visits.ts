@@ -132,7 +132,20 @@ export interface ScheduleVisitInput {
    * exactly rather than reimplemented here.
    */
   conflictData?: VisitConflictFields;
+  /**
+   * The pending client visit-request rows (CatalogueInteraction of type
+   * VISIT_REQUESTED) this confirmation consumes. Each is claimed exactly once
+   * - see the guarded updateMany in `scheduleVisit`.
+   */
+  requestInteractionIds?: string[];
 }
+
+/**
+ * Thrown when a visit request has already been confirmed. 409 rather than 400
+ * so the UI can distinguish "someone already booked this" from a bad payload
+ * and re-render the "Visit Scheduled - View Visit" state.
+ */
+export const ALREADY_SCHEDULED_MESSAGE = "This visit request has already been scheduled.";
 
 /** The subset of Visit columns the existing conflict-detection flow populates. */
 export interface VisitConflictFields {
@@ -168,28 +181,53 @@ export async function scheduleVisit(input: ScheduleVisitInput) {
   });
   if (properties.length !== propertyIds.length) throw new ApiError(400, "One or more selected properties could not be found");
 
-  const visit = await prisma.visit.create({
-    data: {
-      ...(input.conflictData ?? {}),
-      organizationId: input.organizationId,
-      leadId: input.leadId,
-      propertyId: propertyIds[0],
-      assignedToId: input.assignedToId ?? null,
-      visitDate: input.visitDate,
-      visitTime: input.visitTime,
-      meetingLocation: input.meetingLocation ?? null,
-      catalogueShareId: input.catalogueShareId ?? null,
-      createdById: input.createdById ?? null,
-      status: "SCHEDULED",
-      properties: {
-        create: propertyIds.map((propertyId, index) => ({
-          organizationId: input.organizationId,
-          propertyId,
-          sequence: index,
-        })),
+  const requestIds = dedupePreservingOrder(input.requestInteractionIds ?? []);
+
+  // Create the visit and consume the originating client request(s) in ONE
+  // transaction. The `scheduledVisitId: null` filter is the guard: whichever
+  // concurrent confirmation gets there second claims 0 rows, throws, and
+  // rolls back its own Visit with it. Same shape as completePasswordReset's
+  // single-use token consumption in src/lib/password-reset.ts - deliberately
+  // not a read-then-write check, which would lose the race.
+  const visit = await prisma.$transaction(async (tx) => {
+    const created = await tx.visit.create({
+      data: {
+        ...(input.conflictData ?? {}),
+        organizationId: input.organizationId,
+        leadId: input.leadId,
+        propertyId: propertyIds[0],
+        assignedToId: input.assignedToId ?? null,
+        visitDate: input.visitDate,
+        visitTime: input.visitTime,
+        meetingLocation: input.meetingLocation ?? null,
+        catalogueShareId: input.catalogueShareId ?? null,
+        createdById: input.createdById ?? null,
+        status: "SCHEDULED",
+        properties: {
+          create: propertyIds.map((propertyId, index) => ({
+            organizationId: input.organizationId,
+            propertyId,
+            sequence: index,
+          })),
+        },
       },
-    },
-    include: { lead: true, assignedTo: true, properties: { include: { property: true }, orderBy: { sequence: "asc" } } },
+      include: { lead: true, assignedTo: true, properties: { include: { property: true }, orderBy: { sequence: "asc" } } },
+    });
+
+    if (requestIds.length > 0) {
+      const claimed = await tx.catalogueInteraction.updateMany({
+        where: {
+          id: { in: requestIds },
+          organizationId: input.organizationId,
+          type: "VISIT_REQUESTED",
+          scheduledVisitId: null,
+        },
+        data: { scheduledVisitId: created.id, scheduledAt: new Date(), scheduledById: input.createdById ?? null },
+      });
+      if (claimed.count !== requestIds.length) throw new ApiError(409, ALREADY_SCHEDULED_MESSAGE);
+    }
+
+    return created;
   });
 
   const dateLabel = formatIstDateLabel(visit.visitDate);
@@ -243,13 +281,22 @@ export async function scheduleVisit(input: ScheduleVisitInput) {
  * Schedules a visit from a catalogue. `propertyIds` must be a subset of the
  * catalogue's currently-active (non-removed) properties.
  *
- * Documented UX decision: the caller passes an explicit selection. When the
- * selection is omitted entirely we fall back to every active catalogue
- * property, because the public "Request Visits" button on the catalogue page
- * is a bulk request across the whole catalogue (see
- * public-catalogue-view.tsx "Request Visits") - that genuinely is the
- * intended behaviour for that one entry point. Every internal/admin entry
- * point passes an explicit selection.
+ * Documented UX decision: the caller passes an explicit selection, and that
+ * selection is what lands in the visit - never widened. The Admin scheduling
+ * UI pre-fills it with exactly the properties the client asked for, and an
+ * Admin may remove from it but can only ever pick from the catalogue.
+ *
+ * The no-selection fallback to "every active catalogue property" remains only
+ * as an explicit whole-catalogue convenience for direct server-side callers
+ * (demo data, scripts). It is unreachable over HTTP: catalogueScheduleVisitSchema
+ * requires `propertyIds` with min(1). Notably it is NOT the public catalogue
+ * path any more - the public "Request Visit"/"Request Visits" buttons record a
+ * VISIT_REQUESTED CatalogueInteraction plus a FollowUp and never reach this
+ * function at all.
+ *
+ * `requestInteractionIds` names the client request rows being confirmed. They
+ * must belong to this catalogue and still be unresolved; they are then claimed
+ * exactly once inside scheduleVisit's transaction.
  */
 export async function scheduleVisitFromCatalogue(input: {
   catalogueShareId: string;
@@ -260,6 +307,7 @@ export async function scheduleVisitFromCatalogue(input: {
   visitTime: string;
   meetingLocation?: string | null;
   createdById?: string | null;
+  requestInteractionIds?: string[];
 }) {
   const catalogue = await prisma.catalogueShare.findFirst({
     where: { id: input.catalogueShareId, organizationId: input.organizationId },
@@ -273,6 +321,24 @@ export async function scheduleVisitFromCatalogue(input: {
   const notInCatalogue = selected.filter((id) => !activeIds.includes(id));
   if (notInCatalogue.length > 0) throw new ApiError(400, "One or more selected properties are not part of this catalogue");
 
+  const requestIds = dedupePreservingOrder(input.requestInteractionIds ?? []);
+  if (requestIds.length > 0) {
+    // Cheap pre-check so an already-confirmed request gets a clean 409 rather
+    // than paying for a rolled-back transaction. The authoritative guard is
+    // still the one inside scheduleVisit - this check alone would race.
+    const claimable = await prisma.catalogueInteraction.findMany({
+      where: {
+        id: { in: requestIds },
+        organizationId: input.organizationId,
+        catalogueShareId: catalogue.id,
+        type: "VISIT_REQUESTED",
+      },
+      select: { id: true, scheduledVisitId: true },
+    });
+    if (claimable.length !== requestIds.length) throw new ApiError(400, "One or more visit requests do not belong to this catalogue");
+    if (claimable.some((r) => r.scheduledVisitId !== null)) throw new ApiError(409, ALREADY_SCHEDULED_MESSAGE);
+  }
+
   return scheduleVisit({
     organizationId: input.organizationId,
     leadId: catalogue.leadId,
@@ -283,6 +349,7 @@ export async function scheduleVisitFromCatalogue(input: {
     meetingLocation: input.meetingLocation,
     catalogueShareId: catalogue.id,
     createdById: input.createdById,
+    requestInteractionIds: requestIds,
   });
 }
 
