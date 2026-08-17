@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { PropertyPortalCapabilities, PropertyPortalProviderId } from "@/integrations/property-portals/registry";
 
-type Connection = { provider: PropertyPortalProviderId; status: string; connectionMode: string; displayName: string | null; accountReference?: string | null; lastSyncAt: Date | string | null; lastSuccessfulSyncAt: Date | string | null; lastErrorSummary: string | null };
+type Connection = { provider: string; status: string; connectionMode: string; displayName: string | null; accountReference?: string | null; lastSyncAt: Date | string | null; lastSuccessfulSyncAt: Date | string | null; lastErrorSummary: string | null };
 export function ConnectionCard({ provider, capabilities, initial, canEdit }: { provider: PropertyPortalProviderId; capabilities: PropertyPortalCapabilities; initial?: Connection; canEdit: boolean }) {
   const [editing, setEditing] = useState(false); const [connection, setConnection] = useState(initial); const [busy, setBusy] = useState(false);
   async function save(form: FormData) { setBusy(true); try { const response = await fetch("/api/integrations/property-portals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider, displayName: form.get("displayName") || undefined, accountReference: form.get("accountReference") || undefined, connectionMode: form.get("connectionMode"), status: form.get("status") }) }); if (!response.ok) throw new Error("Unable to save connection"); setConnection((await response.json()).connection); setEditing(false); } finally { setBusy(false); } }
