@@ -14,8 +14,9 @@ const pincodeField = optionalWhenBlank(z.string().regex(/^[0-9]{6}$/, "Pincode m
 
 export const propertySchema = z.object({
   title: z.string().min(3),
-  propertyType: z.enum(["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG"]),
+  propertyType: z.enum(["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG", "STUDIO", "FARM_HOUSE", "CO_LIVING", "OTHER", "OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL"]),
   listingType: z.enum(["RENT", "SALE"]),
+  assetClass: z.enum(["RESIDENTIAL", "COMMERCIAL"]).default("RESIDENTIAL"),
   status: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD", "INACTIVE"]).default("AVAILABLE"),
   description: z.string().min(10),
   city: z.string().default("Delhi"),
@@ -36,8 +37,8 @@ export const propertySchema = z.object({
   saleBrokeragePct: z.number().optional().nullable(),
   saleBrokerageAmount: z.number().int().nonnegative().optional().nullable(),
   negotiable: z.boolean().default(false),
-  bhk: z.number().int().min(0).max(10),
-  bathrooms: z.number().int().min(0).max(10),
+  bhk: z.number().int().min(0).max(10).default(0),
+  bathrooms: z.number().int().min(0).max(10).default(0),
   balconies: z.number().int().min(0).max(10).default(0),
   furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]),
   floorNumber: z.number().int().optional().nullable(),
@@ -78,6 +79,30 @@ export const propertySchema = z.object({
   internalNotes: z.string().optional().nullable(),
   negotiationNotes: z.string().optional().nullable(),
   hiddenRemarks: z.string().optional().nullable(),
+  superAreaSqft: z.number().int().positive().optional().nullable(),
+  frontageFeet: z.number().positive().optional().nullable(),
+  ceilingHeightFeet: z.number().positive().optional().nullable(),
+  cabins: z.number().int().nonnegative().optional().nullable(),
+  workstations: z.number().int().nonnegative().optional().nullable(),
+  washrooms: z.number().int().nonnegative().optional().nullable(),
+  pantryAvailable: z.boolean().default(false),
+  powerLoadKw: z.number().positive().optional().nullable(),
+  commercialFitOut: z.enum(["FURNISHED", "SEMI_FURNISHED", "BARE_SHELL"]).optional().nullable(),
+  goodsLiftAvailable: z.boolean().default(false),
+  loadingAccessAvailable: z.boolean().default(false),
+  roadWidthFeet: z.number().positive().optional().nullable(),
+  cornerProperty: z.boolean().default(false),
+  fireSafetyAvailable: z.boolean().default(false),
+  suitableForTags: z.array(z.string()).default([]),
+  leaseTermMonths: z.number().int().positive().optional().nullable(),
+  lockInPeriodMonths: z.number().int().nonnegative().optional().nullable(),
+  noticePeriodMonths: z.number().int().nonnegative().optional().nullable(),
+  escalationPercentage: z.number().min(0).max(100).optional().nullable(),
+  escalationIntervalMonths: z.number().int().positive().optional().nullable(),
+  fitOutPeriodDays: z.number().int().nonnegative().optional().nullable(),
+  camCharge: z.number().int().nonnegative().optional().nullable(),
+  expectedPrice: z.number().int().positive().optional().nullable(),
+  ownershipTitleNotes: z.string().max(2000).optional().nullable(),
 });
 
 /**
@@ -91,14 +116,19 @@ export const createPropertySchema = propertySchema.refine(
 ).refine(
   (data) => data.inventorySource !== "INDIRECT" || !!data.partnerId,
   { message: "An inventory partner is required for indirect inventory", path: ["partnerId"] }
+).refine(
+  (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
+  { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
 );
 
 export const leadSchema = z.object({
   clientName: z.string().min(2),
   phone: z.string().min(8),
   email: z.string().email().optional().nullable().or(z.literal("")),
-  source: z.enum(["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL"]),
+  source: z.enum(["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL", "OLX", "SQUARE_CONNECT", "DIRECT", "OTHER"]),
   requirementType: z.enum(["RENT", "BUY"]),
+  assetClass: z.enum(["RESIDENTIAL", "COMMERCIAL"]).default("RESIDENTIAL"),
+  transactionType: z.enum(["RENT", "SALE"]).optional(),
   preferredLocation: z.string().min(2),
   minBudget: z.number().int().nonnegative(),
   maxBudget: z.number().int().positive(),
@@ -106,6 +136,14 @@ export const leadSchema = z.object({
   furnishingPref: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]).optional().nullable(),
   moveInDate: z.string().optional().nullable(),
   additionalRequirements: z.string().optional().nullable(),
+  commercialPropertyType: z.enum(["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"]).optional().nullable(),
+  minAreaSqft: z.number().int().positive().optional().nullable(),
+  maxAreaSqft: z.number().int().positive().optional().nullable(),
+  floorPreference: z.string().max(100).optional().nullable(),
+  commercialFitOutPref: z.enum(["FURNISHED", "SEMI_FURNISHED", "BARE_SHELL"]).optional().nullable(),
+  parkingRequired: z.boolean().optional().nullable(),
+  liftRequired: z.boolean().optional().nullable(),
+  suitableForTags: z.array(z.string()).default([]),
   assignedToId: z.string().optional().nullable(),
   status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"]).default("NEW"),
   priority: z.enum(["HOT", "WARM", "COLD"]).default("WARM"),
@@ -126,6 +164,15 @@ export const mockWebhookLeadSchema = z.object({
   source: z.enum(["99ACRES", "MAGICBRICKS"]),
   notes: z.string().optional(),
 });
+
+export const portalConnectionSchema = z.object({
+  provider: z.enum(["HOUSING", "NINETY_NINE_ACRES", "MAGICBRICKS", "OLX", "SQUARE_CONNECT", "OTHER"]),
+  connectionMode: z.enum(["API", "WEBHOOK", "CSV", "EMAIL", "MANUAL"]),
+  displayName: z.string().max(120).optional().nullable(),
+  accountReference: z.string().max(255).optional().nullable(),
+  credentialReference: z.string().max(255).optional().nullable(),
+  status: z.enum(["CONNECTED", "NOT_CONFIGURED", "DEGRADED", "AUTH_FAILED", "PARTNER_ACCESS_REQUIRED"]).default("NOT_CONFIGURED"),
+}).refine((value) => value.status !== "CONNECTED", { message: "A provider cannot be marked connected until official credentials and contract validation are implemented", path: ["status"] });
 
 export const visitSchema = z.object({
   leadId: z.string(),

@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         followUps: { orderBy: { dueDate: "asc" }, include: { owner: true } },
         visits: { orderBy: { visitDate: "desc" }, include: { property: true, assignedTo: true } },
         sharedProperties: { orderBy: { createdAt: "desc" } },
-      },
+      } as never,
     });
     if (!lead) throw new ApiError(404, "Lead not found");
     if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
@@ -67,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...data,
         email: data.email || undefined,
         moveInDate: data.moveInDate ? new Date(data.moveInDate) : undefined,
-      },
+      } as never,
     });
 
     if (data.status && data.status !== existing.status) {

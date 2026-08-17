@@ -30,6 +30,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
     ];
   }
   if (sp.listingType) where.listingType = sp.listingType as never;
+  if (sp.assetClass) where.assetClass = sp.assetClass as never;
   if (sp.status) where.status = sp.status as never;
   if (sp.area) where.area = sp.area;
   if (sp.bhk) where.bhk = Number(sp.bhk);

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import type { User } from "@prisma/client";
-import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
 const AREAS = ["Janakpuri", "Dwarka", "Rajouri Garden", "Uttam Nagar", "Rohini", "Pitampura", "Vasant Kunj", "Saket", "Greater Kailash", "Lajpat Nagar", "Karol Bagh", "Paschim Vihar"];
@@ -15,6 +15,8 @@ type FormValues = {
   phone: string;
   email: string;
   source: string;
+  assetClass: "RESIDENTIAL" | "COMMERCIAL";
+  transactionType: "RENT" | "SALE";
   requirementType: "RENT" | "BUY";
   preferredLocation: string;
   minBudget: string;
@@ -26,21 +28,30 @@ type FormValues = {
   assignedToId: string;
   priority: string;
   notes: string;
+  commercialPropertyType: string;
+  minAreaSqft: string;
+  maxAreaSqft: string;
+  commercialFitOutPref: string;
+  parkingRequired: boolean;
+  liftRequired: boolean;
 };
 
 export function LeadForm({ employees }: { employees: User[] }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
-  const { register, handleSubmit } = useForm<FormValues>({
+  const { register, handleSubmit, watch } = useForm<FormValues>({
     defaultValues: {
       source: "MANUAL",
       requirementType: "RENT",
+      assetClass: "RESIDENTIAL",
+      transactionType: "RENT",
       preferredLocation: AREAS[0],
       priority: "WARM",
       furnishingPref: "",
       assignedToId: "",
     },
   });
+  const assetClass = watch("assetClass");
 
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
@@ -50,6 +61,7 @@ export function LeadForm({ employees }: { employees: User[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
+          requirementType: values.transactionType === "RENT" ? "RENT" : "BUY",
           minBudget: Number(values.minBudget),
           maxBudget: Number(values.maxBudget),
           preferredBhk: values.preferredBhk ? Number(values.preferredBhk) : null,
@@ -58,6 +70,10 @@ export function LeadForm({ employees }: { employees: User[] }) {
           assignedToId: values.assignedToId || null,
           additionalRequirements: values.additionalRequirements || null,
           notes: values.notes || null,
+          commercialPropertyType: assetClass === "COMMERCIAL" ? values.commercialPropertyType || null : null,
+          minAreaSqft: values.minAreaSqft ? Number(values.minAreaSqft) : null,
+          maxAreaSqft: values.maxAreaSqft ? Number(values.maxAreaSqft) : null,
+          commercialFitOutPref: values.commercialFitOutPref || null,
         }),
       });
       if (!res.ok) {
@@ -97,22 +113,23 @@ export function LeadForm({ employees }: { employees: User[] }) {
         <h3 className="mb-4 text-sm font-semibold text-slate-800">Requirement</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Requirement Type" required>
-            <Select {...register("requirementType")}>
+            <Select {...register("transactionType")}>
               <option value="RENT">Rent</option>
-              <option value="BUY">Buy</option>
+              <option value="SALE">Sale</option>
             </Select>
           </Field>
+          <Field label="Asset Class" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
           <Field label="Preferred Location" required>
             <Select {...register("preferredLocation")}>
               {AREAS.map((a) => (<option key={a} value={a}>{a}</option>))}
             </Select>
           </Field>
-          <Field label="Preferred BHK">
+          {assetClass === "RESIDENTIAL" && <Field label="Preferred BHK">
             <Select {...register("preferredBhk")}>
               <option value="">Any</option>
               {[1, 2, 3, 4, 5].map((b) => (<option key={b} value={b}>{b} BHK</option>))}
             </Select>
-          </Field>
+          </Field>}
           <Field label="Minimum Budget (₹)" required><Input type="number" {...register("minBudget", { required: true })} /></Field>
           <Field label="Maximum Budget (₹)" required><Input type="number" {...register("maxBudget", { required: true })} /></Field>
           <Field label="Furnishing Preference">
@@ -124,6 +141,7 @@ export function LeadForm({ employees }: { employees: User[] }) {
             </Select>
           </Field>
           <Field label="Move-in Date"><Input type="date" {...register("moveInDate")} /></Field>
+          {assetClass === "COMMERCIAL" && <><Field label="Commercial Type"><Select {...register("commercialPropertyType")}><option value="">Any</option>{["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO"].map((type) => <option key={type} value={type}>{type.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Min area (sqft)"><Input type="number" {...register("minAreaSqft")} /></Field><Field label="Max area (sqft)"><Input type="number" {...register("maxAreaSqft")} /></Field><Field label="Fit-out"><Select {...register("commercialFitOutPref")}><option value="">Any</option><option value="FURNISHED">Furnished</option><option value="SEMI_FURNISHED">Semi-Furnished</option><option value="BARE_SHELL">Bare shell</option></Select></Field><Checkbox label="Parking required" {...register("parkingRequired")} /><Checkbox label="Lift required" {...register("liftRequired")} /></>}
         </div>
         <Field label="Additional Requirements">
           <Textarea rows={2} {...register("additionalRequirements")} placeholder="e.g. Needs property near metro station" />

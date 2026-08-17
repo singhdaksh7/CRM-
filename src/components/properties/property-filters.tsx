@@ -41,6 +41,9 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
         <option value="RENT">For Rent</option>
         <option value="SALE">For Sale</option>
       </Select>
+      <Select defaultValue={sp.get("assetClass") ?? ""} onChange={(e) => update("assetClass", e.target.value)} className="w-auto text-xs font-semibold">
+        <option value="">All inventory</option><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option>
+      </Select>
       <Select defaultValue={sp.get("area") ?? ""} onChange={(e) => update("area", e.target.value)} className="w-auto text-xs font-semibold">
         <option value="">All Locations</option>
         {AREAS.map((a) => (

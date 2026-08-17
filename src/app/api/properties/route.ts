@@ -24,6 +24,8 @@ export async function GET(req: NextRequest) {
     }
     const listingType = sp.get("listingType");
     if (listingType) where.listingType = listingType;
+    const assetClass = sp.get("assetClass");
+    if (assetClass) where.assetClass = assetClass;
     const status = sp.get("status");
     if (status) where.status = status;
     const area = sp.get("area");
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
         ...data,
         propertyCode: generateCode("PROP", count + 1),
         amenities: JSON.stringify(data.amenities),
+        suitableForTags: JSON.stringify(data.suitableForTags),
         images: JSON.stringify(data.images),
         availableFrom: data.availableFrom ? new Date(data.availableFrom) : null,
         createdById: session.user.id,

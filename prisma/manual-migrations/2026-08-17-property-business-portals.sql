@@ -1,0 +1,3 @@
+-- Idempotent production-runbook artifact. Review and execute this additive SQL only through the deployment process.
+-- Source of truth: prisma/migrations/20260817190000_property_business_portals/migration.sql
+-- PostgreSQL does not make every CREATE TYPE / ADD COLUMN construct universally idempotent; use the tracked migration for execution.

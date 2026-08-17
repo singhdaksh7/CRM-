@@ -1,0 +1,5 @@
+import { propertyPortalRegistry, PROPERTY_PORTAL_PROVIDERS } from "@/integrations/property-portals/registry";
+
+export default function PropertyPortalsPage() {
+  return <div className="space-y-6"><div><h1 className="text-2xl font-bold text-[#1B2430]">Property Portals</h1><p className="mt-1 text-sm text-[#596579]">Authorized integrations only. No portal APIs or publishing are activated until partner credentials and official contracts are supplied.</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{PROPERTY_PORTAL_PROVIDERS.map((provider) => <section key={provider} className="rounded-2xl border border-[#E7ECF2] bg-white p-5"><h2 className="font-semibold">{provider.replaceAll("_", " ")}</h2><p className="mt-2 text-sm text-[#596579]">Not configured</p><dl className="mt-4 space-y-1 text-xs text-[#596579]"><div>Lead ingestion: {propertyPortalRegistry[provider].supportsLeadWebhook.replaceAll("_", " ")}</div><div>Listing sync: {propertyPortalRegistry[provider].supportsListingPublish.replaceAll("_", " ")}</div></dl></section>)}</div></div>;
+}
