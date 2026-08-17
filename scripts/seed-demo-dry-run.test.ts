@@ -3,7 +3,7 @@ import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
-import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS, REQUIRED_PHASE8_COLUMNS, REQUIRED_PHASE7_COLUMNS, REQUIRED_PHASE7_ENUM_VALUES } from "../src/lib/demo-data/schema-compat";
+import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS, REQUIRED_PHASE8_COLUMNS, REQUIRED_PHASE7_COLUMNS, REQUIRED_PHASE7_ENUM_VALUES, REQUIRED_PORTAL_COLUMNS, REQUIRED_PORTAL_ENUM_VALUES } from "../src/lib/demo-data/schema-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -18,6 +18,7 @@ const ALL_MODEL_KEYS = [
   "dealOffer", "requirementBroadcastRecipient", "requirementBroadcast", "matchRecommendation",
   "catalogueInteraction", "catalogueShareProperty", "catalogueVersionEvent", "catalogueShare",
   "whatsAppMessage", "whatsAppConversation", "sharedPropertyLog",
+  "portalOperation", "externalLeadEvent", "portalListing", "propertyPortalConnection",
   "payment", "brokerageCalculation", "deal", "document",
   "visitFeedback", "visit", "followUp", "leadScoreHistory", "activity", "notification", "savedView",
   "propertyAvailabilityReport", "propertyReport", "propertyFavorite", "propertyViewLog", "propertyImage",
@@ -44,6 +45,8 @@ const HEALTHY_ACCOUNT_SETUP_COLUMNS = REQUIRED_ACCOUNT_SETUP_COLUMNS.map((r) => 
 const HEALTHY_PHASE8_COLUMNS = REQUIRED_PHASE8_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
 const HEALTHY_PHASE7_COLUMNS = REQUIRED_PHASE7_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
 const HEALTHY_PHASE7_ENUM_TYPES = REQUIRED_PHASE7_ENUM_VALUES.map((value) => { const [typname, enumlabel] = value.split("."); return { typname, enumlabel }; });
+const HEALTHY_PORTAL_COLUMNS = REQUIRED_PORTAL_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
+const HEALTHY_PORTAL_ENUM_VALUES = REQUIRED_PORTAL_ENUM_VALUES.map((value) => { const [typname, enumlabel] = value.split("."); return { typname, enumlabel }; });
 
 /** Dispatches on the raw SQL text so the different $queryRawUnsafe call sites (catalogue schema check, Phase 4 schema check, Phase 4 enum-type check, production enum check) each get shaped fixture data instead of one being fed another's rows. */
 function makeQueryRawUnsafe(overrides?: {
@@ -57,6 +60,8 @@ function makeQueryRawUnsafe(overrides?: {
   pendingSetupEnumRows?: { enumlabel: string }[];
   phase7Columns?: typeof HEALTHY_PHASE7_COLUMNS;
   phase7EnumTypes?: typeof HEALTHY_PHASE7_ENUM_TYPES;
+  portalColumns?: typeof HEALTHY_PORTAL_COLUMNS;
+  portalEnumValues?: typeof HEALTHY_PORTAL_ENUM_VALUES;
 }) {
   const catalogueColumns = overrides?.catalogueColumns ?? HEALTHY_CATALOGUE_COLUMNS;
   const phase4Columns = overrides?.phase4Columns ?? HEALTHY_PHASE4_COLUMNS;
@@ -68,7 +73,11 @@ function makeQueryRawUnsafe(overrides?: {
   const pendingSetupEnumRows = overrides?.pendingSetupEnumRows ?? [{ enumlabel: "PENDING_SETUP" }];
   const phase7Columns = overrides?.phase7Columns ?? HEALTHY_PHASE7_COLUMNS;
   const phase7EnumTypes = overrides?.phase7EnumTypes ?? HEALTHY_PHASE7_ENUM_TYPES;
+  const portalColumns = overrides?.portalColumns ?? HEALTHY_PORTAL_COLUMNS;
+  const portalEnumValues = overrides?.portalEnumValues ?? HEALTHY_PORTAL_ENUM_VALUES;
   return vi.fn().mockImplementation((query: string, tables?: string[]) => {
+    if (query.includes("PropertyPortalProvider")) return Promise.resolve(portalEnumValues);
+    if (Array.isArray(tables) && tables.includes("property_portal_connections")) return Promise.resolve(portalColumns);
     if (query.includes("WhatsAppContactState")) return Promise.resolve([
       ...["LINKED", "UNKNOWN", "AMBIGUOUS"].map((enumlabel) => ({ typname: "WhatsAppContactState", enumlabel })),
       { typname: "WhatsAppMessageType", enumlabel: "INTERACTIVE" },
@@ -342,6 +351,34 @@ describe("runDryRun - each required failure condition", () => {
     expect(allPassed).toBe(false);
     expect(checks.find((c) => c.name === "Phase 7 inventory import schema compatibility")?.passed).toBe(false);
     expect(checks.find((c) => c.name === "Phase 7 inventory import enum compatibility")?.passed).toBe(false);
+  });
+
+  it("FAILs portal schema compatibility when the portal tables were never migrated", async () => {
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({ portalColumns: [] });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    const check = checks.find((c) => c.name === "Property business + portal schema compatibility");
+    expect(check?.passed).toBe(false);
+    expect(check?.detail).toContain("portal_listings.status");
+  });
+
+  it("FAILs portal enum compatibility when the portal enum values are absent in production", async () => {
+    const client = makeHealthyClient();
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({ portalEnumValues: [] });
+    const { checks, allPassed } = await runDryRun(client, makeHealthyDataset);
+    expect(allPassed).toBe(false);
+    const check = checks.find((c) => c.name === "Property business + portal enum compatibility");
+    expect(check?.passed).toBe(false);
+    expect(check?.detail).toContain("PortalIngestionStatus.AMBIGUOUS");
+  });
+
+  it("FAILs portal enum compatibility when only some values of a portal enum landed", async () => {
+    const client = makeHealthyClient();
+    const partial = HEALTHY_PORTAL_ENUM_VALUES.filter((row) => row.enumlabel !== "DEAD_LETTER");
+    (client.$queryRawUnsafe as ReturnType<typeof vi.fn>) = makeQueryRawUnsafe({ portalEnumValues: partial });
+    const { checks } = await runDryRun(client, makeHealthyDataset);
+    expect(checks.find((c) => c.name === "Property business + portal enum compatibility")?.detail).toContain("PortalOperationStatus.DEAD_LETTER");
   });
 });
 

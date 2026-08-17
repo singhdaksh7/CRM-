@@ -91,11 +91,11 @@ function lead(overrides: Partial<Lead> = {}): Lead {
 const residentialRentProperty = property({ assetClass: "RESIDENTIAL", listingType: "RENT", monthlyRent: 19000 });
 const residentialSaleProperty = property({ id: "prop2", assetClass: "RESIDENTIAL", listingType: "SALE", monthlyRent: null, salePrice: 9000000 });
 const commercialRentProperty = property({
-  id: "prop3", assetClass: "COMMERCIAL", listingType: "RENT", propertyType: "OFFICE_SPACE",
+  id: "prop3", assetClass: "COMMERCIAL", listingType: "RENT", propertyType: "COMMERCIAL_OFFICE",
   bhk: 0, bathrooms: 0, builtUpAreaSqft: 2400, monthlyRent: 190000, area: "Janakpuri",
 });
 const commercialSaleProperty = property({
-  id: "prop4", assetClass: "COMMERCIAL", listingType: "SALE", propertyType: "OFFICE_SPACE",
+  id: "prop4", assetClass: "COMMERCIAL", listingType: "SALE", propertyType: "COMMERCIAL_OFFICE",
   bhk: 0, bathrooms: 0, builtUpAreaSqft: 2400, monthlyRent: null, salePrice: 19000000, area: "Janakpuri",
 });
 
@@ -103,11 +103,11 @@ const residentialRentLead = lead({ assetClass: "RESIDENTIAL", transactionType: "
 const residentialSaleLead = lead({ id: "lead2", assetClass: "RESIDENTIAL", transactionType: "SALE", requirementType: "BUY", minBudget: 8000000, maxBudget: 9500000 });
 const commercialRentLead = lead({
   id: "lead3", assetClass: "COMMERCIAL", transactionType: "RENT", requirementType: "RENT",
-  minBudget: 180000, maxBudget: 200000, preferredBhk: null, commercialPropertyType: "OFFICE_SPACE" as never,
+  minBudget: 180000, maxBudget: 200000, preferredBhk: null, commercialPropertyType: "COMMERCIAL_OFFICE" as never,
 });
 const commercialSaleLead = lead({
   id: "lead4", assetClass: "COMMERCIAL", transactionType: "SALE", requirementType: "BUY",
-  minBudget: 18000000, maxBudget: 20000000, preferredBhk: null, commercialPropertyType: "OFFICE_SPACE" as never,
+  minBudget: 18000000, maxBudget: 20000000, preferredBhk: null, commercialPropertyType: "COMMERCIAL_OFFICE" as never,
 });
 
 describe("each business line matches its own inventory", () => {

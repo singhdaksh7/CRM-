@@ -51,6 +51,25 @@ export const DEMO_SEED_PLAN = {
   whatsappInboxConversations: 4,
   whatsappInboxMessages: 10,
   inventoryImportFixtureRows: 15,
+
+  // --- Property-portal + commercial business scenarios (MOCK-only; see
+  // src/lib/demo-data/portals.ts). These are additive to the residential
+  // counts above: `properties` and `leads` describe only what
+  // createDemoProperties/createDemoLeads generate, so a fully seeded
+  // database holds properties + portalCommercialProperties properties and
+  // leads + portalLeads leads. ---
+  /** One PropertyPortalConnection per registry provider (Housing, 99acres, MagicBricks, OLX, Square Connect). */
+  portalConnections: 5,
+  /** One commercial rental + one commercial sale property - properties.ts only generates residential stock. */
+  portalCommercialProperties: 2,
+  /** One portal-originated lead per provider, spanning both asset classes and both transaction types. */
+  portalLeads: 5,
+  /** New / matched / ambiguous / duplicate / failed ingestion events. */
+  portalExternalLeadEvents: 9,
+  /** Published, sync-conflict, and capability-blocked draft listings. */
+  portalListings: 3,
+  /** Retryable, dead-letter, and capability-blocked operations. */
+  portalOperations: 3,
 } as const;
 
 export type DemoSeedPlan = typeof DEMO_SEED_PLAN;

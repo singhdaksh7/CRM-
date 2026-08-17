@@ -46,7 +46,7 @@ describe("commercial requirement broadcast", () => {
     furnishingPref: null,
     moveInDate: null,
     assetClass: "COMMERCIAL" as never,
-    commercialPropertyType: "OFFICE_SPACE" as never,
+    commercialPropertyType: "COMMERCIAL_OFFICE" as never,
     minAreaSqft: 2000,
     maxAreaSqft: 3500,
   };
@@ -54,7 +54,7 @@ describe("commercial requirement broadcast", () => {
   it("keeps the asset class on the sanitized snapshot", () => {
     const snapshot = sanitizeRequirement(commercialLead);
     expect(snapshot.assetClass).toBe("COMMERCIAL");
-    expect(snapshot.commercialPropertyType).toBe("OFFICE_SPACE");
+    expect(snapshot.commercialPropertyType).toBe("COMMERCIAL_OFFICE");
     expect(snapshot.areaSqft).toEqual({ min: 2000, max: 3500 });
     expect(snapshot.bhk).toBeNull();
   });
@@ -62,7 +62,7 @@ describe("commercial requirement broadcast", () => {
   it("renders a commercial-specific partner message with no BHK claim", () => {
     const message = requirementMessage(sanitizeRequirement(commercialLead));
     expect(message).toContain("COMMERCIAL PROPERTY REQUIREMENT");
-    expect(message).toContain("OFFICE SPACE");
+    expect(message).toContain("COMMERCIAL OFFICE");
     expect(message).toContain("2000-3500 sqft");
     expect(message).not.toMatch(/BHK/);
   });

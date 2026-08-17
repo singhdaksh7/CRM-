@@ -224,3 +224,111 @@ export async function checkPhase7EnumCompatibility(client: RawQueryClient): Prom
   const present = new Set(rows.map((row) => `${row.typname}.${row.enumlabel}`)); const missing = REQUIRED_PHASE7_ENUM_VALUES.filter((value) => !present.has(value));
   return { ok: missing.length === 0, missing: [...missing] };
 }
+
+/**
+ * Property-business + portal-integration phase. Two whole feature areas land
+ * here: the commercial/asset-class columns added to the existing
+ * properties/leads tables, and the four new portal tables. Same production
+ * drift risk as every phase above (a merged migration that was never
+ * `prisma migrate deploy`-ed), checked the same read-only way.
+ *
+ * Cross-checked field-for-field against
+ * prisma/manual-migrations/2026-08-17-property-business-portals.sql and
+ * prisma/manual-migrations/2026-08-17-portal-operations-conflicts.sql.
+ */
+export const REQUIRED_PORTAL_COLUMNS: readonly RequiredColumn[] = [
+  // Commercial/asset-class columns on existing tables
+  { table: "properties", column: "assetClass" },
+  { table: "properties", column: "workstations" },
+  { table: "properties", column: "cabins" },
+  { table: "properties", column: "commercialFitOut" },
+  { table: "properties", column: "superAreaSqft" },
+  { table: "properties", column: "suitableForTags" },
+  { table: "leads", column: "assetClass" },
+  { table: "leads", column: "transactionType" },
+  { table: "leads", column: "commercialPropertyType" },
+  { table: "leads", column: "minAreaSqft" },
+  { table: "leads", column: "maxAreaSqft" },
+  { table: "leads", column: "commercialFitOutPref" },
+  { table: "leads", column: "portalProvider" },
+  { table: "leads", column: "externalListingId" },
+  { table: "leads", column: "rawPayloadHash" },
+  { table: "leads", column: "receivedAt" },
+  // property_portal_connections
+  { table: "property_portal_connections", column: "provider" },
+  { table: "property_portal_connections", column: "status" },
+  { table: "property_portal_connections", column: "connectionMode" },
+  { table: "property_portal_connections", column: "accountReference" },
+  { table: "property_portal_connections", column: "credentialReference" },
+  { table: "property_portal_connections", column: "config" },
+  { table: "property_portal_connections", column: "lastSyncAt" },
+  { table: "property_portal_connections", column: "lastErrorSummary" },
+  // portal_listings
+  { table: "portal_listings", column: "provider" },
+  { table: "portal_listings", column: "propertyId" },
+  { table: "portal_listings", column: "externalListingId" },
+  { table: "portal_listings", column: "status" },
+  { table: "portal_listings", column: "payloadHash" },
+  { table: "portal_listings", column: "conflictFields" },
+  { table: "portal_listings", column: "portalSnapshot" },
+  { table: "portal_listings", column: "conflictDetectedAt" },
+  { table: "portal_listings", column: "conflictResolution" },
+  { table: "portal_listings", column: "conflictResolvedById" },
+  // portal_operations
+  { table: "portal_operations", column: "provider" },
+  { table: "portal_operations", column: "operationType" },
+  { table: "portal_operations", column: "idempotencyKey" },
+  { table: "portal_operations", column: "status" },
+  { table: "portal_operations", column: "failureReason" },
+  { table: "portal_operations", column: "attemptCount" },
+  { table: "portal_operations", column: "retryEligibleAt" },
+  // external_lead_events
+  { table: "external_lead_events", column: "provider" },
+  { table: "external_lead_events", column: "externalLeadId" },
+  { table: "external_lead_events", column: "externalEventId" },
+  { table: "external_lead_events", column: "externalListingId" },
+  { table: "external_lead_events", column: "receivedAt" },
+  { table: "external_lead_events", column: "rawPayloadHash" },
+  { table: "external_lead_events", column: "ingestionStatus" },
+  { table: "external_lead_events", column: "failureReason" },
+  { table: "external_lead_events", column: "resolvedById" },
+];
+
+/**
+ * Every portal/commercial enum VALUE this feature relies on. Value-level (not
+ * just type-level) because a `CREATE TYPE` can land while a later
+ * `ALTER TYPE ... ADD VALUE` does not - the exact drift enum-compat.ts
+ * documents for NotificationType.
+ */
+export const REQUIRED_PORTAL_ENUM_VALUES = [
+  "AssetClass.RESIDENTIAL", "AssetClass.COMMERCIAL",
+  "TransactionType.RENT", "TransactionType.SALE",
+  "CommercialFitOut.FURNISHED", "CommercialFitOut.SEMI_FURNISHED", "CommercialFitOut.BARE_SHELL",
+  "PropertyPortalProvider.HOUSING", "PropertyPortalProvider.NINETY_NINE_ACRES", "PropertyPortalProvider.MAGICBRICKS",
+  "PropertyPortalProvider.OLX", "PropertyPortalProvider.SQUARE_CONNECT", "PropertyPortalProvider.OTHER",
+  "PortalConnectionStatus.CONNECTED", "PortalConnectionStatus.NOT_CONFIGURED", "PortalConnectionStatus.DEGRADED",
+  "PortalConnectionStatus.AUTH_FAILED", "PortalConnectionStatus.PARTNER_ACCESS_REQUIRED",
+  "PortalConnectionMode.API", "PortalConnectionMode.WEBHOOK", "PortalConnectionMode.CSV", "PortalConnectionMode.EMAIL", "PortalConnectionMode.MANUAL",
+  "PortalCapabilityStatus.AVAILABLE", "PortalCapabilityStatus.CONFIGURATION_REQUIRED", "PortalCapabilityStatus.PARTNER_ACCESS_REQUIRED",
+  "PortalCapabilityStatus.NOT_SUPPORTED", "PortalCapabilityStatus.UNKNOWN",
+  "PortalListingStatus.DRAFT", "PortalListingStatus.PUBLISHED", "PortalListingStatus.INACTIVE",
+  "PortalListingStatus.SYNC_CONFLICT", "PortalListingStatus.FAILED",
+  "PortalOperationStatus.PENDING", "PortalOperationStatus.RETRYABLE", "PortalOperationStatus.SUCCEEDED", "PortalOperationStatus.DEAD_LETTER",
+  "PortalConflictResolution.KEEP_CRM", "PortalConflictResolution.ACCEPT_PORTAL", "PortalConflictResolution.REVIEW",
+  "PortalIngestionStatus.NEW", "PortalIngestionStatus.RECEIVED", "PortalIngestionStatus.MATCHED_EXISTING",
+  "PortalIngestionStatus.AMBIGUOUS", "PortalIngestionStatus.DUPLICATE", "PortalIngestionStatus.NEEDS_REVIEW",
+  "PortalIngestionStatus.REJECTED", "PortalIngestionStatus.FAILED",
+] as const;
+
+export async function checkPortalSchemaCompatibility(client: RawQueryClient) {
+  return checkCatalogueSchemaCompatibility(client, REQUIRED_PORTAL_COLUMNS);
+}
+
+export async function checkPortalEnumCompatibility(client: RawQueryClient): Promise<EnumTypeCheckResult> {
+  const rows = await client.$queryRawUnsafe<{ typname: string; enumlabel: string }[]>(
+    `SELECT t.typname, e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname IN ('AssetClass','TransactionType','CommercialFitOut','PropertyPortalProvider','PortalConnectionStatus','PortalConnectionMode','PortalCapabilityStatus','PortalListingStatus','PortalOperationStatus','PortalConflictResolution','PortalIngestionStatus')`
+  );
+  const present = new Set(rows.map((row) => `${row.typname}.${row.enumlabel}`));
+  const missing = REQUIRED_PORTAL_ENUM_VALUES.filter((value) => !present.has(value));
+  return { ok: missing.length === 0, missing: [...missing] };
+}
