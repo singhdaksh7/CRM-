@@ -73,6 +73,9 @@ export interface DashboardCriticalData {
   visitRequestsReceivedToday: number;
   /** Count for the "Leads Awaiting Shortlist" panel - see getLeadsAwaitingShortlist. */
   leadsAwaitingShortlistCount: number;
+  leadSegments: Record<"residentialRent" | "residentialSale" | "commercialRent" | "commercialSale", number>;
+  inventorySegments: Record<"residentialRent" | "residentialSale" | "commercialRent" | "commercialSale", number>;
+  portalKpis: { today: number; week: number; needsReview: number; ambiguous: number; failed: number; conflicts: number; deadLetters: number; topSource: string | null };
 }
 
 export interface DashboardSecondaryData {
@@ -121,6 +124,11 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
   let clientsInterestedToday = 0;
   let visitRequestsReceivedToday = 0;
   let leadsAwaitingShortlistCount = 0;
+  const emptySegments = { residentialRent: 0, residentialSale: 0, commercialRent: 0, commercialSale: 0 };
+  let leadSegments = { ...emptySegments };
+  let inventorySegments = { ...emptySegments };
+  let portalKpis: DashboardCriticalData["portalKpis"] = { today: 0, week: 0, needsReview: 0, ambiguous: 0, failed: 0, conflicts: 0, deadLetters: 0, topSource: null };
+  const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
 
   const tasks: (() => Promise<void>)[] = [
     async () => {
@@ -128,7 +136,7 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
       propertyCounts = await safe("propertyCounts", propertyCounts, async () => {
         const grouped = await prisma.property.groupBy({
           by: ["listingType"],
-          where: { status: { in: ["AVAILABLE", "RESERVED"] } },
+          where: { organizationId, status: { in: ["AVAILABLE", "RESERVED"] } },
           _count: { _all: true },
         });
         const rent = grouped.find((g) => g.listingType === "RENT")?._count._all ?? 0;
@@ -140,6 +148,23 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
       newLeadsToday = await safe("newLeadsToday", 0, () =>
         prisma.lead.count({ where: { ...scopedLead, createdAt: { gte: startOfToday, lte: endOfToday } } })
       );
+    },
+    async () => {
+      const [leadGroups, propertyGroups] = await safe("businessSegments", [[], []] as const, () => Promise.all([
+        prisma.lead.groupBy({ by: ["assetClass", "transactionType"], where: { organizationId, ...scopedLead }, _count: { _all: true } }),
+        prisma.property.groupBy({ by: ["assetClass", "listingType"], where: { organizationId, status: { in: ["AVAILABLE", "RESERVED"] } }, _count: { _all: true } }),
+      ]));
+      const key = (asset: string, transaction: string) => `${asset === "RESIDENTIAL" ? "residential" : "commercial"}${transaction === "RENT" ? "Rent" : "Sale"}` as keyof typeof emptySegments;
+      for (const row of leadGroups) leadSegments[key(row.assetClass, row.transactionType)] = row._count._all;
+      for (const row of propertyGroups) inventorySegments[key(row.assetClass, row.listingType)] = row._count._all;
+    },
+    async () => {
+      portalKpis = await safe("portalKpis", portalKpis, async () => {
+        const [today, week, needsReview, ambiguous, failed, conflicts, deadLetters, providers] = await Promise.all([
+          prisma.externalLeadEvent.count({ where: { organizationId, receivedAt: { gte: startOfToday } } }), prisma.externalLeadEvent.count({ where: { organizationId, receivedAt: { gte: startOfWeek } } }), prisma.externalLeadEvent.count({ where: { organizationId, ingestionStatus: "NEEDS_REVIEW" } }), prisma.externalLeadEvent.count({ where: { organizationId, ingestionStatus: "AMBIGUOUS" } }), prisma.externalLeadEvent.count({ where: { organizationId, ingestionStatus: "FAILED" } }), prisma.portalListing.count({ where: { organizationId, status: "SYNC_CONFLICT" } }), prisma.portalOperation.count({ where: { organizationId, status: "DEAD_LETTER" } }), prisma.externalLeadEvent.groupBy({ by: ["provider"], where: { organizationId }, _count: { _all: true }, orderBy: { _count: { provider: "desc" } }, take: 1 }),
+        ]);
+        return { today, week, needsReview, ambiguous, failed, conflicts, deadLetters, topSource: providers[0]?.provider ?? null };
+      });
     },
     async () => {
       unassignedLeads = await safe("unassignedLeads", 0, () =>
@@ -220,6 +245,7 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
     clientsInterestedToday,
     visitRequestsReceivedToday,
     leadsAwaitingShortlistCount,
+    leadSegments, inventorySegments, portalKpis,
   };
 }
 
