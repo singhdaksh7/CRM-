@@ -125,8 +125,8 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
   let visitRequestsReceivedToday = 0;
   let leadsAwaitingShortlistCount = 0;
   const emptySegments = { residentialRent: 0, residentialSale: 0, commercialRent: 0, commercialSale: 0 };
-  let leadSegments = { ...emptySegments };
-  let inventorySegments = { ...emptySegments };
+  const leadSegments = { ...emptySegments };
+  const inventorySegments = { ...emptySegments };
   let portalKpis: DashboardCriticalData["portalKpis"] = { today: 0, week: 0, needsReview: 0, ambiguous: 0, failed: 0, conflicts: 0, deadLetters: 0, topSource: null };
   const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
 
