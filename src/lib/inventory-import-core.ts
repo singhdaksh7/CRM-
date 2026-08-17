@@ -32,7 +32,7 @@ const aliases: Record<ImportablePropertyField, string[]> = {
   parkingAvailable: ["parking", "parking facility"], liftAvailable: ["lift", "elevator"], status: ["status", "availability status"],
   ownerName: ["owner name", "owner"], ownerPhone: ["owner no", "owner phone", "mobile", "phone", "contact"],
   ownerAlternatePhone: ["alternate phone", "alternate no", "other phone"], internalNotes: ["notes", "remarks", "additional notes"],
-  description: ["description", "details"], parkingLift: ["parking lift", "parking elevator"],
+  description: ["description", "details"], parkingLift: ["parking lift", "parking elevator"], assetClass: ["asset class", "residential commercial", "segment"], superAreaSqft: ["super area", "super area sqft"], frontageFeet: ["frontage", "frontage feet"], workstations: ["workstations", "seats"], cabins: ["cabins"], commercialFitOut: ["fit out", "fitout", "commercial furnishing"], goodsLiftAvailable: ["goods lift"], leaseTermMonths: ["lease term", "lease months"], lockInPeriodMonths: ["lock in", "lockin"], camCharge: ["cam", "cam charge"], expectedPrice: ["expected price"],
 };
 
 export function suggestColumnMapping(headers: string[]): { mapping: Record<string, string>; ambiguous: Record<string, string[]> } {
@@ -111,11 +111,11 @@ export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record
     else data[field] = parsed;
   };
   convert("inventorySource", parseInventorySource, "Use DIR/DIRECT or IND/INDIRECT");
-  for (const field of ["monthlyRent", "salePrice"]) convert(field, parseMoney, "Enter an unambiguous amount such as 25000 or 25k");
-  for (const field of ["builtUpAreaSqft", "carpetAreaSqft"]) convert(field, parseArea, "Enter square feet such as 850 or 850 sq ft");
+  for (const field of ["monthlyRent", "salePrice", "camCharge", "expectedPrice"]) convert(field, parseMoney, "Enter an unambiguous amount such as 25000 or 25k");
+  for (const field of ["builtUpAreaSqft", "carpetAreaSqft", "superAreaSqft"]) convert(field, parseArea, "Enter square feet such as 850 or 850 sq ft");
   for (const field of ["floorNumber", "totalFloors"]) convert(field, parseFloor, "Enter a floor number such as 2 or Second Floor");
   for (const field of ["parkingAvailable", "liftAvailable"]) convert(field, parseBoolean, "Use Yes/Y/Available or No/N");
-  for (const field of ["bhk", "bathrooms"]) convert(field, (v) => /^\d+$/.test(String(v).trim()) ? Number(v) : null, "Enter a whole number");
+  for (const field of ["bhk", "bathrooms", "workstations", "cabins", "leaseTermMonths", "lockInPeriodMonths"]) convert(field, (v) => /^\d+$/.test(String(v).trim()) ? Number(v) : null, "Enter a whole number");
   if (valuePresent(data.parkingLift)) {
     const text = normalizeHeader(String(data.parkingLift));
     data.parkingAvailable = /parking/.test(text) && !/no parking/.test(text);
@@ -133,6 +133,8 @@ export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record
     else data.ownerAlternatePhone = phone;
   }
   convert("listingType", (v) => parseEnum(v, ["RENT", "SALE"], { rental: "RENT", buy: "SALE" }), "Use RENT or SALE");
+  convert("assetClass", (v) => parseEnum(v, ["RESIDENTIAL", "COMMERCIAL"], { residential: "RESIDENTIAL", commercial: "COMMERCIAL" }), "Use RESIDENTIAL or COMMERCIAL");
+  convert("commercialFitOut", (v) => parseEnum(v, ["FURNISHED", "SEMI_FURNISHED", "BARE_SHELL"], { "bare shell": "BARE_SHELL", semi: "SEMI_FURNISHED" }), "Unsupported commercial fit-out");
   convert("propertyType", (v) => parseEnum(v, ["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG"], { flat: "APARTMENT", floor: "BUILDER_FLOOR" }), "Unsupported property type");
   convert("status", (v) => parseEnum(v, ["AVAILABLE", "RESERVED", "RENTED", "SOLD", "INACTIVE"], { active: "AVAILABLE" }), "Unsupported property status");
   convert("furnishing", (v) => parseEnum(v, ["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"], { semi: "SEMI_FURNISHED", "semi furnished": "SEMI_FURNISHED" }), "Unsupported furnishing value");

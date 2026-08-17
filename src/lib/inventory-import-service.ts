@@ -14,6 +14,7 @@ const PROPERTY_FIELDS = new Set([
   "monthlyRent", "salePrice", "floorNumber", "totalFloors", "builtUpAreaSqft", "carpetAreaSqft", "dimension", "possessionNotes",
   "availableFrom", "bhk", "bathrooms", "furnishing", "parkingAvailable", "liftAvailable", "status", "ownerName", "ownerPhone",
   "ownerAlternatePhone", "internalNotes", "description", "partnerId", "ownerId",
+  "assetClass", "superAreaSqft", "frontageFeet", "workstations", "cabins", "commercialFitOut", "goodsLiftAvailable", "leaseTermMonths", "lockInPeriodMonths", "camCharge", "expectedPrice",
 ]);
 
 export interface PreviewRow {
