@@ -15,6 +15,11 @@ import { HealthCard } from "@/components/rules/health-card";
 import { SuggestionList } from "@/components/rules/suggestion-list";
 import { getPropertyHealth, getPropertySuggestions, getInventoryFreshness } from "@/lib/rules";
 import { MapPin, Home, Phone, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
+import { PROPERTY_PORTAL_PROVIDERS, propertyPortalRegistry } from "@/integrations/property-portals/registry";
+import { portalPayloadPreview } from "@/integrations/property-portals/listing-lifecycle";
+import { DistributionPanel, type ProviderRow } from "@/components/property-portals/distribution-panel";
 
 // Change 15 - Inventory Freshness label tone, distinct from the numeric Property Health score.
 const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
@@ -28,12 +33,33 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const property = await prisma.property.findUnique({ where: { id }, include: { partner: true } });
   if (!property) notFound();
-  const [health, suggestions, timelineEvents, freshness] = await Promise.all([
+  const session = await auth();
+  const organizationId = session ? getOrganizationId(session.user.id) : property.organizationId;
+  const canEditDistribution = session ? ["ADMIN", "DATA_MANAGER"].includes(session.user.role) : false;
+
+  const [health, suggestions, timelineEvents, freshness, connections, listings, operations] = await Promise.all([
     getPropertyHealth(property.id),
     getPropertySuggestions(property.id),
     getPropertyTimeline(property.id),
     getInventoryFreshness(property.id),
+    prisma.propertyPortalConnection.findMany({ where: { organizationId } }),
+    prisma.portalListing.findMany({ where: { organizationId, propertyId: property.id } }),
+    prisma.portalOperation.findMany({ where: { organizationId, status: { in: ["RETRYABLE", "DEAD_LETTER"] }, portalListing: { propertyId: property.id } } }),
   ]);
+
+  const preview = portalPayloadPreview(property);
+  const distributionRows: ProviderRow[] = PROPERTY_PORTAL_PROVIDERS.map((provider) => {
+    const connection = connections.find((c) => c.provider === provider) ?? null;
+    const listing = listings.find((l) => l.provider === provider) ?? null;
+    const caps = propertyPortalRegistry[provider];
+    return {
+      provider,
+      capabilities: { supportsListingPublish: caps.supportsListingPublish, supportsListingUpdate: caps.supportsListingUpdate, supportsListingDeactivate: caps.supportsListingDeactivate },
+      connectionStatus: connection?.status ?? null,
+      listing: listing ? { id: listing.id, provider, status: listing.status, externalListingId: listing.externalListingId, externalUrl: listing.externalUrl, lastSyncedAt: listing.lastSyncedAt?.toISOString() ?? null, errorSummary: listing.errorSummary, publishedAt: listing.publishedAt?.toISOString() ?? null } : null,
+      operations: operations.filter((op) => op.portalListingId === listing?.id).map((op) => ({ id: op.id, provider, portalListingId: op.portalListingId, status: op.status, attemptCount: op.attemptCount, failureReason: op.failureReason, retryEligibleAt: op.retryEligibleAt?.toISOString() ?? null })),
+    };
+  });
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
@@ -139,6 +165,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
           {/* Documents */}
           <EntityDocumentPanel entityType="PROPERTY" entityId={property.id} title="Property Documents" />
+
+          {/* Portal distribution - CRM-side state only, no external network calls */}
+          {session && session.user.role !== "FIELD_EXECUTIVE" && (
+            <DistributionPanel propertyId={property.id} rows={distributionRows} preview={preview} canEdit={canEditDistribution} />
+          )}
         </div>
 
         {/* Pricing & Owner Info Column */}
