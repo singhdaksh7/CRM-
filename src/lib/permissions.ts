@@ -23,7 +23,16 @@ export const NAV_ITEMS = [
   { href: "/settings", label: "Settings", roles: ["ADMIN"] as Role[] },
 ];
 
+/**
+ * Pages every signed-in employee may reach regardless of role, even though a
+ * prefix match against NAV_ITEMS would say otherwise. /settings is an
+ * ADMIN-only nav entry, but /settings/security is each employee's own
+ * password page - a Field Executive has to be able to open it.
+ */
+export const SELF_SERVICE_PATHS = ["/settings/security"];
+
 export function canAccess(role: Role, href: string): boolean {
+  if (SELF_SERVICE_PATHS.some((path) => href === path || href.startsWith(`${path}/`))) return true;
   const item = NAV_ITEMS.find((n) => href.startsWith(n.href));
   if (!item) return true;
   return item.roles.includes(role);

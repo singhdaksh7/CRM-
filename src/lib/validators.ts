@@ -216,13 +216,35 @@ export const employeeSchema = z.object({
   serviceAreas: z.array(z.string()).optional(),
 });
 
-export const accountSetupPasswordSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters").max(128).refine((value) => value.trim().length > 0, "Password cannot be blank"),
-  confirmPassword: z.string(),
-}).refine((value) => value.password === value.confirmPassword, {
+/**
+ * One password policy for every place a password is chosen: account setup,
+ * password reset and self-service password change. Min 8 / max 128, and
+ * whitespace-only is rejected (it would pass a naive length check).
+ */
+export const passwordPolicy = z.string().min(8, "Password must be at least 8 characters").max(128).refine((value) => value.trim().length > 0, "Password cannot be blank");
+
+const passwordsMatch = {
   path: ["confirmPassword"],
   message: "Passwords do not match",
+};
+
+export const accountSetupPasswordSchema = z.object({
+  password: passwordPolicy,
+  confirmPassword: z.string(),
+}).refine((value) => value.password === value.confirmPassword, passwordsMatch);
+
+/** Reset submission - same policy as setup; the token travels in the URL. */
+export const passwordResetSchema = accountSetupPasswordSchema;
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().min(1).max(320),
 });
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password").max(128),
+  password: passwordPolicy,
+  confirmPassword: z.string(),
+}).refine((value) => value.password === value.confirmPassword, passwordsMatch);
 
 export const assignmentRuleSchema = z.object({
   name: z.string().min(2),

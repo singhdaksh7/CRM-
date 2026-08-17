@@ -1,29 +1,19 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
-export function StatusToggle({ employeeId, status }: { employeeId: string; status: "PENDING_SETUP" | "ACTIVE" | "INACTIVE" }) {
-  const router = useRouter();
-  const [saving, setSaving] = useState(false);
+const TONE = { ACTIVE: "green", PENDING_SETUP: "amber", INACTIVE: "slate" } as const;
+const LABEL = { ACTIVE: "Active", PENDING_SETUP: "Pending Setup", INACTIVE: "Disabled" } as const;
 
-  async function toggle() {
-    if (status === "PENDING_SETUP") return;
-    setSaving(true);
-    const res = await fetch(`/api/employees/${employeeId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }),
-    });
-    setSaving(false);
-    if (res.ok) { toast.success("Status updated"); router.refresh(); } else toast.error("Failed to update status");
-  }
-
-  return (
-    <button onClick={toggle} disabled={saving || status === "PENDING_SETUP"} className="disabled:cursor-default disabled:opacity-70">
-      <Badge tone={status === "ACTIVE" ? "green" : status === "PENDING_SETUP" ? "amber" : "slate"}>{status === "ACTIVE" ? "Active" : status === "PENDING_SETUP" ? "Pending Setup" : "Disabled"}</Badge>
-    </button>
-  );
+/**
+ * Read-only account status badge.
+ *
+ * This used to be a one-click toggle that PATCHed `status` directly. That
+ * path could not revoke the employee's live sessions or kill their
+ * outstanding setup/reset links, so a "disabled" employee stayed signed in on
+ * whatever device they were already using. Status changes now go through
+ * `EmployeeAccountControls` -> POST /api/employees/[id]/account-status, which
+ * bumps authVersion and cleans up tokens in one transaction; the badge just
+ * reports the current state.
+ */
+export function StatusToggle({ status }: { status: "PENDING_SETUP" | "ACTIVE" | "INACTIVE" }) {
+  return <Badge tone={TONE[status]}>{LABEL[status]}</Badge>;
 }

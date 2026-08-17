@@ -759,6 +759,7 @@ model Organization {
   requirementBroadcasts       RequirementBroadcast[]
   matchRecommendations        MatchRecommendation[]
   accountSetupTokens          AccountSetupToken[]
+  passwordResetTokens         PasswordResetToken[]
 
   @@map("organizations")
 }
@@ -778,6 +779,16 @@ model User {
   role           Role
   status         EmployeeStatus @default(ACTIVE)
   notes          String?
+
+  // Session revocation counter. Every credential/lifecycle event that must
+  // invalidate previously-issued JWTs (password reset, password change,
+  // admin disabling the account) increments this; the Auth.js `jwt` callback
+  // compares the value baked into the token against the row and drops the
+  // session on a mismatch. Starts at 1 so a token carrying an absent/0
+  // version can never accidentally match.
+  authVersion Int       @default(1)
+  // Set only on a successful credential authentication.
+  lastLoginAt DateTime?
 
   // Auto-assignment profile (Phase 2A)
   maxActiveLeads    Int                @default(20)
@@ -840,6 +851,7 @@ model User {
   requirementBroadcasts           RequirementBroadcast[]
   matchRecommendations            MatchRecommendation[]
   accountSetupTokens              AccountSetupToken[]
+  passwordResetTokens             PasswordResetToken[]
 
   @@map("users")
 }
@@ -858,6 +870,28 @@ model AccountSetupToken {
   @@index([organizationId, userId])
   @@index([expiresAt])
   @@map("account_setup_tokens")
+}
+
+// Deliberately a separate table from AccountSetupToken: a setup token proves
+// "this account has never had a password", a reset token proves "this active
+// account asked for a new one". Reusing one table would let an expired setup
+// link be resurrected as a reset link (and vice versa). Only the SHA-256
+// hash of the token is stored - the plaintext exists solely in the HTTP
+// response that issues it and is never recoverable afterwards.
+model PasswordResetToken {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 // ---------------------------------------------------------------------------
