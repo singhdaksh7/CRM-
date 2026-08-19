@@ -6,29 +6,26 @@
  * - unit tests can assert CSP shape without spinning up Next
  *
  * Storage origins are derived only from server env (R2_ENDPOINT /
- * R2_ACCOUNT_ID). Request input must never feed this builder.
+ * R2_ACCOUNT_ID / R2_BUCKET_NAME). Request input must never feed this builder.
+ *
+ * AWS SDK virtual-hosted-style R2 URLs use:
+ *   https://{bucket}.{accountId}.r2.cloudflarestorage.com
+ * which is a different origin from the account API endpoint:
+ *   https://{accountId}.r2.cloudflarestorage.com
+ * CSP must allow the origin the browser actually contacts.
  */
 
 const R2_HOST_SUFFIX = ".r2.cloudflarestorage.com";
 
-/** Extract a single trusted HTTPS origin suitable for a CSP source list. */
-export function resolveTrustedStorageCspOrigin(
-  env: NodeJS.Dict<string | undefined> = process.env
-): string | null {
-  const provider = (env.STORAGE_PROVIDER || "").trim().toUpperCase();
-  if (provider !== "R2") return null;
+/** S3/R2 bucket DNS label - no spaces/semicolons that could break CSP. */
+const R2_BUCKET_RE = /^[a-z0-9](?:[a-z0-9.-]{0,61}[a-z0-9])?$/;
+const R2_ACCOUNT_ID_RE = /^[a-f0-9]+$/i;
 
-  const endpoint = env.R2_ENDPOINT?.trim();
-  const accountId = env.R2_ACCOUNT_ID?.trim();
+function isSafeCspOrigin(origin: string): boolean {
+  return !!origin && origin.startsWith("https://") && !/[;\s,]/.test(origin);
+}
 
-  let candidate: string | null = null;
-  if (endpoint) {
-    candidate = endpoint;
-  } else if (accountId && /^[a-f0-9]+$/i.test(accountId)) {
-    candidate = `https://${accountId}${R2_HOST_SUFFIX}`;
-  }
-  if (!candidate) return null;
-
+function parseHttpsR2Origin(candidate: string): string | null {
   let url: URL;
   try {
     url = new URL(candidate);
@@ -36,32 +33,93 @@ export function resolveTrustedStorageCspOrigin(
     return null;
   }
 
-  // Reject anything that isn't a plain https origin we control via env.
   if (url.protocol !== "https:") return null;
   if (url.username || url.password) return null;
   if (url.port && url.port !== "443") return null;
   if (!url.hostname.toLowerCase().endsWith(R2_HOST_SUFFIX)) return null;
-  // Hostname labels only - blocks path/query smuggling into the source token.
   if (url.pathname !== "/" && url.pathname !== "") return null;
   if (url.search || url.hash) return null;
 
   const origin = url.origin;
-  // CSP source lists are semicolon/space delimited - refuse metacharacters.
-  if (!origin || /[;\s,]/.test(origin)) return null;
-  return origin;
+  return isSafeCspOrigin(origin) ? origin : null;
+}
+
+function resolveAccountId(env: NodeJS.Dict<string | undefined>): string | null {
+  const accountId = env.R2_ACCOUNT_ID?.trim();
+  if (accountId && R2_ACCOUNT_ID_RE.test(accountId)) return accountId;
+
+  const endpoint = env.R2_ENDPOINT?.trim();
+  if (!endpoint) return null;
+  try {
+    const host = new URL(endpoint).hostname.toLowerCase();
+    if (!host.endsWith(R2_HOST_SUFFIX)) return null;
+    const label = host.slice(0, -R2_HOST_SUFFIX.length);
+    // Account API host is a single hex label; reject virtual-host hosts here.
+    if (!R2_ACCOUNT_ID_RE.test(label)) return null;
+    return label;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Account API endpoint origin, e.g.
+ * https://{accountId}.r2.cloudflarestorage.com
+ */
+export function resolveTrustedStorageCspOrigin(
+  env: NodeJS.Dict<string | undefined> = process.env
+): string | null {
+  const provider = (env.STORAGE_PROVIDER || "").trim().toUpperCase();
+  if (provider !== "R2") return null;
+
+  const endpoint = env.R2_ENDPOINT?.trim();
+  if (endpoint) return parseHttpsR2Origin(endpoint);
+
+  const accountId = resolveAccountId(env);
+  if (!accountId) return null;
+  return parseHttpsR2Origin(`https://${accountId}${R2_HOST_SUFFIX}`);
+}
+
+/**
+ * Virtual-hosted bucket origin used by AWS SDK getSignedUrl when
+ * forcePathStyle=false, e.g.
+ * https://{bucket}.{accountId}.r2.cloudflarestorage.com
+ */
+export function resolveTrustedStorageVirtualHostCspOrigin(
+  env: NodeJS.Dict<string | undefined> = process.env
+): string | null {
+  const provider = (env.STORAGE_PROVIDER || "").trim().toUpperCase();
+  if (provider !== "R2") return null;
+
+  const bucket = env.R2_BUCKET_NAME?.trim();
+  const accountId = resolveAccountId(env);
+  if (!bucket || !accountId) return null;
+  if (!R2_BUCKET_RE.test(bucket)) return null;
+  if (bucket.includes("..")) return null;
+
+  return parseHttpsR2Origin(`https://${bucket}.${accountId}${R2_HOST_SUFFIX}`);
+}
+
+/** Deduped trusted R2 origins for connect-src / img-src. */
+export function resolveTrustedStorageCspOrigins(
+  env: NodeJS.Dict<string | undefined> = process.env
+): string[] {
+  const origins: string[] = [];
+  const push = (origin: string | null) => {
+    if (origin && !origins.includes(origin)) origins.push(origin);
+  };
+  push(resolveTrustedStorageCspOrigin(env));
+  push(resolveTrustedStorageVirtualHostCspOrigin(env));
+  return origins;
 }
 
 export function buildContentSecurityPolicy(
   env: NodeJS.Dict<string | undefined> = process.env
 ): string {
-  const storageOrigin = resolveTrustedStorageCspOrigin(env);
+  const storageOrigins = resolveTrustedStorageCspOrigins(env);
 
-  const imgSources = ["'self'", "data:", "blob:", "https://images.unsplash.com"];
-  const connectSources = ["'self'"];
-  if (storageOrigin) {
-    imgSources.push(storageOrigin);
-    connectSources.push(storageOrigin);
-  }
+  const imgSources = ["'self'", "data:", "blob:", "https://images.unsplash.com", ...storageOrigins];
+  const connectSources = ["'self'", ...storageOrigins];
 
   // Phase 3J - production security headers. CSP note: `script-src` includes
   // 'unsafe-inline' because Next.js App Router injects a small inline
@@ -81,4 +139,14 @@ export function buildContentSecurityPolicy(
     "worker-src 'self'",
     "manifest-src 'self'",
   ].join("; ");
+}
+
+/** Extract connect-src / img-src source tokens from a CSP string (test helper). */
+export function cspDirectiveSources(csp: string, directive: "connect-src" | "img-src"): string[] {
+  const part = csp
+    .split(";")
+    .map((s) => s.trim())
+    .find((d) => d.startsWith(`${directive} `));
+  if (!part) return [];
+  return part.slice(directive.length).trim().split(/\s+/).filter(Boolean);
 }

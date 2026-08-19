@@ -6,10 +6,12 @@ import { buildContentSecurityPolicy } from "./src/lib/csp";
 // application code, so every route gets these without per-route wiring.
 //
 // When STORAGE_PROVIDER=R2, connect-src / img-src also allow the configured
-// R2 S3 API origin so browser direct/presigned uploads and signed image loads
-// are not blocked. Origin is derived from R2_ENDPOINT (or R2_ACCOUNT_ID) -
-// never from request input. See src/lib/csp.ts. Requires R2_* env available
-// at `next build` (Vercel Production env) so the header is baked correctly.
+// R2 S3 API origin AND the virtual-hosted bucket origin
+// (https://{bucket}.{account}.r2.cloudflarestorage.com) that AWS SDK
+// getSignedUrl emits for browser PUTs/GETs. Origins are derived from
+// R2_ENDPOINT / R2_ACCOUNT_ID / R2_BUCKET_NAME - never from request input.
+// See src/lib/csp.ts. Requires R2_* env available at `next build`
+// (Vercel Production env) so the header is baked correctly.
 
 function buildSecurityHeaders() {
   return [
