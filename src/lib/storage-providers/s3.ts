@@ -108,6 +108,16 @@ export class S3StorageProvider implements StorageProvider {
         accessKeyId: this.getAccessKeyId()!,
         secretAccessKey: this.getSecretAccessKey()!,
       },
+      // AWS SDK JS v3 (>=3.729 / flexible checksums) defaults to
+      // requestChecksumCalculation=WHEN_SUPPORTED, which injects
+      // x-amz-checksum-crc32 + x-amz-sdk-checksum-algorithm into PutObject
+      // (and therefore into browser presigned PUT URLs). Browsers only send
+      // Content-Type for our direct upload path, so R2 rejects those URLs.
+      // WHEN_REQUIRED keeps optional CRC32 off unless an API mandates it.
+      // Never strip checksum query params after signing - that invalidates
+      // the signature; configure the client instead.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
     });
     return this.cachedClient;
   }
