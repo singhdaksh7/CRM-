@@ -5,5 +5,9 @@
 -- e.g. an AMBIGUOUS Housing enquiry awaiting manual review. This is never
 -- the full raw provider payload - only rawPayloadHash (already existing)
 -- represents the raw delivery, and that stays a one-way hash.
--- Mirrors prisma/migrations/20260819120000_housing_lead_event_snapshot/migration.sql exactly.
-ALTER TABLE "external_lead_events" ADD COLUMN "leadSnapshot" TEXT;
+-- Mirrors prisma/migrations/20260819120000_housing_lead_event_snapshot/migration.sql
+-- (that tracked migration.sql omits IF NOT EXISTS, matching Prisma's own
+-- migration-diff output; this manual file adds it so the same statement can
+-- be safely re-run against a database Prisma's ledger doesn't yet know
+-- about, per this repo's manual-migration idempotency convention).
+ALTER TABLE "external_lead_events" ADD COLUMN IF NOT EXISTS "leadSnapshot" TEXT;

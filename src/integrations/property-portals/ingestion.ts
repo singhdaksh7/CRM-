@@ -32,9 +32,17 @@ export async function ingestPortalLead(organizationId: string, provider: Propert
   const resolution = resolvePortalLead(deduped);
   const linkedLead = resolution === "MATCHED_EXISTING" ? deduped[0] : null;
   const leadSnapshot = snapshot ? JSON.stringify(snapshot).slice(0, 4000) : null;
+  // Demand Pool identity check: an exact normalizedPhone match against the
+  // long-lived CustomerContact pool (never fuzzy, never created here) so a
+  // Lead we create/link never represents a second identity for someone the
+  // desk already knows. Read-only lookup - Housing/portal ingestion never
+  // creates or mutates a CustomerContact.
+  const existingContact = phone
+    ? await prisma.customerContact.findUnique({ where: { organizationId_normalizedPhone: { organizationId, normalizedPhone: phone } }, select: { id: true } })
+    : null;
   const event = await prisma.externalLeadEvent.create({ data: { organizationId, provider, externalLeadId: input.externalLeadId ?? null, externalEventId: input.externalEventId ?? null, externalListingId: input.externalListingId ?? null, rawPayloadHash, message: input.message?.slice(0, 2000) ?? null, leadSnapshot, leadId: linkedLead?.id ?? null, ingestionStatus: resolution } });
   if (resolution !== "NEW") return { status: resolution, event, candidates: deduped };
-  const lead = await prisma.lead.create({ data: { organizationId, leadCode: `LEAD-PORTAL-${Date.now()}`, clientName: input.name, phone: phone ?? "UNVERIFIED-PORTAL", email: input.email ?? null, source: leadSource(provider), externalLeadId: input.externalLeadId ?? null, externalListingId: input.externalListingId ?? null, portalProvider: provider, rawPayloadHash, receivedAt: new Date(), requirementType: input.transactionType === "RENT" ? "RENT" : "BUY", transactionType: input.transactionType, assetClass: input.assetClass, preferredLocation: input.locality, minBudget: input.minBudget, maxBudget: input.maxBudget, preferredBhk: input.assetClass === "RESIDENTIAL" ? input.bhk ?? null : null, commercialPropertyType: input.assetClass === "COMMERCIAL" ? input.commercialPropertyType as never : null, minAreaSqft: input.minAreaSqft ?? null, maxAreaSqft: input.maxAreaSqft ?? null } });
+  const lead = await prisma.lead.create({ data: { organizationId, leadCode: `LEAD-PORTAL-${Date.now()}`, clientName: input.name, phone: phone ?? "UNVERIFIED-PORTAL", email: input.email ?? null, source: leadSource(provider), externalLeadId: input.externalLeadId ?? null, externalListingId: input.externalListingId ?? null, portalProvider: provider, rawPayloadHash, receivedAt: new Date(), requirementType: input.transactionType === "RENT" ? "RENT" : "BUY", transactionType: input.transactionType, assetClass: input.assetClass, preferredLocation: input.locality, minBudget: input.minBudget, maxBudget: input.maxBudget, preferredBhk: input.assetClass === "RESIDENTIAL" ? input.bhk ?? null : null, commercialPropertyType: input.assetClass === "COMMERCIAL" ? input.commercialPropertyType as never : null, minAreaSqft: input.minAreaSqft ?? null, maxAreaSqft: input.maxAreaSqft ?? null, customerContactId: existingContact?.id ?? null } });
   await prisma.externalLeadEvent.update({ where: { id: event.id }, data: { leadId: lead.id, ingestionStatus: "RECEIVED" } });
   return { status: "NEW" as const, lead, event: { ...event, leadId: lead.id, ingestionStatus: "RECEIVED" } };
 }

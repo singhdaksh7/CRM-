@@ -14,6 +14,7 @@ const eventCreate = vi.fn();
 const eventUpdate = vi.fn();
 const leadFindMany = vi.fn();
 const leadCreate = vi.fn();
+const customerContactFindUnique = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -26,6 +27,9 @@ vi.mock("@/lib/prisma", () => ({
     lead: {
       findMany: (...a: unknown[]) => leadFindMany(...a),
       create: (...a: unknown[]) => leadCreate(...a),
+    },
+    customerContact: {
+      findUnique: (...a: unknown[]) => customerContactFindUnique(...a),
     },
   },
 }));
@@ -101,6 +105,7 @@ beforeEach(() => {
   eventUpdate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "evt1", ...data }));
   leadFindMany.mockResolvedValue([]);
   leadCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "lead-new", ...data }));
+  customerContactFindUnique.mockResolvedValue(null);
 });
 
 describe("POST /api/integrations/housing/leads", () => {
@@ -220,6 +225,21 @@ describe("POST /api/integrations/housing/leads", () => {
       const res = await POST(makeRequest(validPayload));
       expect(res.status).toBe(400);
       expect(eventCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Demand Pool CustomerContact linkage", () => {
+    it("links a newly-created Lead to an existing CustomerContact on exact normalizedPhone match, without creating a contact", async () => {
+      customerContactFindUnique.mockResolvedValue({ id: "contact-1" });
+      await POST(makeRequest(validPayload));
+      expect(leadCreate.mock.calls[0][0].data.customerContactId).toBe("contact-1");
+      // Read-only lookup: only findUnique is exercised, nothing that could create/update a contact.
+      expect(customerContactFindUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves customerContactId null when no CustomerContact matches", async () => {
+      await POST(makeRequest(validPayload));
+      expect(leadCreate.mock.calls[0][0].data.customerContactId).toBeNull();
     });
   });
 

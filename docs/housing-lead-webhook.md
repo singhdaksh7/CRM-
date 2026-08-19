@@ -4,6 +4,14 @@ This document describes the inbound lead-push webhook Housing.com uses to
 deliver leads to the CRM. Housing calls this endpoint; the CRM never calls
 Housing.
 
+- **CRM Name:** KP Properties CRM
+- **Method:** POST
+- **Endpoint:** `https://crm.kpproperties.co.in/api/integrations/housing/leads`
+- **Content-Type:** `application/json`
+- **Success:** `RECEIVED`
+- **Invalid:** `BAD REQUEST`
+- **Authentication:** No Authentication (by default)
+
 ## Endpoint
 
 ```
