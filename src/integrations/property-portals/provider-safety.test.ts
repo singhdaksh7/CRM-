@@ -114,13 +114,13 @@ describe("registry stays contract-only", () => {
     expect([...PROPERTY_PORTAL_PROVIDERS]).toEqual(["HOUSING", "NINETY_NINE_ACRES", "MAGICBRICKS", "OLX", "SQUARE_CONNECT"]);
   });
 
-  it("declares no AVAILABLE write capability for any provider", () => {
+  it("declares no AVAILABLE write capability for any provider, and no AVAILABLE lead-webhook capability except HOUSING's genuinely-implemented inbound push", () => {
     for (const provider of PROPERTY_PORTAL_PROVIDERS) {
       const capabilities = propertyPortalRegistry[provider];
       expect(capabilities.supportsListingPublish).toBe("PARTNER_ACCESS_REQUIRED");
       expect(capabilities.supportsListingUpdate).toBe("PARTNER_ACCESS_REQUIRED");
       expect(capabilities.supportsListingDeactivate).toBe("PARTNER_ACCESS_REQUIRED");
-      expect(capabilities.supportsLeadWebhook).toBe("PARTNER_ACCESS_REQUIRED");
+      expect(capabilities.supportsLeadWebhook).toBe(provider === "HOUSING" ? "AVAILABLE" : "PARTNER_ACCESS_REQUIRED");
       expect(capabilities.supportsLeadPull).toBe("PARTNER_ACCESS_REQUIRED");
     }
   });

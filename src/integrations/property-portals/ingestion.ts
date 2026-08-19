@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
 import type { PropertyPortalProviderId } from "./registry";
 
-export type CanonicalPortalLead = { externalLeadId?: string; externalEventId?: string; externalListingId?: string; name: string; phone?: string; email?: string; locality: string; minBudget: number; maxBudget: number; assetClass: "RESIDENTIAL" | "COMMERCIAL"; transactionType: "RENT" | "SALE"; bhk?: number; commercialPropertyType?: string; message?: string };
+export type CanonicalPortalLead = { externalLeadId?: string; externalEventId?: string; externalListingId?: string; name: string; phone?: string; email?: string; locality: string; minBudget: number; maxBudget: number; assetClass: "RESIDENTIAL" | "COMMERCIAL"; transactionType: "RENT" | "SALE"; bhk?: number; commercialPropertyType?: string; message?: string; minAreaSqft?: number; maxAreaSqft?: number };
 export type PortalCandidate = { id: string; clientName: string };
 
 /** Pure decision point: ambiguous people are never auto-created or merged. */
@@ -16,7 +16,7 @@ export function resolvePortalLead(candidates: PortalCandidate[]) {
 
 function leadSource(provider: PropertyPortalProviderId) { return provider === "NINETY_NINE_ACRES" ? "ACRES_99" : provider === "HOUSING" ? "HOUSING_COM" : provider; }
 
-export async function ingestPortalLead(organizationId: string, provider: PropertyPortalProviderId, input: CanonicalPortalLead, rawPayload: unknown) {
+export async function ingestPortalLead(organizationId: string, provider: PropertyPortalProviderId, input: CanonicalPortalLead, rawPayload: unknown, snapshot?: Record<string, unknown>) {
   const rawPayloadHash = createHash("sha256").update(JSON.stringify(rawPayload)).digest("hex");
   const existingEvent = input.externalEventId
     ? await prisma.externalLeadEvent.findUnique({ where: { organizationId_provider_externalEventId: { organizationId, provider, externalEventId: input.externalEventId } } })
@@ -31,9 +31,10 @@ export async function ingestPortalLead(organizationId: string, provider: Propert
   const deduped = [...new Map(candidates.map((candidate) => [candidate.id, candidate])).values()];
   const resolution = resolvePortalLead(deduped);
   const linkedLead = resolution === "MATCHED_EXISTING" ? deduped[0] : null;
-  const event = await prisma.externalLeadEvent.create({ data: { organizationId, provider, externalLeadId: input.externalLeadId ?? null, externalEventId: input.externalEventId ?? null, externalListingId: input.externalListingId ?? null, rawPayloadHash, message: input.message?.slice(0, 2000) ?? null, leadId: linkedLead?.id ?? null, ingestionStatus: resolution } });
+  const leadSnapshot = snapshot ? JSON.stringify(snapshot).slice(0, 4000) : null;
+  const event = await prisma.externalLeadEvent.create({ data: { organizationId, provider, externalLeadId: input.externalLeadId ?? null, externalEventId: input.externalEventId ?? null, externalListingId: input.externalListingId ?? null, rawPayloadHash, message: input.message?.slice(0, 2000) ?? null, leadSnapshot, leadId: linkedLead?.id ?? null, ingestionStatus: resolution } });
   if (resolution !== "NEW") return { status: resolution, event, candidates: deduped };
-  const lead = await prisma.lead.create({ data: { organizationId, leadCode: `LEAD-PORTAL-${Date.now()}`, clientName: input.name, phone: phone ?? "UNVERIFIED-PORTAL", email: input.email ?? null, source: leadSource(provider), externalLeadId: input.externalLeadId ?? null, externalListingId: input.externalListingId ?? null, portalProvider: provider, rawPayloadHash, receivedAt: new Date(), requirementType: input.transactionType === "RENT" ? "RENT" : "BUY", transactionType: input.transactionType, assetClass: input.assetClass, preferredLocation: input.locality, minBudget: input.minBudget, maxBudget: input.maxBudget, preferredBhk: input.assetClass === "RESIDENTIAL" ? input.bhk ?? null : null, commercialPropertyType: input.assetClass === "COMMERCIAL" ? input.commercialPropertyType as never : null } });
+  const lead = await prisma.lead.create({ data: { organizationId, leadCode: `LEAD-PORTAL-${Date.now()}`, clientName: input.name, phone: phone ?? "UNVERIFIED-PORTAL", email: input.email ?? null, source: leadSource(provider), externalLeadId: input.externalLeadId ?? null, externalListingId: input.externalListingId ?? null, portalProvider: provider, rawPayloadHash, receivedAt: new Date(), requirementType: input.transactionType === "RENT" ? "RENT" : "BUY", transactionType: input.transactionType, assetClass: input.assetClass, preferredLocation: input.locality, minBudget: input.minBudget, maxBudget: input.maxBudget, preferredBhk: input.assetClass === "RESIDENTIAL" ? input.bhk ?? null : null, commercialPropertyType: input.assetClass === "COMMERCIAL" ? input.commercialPropertyType as never : null, minAreaSqft: input.minAreaSqft ?? null, maxAreaSqft: input.maxAreaSqft ?? null } });
   await prisma.externalLeadEvent.update({ where: { id: event.id }, data: { leadId: lead.id, ingestionStatus: "RECEIVED" } });
   return { status: "NEW" as const, lead, event: { ...event, leadId: lead.id, ingestionStatus: "RECEIVED" } };
 }

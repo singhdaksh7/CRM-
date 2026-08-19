@@ -18,10 +18,18 @@ export interface PropertyPortalCapabilities {
   supportsSale: CapabilityStatus;
 }
 
-/** Contract-only registry: no endpoints, browser automation, or scraping. */
+/**
+ * Contract-only registry: no endpoints, browser automation, or scraping - the
+ * portal never receives an outbound call from this app. The sole exception is
+ * HOUSING's `supportsLeadWebhook`: Housing pushes leads to
+ * `/api/integrations/housing/leads` (this app never calls out to Housing),
+ * so that inbound capability is genuinely implemented and live, unlike every
+ * other capability below which still requires an authorized partner
+ * integration that does not exist yet.
+ */
 export const propertyPortalRegistry: Record<PropertyPortalProviderId, PropertyPortalCapabilities> = Object.fromEntries(
   PROPERTY_PORTAL_PROVIDERS.map((provider) => [provider, {
-    supportsLeadWebhook: "PARTNER_ACCESS_REQUIRED",
+    supportsLeadWebhook: provider === "HOUSING" ? "AVAILABLE" : "PARTNER_ACCESS_REQUIRED",
     supportsLeadPull: "PARTNER_ACCESS_REQUIRED",
     supportsListingPublish: "PARTNER_ACCESS_REQUIRED",
     supportsListingUpdate: "PARTNER_ACCESS_REQUIRED",
