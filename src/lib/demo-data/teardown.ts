@@ -28,6 +28,9 @@ type ModelDelegateKeys =
   | "externalLeadEvent"
   | "portalListing"
   | "propertyPortalConnection"
+  | "propertyRecommendation"
+  | "customerRequirement"
+  | "customerContact"
   | "sharedPropertyLog"
   | "payment"
   | "brokerageCalculation"
@@ -172,6 +175,18 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
   await del("externalLeadEvent", () => tolerateMissingTable(() => prisma.externalLeadEvent.deleteMany({ where: startsWith("portal-evt") })));
   await del("portalListing", () => tolerateMissingTable(() => prisma.portalListing.deleteMany({ where: startsWith("portal-listing") })));
   await del("propertyPortalConnection", () => tolerateMissingTable(() => prisma.propertyPortalConnection.deleteMany({ where: startsWith("portal-conn") })));
+
+  // --- Demand Pool tree (leaf -> root). PropertyRecommendation references
+  // both a demo Property and a demo CustomerContact/Lead - deleted before
+  // either parent below. CustomerRequirement.convertedLeadId is a 1:1 SET
+  // NULL FK to Lead - the requirement is still deleted explicitly (for an
+  // accurate per-model count) before its own demo Lead (kp-demo-dp-lead-*,
+  // NOT covered by the "lead" deletion above, which only matches the
+  // "kp-demo-lead-" prefix leads.ts generates) is removed. ---
+  await del("propertyRecommendation", () => tolerateMissingTable(() => prisma.propertyRecommendation.deleteMany({ where: startsWith("dp-rec") })));
+  await del("customerRequirement", () => tolerateMissingTable(() => prisma.customerRequirement.deleteMany({ where: startsWith("dp-req") })));
+  await del("dpLead", () => tolerateMissingTable(() => prisma.lead.deleteMany({ where: startsWith("dp-lead") })));
+  await del("customerContact", () => tolerateMissingTable(() => prisma.customerContact.deleteMany({ where: startsWith("dp-contact") })));
 
   // --- WhatsApp tree ---
   await del("whatsAppMessage", () =>
@@ -334,6 +349,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     portalOperation, externalLeadEvent, portalListing, propertyPortalConnection,
+    propertyRecommendation, customerRequirement, dpLead, customerContact,
     payment, brokerageCalculation, deal, document,
     visitFeedback, visit, followUp, leadScoreHistory, activity, notification, savedView,
     propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,
@@ -360,6 +376,10 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     countTolerantOfMissingTable(() => client.externalLeadEvent.count({ where: startsWith("portal-evt") })),
     countTolerantOfMissingTable(() => client.portalListing.count({ where: startsWith("portal-listing") })),
     countTolerantOfMissingTable(() => client.propertyPortalConnection.count({ where: startsWith("portal-conn") })),
+    countTolerantOfMissingTable(() => client.propertyRecommendation.count({ where: startsWith("dp-rec") })),
+    countTolerantOfMissingTable(() => client.customerRequirement.count({ where: startsWith("dp-req") })),
+    countTolerantOfMissingTable(() => client.lead.count({ where: startsWith("dp-lead") })),
+    countTolerantOfMissingTable(() => client.customerContact.count({ where: startsWith("dp-contact") })),
     client.payment.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
     client.brokerageCalculation.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
     client.deal.count({ where: startsWith("deal") }),
@@ -408,6 +428,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
     portalOperation, externalLeadEvent, portalListing, propertyPortalConnection,
+    propertyRecommendation, customerRequirement, dpLead, customerContact,
     payment, brokerageCalculation, deal, document,
     visitFeedback, visit, followUp, leadScoreHistory, activity, notification, savedView,
     propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,

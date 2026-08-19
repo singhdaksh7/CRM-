@@ -19,6 +19,7 @@ const MODEL_NAMES = [
   "catalogueInteraction", "catalogueShareProperty", "catalogueVersionEvent", "catalogueShare",
   "whatsAppMessage", "whatsAppConversation", "sharedPropertyLog",
   "portalOperation", "externalLeadEvent", "portalListing", "propertyPortalConnection",
+  "propertyRecommendation", "customerRequirement", "customerContact",
   "payment", "brokerageCalculation", "deal", "document",
   "visitFeedback", "visitProperty", "visit", "followUp", "leadScoreHistory", "activity", "notification", "savedView",
   "propertyAvailabilityReport", "propertyReport", "propertyFavorite", "propertyViewLog", "propertyImage",
