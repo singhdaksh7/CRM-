@@ -93,7 +93,15 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
           <h1 className="text-xl font-bold text-[#1B2430]">Property Visits</h1>
           <p className="text-sm text-[#596579]">{isAllTab ? totalCount : visits.length} visits</p>
         </div>
-        {canManage && <ScheduleVisitModal leads={leads} properties={properties} employees={employees} />}
+        {canManage && (
+          <ScheduleVisitModal
+            leads={leads}
+            properties={properties}
+            employees={employees}
+            initialLeadId={sp.leadId}
+            initialPropertyId={sp.propertyId}
+          />
+        )}
       </div>
 
       {canManage && (

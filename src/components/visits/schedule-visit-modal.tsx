@@ -8,11 +8,24 @@ import { Field, Input, Select } from "@/components/ui/form";
 import { Plus, X } from "lucide-react";
 import type { Lead, Property, User } from "@prisma/client";
 
-export function ScheduleVisitModal({ leads, properties, employees }: { leads: Lead[]; properties: Property[]; employees: User[] }) {
+export function ScheduleVisitModal({
+  leads,
+  properties,
+  employees,
+  initialLeadId,
+  initialPropertyId,
+}: {
+  leads: Lead[];
+  properties: Property[];
+  employees: User[];
+  /** Deep-linked from the Demand Pool "Schedule Visit" bridge (VISIT_REQUESTED response) - opens this modal pre-filled instead of auto-creating a visit. */
+  initialLeadId?: string;
+  initialPropertyId?: string;
+}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(initialLeadId || initialPropertyId));
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ leadId: "", propertyId: "", assignedToId: "", visitDate: "", visitTime: "11:00", meetingLocation: "" });
+  const [form, setForm] = useState({ leadId: initialLeadId ?? "", propertyId: initialPropertyId ?? "", assignedToId: "", visitDate: "", visitTime: "11:00", meetingLocation: "" });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

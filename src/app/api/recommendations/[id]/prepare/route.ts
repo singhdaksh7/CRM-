@@ -21,6 +21,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       include: { property: true, customerContact: true, lead: true },
     });
     if (!recommendation) throw new ApiError(404, "Recommendation not found");
+    if (recommendation.customerContact?.doNotContact || recommendation.customerContact?.status === "DO_NOT_CONTACT") {
+      throw new ApiError(409, "This contact is marked Do Not Contact - a recommendation cannot be prepared for them");
+    }
+    if (recommendation.customerContact?.whatsAppOptOut) {
+      throw new ApiError(409, "This contact has opted out of WhatsApp - a recommendation cannot be prepared for them");
+    }
 
     const recipientName = recommendation.customerContact?.name ?? recommendation.lead?.clientName ?? "there";
     const recipientPhone = recommendation.customerContact?.phone ?? recommendation.lead?.phone ?? null;

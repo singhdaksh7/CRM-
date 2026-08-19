@@ -122,8 +122,12 @@ export function MatchedCustomersPanel({
     if (ids.length === 0) return;
     setBusy(true);
     try {
-      const first = await demandPoolApi.prepareRecommendation(ids[0]);
-      setPrepared(first);
+      // Every selected recommendation must reach PREPARED (mark-sent only
+      // accepts prepared, currently-contactable rows) - prepare each one,
+      // but only the first supplies the editable template shown in the
+      // preview modal.
+      const results = await Promise.all(ids.map((id) => demandPoolApi.prepareRecommendation(id)));
+      setPrepared(results[0]);
       setPreviewOpen(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not prepare recommendation");

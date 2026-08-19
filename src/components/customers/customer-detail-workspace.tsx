@@ -208,6 +208,14 @@ export function CustomerDetailWorkspace({
                   {rec.property ? `${rec.property.title} · ${rec.property.area}` : "Property"}
                 </p>
                 <MatchExplanation tier={rec.tier} score={rec.score} reasons={rec.reasons} />
+                {canManage && rec.responseOutcome === "VISIT_REQUESTED" && (contact.leads ?? []).length > 0 && (
+                  <Link
+                    href={`/visits?leadId=${contact.leads![0].id}&propertyId=${rec.propertyId}`}
+                    className="inline-flex w-fit items-center rounded-lg bg-[#3366FF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2952CC]"
+                  >
+                    Schedule Visit
+                  </Link>
+                )}
                 {canManage && rec.status === "SENT" && !rec.responseOutcome && (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                     <label className="flex-1 text-xs font-semibold uppercase tracking-wider text-[#596579]">
