@@ -5,7 +5,20 @@
  * -> entity-search.ts for the pipeline.
  */
 
-export type SearchEntityType = "LEAD" | "PROPERTY" | "PORTAL" | "EMPLOYEE" | "VISIT" | "FOLLOW_UP" | "DOCUMENT" | "DEAL" | "PAYMENT" | "CATALOGUE" | "NOTIFICATION";
+export type SearchEntityType =
+  | "LEAD"
+  | "PROPERTY"
+  | "PORTAL"
+  | "EMPLOYEE"
+  | "VISIT"
+  | "FOLLOW_UP"
+  | "DOCUMENT"
+  | "DEAL"
+  | "PAYMENT"
+  | "CATALOGUE"
+  | "NOTIFICATION"
+  | "CUSTOMER"
+  | "REQUIREMENT";
 
 export const ALL_SEARCH_ENTITY_TYPES: SearchEntityType[] = [
   "LEAD",
@@ -19,6 +32,8 @@ export const ALL_SEARCH_ENTITY_TYPES: SearchEntityType[] = [
   "PAYMENT",
   "CATALOGUE",
   "NOTIFICATION",
+  "CUSTOMER",
+  "REQUIREMENT",
 ];
 
 /** A removable filter pill shown in the search UI - purely a rendering of what the parser understood. */

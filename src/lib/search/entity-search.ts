@@ -176,6 +176,19 @@ async function searchNotifications(parsed: ReturnType<typeof parseSearchQuery>, 
   return rows.map((n) => ({ entity: "NOTIFICATION", id: n.id, title: n.title, subtitle: n.message, href: n.leadId ? `/leads/${n.leadId}` : n.propertyId ? `/properties/${n.propertyId}` : "/notifications" }));
 }
 
+/**
+ * Customer / requirement searchers are intentionally empty until the backend
+ * Demand Pool Prisma models land on this branch. The UI already renders
+ * CUSTOMER / REQUIREMENT result shapes when the API returns them.
+ */
+async function searchCustomers(): Promise<SearchResultItem[]> {
+  return [];
+}
+
+async function searchRequirements(): Promise<SearchResultItem[]> {
+  return [];
+}
+
 const ENTITY_SEARCHERS: Record<SearchEntityType, (parsed: ReturnType<typeof parseSearchQuery>, ctx: SearchContext) => Promise<SearchResultItem[]>> = {
   LEAD: searchLeads,
   PROPERTY: searchProperties,
@@ -188,6 +201,8 @@ const ENTITY_SEARCHERS: Record<SearchEntityType, (parsed: ReturnType<typeof pars
   PAYMENT: searchPayments,
   CATALOGUE: searchCatalogues,
   NOTIFICATION: searchNotifications,
+  CUSTOMER: searchCustomers,
+  REQUIREMENT: searchRequirements,
 };
 
 /** Runs the search: parses the query, then queries only the relevant entity/entities (bounded, org/role-scoped). */
