@@ -145,6 +145,8 @@ describe("R2StorageProvider - client configuration", () => {
         endpoint: "https://acct123.r2.cloudflarestorage.com",
         forcePathStyle: false,
         credentials: { accessKeyId: "test-access-key", secretAccessKey: "super-secret-value" },
+        requestChecksumCalculation: "WHEN_REQUIRED",
+        responseChecksumValidation: "WHEN_REQUIRED",
       })
     );
   });

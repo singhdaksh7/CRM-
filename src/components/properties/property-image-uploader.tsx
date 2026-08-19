@@ -7,6 +7,7 @@ import { ProgressBar } from "@/components/ui/progress";
 import { useStorageCapabilities } from "@/components/storage/use-storage-capabilities";
 import { StorageDisabledState } from "@/components/storage/storage-disabled-state";
 import { optimizePropertyImageFile } from "@/lib/client-image-optimize";
+import { describeDirectUploadFailure } from "@/lib/direct-upload-errors";
 import { cn } from "@/lib/utils";
 
 type QueueStatus = "waiting" | "optimizing" | "authorizing" | "uploading" | "confirming" | "uploaded" | "failed" | "removed";
@@ -128,9 +129,9 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error(`Direct upload failed (${xhr.status})`));
+          else reject(new Error(describeDirectUploadFailure(xhr.status)));
         };
-        xhr.onerror = () => reject(new Error("Upload failed. Please try again."));
+        xhr.onerror = () => reject(new Error("Upload failed before a storage response (often CORS or a blocked network request). Please try again."));
         xhr.send(optimized.blob);
       });
 

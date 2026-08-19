@@ -19,6 +19,9 @@ const R2_DEFAULT_TTL_SECONDS = 300; // 5 minutes - matches the S3 provider's def
  *   path-style addressing).
  * - Signed-URL TTL defaults to R2_SIGNED_URL_EXPIRY_SECONDS (falling back to
  *   300s) rather than the base class's hardcoded default.
+ * - Inherits S3Client requestChecksumCalculation=WHEN_REQUIRED from the base
+ *   class so browser presigned PUTs do not require CRC32 query/header pairs
+ *   that the client never sends.
  */
 export class R2StorageProvider extends S3StorageProvider {
   readonly name = "R2" as const;
