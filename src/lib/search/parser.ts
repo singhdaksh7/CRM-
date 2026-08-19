@@ -36,6 +36,13 @@ const ENTITY_PHRASES: { phrase: string; entity: SearchEntityType }[] = [
   { phrase: "notification", entity: "NOTIFICATION" },
   { phrase: "leads", entity: "LEAD" },
   { phrase: "lead", entity: "LEAD" },
+  { phrase: "customers", entity: "CONTACT" },
+  { phrase: "customer", entity: "CONTACT" },
+  { phrase: "contacts", entity: "CONTACT" },
+  { phrase: "contact", entity: "CONTACT" },
+  { phrase: "requirements", entity: "REQUIREMENT" },
+  { phrase: "requirement", entity: "REQUIREMENT" },
+  { phrase: "demand pool", entity: "CONTACT" },
 ];
 
 const LEAD_STATUS_WORDS = ["new", "contacted", "qualified", "properties shared", "visit scheduled", "visit completed", "negotiation", "closed won", "closed lost", "not interested", "invalid"];

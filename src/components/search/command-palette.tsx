@@ -19,6 +19,7 @@ interface StaticAction {
 
 const STATIC_ACTIONS: StaticAction[] = [
   { id: "create-lead", label: "Create Lead", href: "/leads?add=true", icon: UserPlus, keywords: "create new lead add", roles: ["ADMIN", "DATA_MANAGER"] },
+  { id: "open-customers", label: "Open Customers", href: "/customers", icon: Users, keywords: "customers demand pool contacts requirements" },
   { id: "create-property", label: "Create Property", href: "/properties?add=true", icon: Building2, keywords: "create new property add listing", roles: ["ADMIN", "DATA_MANAGER"] },
   { id: "create-visit", label: "Create Visit", href: "/visits?add=true", icon: CalendarPlus, keywords: "create schedule new visit" },
   { id: "open-reports", label: "Open Reports", href: "/reports", icon: BarChart3, keywords: "open reports analytics" },

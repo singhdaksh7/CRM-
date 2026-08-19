@@ -7,6 +7,21 @@ import { recordAudit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 
 /**
+ * Cheap, no-network config check any signed-in role can call before
+ * offering Copy/Open WhatsApp actions in the Demand Pool UI. Reads env vars
+ * only - never calls Meta's API and never exposes credentials.
+ */
+export async function GET() {
+  try {
+    await requireSession();
+    const status = getWhatsAppConfigStatus();
+    return NextResponse.json({ configured: status.provider !== "MOCK", providerConfigured: status.provider !== "MOCK", provider: status.provider, status: status.provider });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+/**
  * Admin-only WhatsApp diagnostics. Confirms configuration and (for
  * META_CLOUD) that the access token/phone-number-id/business-account-id are
  * actually accepted by Meta's Graph API - all via read-only GET calls, never

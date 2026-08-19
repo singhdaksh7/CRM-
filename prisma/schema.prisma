@@ -603,6 +603,7 @@ enum ImportEntityType {
   LEADS
   OWNERS
   EMPLOYEES
+  CONTACTS
 }
 
 enum ImportStatus {
@@ -782,6 +783,9 @@ model Organization {
   matchRecommendations        MatchRecommendation[]
   accountSetupTokens          AccountSetupToken[]
   passwordResetTokens         PasswordResetToken[]
+  customerContacts            CustomerContact[]
+  customerRequirements        CustomerRequirement[]
+  propertyRecommendations     PropertyRecommendation[]
 
   @@map("organizations")
 }
@@ -877,6 +881,10 @@ model User {
   matchRecommendations            MatchRecommendation[]
   accountSetupTokens              AccountSetupToken[]
   passwordResetTokens             PasswordResetToken[]
+  customerContactsCreated          CustomerContact[]         @relation("CustomerContactCreatedBy")
+  customerRequirementsCreated      CustomerRequirement[]     @relation("CustomerRequirementCreatedBy")
+  propertyRecommendationsCreated   PropertyRecommendation[]  @relation("PropertyRecommendationCreatedBy")
+  propertyRecommendationsResponded PropertyRecommendation[]  @relation("PropertyRecommendationRespondedBy")
 
   @@map("users")
 }
@@ -1146,6 +1154,7 @@ model Property {
   favoritedBy              PropertyFavorite[]
   viewLogs                 PropertyViewLog[]
   portalListings           PortalListing[]
+  demandRecommendations    PropertyRecommendation[]
 
   @@index([ownerId])
   @@index([organizationId, status])
@@ -1218,24 +1227,35 @@ model Lead {
   nextFollowUpAt  DateTime?
   notes           String?
 
+  // Demand pool linkage (Phase: Demand Pool + Matching) - when this Lead
+  // originated from (or was later linked to) a long-term CustomerContact,
+  // never a duplicate identity. See CustomerContact.leads.
+  customerContactId String?
+  customerContact   CustomerContact? @relation("LeadCustomerContact", fields: [customerContactId], references: [id])
+  // Set only when this Lead was created via [Create Lead from Requirement];
+  // the inverse FK lives on CustomerRequirement.convertedLeadId (1:1).
+  convertedFromRequirement CustomerRequirement? @relation("LeadFromRequirement")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  activities            Activity[]
-  followUps             FollowUp[]
-  visits                Visit[]
-  sharedProperties      SharedPropertyLog[]
-  transfers             LeadTransfer[]
-  scoreHistory          LeadScoreHistory[]
-  whatsappConversations WhatsAppConversation[]
-  catalogueShares       CatalogueShare[]
-  deals                 Deal[]
-  documents             Document[]
-  assignmentHistory     LeadAssignmentHistory[]
-  requirementBroadcasts RequirementBroadcast[]
-  matchRecommendations  MatchRecommendation[]
-  externalLeadEvents    ExternalLeadEvent[]
+  activities              Activity[]
+  followUps               FollowUp[]
+  visits                  Visit[]
+  sharedProperties        SharedPropertyLog[]
+  transfers               LeadTransfer[]
+  scoreHistory            LeadScoreHistory[]
+  whatsappConversations   WhatsAppConversation[]
+  catalogueShares         CatalogueShare[]
+  deals                   Deal[]
+  documents               Document[]
+  assignmentHistory       LeadAssignmentHistory[]
+  requirementBroadcasts   RequirementBroadcast[]
+  matchRecommendations    MatchRecommendation[]
+  externalLeadEvents      ExternalLeadEvent[]
+  propertyRecommendations PropertyRecommendation[] @relation("PropertyRecommendationLead")
 
+  @@index([organizationId, customerContactId])
   @@index([organizationId, phone])
   @@index([organizationId, assignedToId])
   @@index([organizationId, assetClass, transactionType])
@@ -2434,6 +2454,8 @@ model RestoreValidation {
 enum SavedViewEntityType {
   LEAD
   PROPERTY
+  CONTACT
+  REQUIREMENT
 }
 
 /**
@@ -2759,4 +2781,213 @@ model PropertyViewLog {
 
   @@index([userId, viewedAt])
   @@map("property_view_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Demand Pool + Customer Requirements + Two-Way Matching
+// ---------------------------------------------------------------------------
+
+enum ContactStatus {
+  ACTIVE
+  INACTIVE
+  DO_NOT_CONTACT
+  ARCHIVED
+}
+
+/// Long-term customer/prospect demand pool, distinct from the active Lead
+/// pipeline: KP's ~5,000+ historical customer database should not be forced
+/// into Lead just to remain matchable against new inventory. A contact can
+/// later be linked to / converted into a Lead without duplicating identity
+/// - see Lead.customerContactId and CustomerRequirement.convertedLeadId.
+model CustomerContact {
+  id                 String        @id @default(cuid())
+  organizationId     String        @default("org_default")
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name               String
+  phone              String
+  // Dedupe key: normalizeIndianPhone(phone). Unique per org so a re-import
+  // or manual re-entry of the same person reuses the existing Contact
+  // instead of creating a duplicate identity.
+  normalizedPhone    String
+  email              String?
+  source             LeadSource    @default(MANUAL)
+  notes              String?
+  tags               String        @default("[]") // JSON string array
+  status             ContactStatus @default(ACTIVE)
+  doNotContact       Boolean       @default(false)
+  whatsAppOptOut     Boolean       @default(false)
+  lastContactedAt    DateTime?
+  lastPropertySentAt DateTime?
+  createdById        String?
+  createdBy          User?         @relation("CustomerContactCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  requirements    CustomerRequirement[]
+  recommendations PropertyRecommendation[]
+  leads           Lead[]                   @relation("LeadCustomerContact")
+
+  @@unique([organizationId, normalizedPhone])
+  @@index([organizationId, status])
+  @@index([organizationId, email])
+  @@map("customer_contacts")
+}
+
+enum CustomerRequirementPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+/// A single reusable requirement belonging to a CustomerContact. One contact
+/// may hold multiple active requirements at once (e.g. a residential rent
+/// need and a separate commercial sale need). Deliberately reuses the same
+/// AssetClass/TransactionType/PropertyType/CommercialFitOut enums as
+/// Property/Lead rather than declaring parallel ones, so the matching engine
+/// never has to translate between two enum universes. Commercial
+/// requirements never depend on `bhk` (left null), matching the same
+/// convention already established on Property/Lead.
+model CustomerRequirement {
+  id                     String               @id @default(cuid())
+  organizationId         String               @default("org_default")
+  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerContactId      String
+  customerContact        CustomerContact      @relation(fields: [customerContactId], references: [id], onDelete: Cascade)
+
+  assetClass             AssetClass           @default(RESIDENTIAL)
+  transactionType        TransactionType      @default(RENT)
+  propertyType           PropertyType?
+  commercialPropertyType PropertyType?
+  // JSON string array of locality names - mirrors Lead.preferredLocation
+  // being a single string, but a requirement may legitimately span more
+  // than one acceptable locality.
+  preferredLocalities    String               @default("[]")
+  minBudget              Int?
+  maxBudget              Int?
+  minArea                Int?
+  maxArea                Int?
+  bhk                    Int?
+  floorPreference        String?
+  furnishing             FurnishingStatus?
+  parkingRequired        Boolean?
+  liftRequired           Boolean?
+  commercialFitOutPref   CommercialFitOut?
+  workstations           Int?
+  cabins                 Int?
+  possession             String?
+  notes                  String?
+  active                 Boolean              @default(true)
+  priority               CustomerRequirementPriority @default(MEDIUM)
+  // Bumped by [Mark Requirement Confirmed]; a requirement older than
+  // SystemConfig.requirementStaleAfterDays is excluded from automatic
+  // matching (still searchable) until re-confirmed. See REQUIREMENT_EXPIRY.
+  lastConfirmedAt        DateTime             @default(now())
+  createdById            String?
+  createdBy              User?                @relation("CustomerRequirementCreatedBy", fields: [createdById], references: [id])
+  // 1:1 - set once this requirement was used to create a Lead via
+  // [Create Lead from Requirement]; prevents creating a second Lead from the
+  // same requirement.
+  convertedLeadId        String?              @unique
+  convertedLead          Lead?                @relation("LeadFromRequirement", fields: [convertedLeadId], references: [id])
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  recommendations PropertyRecommendation[]
+
+  @@index([organizationId, active, assetClass, transactionType])
+  @@index([customerContactId])
+  @@map("customer_requirements")
+}
+
+enum RecommendationTier {
+  EXACT
+  STRONG
+  STRETCH
+  LOW
+}
+
+enum RecommendationStatus {
+  PENDING
+  REVIEWED
+  IGNORED
+  PREPARED
+  SENT
+  RESPONDED
+  EXPIRED
+}
+
+enum DemandCandidateSource {
+  CONTACT
+  LEAD
+}
+
+enum CustomerResponseOutcome {
+  INTERESTED
+  NOT_INTERESTED
+  VISIT_REQUESTED
+  BUDGET_TOO_HIGH
+  LOCATION_NOT_SUITABLE
+  ALREADY_PURCHASED
+  DO_NOT_CONTACT
+}
+
+/// Property -> demand match record, produced by the two-way matching engine
+/// (src/lib/demand-matching.ts) for both directions (a Property's matched
+/// customers, and a CustomerRequirement's matching properties are both just
+/// queries over this same table). Exactly one of customerContactId / leadId
+/// is set, mirrored by `source`, so CONTACT-pool and LEAD-pool candidates
+/// normalize into one unified list.
+///
+/// `candidateKey` (`CONTACT:<id>` or `LEAD:<id>`) exists purely so the
+/// unique index below actually enforces idempotency: Postgres treats two
+/// NULLs as distinct in a composite unique constraint, so uniquing directly
+/// on the nullable (customerContactId, leadId) pair would silently allow
+/// duplicate rows for the LEAD-sourced half of the table.
+///
+/// Nothing in this model is ever set to SENT by a background job or an
+/// automatic recompute - see ZERO AUTO-SEND. PREPARED/SENT only ever result
+/// from an explicit user action in the API layer.
+model PropertyRecommendation {
+  id             String       @id @default(cuid())
+  organizationId String       @default("org_default")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  source            DemandCandidateSource
+  candidateKey      String
+  customerContactId String?
+  customerContact   CustomerContact?     @relation(fields: [customerContactId], references: [id], onDelete: Cascade)
+  leadId            String?
+  lead              Lead?                @relation("PropertyRecommendationLead", fields: [leadId], references: [id], onDelete: Cascade)
+  requirementId     String?
+  requirement       CustomerRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+
+  tier    RecommendationTier
+  score   Int
+  reasons String             @default("[]") // JSON string array of human-readable explanation lines
+  status  RecommendationStatus @default(PENDING)
+
+  preparedAt        DateTime?
+  sentAt             DateTime?
+  channel            String? // e.g. "WHATSAPP_CLICK_TO_CHAT", "WHATSAPP_META"
+  providerMessageId  String?
+  createdById        String?
+  createdBy          User?    @relation("PropertyRecommendationCreatedBy", fields: [createdById], references: [id])
+
+  responseOutcome CustomerResponseOutcome?
+  respondedAt     DateTime?
+  respondedById   String?
+  respondedBy     User?     @relation("PropertyRecommendationRespondedBy", fields: [respondedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, propertyId, candidateKey])
+  @@index([organizationId, propertyId, tier])
+  @@index([organizationId, customerContactId])
+  @@index([organizationId, leadId])
+  @@index([organizationId, status])
+  @@map("property_recommendations")
 }

@@ -101,6 +101,12 @@ export interface SystemConfigValues {
   maxImagesPerProperty: number;
   /** ACTIVE - soft org storage budget in bytes (enforced as a hook; 0 = unlimited). */
   maxStorageBytes: number;
+  /** ACTIVE (Demand Pool) - src/lib/demand-matching.ts MatchTierConfig.budgetStretchPct (fraction). How far above a requirement's max budget a property may still be scored (STRETCH tier) instead of excluded. */
+  propertyMatchBudgetStretchPct: number;
+  /** ACTIVE (Demand Pool) - src/lib/demand-recommendations.ts contact-frequency-safety gate: minimum days before the same contact/lead may be recommended another property. */
+  minimumDaysBetweenPropertyRecommendations: number;
+  /** ACTIVE (Demand Pool) - src/lib/demand-matching.ts staleness gate: a CustomerRequirement whose lastConfirmedAt is older than this is excluded from automatic matching until re-confirmed. */
+  requirementStaleAfterDays: number;
 }
 
 /** Keys the Settings UI must render read-only with a "Not active yet" badge - see the FUTURE section of the matrix above. Exported so the UI and this module can never drift apart on which fields are real. */
@@ -140,6 +146,9 @@ export const DEFAULT_SYSTEM_CONFIG: SystemConfigValues = {
   freshnessStaleDays: 60,
   maxImagesPerProperty: 25,
   maxStorageBytes: 0,
+  propertyMatchBudgetStretchPct: 0.2,
+  minimumDaysBetweenPropertyRecommendations: 7,
+  requirementStaleAfterDays: 180,
 };
 
 /** Deep-merges a partial config blob (as stored in SystemConfig.values) over the defaults - never trusts the stored blob to have every key. */

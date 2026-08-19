@@ -46,6 +46,7 @@ import { createDemoPhase5Scenarios } from "../src/lib/demo-data/phase5";
 import { createDemoPhase8Inbox } from "../src/lib/demo-data/phase8";
 import { createDemoPortalScenarios } from "../src/lib/demo-data/portals";
 import { createDemoPropertyMedia } from "../src/lib/demo-data/property-media";
+import { createDemoDemandPool } from "../src/lib/demo-data/demand-pool";
 import { runVerification } from "../src/lib/demo-data/verify";
 import { recalculateLeadScore } from "../src/lib/scoring";
 import { matchPropertiesToLead } from "../src/lib/matching";
@@ -168,6 +169,9 @@ async function main() {
   console.log("[seed-demo] Creating deterministic MOCK-only property-portal scenarios (connections, ingestion states, listings, conflicts, retry/dead-letter) - zero provider calls...");
   const portals = await createDemoPortalScenarios(employees.admin);
 
+  console.log("[seed-demo] Creating deterministic demand-pool scenarios (contacts, requirements, two-way matching, WhatsApp-ready recommendations) - zero WhatsApp sends...");
+  const demandPool = await createDemoDemandPool(properties.all, employees.admin);
+
   console.log("[seed-demo] Re-computing lead-property matches against what was actually written (should be identical to the pre-write projection above)...");
   const availableProperties = properties.all.filter((p) => p.status === "AVAILABLE");
   let totalMatchPairs = 0;
@@ -201,7 +205,8 @@ async function main() {
     visitFeedback.all.length + propertyIssues.availabilityReports.length + propertyIssues.propertyReports.length +
     catalogueEngagement.versionEventCount + propertyEngagement.favorites.length + propertyEngagement.viewLogs.length +
     phase5.dealOffers + phase5.broadcasts + phase5.broadcastRecipients + phase5.matchRecommendations + phase5.preparedWhatsAppMessages + phase8.conversations + phase8.messages +
-    portals.connections + portals.commercialProperties + portals.leads + portals.events + portals.listings + portals.operations;
+    portals.connections + portals.commercialProperties + portals.leads + portals.events + portals.listings + portals.operations +
+    demandPool.contacts.length + demandPool.requirements.length + demandPool.recommendations.length;
 
   console.log("\n========================================");
   console.log(" KP Properties - Demo Seed Complete");
@@ -237,6 +242,9 @@ async function main() {
   console.log(`Portal listings:           ${portals.listings} (target ${DEMO_SEED_PLAN.portalListings})`);
   console.log(`Portal operations:         ${portals.operations} (target ${DEMO_SEED_PLAN.portalOperations})`);
   console.log(`Portal scenarios covered:  ${portals.scenarios.join(", ")}`);
+  console.log(`Demand pool contacts:      ${demandPool.contacts.length} (target ${DEMO_SEED_PLAN.demandPoolContacts})`);
+  console.log(`Demand pool requirements:  ${demandPool.requirements.length} (target ${DEMO_SEED_PLAN.demandPoolRequirements})`);
+  console.log(`Demand pool recommendations: ${demandPool.recommendations.length} (target ${DEMO_SEED_PLAN.demandPoolRecommendations}, zero WhatsApp sends)`);
   console.log(`Total records inserted:    ${totalRecords}`);
   console.log(`Lead-property match pairs: ${totalMatchPairs} (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches})`);
   console.log(`Leads outside ${minMatch}-${maxMatch} match range: ${leadsOutsideTargetRange.length === 0 ? "none" : JSON.stringify(leadsOutsideTargetRange)}`);
@@ -278,6 +286,14 @@ async function main() {
     ["Portal operation", portals.operations, DEMO_SEED_PLAN.portalOperations],
   ];
   for (const [label, actual, target] of portalExpectations) {
+    if (actual !== target) problems.push(`${label} count is ${actual}, expected ${target}.`);
+  }
+  const demandPoolExpectations: [string, number, number][] = [
+    ["Demand pool contact", demandPool.contacts.length, DEMO_SEED_PLAN.demandPoolContacts],
+    ["Demand pool requirement", demandPool.requirements.length, DEMO_SEED_PLAN.demandPoolRequirements],
+    ["Demand pool recommendation", demandPool.recommendations.length, DEMO_SEED_PLAN.demandPoolRecommendations],
+  ];
+  for (const [label, actual, target] of demandPoolExpectations) {
     if (actual !== target) problems.push(`${label} count is ${actual}, expected ${target}.`);
   }
 

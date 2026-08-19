@@ -368,3 +368,34 @@ export async function checkPortalEnumCompatibility(client: RawQueryClient): Prom
   const missing = REQUIRED_PORTAL_ENUM_VALUES.filter((value) => !present.has(value));
   return { ok: missing.length === 0, missing: [...missing] };
 }
+
+/** Demand Pool + Customer Requirements + Two-Way Matching (see prisma/manual-migrations/2026-08-19-demand-pool-matching.sql). Every column the demo seeder writes to across the two new tables, one new join/history table, and the one nullable FK column on leads. */
+export const REQUIRED_DEMAND_POOL_COLUMNS: readonly RequiredColumn[] = [
+  { table: "leads", column: "customerContactId" },
+  { table: "customer_contacts", column: "normalizedPhone" },
+  { table: "customer_contacts", column: "status" },
+  { table: "customer_contacts", column: "doNotContact" },
+  { table: "customer_contacts", column: "whatsAppOptOut" },
+  { table: "customer_contacts", column: "lastContactedAt" },
+  { table: "customer_contacts", column: "lastPropertySentAt" },
+  { table: "customer_requirements", column: "customerContactId" },
+  { table: "customer_requirements", column: "assetClass" },
+  { table: "customer_requirements", column: "transactionType" },
+  { table: "customer_requirements", column: "active" },
+  { table: "customer_requirements", column: "lastConfirmedAt" },
+  { table: "customer_requirements", column: "convertedLeadId" },
+  { table: "property_recommendations", column: "propertyId" },
+  { table: "property_recommendations", column: "source" },
+  { table: "property_recommendations", column: "candidateKey" },
+  { table: "property_recommendations", column: "tier" },
+  { table: "property_recommendations", column: "status" },
+];
+
+export async function checkDemandPoolSchemaCompatibility(client: RawQueryClient) {
+  return checkCatalogueSchemaCompatibility(client, REQUIRED_DEMAND_POOL_COLUMNS);
+}
+
+export const REQUIRED_DEMAND_POOL_ENUM_TYPES = ["ContactStatus", "CustomerRequirementPriority", "RecommendationTier", "RecommendationStatus", "DemandCandidateSource", "CustomerResponseOutcome"] as const;
+export async function checkDemandPoolEnumTypesExist(client: RawQueryClient) {
+  return checkPhase4EnumTypesExist(client, REQUIRED_DEMAND_POOL_ENUM_TYPES);
+}
