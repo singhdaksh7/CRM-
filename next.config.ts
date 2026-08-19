@@ -1,40 +1,27 @@
 import type { NextConfig } from "next";
+import { buildContentSecurityPolicy } from "./src/lib/csp";
 
 // Phase 3J - production security headers. Applied via Next's built-in
 // header injection (works for both `next dev` and `next start`/Docker), not
 // application code, so every route gets these without per-route wiring.
 //
-// CSP note: `script-src` includes 'unsafe-inline' because Next.js App
-// Router injects a small inline bootstrap/hydration script on every page;
-// tightening this to a nonce-based policy is a real follow-up (see
-// SECURITY.md) but wasn't done here since it can't be visually verified
-// without a browser in this environment, and a broken CSP would silently
-// break the whole app's client-side interactivity.
-const CSP = [
-  "default-src 'self'",
-  "img-src 'self' data: https://images.unsplash.com",
-  "style-src 'self' 'unsafe-inline'",
-  "script-src 'self' 'unsafe-inline'",
-  "font-src 'self' data:",
-  "connect-src 'self'",
-  "frame-ancestors 'self'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  // Phase 4 - PWA: required for the hand-written service worker
-  // (public/sw.js) to register, and for the browser to fetch manifest.json.
-  "worker-src 'self'",
-  "manifest-src 'self'",
-].join("; ");
+// When STORAGE_PROVIDER=R2, connect-src / img-src also allow the configured
+// R2 S3 API origin so browser direct/presigned uploads and signed image loads
+// are not blocked. Origin is derived from R2_ENDPOINT (or R2_ACCOUNT_ID) -
+// never from request input. See src/lib/csp.ts. Requires R2_* env available
+// at `next build` (Vercel Production env) so the header is baked correctly.
 
-const securityHeaders = [
-  { key: "X-Frame-Options", value: "SAMEORIGIN" },
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  { key: "X-DNS-Prefetch-Control", value: "on" },
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-  { key: "Content-Security-Policy", value: CSP },
-];
+function buildSecurityHeaders() {
+  return [
+    { key: "X-Frame-Options", value: "SAMEORIGIN" },
+    { key: "X-Content-Type-Options", value: "nosniff" },
+    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+    { key: "X-DNS-Prefetch-Control", value: "on" },
+    { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+    { key: "Content-Security-Policy", value: buildContentSecurityPolicy(process.env) },
+  ];
+}
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -45,7 +32,7 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      { source: "/:path*", headers: securityHeaders },
+      { source: "/:path*", headers: buildSecurityHeaders() },
       // API responses may contain PII/financial data - never let a browser
       // or intermediate proxy cache them. Public catalogue/webhook routes
       // are momentary/write-mostly and equally shouldn't be cached.
