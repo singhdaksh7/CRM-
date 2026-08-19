@@ -26,6 +26,16 @@ WITH enum_operation_status AS (
   SELECT count(c.column_name) = 15 AND bool_and(coalesce(c.data_type = e.data_type AND c.is_nullable = e.nullable, false)) AS ok
   FROM operations_columns_expected e LEFT JOIN information_schema.columns c
     ON c.table_schema = current_schema() AND c.table_name = 'portal_operations' AND c.column_name = e.name
+), defaults_expected(table_name, column_name, expected_default) AS (
+  VALUES ('portal_listings','payloadVersion','1'),
+    ('portal_operations','organizationId','''org_default''::text'),
+    ('portal_operations','status','''PENDING''::"PortalOperationStatus"'),
+    ('portal_operations','attemptCount','0'),
+    ('portal_operations','createdAt','CURRENT_TIMESTAMP')
+), defaults_check AS (
+  SELECT count(*) = 5 AND bool_and(c.column_default = e.expected_default) AS ok
+  FROM defaults_expected e LEFT JOIN information_schema.columns c
+    ON c.table_schema = current_schema() AND c.table_name = e.table_name AND c.column_name = e.column_name
 ), pk_check AS (
   SELECT count(*) FILTER (WHERE constraint_name = 'portal_operations_pkey' AND constraint_type = 'PRIMARY KEY') = 1 AS ok
   FROM information_schema.table_constraints
@@ -36,17 +46,31 @@ WITH enum_operation_status AS (
     AND count(*) FILTER (WHERE indexname = 'portal_operations_organizationId_provider_status_retryEligibleAt_idx') = 1 AS ok
   FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'portal_operations'
 ), fk_check AS (
+  -- Validated directly off pg_constraint so the target table and the ON
+  -- UPDATE action (never specified in the migration, so must remain the
+  -- Postgres/Prisma default of NO ACTION) are checked, not just the name
+  -- and ON DELETE rule.
   SELECT count(*) = 3
     AND bool_and(
-      (constraint_name = 'portal_operations_organizationId_fkey' AND delete_rule = 'CASCADE')
-      OR (constraint_name = 'portal_operations_portalListingId_fkey' AND delete_rule = 'SET NULL')
-      OR (constraint_name = 'portal_operations_connectionId_fkey' AND delete_rule = 'SET NULL')
+      (conname = 'portal_operations_organizationId_fkey' AND target_table = 'organizations' AND confdeltype = 'c' AND confupdtype = 'a')
+      OR (conname = 'portal_operations_portalListingId_fkey' AND target_table = 'portal_listings' AND confdeltype = 'n' AND confupdtype = 'a')
+      OR (conname = 'portal_operations_connectionId_fkey' AND target_table = 'property_portal_connections' AND confdeltype = 'n' AND confupdtype = 'a')
     ) AS ok
-  FROM information_schema.referential_constraints
-  WHERE constraint_schema = current_schema()
-    AND constraint_name IN (
-      'portal_operations_organizationId_fkey','portal_operations_portalListingId_fkey','portal_operations_connectionId_fkey'
-    )
+  FROM (
+    SELECT conname, confrelid::regclass::text AS target_table, confdeltype, confupdtype
+    FROM pg_constraint
+    WHERE conrelid = 'portal_operations'::regclass AND contype = 'f'
+  ) fk
+), conflict_state_consistency_check AS (
+  -- resolveListingConflict() always sets conflictResolution and
+  -- conflictResolvedAt together, and never resolves a conflict that was
+  -- never detected: conflictResolution and conflictResolvedAt must be
+  -- both-null or both-set, and conflictResolvedAt requires conflictDetectedAt.
+  SELECT
+    (SELECT count(*) FROM "portal_listings"
+      WHERE ("conflictResolution" IS NULL) IS DISTINCT FROM ("conflictResolvedAt" IS NULL)) = 0
+    AND (SELECT count(*) FROM "portal_listings"
+      WHERE "conflictResolvedAt" IS NOT NULL AND "conflictDetectedAt" IS NULL) = 0 AS ok
 ), org_scope_check AS (
   -- An operation must never reference a listing or connection in another organization.
   SELECT
@@ -70,16 +94,20 @@ WITH enum_operation_status AS (
 SELECT
   CASE WHEN (SELECT ok FROM enum_operation_status) AND (SELECT ok FROM enum_conflict_resolution)
         AND (SELECT ok FROM listing_conflict_column_check) AND (SELECT ok FROM operations_column_check)
+        AND (SELECT ok FROM defaults_check)
         AND (SELECT ok FROM pk_check) AND (SELECT ok FROM index_check) AND (SELECT ok FROM fk_check)
         AND (SELECT ok FROM org_scope_check) AND (SELECT ok FROM retry_state_consistency_check)
+        AND (SELECT ok FROM conflict_state_consistency_check)
        THEN 'PASS' ELSE 'FAIL' END AS result,
   (SELECT ok FROM enum_operation_status) AS enum_operation_status_ok,
   (SELECT ok FROM enum_conflict_resolution) AS enum_conflict_resolution_ok,
   (SELECT ok FROM listing_conflict_column_check) AS listing_conflict_columns_ok,
   (SELECT ok FROM operations_column_check) AS operations_columns_ok,
+  (SELECT ok FROM defaults_check) AS defaults_ok,
   (SELECT ok FROM pk_check) AS primary_key_ok,
   (SELECT ok FROM index_check) AS indexes_ok,
   (SELECT ok FROM fk_check) AS foreign_keys_ok,
   (SELECT ok FROM org_scope_check) AS organization_scope_ok,
   (SELECT ok FROM retry_state_consistency_check) AS retry_state_consistency_ok,
+  (SELECT ok FROM conflict_state_consistency_check) AS conflict_state_consistency_ok,
   (SELECT operations FROM no_auto_created_rows_check) AS portal_operation_rows_present;

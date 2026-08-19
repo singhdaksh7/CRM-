@@ -1351,7 +1351,7 @@ model ExternalLeadEvent {
   receivedAt        DateTime                  @default(now())
   message           String?
   rawPayloadHash    String
-  ingestionStatus   PortalIngestionStatus     @default(RECEIVED)
+  ingestionStatus   PortalIngestionStatus     @default(NEW)
   failureReason     String?
   attemptCount      Int                       @default(0)
   lastAttemptAt     DateTime?
