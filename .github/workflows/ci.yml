@@ -60,6 +60,24 @@ jobs:
       - name: Prisma generate
         run: npx prisma generate
 
+      # Historical schema prerequisite: SavedViewEntityType/saved_views/
+      # properties.tags were shipped to production via a manual SQL file
+      # (prisma/manual-migrations/2026-08-05-phase2-saved-views-and-tags.sql)
+      # and were never captured as a tracked Prisma migration. Production
+      # already has this type from that manual run; a fresh CI database
+      # does not. The Demand Pool migration (20260819120000_demand_pool_
+      # matching) is the first tracked migration to depend on part of that
+      # drift (`ALTER TYPE "SavedViewEntityType" ADD VALUE ...`), so we
+      # create just that one prerequisite type here before replaying the
+      # tracked chain - see prisma/ci/legacy-schema-bootstrap.sql for the
+      # full rationale and why the rest of that historical file (the
+      # saved_views table itself) is deliberately NOT included. This never
+      # writes to _prisma_migrations and only ever targets this job's own
+      # ephemeral postgres service (DATABASE_URL above is hardcoded to
+      # localhost) - it can never reach production.
+      - name: Bootstrap legacy manually-shipped schema (CI database only)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/ci/legacy-schema-bootstrap.sql
+
       - name: Apply migrations to CI database
         run: npx prisma migrate deploy
 
