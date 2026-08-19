@@ -20,6 +20,8 @@ import { getOrganizationId } from "@/lib/organization";
 import { PROPERTY_PORTAL_PROVIDERS, propertyPortalRegistry } from "@/integrations/property-portals/registry";
 import { portalPayloadPreview } from "@/integrations/property-portals/listing-lifecycle";
 import { DistributionPanel, type ProviderRow } from "@/components/property-portals/distribution-panel";
+import { MatchedCustomersPanel } from "@/components/customers/matched-customers-panel";
+import { PropertyRecommendationHistory } from "@/components/customers/property-recommendation-history";
 
 // Change 15 - Inventory Freshness label tone, distinct from the numeric Property Health score.
 const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
@@ -91,6 +93,17 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         <div className="space-y-6 lg:col-span-2">
           {/* Gallery */}
           <PropertyGallery propertyId={property.id} propertyTitle={property.title} legacyCoverImage={property.coverImage} />
+
+          {session && (
+            <MatchedCustomersPanel
+              propertyId={property.id}
+              propertyTitle={property.title}
+              propertyMeta={[property.area, price].filter(Boolean).join(" · ")}
+              propertyPrice={property.listingType === "RENT" ? property.monthlyRent : property.salePrice}
+              role={session.user.role}
+            />
+          )}
+          <PropertyRecommendationHistory propertyId={property.id} />
 
           {/* Location & Map */}
           <PropertyMapPanel

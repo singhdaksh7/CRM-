@@ -19,6 +19,7 @@ import { getFieldOpsSummary } from "@/lib/field-ops-summary-data";
 import { FieldOpsSummaryPanel } from "@/components/dashboard/field-ops-summary-panel";
 import { getManagerVisitBoard } from "@/lib/visit-analytics-data";
 import { ManagerVisitBoard } from "@/components/dashboard/manager-visit-board";
+import { DemandAnalyticsPanel, DemandPoolDashboardCards } from "@/components/customers/demand-dashboard-cards";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -73,6 +74,10 @@ export default async function DashboardPage() {
         <KpiCard label="Visit Requests Today" value={data.visitRequestsReceivedToday} icon={CalendarPlus} tone="amber" />
         <KpiCard label="Awaiting Shortlist" value={data.leadsAwaitingShortlistCount} icon={ListChecks} tone="red" />
       </div>
+
+      <DemandPoolDashboardCards />
+      <DemandAnalyticsPanel />
+
       <section className="grid gap-4 lg:grid-cols-3">
         <SegmentPanel title="Lead segments" values={data.leadSegments} />
         <SegmentPanel title="Inventory segments" values={data.inventorySegments} />

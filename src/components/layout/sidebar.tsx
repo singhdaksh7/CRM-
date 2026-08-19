@@ -15,16 +15,15 @@ import {
   UserCog,
   BarChart3,
   Settings,
-  Building,
   ChevronLeft,
   ChevronRight,
   FileText,
   Crown,
   Briefcase,
   Handshake,
-  ShieldAlert
-  ,MessageCircle
-  ,Contact
+  ShieldAlert,
+  MessageCircle,
+  ContactRound,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -36,7 +35,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/inventory-partners": Handshake,
   "/admin/property-issues": ShieldAlert,
   "/leads": Users,
-  "/customers": Contact,
+  "/customers": ContactRound,
   "/whatsapp": MessageCircle,
   "/visits": CalendarClock,
   "/follow-ups": BellRing,

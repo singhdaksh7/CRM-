@@ -13,6 +13,8 @@ export const NAV_ITEMS = [
   { href: "/customers", label: "Demand Pool", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/deals", label: "Deals", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/leads", label: "Leads", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
+  // Demand pool (CustomerContact + requirements) — distinct from Leads; all roles may view.
+  { href: "/customers", label: "Customers", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/whatsapp", label: "WhatsApp", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/visits", label: "Visits", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/follow-ups", label: "Follow-ups", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },

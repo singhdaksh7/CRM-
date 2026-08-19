@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { LayoutDashboard, Users, Building2, CalendarClock, MoreHorizontal } from "lucide-react";
+import { LayoutDashboard, Users, Building2, CalendarClock, ContactRound } from "lucide-react";
 import type { Role } from "@prisma/client";
 
 export function MobileNavigation({ role }: { role: Role }) {
@@ -10,15 +10,15 @@ export function MobileNavigation({ role }: { role: Role }) {
     ? [
         { label: "Home", href: "/executive-dashboard", icon: LayoutDashboard },
         { label: "Leads", href: "/leads", icon: Users },
-        { label: "Visits", href: "/visits", icon: CalendarClock },
+        { label: "Customers", href: "/customers", icon: ContactRound },
         { label: "Properties", href: "/properties", icon: Building2 },
       ]
     : [
         { label: "Home", href: "/dashboard", icon: LayoutDashboard },
         { label: "Leads", href: "/leads", icon: Users },
+        { label: "Customers", href: "/customers", icon: ContactRound },
         { label: "Properties", href: "/properties", icon: Building2 },
         { label: "Visits", href: "/visits", icon: CalendarClock },
-        { label: "Follow-ups", href: "/follow-ups", icon: MoreHorizontal },
       ];
 
   return (
