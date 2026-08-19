@@ -82,7 +82,7 @@ WITH enum_asset_class AS (
     ('resolvedAt','timestamp without time zone','YES'), ('resolvedById','text','YES'),
     ('createdAt','timestamp without time zone','NO'), ('updatedAt','timestamp without time zone','NO')
 ), events_column_check AS (
-  SELECT count(c.column_name) = 19 AND bool_and(coalesce(c.data_type = e.data_type AND c.is_nullable = e.nullable, false)) AS ok
+  SELECT count(c.column_name) = 20 AND bool_and(coalesce(c.data_type = e.data_type AND c.is_nullable = e.nullable, false)) AS ok
   FROM events_columns_expected e LEFT JOIN information_schema.columns c
     ON c.table_schema = current_schema() AND c.table_name = 'external_lead_events' AND c.column_name = e.name
 ), pk_check AS (
