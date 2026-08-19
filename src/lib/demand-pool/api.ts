@@ -242,6 +242,7 @@ function buildLocalImportPreview(rows: Record<string, string>[], mapping: Record
   });
 }
 
+/** Maps the real /api/imports outcome statuses (VALID/INVALID/DUPLICATE/IMPORTED/SKIPPED) onto the contact-import summary shape. */
 function summarizeImportOutcomes(outcomes: unknown[]): ContactImportResultSummary {
   const list = Array.isArray(outcomes) ? outcomes : [];
   const summary: ContactImportResultSummary = {
@@ -254,11 +255,22 @@ function summarizeImportOutcomes(outcomes: unknown[]): ContactImportResultSummar
   };
   for (const item of list) {
     const status = typeof item === "object" && item && "status" in item ? String((item as { status: string }).status) : "";
-    if (status.includes("CREATED") || status === "SUCCESS") summary.newContacts += 1;
-    else if (status.includes("SKIP")) summary.skipped += 1;
-    else if (status.includes("ERROR") || status.includes("INVALID")) summary.invalid += 1;
-    else if (status.includes("EXISTING")) summary.existingContacts += 1;
-    else summary.newContacts += 1;
+    switch (status) {
+      case "IMPORTED":
+        summary.newContacts += 1;
+        break;
+      case "DUPLICATE":
+        summary.existingContacts += 1;
+        break;
+      case "INVALID":
+        summary.invalid += 1;
+        break;
+      case "SKIPPED":
+        summary.skipped += 1;
+        break;
+      default:
+        summary.skipped += 1;
+    }
   }
   return summary;
 }

@@ -231,6 +231,79 @@ export async function runImport(params: {
   return { job: completed, outcomes };
 }
 
+export interface ContactImportPreviewRow {
+  rowNumber: number;
+  data: Record<string, unknown>;
+  issues: Array<{ field: string; message: string; severity: "ERROR" | "WARNING" }>;
+  duplicateClass: "NEW" | "EXISTING_CONTACT" | "EXISTING_REQUIREMENT" | "INVALID";
+  action: "CREATE" | "SKIP" | "UPDATE_REQUIREMENT";
+  state: "READY" | "WARNING" | "ERROR" | "DUPLICATE" | "SKIPPED";
+}
+
+/**
+ * Read-only preview for a CONTACTS import: runs the same mapping,
+ * coercion, validation, and duplicate detection as `runImport`, but never
+ * writes to the database (rule: no writes during preview - see Step 21).
+ */
+export async function previewContactImport(params: {
+  rows: Record<string, string>[];
+  columnMapping: Record<string, string>;
+  organizationId: string;
+}): Promise<ContactImportPreviewRow[]> {
+  const out: ContactImportPreviewRow[] = [];
+  for (let i = 0; i < params.rows.length; i++) {
+    const rowNumber = i + 1;
+    const mapped = coerceTypes(mapRow(params.rows[i], params.columnMapping), "CONTACTS");
+    const validation = validateRow("CONTACTS", mapped);
+    if (!validation.valid) {
+      out.push({
+        rowNumber,
+        data: mapped,
+        issues: [{ field: "row", message: validation.error, severity: "ERROR" }],
+        duplicateClass: "INVALID",
+        action: "SKIP",
+        state: "ERROR",
+      });
+      continue;
+    }
+
+    const normalizedPhone = normalizeIndianPhone(validation.data.phone as string);
+    const existingContact = normalizedPhone
+      ? await prisma.customerContact.findUnique({ where: { organizationId_normalizedPhone: { organizationId: params.organizationId, normalizedPhone } } })
+      : null;
+
+    if (!existingContact) {
+      out.push({ rowNumber, data: validation.data, issues: [], duplicateClass: "NEW", action: "CREATE", state: "READY" });
+      continue;
+    }
+
+    const isDuplicate = await contactRowIsDuplicate(validation.data, params.organizationId);
+    const hasRequirementFields = validation.data.assetClass !== undefined || validation.data.transactionType !== undefined || validation.data.minBudget !== undefined || validation.data.maxBudget !== undefined || validation.data.locality !== undefined;
+
+    if (isDuplicate) {
+      out.push({
+        rowNumber,
+        data: validation.data,
+        issues: [{ field: "phone", message: "Contact already exists with this exact requirement", severity: "WARNING" }],
+        duplicateClass: "EXISTING_REQUIREMENT",
+        action: "SKIP",
+        state: "DUPLICATE",
+      });
+      continue;
+    }
+
+    out.push({
+      rowNumber,
+      data: validation.data,
+      issues: [{ field: "phone", message: hasRequirementFields ? "Contact exists - a new requirement will be added" : "Contact already exists", severity: "WARNING" }],
+      duplicateClass: "EXISTING_CONTACT",
+      action: hasRequirementFields ? "UPDATE_REQUIREMENT" : "SKIP",
+      state: "WARNING",
+    });
+  }
+  return out;
+}
+
 async function createEntity(entityType: ImportEntityType, data: Record<string, unknown>, organizationId: string, actorId: string): Promise<string> {
   switch (entityType) {
     case "OWNERS": {
