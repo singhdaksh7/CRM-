@@ -1,0 +1,40 @@
+-- CI-only bootstrap for a historical schema prerequisite that was shipped
+-- to production via a manual SQL file and was never represented in the
+-- tracked Prisma migration chain:
+--
+--   prisma/manual-migrations/2026-08-05-phase2-saved-views-and-tags.sql
+--
+-- That file creates the "SavedViewEntityType" enum, the "saved_views"
+-- table, and a "properties.tags" column. Production already has all three
+-- (applied manually on 2026-08-05, long before this repo existed as a
+-- checked-in migration history). No tracked migration ever creates any of
+-- them - two later tracked migrations (20260817132147_employee_auth_lifecycle,
+-- 20260817190000_catalogue_visit_workflow) even have a comment documenting
+-- this exact drift and deliberately leave it alone.
+--
+-- The Demand Pool tracked migration (20260819120000_demand_pool_matching)
+-- is the first tracked migration to actually *depend* on part of that
+-- drift: it runs `ALTER TYPE "SavedViewEntityType" ADD VALUE ...`, which
+-- requires the type to already exist. On production this is already true.
+-- On GitHub Actions' fresh, empty ephemeral Postgres service, it is not -
+-- `prisma migrate deploy` replays the full tracked history from scratch,
+-- so it hits `ERROR: type "SavedViewEntityType" does not exist`.
+--
+-- This file creates ONLY that one enum type - the minimal, exact
+-- prerequisite the tracked chain needs - not the full legacy file. The
+-- "saved_views" table itself is intentionally NOT created here: it has
+-- foreign keys to "organizations"/"users", which don't exist yet at this
+-- point in a fresh database (they're created by the first tracked
+-- migration, which runs immediately after this bootstrap) - creating it
+-- here would fail on those FKs. No tracked migration references the table
+-- itself, only the enum, so this is sufficient for `prisma migrate deploy`
+-- to complete successfully against an empty CI database.
+--
+-- Schema-only, zero data, and connects ONLY to the ephemeral CI database
+-- via the workflow's CI-scoped DATABASE_URL/DIRECT_URL - never production.
+-- This step never touches, inserts into, or reads "_prisma_migrations" -
+-- it is not recorded as an applied migration, it merely makes the
+-- ephemeral database's starting schema equivalent to production's real
+-- historical starting point before the tracked chain is replayed on top.
+
+CREATE TYPE "SavedViewEntityType" AS ENUM ('LEAD', 'PROPERTY');
