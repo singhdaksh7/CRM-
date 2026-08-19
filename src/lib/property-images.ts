@@ -75,28 +75,34 @@ export async function uploadPropertyImage(params: {
 
   const stored = await uploadFileBuffer(objectKey, params.buffer, params.mimeType);
 
-  if (params.isCover) {
-    // Only one cover image per property - clear any existing cover flag first.
-    await prisma.propertyImage.updateMany({ where: { propertyId: params.propertyId, status: "ACTIVE", isCover: true }, data: { isCover: false } });
-  }
-
   const maxSortOrder = await prisma.propertyImage.aggregate({
     where: { propertyId: params.propertyId, status: "ACTIVE" },
     _max: { sortOrder: true },
   });
+  const activeImageCount = await prisma.propertyImage.count({
+    where: { propertyId: params.propertyId, status: "ACTIVE", purpose: "IMAGE" },
+  });
+  // First IMAGE becomes cover automatically; explicit isCover also wins. Floor plans never auto-cover.
+  const shouldBeCover = purpose === "IMAGE" && (!!params.isCover || activeImageCount === 0);
+
+  if (shouldBeCover) {
+    await prisma.propertyImage.updateMany({ where: { propertyId: params.propertyId, status: "ACTIVE", isCover: true }, data: { isCover: false } });
+  }
 
   const image = await prisma.propertyImage.create({
     data: {
       organizationId,
       propertyId: params.propertyId,
       purpose,
+      visibility: purpose === "AVAILABILITY_REPORT" ? "PRIVATE" : "PUBLIC",
       storageProvider: activeStorageProviderName(),
       storageKey: objectKey,
+      originalFilename: params.fileName,
       mimeType: params.mimeType,
       sizeBytes: stored.sizeBytes,
       caption: params.caption ?? null,
       sortOrder: (maxSortOrder._max.sortOrder ?? -1) + 1,
-      isCover: !!params.isCover,
+      isCover: shouldBeCover,
       uploadedById: params.actorId,
     },
   });
@@ -139,19 +145,65 @@ export async function getPropertyImageUrl(storageKey: string, expiresInSeconds?:
 export async function getCoverImageUrls(propertyIds: string[], organizationId: string): Promise<Record<string, string>> {
   if (propertyIds.length === 0) return {};
   const covers = await prisma.propertyImage.findMany({
-    where: { propertyId: { in: propertyIds }, organizationId, status: "ACTIVE", purpose: "IMAGE", isCover: true },
+    where: { propertyId: { in: propertyIds }, organizationId, status: "ACTIVE", purpose: "IMAGE", isCover: true, visibility: "PUBLIC" },
   });
-  const entries = await Promise.all(covers.map(async (c) => [c.propertyId, await getPropertyImageUrl(c.storageKey)] as const));
-  return Object.fromEntries(entries);
+  const entries = await Promise.all(
+    covers.map(async (c) => {
+      try {
+        return [c.propertyId, await getPropertyImageUrl(c.thumbnailKey ?? c.storageKey)] as const;
+      } catch {
+        return null;
+      }
+    })
+  );
+  return Object.fromEntries(entries.filter((e): e is readonly [string, string] => e !== null));
 }
 
+/**
+ * Ordered public IMAGE urls for a single property (catalogue detail / public page).
+ * Never includes PRIVATE visibility or AVAILABILITY_REPORT evidence.
+ */
+export async function getPublicOrderedImageUrls(propertyId: string, organizationId: string): Promise<string[]> {
+  const images = await prisma.propertyImage.findMany({
+    where: { propertyId, organizationId, status: "ACTIVE", purpose: "IMAGE", visibility: "PUBLIC" },
+    orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }],
+    take: 50,
+  });
+  const urls: string[] = [];
+  for (const img of images) {
+    try {
+      urls.push(await getPropertyImageUrl(img.storageKey));
+    } catch {
+      // Provider misconfigured - skip rather than crash public pages.
+    }
+  }
+  return urls;
+}
+
+/** Soft-delete then promote next IMAGE as cover when the deleted row was the cover. */
 export async function softDeletePropertyImage(params: { imageId: string; actorId: string; role: Role }) {
   const organizationId = getOrganizationId(params.actorId);
   const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
   if (!existing) throw new ApiError(404, "Property image not found");
   if (params.role !== "ADMIN" && params.role !== "DATA_MANAGER") throw new ApiError(403, "You do not have permission to delete property images");
 
-  const image = await prisma.propertyImage.update({ where: { id: params.imageId }, data: { status: "DELETED", deletedAt: new Date(), isCover: false } });
+  const image = await prisma.$transaction(async (tx) => {
+    const deleted = await tx.propertyImage.update({
+      where: { id: params.imageId },
+      data: { status: "DELETED", deletedAt: new Date(), isCover: false },
+    });
+
+    if (existing.isCover) {
+      const next = await tx.propertyImage.findFirst({
+        where: { propertyId: existing.propertyId, organizationId, status: "ACTIVE", purpose: "IMAGE" },
+        orderBy: { sortOrder: "asc" },
+      });
+      if (next) {
+        await tx.propertyImage.update({ where: { id: next.id }, data: { isCover: true } });
+      }
+    }
+    return deleted;
+  });
 
   await recordAudit({
     userId: params.actorId,

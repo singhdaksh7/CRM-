@@ -139,7 +139,11 @@ export class S3StorageProvider implements StorageProvider {
   async createDownloadAuthorization(input: DownloadAuthorizationInput): Promise<DownloadAuthorization> {
     const config = this.loadConfig();
     const expiresInSeconds = input.expiresInSeconds ?? this.getDefaultTtlSeconds();
-    const command = new GetObjectCommand({ Bucket: config.bucket, Key: input.objectKey });
+    const command = new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: input.objectKey,
+      ...(input.contentDisposition ? { ResponseContentDisposition: input.contentDisposition } : {}),
+    });
     const url = await getSignedUrl(this.getClient(), command, { expiresIn: expiresInSeconds });
     return { url, expiresInSeconds };
   }
@@ -148,6 +152,15 @@ export class S3StorageProvider implements StorageProvider {
     const config = this.loadConfig();
     const result = await this.getClient().send(new HeadObjectCommand({ Bucket: config.bucket, Key: objectKey }));
     return { objectKey, sizeBytes: result.ContentLength ?? 0, contentType: result.ContentType, updatedAt: result.LastModified };
+  }
+
+  async exists(objectKey: string): Promise<boolean> {
+    try {
+      await this.getMetadata(objectKey);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async deleteObject(objectKey: string): Promise<void> {

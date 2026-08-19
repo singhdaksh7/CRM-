@@ -45,6 +45,7 @@ import { createDemoPropertyEngagement } from "../src/lib/demo-data/property-enga
 import { createDemoPhase5Scenarios } from "../src/lib/demo-data/phase5";
 import { createDemoPhase8Inbox } from "../src/lib/demo-data/phase8";
 import { createDemoPortalScenarios } from "../src/lib/demo-data/portals";
+import { createDemoPropertyMedia } from "../src/lib/demo-data/property-media";
 import { runVerification } from "../src/lib/demo-data/verify";
 import { recalculateLeadScore } from "../src/lib/scoring";
 import { matchPropertiesToLead } from "../src/lib/matching";
@@ -113,6 +114,9 @@ async function main() {
 
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.properties} properties...`);
   const properties = await createDemoProperties(rng, owners, employees, DEMO_SEED_PLAN.properties, partners);
+
+  console.log("[seed-demo] Creating deterministic mock property media metadata (no real provider uploads)...");
+  const propertyMedia = await createDemoPropertyMedia(properties.all, employees.admin);
 
   console.log(`[seed-demo] Creating ${DEMO_SEED_PLAN.leads} leads...`);
   const leads = await createDemoLeads(rng, employees, properties.all, DEMO_SEED_PLAN.leads);
@@ -206,6 +210,7 @@ async function main() {
   console.log(`Owners:                    ${owners.length} (target ${DEMO_SEED_PLAN.owners})`);
   console.log(`Inventory Partners:        ${partners.length} (target ${DEMO_SEED_PLAN.inventoryPartners})`);
   console.log(`Properties:                ${properties.all.length} (target ${DEMO_SEED_PLAN.properties})`);
+  console.log(`Property media (mock):     ${propertyMedia.images} images / ${propertyMedia.brochures} brochures (metadata only)`);
   console.log(`Leads:                     ${leads.all.length} (target ${DEMO_SEED_PLAN.leads})`);
   console.log(`Visits:                    ${visits.length} (target ${DEMO_SEED_PLAN.visits})`);
   console.log(`Follow-ups:                ${followUps.length} (target ${DEMO_SEED_PLAN.followUps})`);

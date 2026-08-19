@@ -761,6 +761,7 @@ model Organization {
   payments                    Payment[]
   documents                   Document[]
   propertyImages              PropertyImage[]
+  storageUploadSessions       StorageUploadSession[]
   importJobs                  ImportJob[]
   importMappingPresets        ImportMappingPreset[]
   auditLogs                   AuditLog[]
@@ -2111,11 +2112,12 @@ model Document {
   fileName         String
   fileUrl          String // legacy/external mode: a pre-uploaded URL the caller already hosts elsewhere
   storageKey       String? // object key in the active storage provider's bucket; when set, fileUrl is ignored and a signed/authorized URL is generated per-request instead
-  storageProvider  String? // "S3" | "FIREBASE" - null for legacy fileUrl-only rows predating the provider abstraction
+  storageProvider  String? // "S3" | "R2" | "FIREBASE" | "MOCK" - null for legacy fileUrl-only rows
   storageBucket    String? // bucket name at time of upload, for traceability if the configured bucket is later rotated
   checksum         String? // optional content hash, populated when the provider/verification step can compute one
   originalFilename String? // the caller-supplied file name, kept here (not in the object key) so the key itself never leaks identifying text
   category         DocumentCategory @default(GENERAL)
+  isPublic         Boolean          @default(false) // only public-safe categories (e.g. PROPERTY_BROCHURE) may be true
   fileType         String
   fileSizeBytes    Int?
   status           DocumentStatus   @default(ACTIVE)
@@ -2141,12 +2143,13 @@ model Document {
 }
 
 /**
- * Structured property media (Phase 1 Firebase Storage). Additive alongside
- * Property.images/coverImage/floorPlanImage (legacy JSON-array-of-URLs
- * fields, kept as-is and still what existing property pages/catalogue
- * rendering read) - this table is the provider-backed upload path going
- * forward; wiring it into the property-detail/catalogue UI is a follow-up,
- * not part of this backend-only pass.
+ * Structured property media. Additive alongside Property.images/coverImage/
+ * floorPlanImage (legacy JSON-array-of-URLs). This table is the provider-
+ * backed source of truth for gallery/cover/catalogue/public pages.
+ *
+ * Single-cover invariant is also enforced in application code and via a
+ * partial unique index in the SQL migration (one ACTIVE isCover=true per
+ * property). Prisma cannot express partial unique indexes natively.
  */
 model PropertyImage {
   id             String       @id @default(cuid())
@@ -2155,19 +2158,22 @@ model PropertyImage {
   propertyId     String
   property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  purpose PropertyImagePurpose @default(IMAGE)
-  status  PropertyImageStatus  @default(ACTIVE)
+  purpose    PropertyImagePurpose @default(IMAGE)
+  status     PropertyImageStatus  @default(ACTIVE)
+  visibility MediaVisibility      @default(PUBLIC)
 
-  storageProvider String
-  storageBucket   String?
-  storageKey      String
-  mimeType        String
-  sizeBytes       Int
-  width           Int?
-  height          Int?
-  caption         String?
-  sortOrder       Int     @default(0)
-  isCover         Boolean @default(false)
+  storageProvider  String
+  storageBucket    String?
+  storageKey       String
+  thumbnailKey     String?
+  originalFilename String?
+  mimeType         String
+  sizeBytes        Int
+  width            Int?
+  height           Int?
+  caption          String?
+  sortOrder        Int     @default(0)
+  isCover          Boolean @default(false)
 
   uploadedById String?
   uploadedBy   User?     @relation("PropertyImageUploadedBy", fields: [uploadedById], references: [id])
@@ -2176,9 +2182,12 @@ model PropertyImage {
   deletedAt    DateTime?
 
   availabilityReports PropertyAvailabilityReport[] // Phase 4 - required evidence photo
+  uploadSession      StorageUploadSession?
 
+  @@unique([storageKey])
   @@index([organizationId, propertyId])
   @@index([propertyId, status, sortOrder])
+  @@index([organizationId, status])
   @@map("property_images")
 }
 
@@ -2193,6 +2202,56 @@ enum PropertyImageStatus {
   DELETED
 }
 
+enum MediaVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum StorageUploadStatus {
+  PENDING
+  UPLOADED
+  CONFIRMED
+  FAILED
+  EXPIRED
+}
+
+/**
+ * Short-lived upload authorization ledger. Prevents abandoned signed
+ * uploads from becoming permanent garbage and makes confirm idempotent
+ * via unique objectKey. Never trusts client-supplied keys outside the
+ * session row created server-side.
+ */
+model StorageUploadSession {
+  id             String              @id @default(cuid())
+  organizationId String              @default("org_default")
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  actorId        String
+  objectKey      String
+  mimeType       String
+  sizeBytes      Int?
+  originalFilename String?
+  purpose        String // PROPERTY_IMAGE | DOCUMENT | HEALTH_CHECK
+  entityType     String // PROPERTY | LEAD | OWNER | DEAL | PAYMENT
+  entityId       String
+  imagePurpose   PropertyImagePurpose?
+  visibility     MediaVisibility     @default(PUBLIC)
+  isCover        Boolean             @default(false)
+  caption        String?
+  status         StorageUploadStatus @default(PENDING)
+  expiresAt      DateTime
+  confirmedAt    DateTime?
+  propertyImageId String?            @unique
+  propertyImage   PropertyImage?     @relation(fields: [propertyImageId], references: [id], onDelete: SetNull)
+  documentId     String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([organizationId, objectKey])
+  @@index([organizationId, status, expiresAt])
+  @@index([status, expiresAt])
+  @@map("storage_upload_sessions")
+}
+
 enum DocumentCategory {
   GENERAL
   AADHAAR
@@ -2205,6 +2264,7 @@ enum DocumentCategory {
   DEAL_DOCUMENT
   PAYMENT_RECEIPT
   OWNER_IDENTITY
+  PROPERTY_BROCHURE // Public-safe property PDF brochure when isPublic=true
 }
 
 // ---------------------------------------------------------------------------

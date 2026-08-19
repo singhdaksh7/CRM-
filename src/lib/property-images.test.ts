@@ -6,8 +6,22 @@ const propertyImageFindMany = vi.fn();
 const propertyImageUpdate = vi.fn();
 const propertyImageUpdateMany = vi.fn();
 const propertyImageAggregate = vi.fn();
+const propertyImageCount = vi.fn();
 const propertyFindFirst = vi.fn();
-const transactionMock = vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[]));
+const transactionMock = vi.fn(async (arg: unknown) => {
+  if (typeof arg === "function") {
+    const tx = {
+      propertyImage: {
+        create: (...a: unknown[]) => propertyImageCreate(...a),
+        findFirst: (...a: unknown[]) => propertyImageFindFirst(...a),
+        update: (...a: unknown[]) => propertyImageUpdate(...a),
+        updateMany: (...a: unknown[]) => propertyImageUpdateMany(...a),
+      },
+    };
+    return (arg as (tx: unknown) => Promise<unknown>)(tx);
+  }
+  return Promise.all(arg as Promise<unknown>[]);
+});
 
 vi.mock("./prisma", () => ({
   prisma: {
@@ -18,9 +32,10 @@ vi.mock("./prisma", () => ({
       update: (...a: unknown[]) => propertyImageUpdate(...a),
       updateMany: (...a: unknown[]) => propertyImageUpdateMany(...a),
       aggregate: (...a: unknown[]) => propertyImageAggregate(...a),
+      count: (...a: unknown[]) => propertyImageCount(...a),
     },
     property: { findFirst: (...a: unknown[]) => propertyFindFirst(...a) },
-    $transaction: (...a: [unknown[]]) => transactionMock(...a),
+    $transaction: (...a: [unknown]) => transactionMock(...a),
   },
 }));
 
@@ -62,6 +77,7 @@ const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0]);
 beforeEach(() => {
   vi.clearAllMocks();
   propertyImageAggregate.mockResolvedValue({ _max: { sortOrder: null } });
+  propertyImageCount.mockResolvedValue(0);
 });
 
 describe("uploadPropertyImage - permissions", () => {

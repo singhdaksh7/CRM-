@@ -97,6 +97,10 @@ export interface SystemConfigValues {
   freshnessNeedsVerificationDays: number;
   /** ACTIVE (Phase 4) - rules/inventory-freshness.ts: days since last verification/visit/update before a property moves from NEEDS_VERIFICATION to STALE. */
   freshnessStaleDays: number;
+  /** ACTIVE - max ACTIVE IMAGE rows per property (storage media phase). */
+  maxImagesPerProperty: number;
+  /** ACTIVE - soft org storage budget in bytes (enforced as a hook; 0 = unlimited). */
+  maxStorageBytes: number;
 }
 
 /** Keys the Settings UI must render read-only with a "Not active yet" badge - see the FUTURE section of the matrix above. Exported so the UI and this module can never drift apart on which fields are real. */
@@ -134,6 +138,8 @@ export const DEFAULT_SYSTEM_CONFIG: SystemConfigValues = {
   catalogueFollowUpDelayHours: 24,
   freshnessNeedsVerificationDays: 30,
   freshnessStaleDays: 60,
+  maxImagesPerProperty: 25,
+  maxStorageBytes: 0,
 };
 
 /** Deep-merges a partial config blob (as stored in SystemConfig.values) over the defaults - never trusts the stored blob to have every key. */

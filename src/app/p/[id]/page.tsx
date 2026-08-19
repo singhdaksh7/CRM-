@@ -3,32 +3,73 @@ import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { formatINR, enumToLabel } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { getCoverImageUrls } from "@/lib/property-images";
+import { getCoverImageUrls, getPublicOrderedImageUrls } from "@/lib/property-images";
 import { getOrganizationId } from "@/lib/organization";
-import { Building, MapPin, BedDouble, Bath, Ruler, Phone, CalendarCheck } from "lucide-react";
+import { createDownloadUrl, isStorageConfigured } from "@/lib/storage";
+import { Building, MapPin, BedDouble, Bath, Ruler, Phone, CalendarCheck, FileText } from "lucide-react";
 
 /**
  * Public, unauthenticated property page for WhatsApp sharing.
- * Deliberately excludes owner name/phone/notes.
+ * Deliberately excludes owner name/phone/notes/KYC/private documents.
  */
 export default async function PublicPropertyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const property = await prisma.property.findUnique({ where: { id } });
   if (!property) notFound();
 
-  const coverUrls = await getCoverImageUrls([property.id], getOrganizationId());
-  const coverImage = coverUrls[property.id] ?? property.coverImage;
+  const organizationId = getOrganizationId();
+  let coverImage = property.coverImage;
+  let gallery: string[] = [];
+  let publicDocs: { id: string; fileName: string; url: string }[] = [];
+
+  try {
+    if (isStorageConfigured()) {
+      const coverUrls = await getCoverImageUrls([property.id], organizationId);
+      coverImage = coverUrls[property.id] ?? property.coverImage;
+      gallery = await getPublicOrderedImageUrls(property.id, organizationId);
+      if (coverImage && gallery[0] !== coverImage) {
+        gallery = [coverImage, ...gallery.filter((u) => u !== coverImage)];
+      }
+
+      const brochures = await prisma.document.findMany({
+        where: {
+          propertyId: property.id,
+          organizationId,
+          status: "ACTIVE",
+          isPublic: true,
+          category: "PROPERTY_BROCHURE",
+        },
+        take: 5,
+        orderBy: { createdAt: "desc" },
+      });
+      publicDocs = (
+        await Promise.all(
+          brochures.map(async (doc) => {
+            if (!doc.storageKey) return null;
+            try {
+              const url = await createDownloadUrl(doc.storageKey, 300, `inline; filename="${doc.fileName.replace(/"/g, "")}"`);
+              return { id: doc.id, fileName: doc.fileName, url };
+            } catch {
+              return null;
+            }
+          })
+        )
+      ).filter((d): d is { id: string; fileName: string; url: string } => d !== null);
+    }
+  } catch {
+    // Storage misconfigured - still render property details with legacy cover.
+  }
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
-  const contactPhone = "+919811100002"; // brokerage contact number, not owner's
+  const contactPhone = "+919811100002";
   const whatsappHref = `https://wa.me/${contactPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi, I'm interested in ${property.title} (${property.propertyCode}).`)}`;
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-8">
         <Building className="h-5 w-5 text-indigo-600" />
-        <span className="text-sm font-semibold text-slate-800">Delhi Broker CRM</span>
+        <span className="text-sm font-semibold text-slate-800">KP Properties</span>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
@@ -38,6 +79,16 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
             <Badge tone={property.listingType === "RENT" ? "blue" : "purple"}>{property.listingType === "RENT" ? "For Rent" : "For Sale"}</Badge>
           </div>
         </div>
+
+        {gallery.length > 1 && (
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Property gallery">
+            {gallery.slice(0, 12).map((url, idx) => (
+              <div key={`${idx}-${url.slice(-24)}`} className="relative h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-200">
+                <Image src={url} alt={`${property.title} photo ${idx + 1}`} fill sizes="80px" className="object-cover" unoptimized />
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h1 className="text-xl font-semibold text-slate-900">{property.title}</h1>
@@ -80,6 +131,21 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
             <p className="mb-1 text-sm font-semibold text-slate-800">Description</p>
             <p className="text-sm leading-relaxed text-slate-600">{property.description}</p>
           </div>
+
+          {publicDocs.length > 0 && (
+            <div className="mt-5">
+              <p className="mb-2 text-sm font-semibold text-slate-800">Documents</p>
+              <ul className="space-y-2">
+                {publicDocs.map((doc) => (
+                  <li key={doc.id}>
+                    <a href={doc.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-indigo-600 hover:underline">
+                      <FileText className="h-4 w-4" /> {doc.fileName}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="mt-6 flex flex-col gap-2 sm:flex-row">
             <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500">

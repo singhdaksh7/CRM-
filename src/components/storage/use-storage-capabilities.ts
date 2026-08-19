@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 
 export interface StorageCapabilities {
-  provider: "FIREBASE" | "S3" | "R2" | "DISABLED";
+  provider: "FIREBASE" | "S3" | "R2" | "MOCK" | "DISABLED";
   configured: boolean;
   uploadsEnabled: boolean;
-  propertyImages: { enabled: boolean; maxSizeBytes: number; allowedMimeTypes: string[] };
+  propertyImages: { enabled: boolean; maxSizeBytes: number; maxCount?: number; allowedMimeTypes: string[] };
   documents: { enabled: boolean; maxSizeBytes: number; allowedMimeTypes: string[] };
 }
 

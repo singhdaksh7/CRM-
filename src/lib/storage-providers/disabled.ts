@@ -42,6 +42,10 @@ export class DisabledStorageProvider implements StorageProvider {
     throw new StorageConfigError(NOT_CONFIGURED_MESSAGE);
   }
 
+  async exists(_objectKey: string): Promise<boolean> {
+    return false;
+  }
+
   async checkHealth(): Promise<StorageHealthResult> {
     return { status: "not_configured", detail: "No file storage provider configured (STORAGE_PROVIDER=DISABLED or unset) - Document.fileUrl must be pre-uploaded elsewhere (legacy mode)" };
   }

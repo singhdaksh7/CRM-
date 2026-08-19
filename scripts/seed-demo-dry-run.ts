@@ -31,6 +31,8 @@ import {
   checkPhase7EnumCompatibility,
   checkPortalSchemaCompatibility,
   checkPortalEnumCompatibility,
+  checkStorageMediaSchemaCompatibility,
+  checkStorageMediaEnumCompatibility,
 } from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
@@ -253,6 +255,15 @@ export async function runDryRun(
     const portalEnums = await checkPortalEnumCompatibility(client);
     record("Property business + portal enum compatibility", portalEnums.ok, portalEnums.ok ? "all commercial/portal enum values exist" : `missing: ${portalEnums.missing.join(", ")}`);
   } catch (e) { record("Property business + portal enum compatibility", false, (e as Error).message); }
+
+  try {
+    const storage = await checkStorageMediaSchemaCompatibility(client);
+    record("Storage media schema compatibility", storage.ok, storage.ok ? "all storage media columns exist" : `missing: ${storage.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`);
+  } catch (e) { record("Storage media schema compatibility", false, (e as Error).message); }
+  try {
+    const storageEnums = await checkStorageMediaEnumCompatibility(client);
+    record("Storage media enum compatibility", storageEnums.ok, storageEnums.ok ? "all storage media enum values exist" : `missing: ${storageEnums.missing.join(", ")}`);
+  } catch (e) { record("Storage media enum compatibility", false, (e as Error).message); }
 
   try {
     const pendingSetupCheck = await checkPendingSetupEnumCompatibility(client);

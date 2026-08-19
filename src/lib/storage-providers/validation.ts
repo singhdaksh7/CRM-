@@ -5,8 +5,17 @@ export type FileCategory = "PROPERTY_IMAGE" | "DOCUMENT";
 export const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 export const DOCUMENT_MIME_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
-export const MAX_PROPERTY_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
-export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024; // 25 MB
+export const MAX_PROPERTY_IMAGE_BYTES = Number(process.env.MAX_PROPERTY_IMAGE_BYTES) || 10 * 1024 * 1024; // 10 MB
+export const MAX_DOCUMENT_BYTES = Number(process.env.MAX_DOCUMENT_BYTES) || 25 * 1024 * 1024; // 25 MB
+export const MAX_PROPERTY_IMAGE_COUNT_DEFAULT = Number(process.env.MAX_PROPERTY_IMAGE_COUNT) || 25;
+
+/** Client-side optimization targets (also documented for UI). EXIF is stripped by canvas redraw. */
+export const IMAGE_OPTIMIZE = {
+  maxLongEdgePx: Number(process.env.PROPERTY_IMAGE_MAX_LONG_EDGE_PX) || 2400,
+  webpQuality: Number(process.env.PROPERTY_IMAGE_WEBP_QUALITY) || 0.82,
+  thumbnailLongEdgePx: Number(process.env.PROPERTY_IMAGE_THUMB_LONG_EDGE_PX) || 480,
+  thumbnailQuality: Number(process.env.PROPERTY_IMAGE_THUMB_QUALITY) || 0.72,
+} as const;
 
 /** Every extension we accept must map to exactly the MIME type(s) it's allowed to declare - catches "invoice.pdf" uploaded as image/png, etc. */
 const EXTENSION_MIME_MAP: Record<string, string[]> = {
