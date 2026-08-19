@@ -10,6 +10,8 @@ const dealFindMany = vi.fn();
 const paymentFindMany = vi.fn();
 const catalogueShareFindMany = vi.fn();
 const notificationFindMany = vi.fn();
+const customerContactFindMany = vi.fn();
+const customerRequirementFindMany = vi.fn();
 
 vi.mock("../prisma", () => ({
   prisma: {
@@ -23,6 +25,8 @@ vi.mock("../prisma", () => ({
     payment: { findMany: (...a: unknown[]) => paymentFindMany(...a) },
     catalogueShare: { findMany: (...a: unknown[]) => catalogueShareFindMany(...a) },
     notification: { findMany: (...a: unknown[]) => notificationFindMany(...a) },
+    customerContact: { findMany: (...a: unknown[]) => customerContactFindMany(...a) },
+    customerRequirement: { findMany: (...a: unknown[]) => customerRequirementFindMany(...a) },
   },
 }));
 
@@ -40,6 +44,8 @@ beforeEach(() => {
   paymentFindMany.mockResolvedValue([]);
   catalogueShareFindMany.mockResolvedValue([]);
   notificationFindMany.mockResolvedValue([]);
+  customerContactFindMany.mockResolvedValue([]);
+  customerRequirementFindMany.mockResolvedValue([]);
 });
 
 const ctx = { organizationId: "org_default", role: "ADMIN" as const, userId: "admin1" };

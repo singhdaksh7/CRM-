@@ -78,6 +78,21 @@ export const DEMO_SEED_PLAN = {
   portalListings: 3,
   /** Retryable, dead-letter, and capability-blocked operations. */
   portalOperations: 3,
+
+  // --- Demand Pool + Customer Requirements + Two-Way Matching (see
+  // src/lib/demo-data/demand-pool.ts). Contact ids kp-demo-dp-contact-1..27,
+  // requirement ids kp-demo-dp-req-1..30 (with gaps at indices already used
+  // for the converted-lead pairing), recommendation ids kp-demo-dp-rec-1..5,
+  // one demo Lead (kp-demo-dp-lead-1) linked back to its converting
+  // requirement. ---
+  /** 18 baseline + 9 scenario contacts (exact/stretch/no-match/DNC/opt-out/multi-requirement/stale/converted-to-lead/rejected-response). */
+  demandPoolContacts: 27,
+  /** 18 baseline + 10 scenario requirements (the multi-requirement and converted-to-lead contacts each carry 2). */
+  demandPoolRequirements: 28,
+  /** SENT (property-already-sent history), PREPARED (unsent), RESPONDED x2 (INTERESTED + NOT_INTERESTED), and one PENDING scored live through the real matching engine. */
+  demandPoolRecommendations: 5,
+  /** One Lead created via [Create Lead from Requirement], proving the Contact<->Lead linkage never duplicates identity. */
+  demandPoolConvertedLeads: 1,
 } as const;
 
 export type DemoSeedPlan = typeof DEMO_SEED_PLAN;
