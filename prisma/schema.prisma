@@ -1371,6 +1371,10 @@ model ExternalLeadEvent {
   externalListingId String?
   receivedAt        DateTime                  @default(now())
   message           String?
+  /// Safe, staff-facing summary (name/phone/email/project/locality/budget/area) captured at
+  /// ingestion time so the review UI can show contact and requirement context even before
+  /// (or without ever) linking to a Lead. Never the full raw provider payload.
+  leadSnapshot      String?
   rawPayloadHash    String
   ingestionStatus   PortalIngestionStatus     @default(NEW)
   failureReason     String?

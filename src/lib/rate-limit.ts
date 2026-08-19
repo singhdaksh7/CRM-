@@ -56,6 +56,10 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   accountAdminAction: { limit: Number(process.env.RATE_LIMIT_ACCOUNT_ADMIN_ACTION_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_ACCOUNT_ADMIN_ACTION_WINDOW_SECONDS ?? 300) },
   publicCatalogue: { limit: Number(process.env.RATE_LIMIT_CATALOGUE_MAX ?? 60), windowSeconds: Number(process.env.RATE_LIMIT_CATALOGUE_WINDOW_SECONDS ?? 60) },
   webhook: { limit: Number(process.env.RATE_LIMIT_WEBHOOK_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_WEBHOOK_WINDOW_SECONDS ?? 60) },
+  // Housing.com lead-push webhook - generous enough that Housing's own retry
+  // behavior on a transient 5xx never gets mistaken for abuse, per-provider+IP
+  // so it never shares a bucket with (or is starved by) the generic webhook rule.
+  housingWebhook: { limit: Number(process.env.RATE_LIMIT_HOUSING_WEBHOOK_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_HOUSING_WEBHOOK_WINDOW_SECONDS ?? 60) },
   import: { limit: Number(process.env.RATE_LIMIT_IMPORT_MAX ?? 5), windowSeconds: Number(process.env.RATE_LIMIT_IMPORT_WINDOW_SECONDS ?? 300) },
   upload: { limit: Number(process.env.RATE_LIMIT_UPLOAD_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_UPLOAD_WINDOW_SECONDS ?? 60) },
   document: { limit: Number(process.env.RATE_LIMIT_DOCUMENT_MAX ?? 100), windowSeconds: Number(process.env.RATE_LIMIT_DOCUMENT_WINDOW_SECONDS ?? 60) },

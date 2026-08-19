@@ -1,0 +1,13 @@
+-- Additive only. Adds a safe, staff-facing summary column to
+-- external_lead_events so the Portal Leads review UI can show contact and
+-- requirement context (name, phone, email, project, locality, budget, area)
+-- for an event even when it has not (or never will be) linked to a Lead -
+-- e.g. an AMBIGUOUS Housing enquiry awaiting manual review. This is never
+-- the full raw provider payload - only rawPayloadHash (already existing)
+-- represents the raw delivery, and that stays a one-way hash.
+-- Mirrors prisma/migrations/20260819140000_housing_lead_event_snapshot/migration.sql
+-- (that tracked migration.sql omits IF NOT EXISTS, matching Prisma's own
+-- migration-diff output; this manual file adds it so the same statement can
+-- be safely re-run against a database Prisma's ledger doesn't yet know
+-- about, per this repo's manual-migration idempotency convention).
+ALTER TABLE "external_lead_events" ADD COLUMN IF NOT EXISTS "leadSnapshot" TEXT;

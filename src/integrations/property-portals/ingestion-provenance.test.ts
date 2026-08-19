@@ -14,6 +14,7 @@ const eventCreate = vi.fn();
 const eventUpdate = vi.fn();
 const leadFindMany = vi.fn();
 const leadCreate = vi.fn();
+const customerContactFindUnique = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -26,6 +27,9 @@ vi.mock("@/lib/prisma", () => ({
     lead: {
       findMany: (...a: unknown[]) => leadFindMany(...a),
       create: (...a: unknown[]) => leadCreate(...a),
+    },
+    customerContact: {
+      findUnique: (...a: unknown[]) => customerContactFindUnique(...a),
     },
   },
 }));
@@ -70,6 +74,7 @@ beforeEach(() => {
   eventUpdate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "evt1", ...data }));
   leadFindMany.mockResolvedValue([]);
   leadCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "lead-new", ...data }));
+  customerContactFindUnique.mockResolvedValue(null);
 });
 
 describe("new portal lead", () => {
@@ -247,5 +252,33 @@ describe("identity signals", () => {
   it("does not query for candidates at all when no identity signal exists", async () => {
     await ingestPortalLead("org_default", "HOUSING", { ...residentialRentEnquiry, externalLeadId: undefined, phone: undefined, email: undefined }, { raw: 20 });
     expect(leadFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("Demand Pool CustomerContact identity check", () => {
+  it("links a newly-created lead to the CustomerContact matched on exact normalizedPhone", async () => {
+    customerContactFindUnique.mockResolvedValue({ id: "contact-1" });
+    await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 21 });
+    expect(leadCreate.mock.calls[0][0].data.customerContactId).toBe("contact-1");
+    expect(customerContactFindUnique.mock.calls[0][0].where.organizationId_normalizedPhone.organizationId).toBe("org_default");
+  });
+
+  it("never creates or mutates a CustomerContact from a portal enquiry", async () => {
+    await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 22 });
+    // The mocked prisma.customerContact client only exposes findUnique - if
+    // ingestion ever tried to create/update/upsert a contact it would throw
+    // "is not a function" and this test would fail.
+    expect(customerContactFindUnique).toHaveBeenCalled();
+  });
+
+  it("leaves customerContactId null when no contact matches and does not affect Lead-vs-Lead resolution", async () => {
+    const result = await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 23 });
+    expect(result.status).toBe("NEW");
+    expect(leadCreate.mock.calls[0][0].data.customerContactId).toBeNull();
+  });
+
+  it("does not look up a CustomerContact when the portal enquiry carries no phone", async () => {
+    await ingestPortalLead("org_default", "HOUSING", { ...residentialRentEnquiry, phone: undefined }, { raw: 24 });
+    expect(customerContactFindUnique).not.toHaveBeenCalled();
   });
 });
