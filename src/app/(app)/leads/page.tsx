@@ -26,6 +26,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   if (sp.priority) where.priority = sp.priority as never;
   if (sp.assignedToId) where.assignedToId = sp.assignedToId === "unassigned" ? null : sp.assignedToId;
   if (sp.requirementType) where.requirementType = sp.requirementType as never;
+  if (sp.assetClass) where.assetClass = sp.assetClass as never;
+  if (sp.transactionType) where.transactionType = sp.transactionType as never;
 
   const [leads, totalCount, employees, unassignedCount] = await withTiming("leadsPageQuery", "/leads", () =>
     Promise.all([

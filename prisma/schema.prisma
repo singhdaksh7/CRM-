@@ -29,6 +29,18 @@ enum ListingType {
   SALE
 }
 
+/// Canonical inventory dimension. Existing listings default to RESIDENTIAL;
+/// `listingType` remains the compatible transaction dimension for Property.
+enum AssetClass {
+  RESIDENTIAL
+  COMMERCIAL
+}
+
+enum TransactionType {
+  RENT
+  SALE
+}
+
 enum PropertyStatus {
   AVAILABLE
   RESERVED
@@ -46,6 +58,26 @@ enum PropertyType {
   COMMERCIAL_SHOP
   COMMERCIAL_OFFICE
   PG
+  STUDIO
+  FARM_HOUSE
+  CO_LIVING
+  OTHER
+  OFFICE
+  SHOP
+  SHOWROOM
+  WAREHOUSE
+  INDUSTRIAL
+  COMMERCIAL_LAND
+  CO_WORKING
+  RESTAURANT_SPACE
+  SCO
+  OTHER_COMMERCIAL
+}
+
+enum CommercialFitOut {
+  FURNISHED
+  SEMI_FURNISHED
+  BARE_SHELL
 }
 
 enum FurnishingStatus {
@@ -83,6 +115,75 @@ enum LeadSource {
   REFERRAL
   WALK_IN
   MANUAL
+  OLX
+  SQUARE_CONNECT
+  DIRECT
+  OTHER
+}
+
+enum PropertyPortalProvider {
+  HOUSING
+  NINETY_NINE_ACRES
+  MAGICBRICKS
+  OLX
+  SQUARE_CONNECT
+  OTHER
+}
+
+enum PortalConnectionStatus {
+  CONNECTED
+  NOT_CONFIGURED
+  DEGRADED
+  AUTH_FAILED
+  PARTNER_ACCESS_REQUIRED
+}
+
+enum PortalConnectionMode {
+  API
+  WEBHOOK
+  CSV
+  EMAIL
+  MANUAL
+}
+
+enum PortalCapabilityStatus {
+  AVAILABLE
+  CONFIGURATION_REQUIRED
+  PARTNER_ACCESS_REQUIRED
+  NOT_SUPPORTED
+  UNKNOWN
+}
+
+enum PortalListingStatus {
+  DRAFT
+  PUBLISHED
+  INACTIVE
+  SYNC_CONFLICT
+  FAILED
+}
+
+enum PortalOperationStatus {
+  PENDING
+  RETRYABLE
+  SUCCEEDED
+  DEAD_LETTER
+}
+
+enum PortalConflictResolution {
+  KEEP_CRM
+  ACCEPT_PORTAL
+  REVIEW
+}
+
+enum PortalIngestionStatus {
+  NEW
+  RECEIVED
+  MATCHED_EXISTING
+  AMBIGUOUS
+  DUPLICATE
+  NEEDS_REVIEW
+  REJECTED
+  FAILED
 }
 
 enum RequirementType {
@@ -635,6 +736,10 @@ model Organization {
   users                       User[]
   properties                  Property[]
   leads                       Lead[]
+  propertyPortalConnections   PropertyPortalConnection[]
+  portalListings              PortalListing[]
+  portalOperations            PortalOperation[]
+  externalLeadEvents          ExternalLeadEvent[]
   leadTransfers               LeadTransfer[]
   sharedPropertyLogs          SharedPropertyLog[]
   visits                      Visit[]
@@ -892,6 +997,7 @@ model Property {
   title          String
   propertyType   PropertyType
   listingType    ListingType
+  assetClass     AssetClass     @default(RESIDENTIAL)
   status         PropertyStatus @default(AVAILABLE)
   description    String
 
@@ -947,6 +1053,32 @@ model Property {
   availableFrom    DateTime?
   amenities        String            @default("[]") // JSON array of strings
   tags             String            @default("[]") // JSON array of strings - free-form labels (Phase 2 bulk tagging), same pattern as amenities
+
+  // Commercial details are optional and deliberately separate from BHK data.
+  superAreaSqft            Int?
+  frontageFeet             Float?
+  ceilingHeightFeet        Float?
+  cabins                   Int?
+  workstations             Int?
+  washrooms                Int?
+  pantryAvailable          Boolean           @default(false)
+  powerLoadKw              Float?
+  commercialFitOut         CommercialFitOut?
+  goodsLiftAvailable       Boolean           @default(false)
+  loadingAccessAvailable   Boolean           @default(false)
+  roadWidthFeet            Float?
+  cornerProperty           Boolean           @default(false)
+  fireSafetyAvailable      Boolean           @default(false)
+  suitableForTags          String            @default("[]")
+  leaseTermMonths          Int?
+  lockInPeriodMonths       Int?
+  noticePeriodMonths       Int?
+  escalationPercentage     Float?
+  escalationIntervalMonths Int?
+  fitOutPeriodDays         Int?
+  camCharge                Int?
+  expectedPrice            Int?
+  ownershipTitleNotes      String?
 
   // Media
   images         String  @default("[]") // JSON array of URLs
@@ -1012,9 +1144,11 @@ model Property {
   matchRecommendations     MatchRecommendation[]
   favoritedBy              PropertyFavorite[]
   viewLogs                 PropertyViewLog[]
+  portalListings           PortalListing[]
 
   @@index([ownerId])
   @@index([organizationId, status])
+  @@index([organizationId, assetClass, listingType])
   @@index([organizationId, inventorySource])
   @@index([partnerId])
   @@map("properties")
@@ -1030,15 +1164,21 @@ enum InventorySource {
 // ---------------------------------------------------------------------------
 
 model Lead {
-  id             String       @id @default(cuid())
-  organizationId String       @default("org_default")
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  leadCode       String       @unique
-  clientName     String
-  phone          String
-  email          String?
-  source         LeadSource
-  externalLeadId String?      @unique // dedupe key for webhook leads
+  id                String                  @id @default(cuid())
+  organizationId    String                  @default("org_default")
+  organization      Organization            @relation(fields: [organizationId], references: [id])
+  leadCode          String                  @unique
+  clientName        String
+  phone             String
+  email             String?
+  source            LeadSource
+  externalLeadId    String?                 @unique // dedupe key for webhook leads
+  assetClass        AssetClass              @default(RESIDENTIAL)
+  transactionType   TransactionType         @default(RENT)
+  portalProvider    PropertyPortalProvider?
+  externalListingId String?
+  rawPayloadHash    String?
+  receivedAt        DateTime?
 
   requirementType        RequirementType
   preferredLocation      String
@@ -1048,6 +1188,14 @@ model Lead {
   furnishingPref         FurnishingStatus?
   moveInDate             DateTime?
   additionalRequirements String?
+  commercialPropertyType PropertyType?
+  minAreaSqft            Int?
+  maxAreaSqft            Int?
+  floorPreference        String?
+  commercialFitOutPref   CommercialFitOut?
+  parkingRequired        Boolean?
+  liftRequired           Boolean?
+  suitableForTags        String            @default("[]")
 
   assignedToId String?
   assignedTo   User?   @relation("AssignedEmployee", fields: [assignedToId], references: [id])
@@ -1085,10 +1233,137 @@ model Lead {
   assignmentHistory     LeadAssignmentHistory[]
   requirementBroadcasts RequirementBroadcast[]
   matchRecommendations  MatchRecommendation[]
+  externalLeadEvents    ExternalLeadEvent[]
 
   @@index([organizationId, phone])
   @@index([organizationId, assignedToId])
+  @@index([organizationId, assetClass, transactionType])
+  @@index([organizationId, portalProvider, externalLeadId])
   @@map("leads")
+}
+
+/// Provider configuration never stores raw credentials. `credentialReference`
+/// is an opaque key for a future secret manager / authorized feed.
+model PropertyPortalConnection {
+  id                   String                 @id @default(cuid())
+  organizationId       String                 @default("org_default")
+  organization         Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider             PropertyPortalProvider
+  status               PortalConnectionStatus @default(NOT_CONFIGURED)
+  connectionMode       PortalConnectionMode   @default(MANUAL)
+  displayName          String?
+  accountReference     String?
+  credentialReference  String?
+  config               String                 @default("{}")
+  lastSyncAt           DateTime?
+  lastSuccessfulSyncAt DateTime?
+  lastErrorAt          DateTime?
+  lastErrorSummary     String?
+  createdById          String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  listings             PortalListing[]
+  events               ExternalLeadEvent[]
+  operations           PortalOperation[]
+
+  @@unique([organizationId, provider, accountReference])
+  @@index([organizationId, provider, status])
+  @@map("property_portal_connections")
+}
+
+model PortalListing {
+  id                   String                    @id @default(cuid())
+  organizationId       String                    @default("org_default")
+  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectionId         String?
+  connection           PropertyPortalConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  propertyId           String
+  property             Property                  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  provider             PropertyPortalProvider
+  externalListingId    String?
+  externalUrl          String?
+  status               PortalListingStatus       @default(DRAFT)
+  publishedAt          DateTime?
+  lastSyncedAt         DateTime?
+  payloadHash          String?
+  payloadVersion       Int                       @default(1)
+  errorSummary         String?
+  conflictFields       String? // JSON of supported fields that differ; never applied implicitly
+  portalSnapshot       String? // redacted provider state used only for human review
+  conflictDetectedAt   DateTime?
+  conflictResolvedAt   DateTime?
+  conflictResolution   PortalConflictResolution?
+  conflictResolvedById String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  events               ExternalLeadEvent[]
+  operations           PortalOperation[]
+
+  @@unique([organizationId, provider, externalListingId])
+  @@index([organizationId, propertyId, provider])
+  @@map("portal_listings")
+}
+
+/// Internal operation ledger. Contract-only providers never execute network calls here;
+/// the ledger makes manual/authorized adapters safely retryable and auditable.
+model PortalOperation {
+  id              String                    @id @default(cuid())
+  organizationId  String                    @default("org_default")
+  organization    Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  portalListingId String?
+  portalListing   PortalListing?            @relation(fields: [portalListingId], references: [id], onDelete: SetNull)
+  connectionId    String?
+  connection      PropertyPortalConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  provider        PropertyPortalProvider
+  operationType   String
+  idempotencyKey  String
+  status          PortalOperationStatus     @default(PENDING)
+  failureReason   String?
+  attemptCount    Int                       @default(0)
+  lastAttemptAt   DateTime?
+  retryEligibleAt DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, provider, status, retryEligibleAt])
+  @@map("portal_operations")
+}
+
+/// Immutable external enquiry history. A retry is idempotent by provider +
+/// external event/lead id; ambiguous people remain reviewable rather than
+/// being silently merged.
+model ExternalLeadEvent {
+  id                String                    @id @default(cuid())
+  organizationId    String                    @default("org_default")
+  organization      Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connectionId      String?
+  connection        PropertyPortalConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  portalListingId   String?
+  portalListing     PortalListing?            @relation(fields: [portalListingId], references: [id], onDelete: SetNull)
+  leadId            String?
+  lead              Lead?                     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  provider          PropertyPortalProvider
+  externalLeadId    String?
+  externalEventId   String?
+  externalListingId String?
+  receivedAt        DateTime                  @default(now())
+  message           String?
+  rawPayloadHash    String
+  ingestionStatus   PortalIngestionStatus     @default(NEW)
+  failureReason     String?
+  attemptCount      Int                       @default(0)
+  lastAttemptAt     DateTime?
+  resolvedAt        DateTime?
+  resolvedById      String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@unique([organizationId, provider, externalEventId])
+  @@index([organizationId, provider, externalLeadId])
+  @@index([organizationId, ingestionStatus, receivedAt])
+  @@map("external_lead_events")
 }
 
 model LeadScoreHistory {

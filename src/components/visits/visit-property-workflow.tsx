@@ -179,7 +179,7 @@ function PropertyCard({
             <p className="mt-0.5 text-xs text-[#596579]">
               {property.area}
               {property.floorNumber !== null && <> &middot; Floor {property.floorNumber}</>}
-              {" "}&middot; {property.builtUpAreaSqft} sqft &middot; {property.bhk} BHK
+              {" "}&middot; {property.builtUpAreaSqft} sqft{property.assetClass === "COMMERCIAL" ? <> &middot; {enumToLabel(property.propertyType)}</> : <> &middot; {property.bhk} BHK</>}
             </p>
             <p className="mt-0.5 text-xs text-[#8A94A6]">{property.address}</p>
             <p className="mt-1 text-sm font-semibold text-[#1B2430]">{property.price ?? "Price on request"}</p>

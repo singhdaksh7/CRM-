@@ -7,6 +7,12 @@ import type { ParsedFilterChip, ParsedQuery, SearchEntityType } from "./search-t
  * checked first so "follow up" doesn't get swallowed by a looser rule.
  */
 const ENTITY_PHRASES: { phrase: string; entity: SearchEntityType }[] = [
+  { phrase: "portal listings", entity: "PORTAL" },
+  { phrase: "portal listing", entity: "PORTAL" },
+  { phrase: "portal leads", entity: "PORTAL" },
+  { phrase: "portal lead", entity: "PORTAL" },
+  { phrase: "portals", entity: "PORTAL" },
+  { phrase: "portal", entity: "PORTAL" },
   { phrase: "follow-ups", entity: "FOLLOW_UP" },
   { phrase: "follow ups", entity: "FOLLOW_UP" },
   { phrase: "followups", entity: "FOLLOW_UP" },

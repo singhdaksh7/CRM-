@@ -14,7 +14,7 @@ import type { PropertyType } from "@prisma/client";
  * regenerated, so this is a no-op after the first `npm run seed:demo`.
  */
 
-const PROPERTY_TYPE_COLORS: Record<PropertyType, string> = {
+const PROPERTY_TYPE_COLORS: Partial<Record<PropertyType, string>> = {
   APARTMENT: "#3366FF",
   INDEPENDENT_HOUSE: "#1FA971",
   VILLA: "#B37FEB",
@@ -25,7 +25,7 @@ const PROPERTY_TYPE_COLORS: Record<PropertyType, string> = {
   PG: "#FFC53D",
 };
 
-const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
+const PROPERTY_TYPE_LABELS: Partial<Record<PropertyType, string>> = {
   APARTMENT: "Apartment",
   INDEPENDENT_HOUSE: "Independent House",
   VILLA: "Villa",
@@ -60,7 +60,7 @@ export function ensureDemoPropertyAssets(): Record<PropertyType, string[]> {
       const fileName = `${type.toLowerCase()}-${v}.svg`;
       const filePath = path.join(ASSET_DIR, fileName);
       if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, svgFor(PROPERTY_TYPE_LABELS[type], PROPERTY_TYPE_COLORS[type], v), "utf-8");
+        fs.writeFileSync(filePath, svgFor(PROPERTY_TYPE_LABELS[type] ?? type, PROPERTY_TYPE_COLORS[type] ?? "#3366FF", v), "utf-8");
       }
       urls.push(`/demo-assets/properties/${fileName}`);
     }

@@ -3,7 +3,7 @@ import Image from "next/image";
 import type { Property } from "@prisma/client";
 import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { formatINR, enumToLabel } from "@/lib/utils";
-import { MapPin, BedDouble, Bath, Maximize2 } from "lucide-react";
+import { MapPin, BedDouble, Bath, Maximize2, BriefcaseBusiness } from "lucide-react";
 
 export function PropertyCard({ property, coverImageUrl }: { property: Property; coverImageUrl?: string | null }) {
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
@@ -30,7 +30,7 @@ export function PropertyCard({ property, coverImageUrl }: { property: Property; 
           <MapPin className="h-3.5 w-3.5 text-[#3366FF] shrink-0" /> {property.area}, Delhi
         </p>
         <div className="mt-3 flex items-center gap-4 text-xs font-semibold text-[#596579] border-t border-[#EFF4FF] pt-3">
-          <span className="flex items-center gap-1">
+          {property.assetClass === "COMMERCIAL" ? <><span className="flex items-center gap-1"><BriefcaseBusiness className="h-3.5 w-3.5 text-[#8A94A6]" /> {enumToLabel(property.propertyType)}</span>{property.workstations ? <span>{property.workstations} workstations</span> : null}{property.cabins ? <span>{property.cabins} cabins</span> : null}</> : <><span className="flex items-center gap-1">
             <BedDouble className="h-3.5 w-3.5 text-[#8A94A6]" /> {property.bhk} BHK
           </span>
           <span className="flex items-center gap-1">
@@ -38,7 +38,7 @@ export function PropertyCard({ property, coverImageUrl }: { property: Property; 
           </span>
           <span className="flex items-center gap-1">
             <Maximize2 className="h-3.5 w-3.5 text-[#8A94A6]" /> {property.builtUpAreaSqft} sqft
-          </span>
+          </span></>}
         </div>
       </div>
     </Link>

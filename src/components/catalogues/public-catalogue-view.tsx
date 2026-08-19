@@ -16,8 +16,10 @@ import {
   HelpCircle,
   Navigation,
   Clock,
+  BriefcaseBusiness,
 } from "lucide-react";
 import type { PublicCatalogueDTO, PublicCatalogueProperty } from "@/lib/catalogues";
+import { catalogueSpecChips } from "@/lib/catalogue-specs";
 
 function recordPageInteraction(token: string, type: "CALL_REQUESTED" | "WHATSAPP_REQUESTED") {
   const body = JSON.stringify({ type });
@@ -248,7 +250,7 @@ function PropertyCard({
       <div className="relative h-56 w-full bg-[#FAFBFC]">
         {property.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external signed/legacy URLs, loaded lazily
-          <img src={property.coverImage} alt={`${property.bhk} BHK in ${property.area}`} loading="lazy" className="h-full w-full object-cover" />
+          <img src={property.coverImage} alt={`${property.title} in ${property.area}`} loading="lazy" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">No photo available</div>
         )}
@@ -278,9 +280,11 @@ function PropertyCard({
           <MapPin className="h-3.5 w-3.5 text-[#3366FF]" /> {property.address ?? property.area}, Delhi
         </p>
         <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#596579]">
-          <span className="flex items-center gap-1"><BedDouble className="h-3.5 w-3.5" /> {property.bhk} BHK</span>
-          <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5" /> {property.bathrooms} Bath</span>
-          <span className="flex items-center gap-1"><Ruler className="h-3.5 w-3.5" /> {property.builtUpAreaSqft} sqft</span>
+          {catalogueSpecChips(property).map((chip) => (
+            <span key={chip.label} className="flex items-center gap-1">
+              {chip.kind === "bhk" ? <BedDouble className="h-3.5 w-3.5" /> : chip.kind === "bath" ? <Bath className="h-3.5 w-3.5" /> : chip.kind === "area" ? <Ruler className="h-3.5 w-3.5" /> : <BriefcaseBusiness className="h-3.5 w-3.5" />} {chip.label}
+            </span>
+          ))}
         </div>
         {property.price && <p className="mt-2 text-lg font-bold text-[#3366FF]">{property.price}</p>}
         {property.brokerage && <p className="text-xs text-[#8A94A6]">Brokerage: {property.brokerage}</p>}

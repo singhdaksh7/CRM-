@@ -73,6 +73,11 @@ export default async function DashboardPage() {
         <KpiCard label="Visit Requests Today" value={data.visitRequestsReceivedToday} icon={CalendarPlus} tone="amber" />
         <KpiCard label="Awaiting Shortlist" value={data.leadsAwaitingShortlistCount} icon={ListChecks} tone="red" />
       </div>
+      <section className="grid gap-4 lg:grid-cols-3">
+        <SegmentPanel title="Lead segments" values={data.leadSegments} />
+        <SegmentPanel title="Inventory segments" values={data.inventorySegments} />
+        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5"><div className="flex justify-between"><h2 className="font-semibold">Portal operations</h2><Link className="text-xs text-[#3366FF]" href="/reports/portals">Report</Link></div><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><span>Today <b>{data.portalKpis.today}</b></span><span>This week <b>{data.portalKpis.week}</b></span><span>Review <b>{data.portalKpis.needsReview + data.portalKpis.ambiguous}</b></span><span>Failed <b>{data.portalKpis.failed}</b></span><span>Conflicts <b>{data.portalKpis.conflicts}</b></span><span>Dead letters <b>{data.portalKpis.deadLetters}</b></span></div><p className="mt-3 text-xs text-[#596579]">Top source: {data.portalKpis.topSource?.replaceAll("_", " ") ?? "No portal data"}</p></div>
+      </section>
 
       {/* Manager view of today's field work: Visits Today / Upcoming /
           In Progress / Completed Today, with a per-visit progress summary. */}
@@ -111,6 +116,8 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
+function SegmentPanel({ title, values }: { title: string; values: Record<string, number> }) { return <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5"><h2 className="font-semibold">{title}</h2><div className="mt-3 grid grid-cols-2 gap-2 text-sm">{Object.entries(values).map(([key, value]) => <span key={key}>{key.replace(/([A-Z])/g, " $1")} <b>{value}</b></span>)}</div></div>; }
 
 async function DashboardSecondary({ role, userId }: { role: Role; userId: string }) {
   const data = await getDashboardSecondaryData(role, userId);

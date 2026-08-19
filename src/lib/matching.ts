@@ -85,9 +85,21 @@ function parseImageCount(images: string | null | undefined): number | null {
   }
 }
 
+function finalizeMatch(property: MatchableProperty, score: number, reasons: MatchReason[], overagePct: number, budgetTier: string, locationMatchKind: LocationMatchKind): MatchResult {
+  const verified = property.owner?.verificationStatus === "VERIFIED";
+  const imageCount = parseImageCount(property.images);
+  const hasImages = Boolean(property.coverImage) || Boolean(imageCount && imageCount > 0);
+  if (verified) score += VERIFIED_BONUS;
+  if (hasImages) score += HAS_IMAGES_BONUS;
+  return { property, score: Math.round(Math.min(100, score)), reasons, aboveBudget: overagePct > 0, overagePct, budgetTier, locationMatchKind, verified, hasImages };
+}
+
 export function matchPropertyToLead(property: MatchableProperty, lead: Lead, maxOverageTolerance = 0.2): MatchResult | null {
-  // Hard filter: listing type must match requirement type
-  const wantsRent = lead.requirementType === "RENT";
+  // Canonical mandatory gates. Legacy leads safely derive transaction from
+  // `requirementType`, preserving pre-foundation records during rollout.
+  if (property.assetClass !== lead.assetClass) return null;
+  const transactionType = lead.transactionType ?? (lead.requirementType === "RENT" ? "RENT" : "SALE");
+  const wantsRent = transactionType === "RENT";
   if (wantsRent && property.listingType !== "RENT") return null;
   if (!wantsRent && property.listingType !== "SALE") return null;
   if (property.status !== "AVAILABLE") return null;
@@ -146,6 +158,22 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
     reasons.push({ label: "Budget", matched: false, detail: `Priced well below client's minimum budget` });
   }
   if (overagePct > maxOverageTolerance) return null; // hard cutoff beyond tolerance
+
+  // Commercial requirements deliberately do not depend on residential BHK.
+  if (lead.assetClass === "COMMERCIAL") {
+    if (lead.commercialPropertyType && property.propertyType !== lead.commercialPropertyType) return null;
+    if (lead.minAreaSqft && property.builtUpAreaSqft < lead.minAreaSqft) return null;
+    if (lead.maxAreaSqft && property.builtUpAreaSqft > lead.maxAreaSqft) return null;
+    if (lead.commercialFitOutPref && property.commercialFitOut && property.commercialFitOut !== lead.commercialFitOutPref) {
+      reasons.push({ label: "Fit-out", matched: false, detail: "Fit-out differs from requirement" });
+    } else {
+      score += WEIGHTS.bhk;
+      reasons.push({ label: "Commercial fit", matched: true, detail: "Commercial type and area match requirement" });
+    }
+    if (lead.parkingRequired && !property.parkingAvailable) return null;
+    if (lead.liftRequired && !property.liftAvailable) return null;
+    return finalizeMatch(property, score, reasons, overagePct, budgetTier, locationMatchKind);
+  }
 
   // BHK match
   if (lead.preferredBhk) {

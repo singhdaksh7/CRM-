@@ -39,6 +39,10 @@ export async function GET(req: NextRequest) {
     if (location) where.preferredLocation = location;
     const requirementType = sp.get("requirementType");
     if (requirementType) where.requirementType = requirementType;
+    const assetClass = sp.get("assetClass");
+    if (assetClass) where.assetClass = assetClass;
+    const transactionType = sp.get("transactionType");
+    if (transactionType) where.transactionType = transactionType;
 
     const leads = await prisma.lead.findMany({
       where,
@@ -81,6 +85,8 @@ export async function POST(req: NextRequest) {
         email: data.email || null,
         leadCode: generateCode("LEAD", count + 1),
         moveInDate: data.moveInDate ? new Date(data.moveInDate) : null,
+        transactionType: data.transactionType ?? (data.requirementType === "RENT" ? "RENT" : "SALE"),
+        suitableForTags: JSON.stringify(data.suitableForTags),
       },
     });
 

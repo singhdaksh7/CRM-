@@ -44,6 +44,7 @@ import { createDemoCatalogueEngagement } from "../src/lib/demo-data/catalogue-en
 import { createDemoPropertyEngagement } from "../src/lib/demo-data/property-engagement";
 import { createDemoPhase5Scenarios } from "../src/lib/demo-data/phase5";
 import { createDemoPhase8Inbox } from "../src/lib/demo-data/phase8";
+import { createDemoPortalScenarios } from "../src/lib/demo-data/portals";
 import { runVerification } from "../src/lib/demo-data/verify";
 import { recalculateLeadScore } from "../src/lib/scoring";
 import { matchPropertiesToLead } from "../src/lib/matching";
@@ -160,6 +161,9 @@ async function main() {
   console.log("[seed-demo] Creating deterministic MOCK-only Phase 8 WhatsApp inbox scenarios (zero provider calls)...");
   const phase8 = await createDemoPhase8Inbox(leads.all, employees.all);
 
+  console.log("[seed-demo] Creating deterministic MOCK-only property-portal scenarios (connections, ingestion states, listings, conflicts, retry/dead-letter) - zero provider calls...");
+  const portals = await createDemoPortalScenarios(employees.admin);
+
   console.log("[seed-demo] Re-computing lead-property matches against what was actually written (should be identical to the pre-write projection above)...");
   const availableProperties = properties.all.filter((p) => p.status === "AVAILABLE");
   let totalMatchPairs = 0;
@@ -192,7 +196,8 @@ async function main() {
     catalogues.all.length + deals.all.length + documents.all.length + notifications.length +
     visitFeedback.all.length + propertyIssues.availabilityReports.length + propertyIssues.propertyReports.length +
     catalogueEngagement.versionEventCount + propertyEngagement.favorites.length + propertyEngagement.viewLogs.length +
-    phase5.dealOffers + phase5.broadcasts + phase5.broadcastRecipients + phase5.matchRecommendations + phase5.preparedWhatsAppMessages + phase8.conversations + phase8.messages;
+    phase5.dealOffers + phase5.broadcasts + phase5.broadcastRecipients + phase5.matchRecommendations + phase5.preparedWhatsAppMessages + phase8.conversations + phase8.messages +
+    portals.connections + portals.commercialProperties + portals.leads + portals.events + portals.listings + portals.operations;
 
   console.log("\n========================================");
   console.log(" KP Properties - Demo Seed Complete");
@@ -220,6 +225,13 @@ async function main() {
   console.log(`Match recommendations:     ${phase5.matchRecommendations} (target ${DEMO_SEED_PLAN.matchRecommendations})`);
   console.log(`Prepared WhatsApp drafts:  ${phase5.preparedWhatsAppMessages} (zero automatic sends)`);
   console.log(`WhatsApp inbox:            ${phase8.conversations} conversations / ${phase8.messages} messages (MOCK, zero provider calls)`);
+  console.log(`Portal connections:        ${portals.connections} (target ${DEMO_SEED_PLAN.portalConnections}, MOCK-only - none is CONNECTED, no credential stored)`);
+  console.log(`Commercial properties:     ${portals.commercialProperties} (target ${DEMO_SEED_PLAN.portalCommercialProperties})`);
+  console.log(`Portal leads:              ${portals.leads} (target ${DEMO_SEED_PLAN.portalLeads})`);
+  console.log(`External lead events:      ${portals.events} (target ${DEMO_SEED_PLAN.portalExternalLeadEvents})`);
+  console.log(`Portal listings:           ${portals.listings} (target ${DEMO_SEED_PLAN.portalListings})`);
+  console.log(`Portal operations:         ${portals.operations} (target ${DEMO_SEED_PLAN.portalOperations})`);
+  console.log(`Portal scenarios covered:  ${portals.scenarios.join(", ")}`);
   console.log(`Total records inserted:    ${totalRecords}`);
   console.log(`Lead-property match pairs: ${totalMatchPairs} (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches})`);
   console.log(`Leads outside ${minMatch}-${maxMatch} match range: ${leadsOutsideTargetRange.length === 0 ? "none" : JSON.stringify(leadsOutsideTargetRange)}`);
@@ -251,6 +263,17 @@ async function main() {
   }
   if (propertyEngagement.viewLogs.length !== DEMO_SEED_PLAN.propertyViewLogs) {
     problems.push(`Property view log count is ${propertyEngagement.viewLogs.length}, expected ${DEMO_SEED_PLAN.propertyViewLogs}.`);
+  }
+  const portalExpectations: [string, number, number][] = [
+    ["Portal connection", portals.connections, DEMO_SEED_PLAN.portalConnections],
+    ["Commercial property", portals.commercialProperties, DEMO_SEED_PLAN.portalCommercialProperties],
+    ["Portal lead", portals.leads, DEMO_SEED_PLAN.portalLeads],
+    ["External lead event", portals.events, DEMO_SEED_PLAN.portalExternalLeadEvents],
+    ["Portal listing", portals.listings, DEMO_SEED_PLAN.portalListings],
+    ["Portal operation", portals.operations, DEMO_SEED_PLAN.portalOperations],
+  ];
+  for (const [label, actual, target] of portalExpectations) {
+    if (actual !== target) problems.push(`${label} count is ${actual}, expected ${target}.`);
   }
 
   if (problems.length > 0) {

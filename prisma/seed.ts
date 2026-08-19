@@ -16,7 +16,7 @@ const CLIENT_NAMES = [
 ];
 
 const PROPERTY_TITLES = ["Spacious", "Modern", "Cozy", "Elegant", "Premium", "Luxury", "Well-Ventilated", "Sunlit", "Newly Renovated", "Compact"];
-const PROPERTY_TYPE_NAMES: Record<PropertyType, string> = {
+const PROPERTY_TYPE_NAMES: Partial<Record<PropertyType, string>> = {
   APARTMENT: "Apartment",
   INDEPENDENT_HOUSE: "Independent House",
   VILLA: "Villa",
@@ -117,11 +117,11 @@ async function main() {
 
     const data: Prisma.PropertyUncheckedCreateInput = {
       propertyCode: `PROP-${String(i + 1).padStart(4, "0")}`,
-      title: `${pick(PROPERTY_TITLES, i)} ${bhk} BHK ${PROPERTY_TYPE_NAMES[propertyType]} in ${area}`,
+      title: `${pick(PROPERTY_TITLES, i)} ${bhk} BHK ${PROPERTY_TYPE_NAMES[propertyType] ?? propertyType} in ${area}`,
       propertyType,
       listingType: isRent ? ListingType.RENT : ListingType.SALE,
       status,
-      description: `A ${pick(PROPERTY_TITLES, i).toLowerCase()} ${bhk} BHK ${PROPERTY_TYPE_NAMES[propertyType].toLowerCase()} located in the heart of ${area}, Delhi. Close to markets, schools, and metro connectivity. Ideal for ${isRent ? "families or working professionals" : "end-use or investment"}.`,
+      description: `A ${pick(PROPERTY_TITLES, i).toLowerCase()} ${bhk} BHK ${(PROPERTY_TYPE_NAMES[propertyType] ?? propertyType).toLowerCase()} located in the heart of ${area}, Delhi. Close to markets, schools, and metro connectivity. Ideal for ${isRent ? "families or working professionals" : "end-use or investment"}.`,
       city: "Delhi",
       area,
       address: `${100 + i} ${area} Extension, New Delhi`,

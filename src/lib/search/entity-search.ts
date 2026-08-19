@@ -43,6 +43,17 @@ async function searchProperties(parsed: ReturnType<typeof parseSearchQuery>, ctx
   }));
 }
 
+async function searchPortals(parsed: ReturnType<typeof parseSearchQuery>, ctx: SearchContext): Promise<SearchResultItem[]> {
+  if (ctx.role === "FIELD_EXECUTIVE") return [];
+  const kw = parsed.keywords.join(" ").trim();
+  if (!kw) return [];
+  const [leads, listings] = await Promise.all([
+    prisma.externalLeadEvent.findMany({ where: { organizationId: ctx.organizationId, OR: [{ externalLeadId: { contains: kw, mode: "insensitive" } }, { externalListingId: { contains: kw, mode: "insensitive" } }, { provider: { equals: kw.toUpperCase() as never } }] }, select: { id: true, provider: true, externalLeadId: true, externalListingId: true, ingestionStatus: true }, take: PER_ENTITY_LIMIT }),
+    prisma.portalListing.findMany({ where: { organizationId: ctx.organizationId, OR: [{ externalListingId: { contains: kw, mode: "insensitive" } }, { property: { propertyCode: { contains: kw, mode: "insensitive" } } }, { provider: { equals: kw.toUpperCase() as never } }] }, select: { id: true, provider: true, externalListingId: true, status: true, propertyId: true }, take: PER_ENTITY_LIMIT }),
+  ]);
+  return [...leads.map((row) => ({ entity: "PORTAL" as const, id: row.id, title: `${row.provider.replaceAll("_", " ")} lead · ${row.externalLeadId ?? "external ID unavailable"}`, subtitle: `Listing: ${row.externalListingId ?? "—"}`, href: "/leads/portal", badge: row.ingestionStatus })), ...listings.map((row) => ({ entity: "PORTAL" as const, id: row.id, title: `${row.provider.replaceAll("_", " ")} listing · ${row.externalListingId ?? "draft"}`, subtitle: "Portal listing context", href: `/properties/${row.propertyId}`, badge: row.status }))];
+}
+
 async function searchEmployees(parsed: ReturnType<typeof parseSearchQuery>, ctx: SearchContext): Promise<SearchResultItem[]> {
   if (ctx.role === "FIELD_EXECUTIVE") return [];
   const kw = (parsed.employeeName ?? parsed.keywords.join(" ")).trim();
@@ -168,6 +179,7 @@ async function searchNotifications(parsed: ReturnType<typeof parseSearchQuery>, 
 const ENTITY_SEARCHERS: Record<SearchEntityType, (parsed: ReturnType<typeof parseSearchQuery>, ctx: SearchContext) => Promise<SearchResultItem[]>> = {
   LEAD: searchLeads,
   PROPERTY: searchProperties,
+  PORTAL: searchPortals,
   EMPLOYEE: searchEmployees,
   VISIT: searchVisits,
   FOLLOW_UP: searchFollowUps,
@@ -183,7 +195,11 @@ export async function runGlobalSearch(rawQuery: string, ctx: SearchContext): Pro
   const parsed = parseSearchQuery(rawQuery);
   if (!parsed.raw.trim()) return { query: parsed, results: [], totalCount: 0 };
 
-  const entityTypes: SearchEntityType[] = parsed.entity ? [parsed.entity] : (Object.keys(ENTITY_SEARCHERS) as SearchEntityType[]);
+  // Portal records are deliberately opt-in: they are an operational context,
+  // not an extra unbounded query on every CRM search. Provider names and the
+  // external-ID prefixes also make direct lookup ergonomic.
+  const portalHint = /\b(housing|99acres|ninety[_ -]?nine[_ -]?acres|magicbricks|olx|square[_ -]?connect|external[_ -]?(lead|listing)|portal)\b/i.test(rawQuery);
+  const entityTypes: SearchEntityType[] = parsed.entity ? [parsed.entity] : (Object.keys(ENTITY_SEARCHERS).filter((entity) => entity !== "PORTAL" || portalHint) as SearchEntityType[]);
   const groups = await Promise.all(entityTypes.map((e) => ENTITY_SEARCHERS[e](parsed, ctx)));
   const results = groups.flat().slice(0, TOTAL_LIMIT);
 

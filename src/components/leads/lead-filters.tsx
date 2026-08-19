@@ -46,6 +46,12 @@ export function LeadFilters({ employees }: { employees: User[] }) {
         <option value="RENT">Rent</option>
         <option value="BUY">Buy</option>
       </Select>
+      <Select defaultValue={sp.get("assetClass") ?? ""} onChange={(e) => update("assetClass", e.target.value)} className="w-auto text-xs font-semibold">
+        <option value="">All asset classes</option><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option>
+      </Select>
+      <Select defaultValue={sp.get("transactionType") ?? ""} onChange={(e) => update("transactionType", e.target.value)} className="w-auto text-xs font-semibold">
+        <option value="">All transactions</option><option value="RENT">Rent</option><option value="SALE">Sale</option>
+      </Select>
       <Select defaultValue={sp.get("assignedToId") ?? ""} onChange={(e) => update("assignedToId", e.target.value)} className="w-auto text-xs font-semibold">
         <option value="">All Employees</option>
         <option value="unassigned">Unassigned</option>

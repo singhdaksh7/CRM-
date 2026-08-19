@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { requirementMessage, sanitizeRequirement } from "@/lib/requirement-network";
 
 type Partner = { id: string; name: string; localities: string };
 type PropertyOption = { id: string; propertyCode: string; title: string; partnerId: string | null };
@@ -12,6 +13,7 @@ type Row = {
   lead: {
     id: string; clientName: string; preferredLocation: string; preferredBhk: number | null;
     minBudget: number; maxBudget: number; requirementType: string; furnishingPref: string | null;
+    assetClass?: string | null; commercialPropertyType?: string | null; minAreaSqft?: number | null; maxAreaSqft?: number | null;
     nextFollowUpAt: Date | null; assignedTo: { id: string; name: string } | null;
     requirementBroadcasts: { id: string; status: string; recipients: Recipient[] }[];
     matchRecommendations: { id: string }[];
@@ -20,11 +22,30 @@ type Row = {
   status: string;
 };
 
+/** Preview uses the exact sanitizer the API persists, so what a user copies is what gets broadcast - including the commercial asset class. */
 function sanitizedMessage(row: Row) {
   const lead = row.lead;
-  return ["PROPERTY REQUIREMENT", lead.preferredBhk ? `${lead.preferredBhk} BHK` : null, lead.preferredLocation,
-    `Budget ₹${lead.minBudget.toLocaleString("en-IN")}–₹${lead.maxBudget.toLocaleString("en-IN")}`,
-    lead.furnishingPref?.replaceAll("_", " "), "Immediate Requirement"].filter(Boolean).join("\n");
+  return requirementMessage(
+    sanitizeRequirement({
+      requirementType: lead.requirementType as never,
+      preferredLocation: lead.preferredLocation,
+      minBudget: lead.minBudget,
+      maxBudget: lead.maxBudget,
+      preferredBhk: lead.preferredBhk,
+      furnishingPref: (lead.furnishingPref ?? null) as never,
+      moveInDate: null,
+      assetClass: (lead.assetClass ?? "RESIDENTIAL") as never,
+      commercialPropertyType: (lead.commercialPropertyType ?? null) as never,
+      minAreaSqft: lead.minAreaSqft ?? null,
+      maxAreaSqft: lead.maxAreaSqft ?? null,
+    })
+  );
+}
+
+/** Commercial requirements have no BHK - showing "Any BHK" for them was misleading. */
+function requirementLabel(lead: Row["lead"]) {
+  if (lead.assetClass === "COMMERCIAL") return `${(lead.commercialPropertyType ?? "Commercial").replace(/_/g, " ")} · ${lead.preferredLocation}`;
+  return `${lead.preferredBhk ?? "Any"} BHK · ${lead.preferredLocation}`;
 }
 
 export function RequirementBoard({ rows, partners, properties }: { rows: Row[]; partners: Partner[]; properties: PropertyOption[] }) {
@@ -41,7 +62,7 @@ export function RequirementBoard({ rows, partners, properties }: { rows: Row[]; 
   async function recordResponse() { const broadcast = active?.lead.requirementBroadcasts[0]; if (!broadcast || !respondingPartner) return toast.error("Choose a responding partner"); const res = await fetch(`/api/requirements/broadcasts/${broadcast.id}/responses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ partnerId: respondingPartner, propertyId: propertyId || undefined, note: note || undefined }) }); if (res.ok) { toast.success("Partner response recorded"); router.refresh(); } else toast.error("Could not record response"); }
   return <div className="space-y-4">
     <div className="flex flex-wrap gap-2"><input className="rounded border px-3 py-2" placeholder="Client, locality, employee" value={q} onChange={e => setQ(e.target.value)}/><select className="rounded border px-3" value={filter} onChange={e => setFilter(e.target.value)}><option value="ALL">All</option><option value="NO_MATCHES">No Matches</option><option value="LIMITED_MATCHES">Limited Matches</option><option value="MATCHES_AVAILABLE">Matches Available</option><option value="NEW">New Matches</option><option value="BROADCASTED">Broadcasted</option><option value="FOLLOWUP">Needs Follow-up</option></select></div>
-    <div className="overflow-x-auto rounded-xl border"><table className="w-full text-sm"><thead className="bg-[#FAFBFC] text-left"><tr><th className="p-3">Client</th><th className="p-3">Requirement</th><th className="p-3">Matches</th><th className="p-3">Broadcast</th><th className="p-3">Actions</th></tr></thead><tbody>{visible.map(row => <tr className="border-t" key={row.lead.id}><td className="p-3"><Link className="font-semibold text-blue-700" href={`/leads/${row.lead.id}`}>{row.lead.clientName}</Link><div className="text-xs">{row.lead.assignedTo?.name ?? "Unassigned"}</div></td><td className="p-3">{row.lead.preferredBhk ?? "Any"} BHK · {row.lead.preferredLocation}<div className="text-xs">₹{row.lead.minBudget.toLocaleString("en-IN")}–₹{row.lead.maxBudget.toLocaleString("en-IN")} · {row.lead.requirementType}</div></td><td className="p-3">{row.matchCount}<div className="text-xs">{row.status}</div></td><td className="p-3">{row.lead.requirementBroadcasts[0]?.status ?? "Not broadcast"}<div className="text-xs">{row.lead.matchRecommendations.length} new</div></td><td className="p-3 space-x-2"><Link href={`/leads/${row.lead.id}/match`} className="text-blue-700">View Matches</Link><button onClick={() => open(row)}>Broadcast / Response</button></td></tr>)}</tbody></table></div>
+    <div className="overflow-x-auto rounded-xl border"><table className="w-full text-sm"><thead className="bg-[#FAFBFC] text-left"><tr><th className="p-3">Client</th><th className="p-3">Requirement</th><th className="p-3">Matches</th><th className="p-3">Broadcast</th><th className="p-3">Actions</th></tr></thead><tbody>{visible.map(row => <tr className="border-t" key={row.lead.id}><td className="p-3"><Link className="font-semibold text-blue-700" href={`/leads/${row.lead.id}`}>{row.lead.clientName}</Link><div className="text-xs">{row.lead.assignedTo?.name ?? "Unassigned"}</div></td><td className="p-3">{requirementLabel(row.lead)}<div className="text-xs">₹{row.lead.minBudget.toLocaleString("en-IN")}–₹{row.lead.maxBudget.toLocaleString("en-IN")} · {row.lead.requirementType}</div></td><td className="p-3">{row.matchCount}<div className="text-xs">{row.status}</div></td><td className="p-3">{row.lead.requirementBroadcasts[0]?.status ?? "Not broadcast"}<div className="text-xs">{row.lead.matchRecommendations.length} new</div></td><td className="p-3 space-x-2"><Link href={`/leads/${row.lead.id}/match`} className="text-blue-700">View Matches</Link><button onClick={() => open(row)}>Broadcast / Response</button></td></tr>)}</tbody></table></div>
     {active && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"><div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-5 space-y-4"><div className="flex justify-between"><h2 className="font-bold">Requirement Network · {active.lead.clientName}</h2><button onClick={() => setActive(null)}>Close</button></div><textarea className="w-full rounded border p-2" rows={7} readOnly value={sanitizedMessage(active)}/><button className="rounded border px-3 py-1" onClick={() => navigator.clipboard.writeText(sanitizedMessage(active))}>Copy Requirement</button><div><h3 className="font-semibold">Select Inventory Partners</h3>{partners.map(p => <label className="block py-1" key={p.id}><input type="checkbox" checked={selected.includes(p.id)} onChange={e => setSelected(v => e.target.checked ? [...v, p.id] : v.filter(x => x !== p.id))}/> {p.name}{relevant(active).some(r => r.id === p.id) ? " · locality match" : ""}</label>)}</div><button className="rounded bg-blue-700 px-3 py-2 text-white" onClick={share}>Mark Shared with {selected.length} partner(s)</button>
       {active.lead.requirementBroadcasts[0] && <div className="space-y-2 border-t pt-4"><h3 className="font-semibold">Record Partner Response</h3><select className="w-full rounded border p-2" value={respondingPartner} onChange={e => setRespondingPartner(e.target.value)}><option value="">Responding partner…</option>{active.lead.requirementBroadcasts[0].recipients.map(r => <option key={r.inventoryPartnerId} value={r.inventoryPartnerId}>{r.inventoryPartner.name}</option>)}</select><select className="w-full rounded border p-2" value={propertyId} onChange={e => setPropertyId(e.target.value)}><option value="">No linked property</option>{properties.filter(p => p.partnerId === respondingPartner).map(p => <option key={p.id} value={p.id}>{p.propertyCode} · {p.title}</option>)}</select><textarea className="w-full rounded border p-2" placeholder="Response note" value={note} onChange={e => setNote(e.target.value)}/><div className="flex gap-2"><button className="rounded border px-3 py-1" onClick={recordResponse}>Record Response</button>{respondingPartner && <Link className="rounded border px-3 py-1" href={`/properties/new?inventorySource=INDIRECT&partnerId=${respondingPartner}`}>Quick Add Indirect Property</Link>}</div></div>}
     </div></div>}

@@ -24,6 +24,10 @@ type ModelDelegateKeys =
   | "catalogueShare"
   | "whatsAppMessage"
   | "whatsAppConversation"
+  | "portalOperation"
+  | "externalLeadEvent"
+  | "portalListing"
+  | "propertyPortalConnection"
   | "sharedPropertyLog"
   | "payment"
   | "brokerageCalculation"
@@ -72,6 +76,32 @@ type ModelDelegateKeys =
  * relation filters back to a kp-demo- prefixed, org-scoped parent instead
  * of by id.
  */
+/**
+ * The portal tables are the newest additions to this schema, so a database
+ * that has not yet had the property-business/portal migration applied simply
+ * does not have them. Counting/deleting from a table that does not exist
+ * throws Prisma's P2021, which previously took down the whole teardown
+ * preview (and with it `seed:demo:verify`, which is documented as safe to
+ * run anywhere, anytime). "Table absent" and "table present but empty" mean
+ * exactly the same thing for teardown - there is nothing to remove - so
+ * P2021 degrades to 0 here. Nothing is hidden by this: the dedicated
+ * `checkPortalSchemaCompatibility` dry-run check still FAILs loudly when the
+ * migration has not been applied. Only P2021 is tolerated; any other error
+ * still propagates.
+ */
+function isMissingTableError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { code?: string }).code === "P2021";
+}
+
+async function tolerateMissingTable<T extends { count: number }>(fn: () => Promise<T>): Promise<{ count: number }> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (isMissingTableError(error)) return { count: 0 };
+    throw error;
+  }
+}
+
 export async function teardownDemoData(): Promise<{ deletedCounts: Record<string, number> }> {
   const p = DEMO_ID_PREFIX;
   const orgId = DEMO_ORGANIZATION_ID;
@@ -130,6 +160,18 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
     prisma.catalogueVersionEvent.deleteMany({ where: { organizationId: orgId, catalogueShare: startsWith("cat") } })
   );
   await del("catalogueShare", () => prisma.catalogueShare.deleteMany({ where: startsWith("cat") }));
+
+  // --- Property-portal tree (leaf -> root). Deleted before lead/property
+  // below: PortalListing.propertyId is a required FK (cascade), and
+  // ExternalLeadEvent.leadId/portalListingId are SetNull - deleting these
+  // explicitly (rather than relying on cascade) keeps the per-model counts
+  // accurate and keeps teardown correct if those cascade rules ever change.
+  // Every filter is prefix- AND org-scoped exactly like the trees above, so
+  // a real (non-demo) portal connection or listing can never be removed. ---
+  await del("portalOperation", () => tolerateMissingTable(() => prisma.portalOperation.deleteMany({ where: startsWith("portal-op") })));
+  await del("externalLeadEvent", () => tolerateMissingTable(() => prisma.externalLeadEvent.deleteMany({ where: startsWith("portal-evt") })));
+  await del("portalListing", () => tolerateMissingTable(() => prisma.portalListing.deleteMany({ where: startsWith("portal-listing") })));
+  await del("propertyPortalConnection", () => tolerateMissingTable(() => prisma.propertyPortalConnection.deleteMany({ where: startsWith("portal-conn") })));
 
   // --- WhatsApp tree ---
   await del("whatsAppMessage", () =>
@@ -272,6 +314,16 @@ export async function teardownDemoData(): Promise<{ deletedCounts: Record<string
  * convention) can pass the read-only-guarded client from
  * read-only-guard.ts instead of the shared singleton.
  */
+/** Count counterpart to tolerateMissingTable() above - same P2021-only degradation, same reasoning. */
+async function countTolerantOfMissingTable(fn: () => Promise<number>): Promise<number> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (isMissingTableError(error)) return 0;
+    throw error;
+  }
+}
+
 export async function previewTeardownCounts(client: CountableClient = prisma): Promise<Record<string, number>> {
   const p = DEMO_ID_PREFIX;
   const orgId = DEMO_ORGANIZATION_ID;
@@ -281,6 +333,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     dealOffer, requirementBroadcastRecipient, requirementBroadcast, matchRecommendation,
     catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
+    portalOperation, externalLeadEvent, portalListing, propertyPortalConnection,
     payment, brokerageCalculation, deal, document,
     visitFeedback, visit, followUp, leadScoreHistory, activity, notification, savedView,
     propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,
@@ -303,6 +356,10 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     client.sharedPropertyLog.count({
       where: { organizationId: orgId, OR: [{ lead: startsWith("lead") }, { Property: startsWith("prop") }] },
     }),
+    countTolerantOfMissingTable(() => client.portalOperation.count({ where: startsWith("portal-op") })),
+    countTolerantOfMissingTable(() => client.externalLeadEvent.count({ where: startsWith("portal-evt") })),
+    countTolerantOfMissingTable(() => client.portalListing.count({ where: startsWith("portal-listing") })),
+    countTolerantOfMissingTable(() => client.propertyPortalConnection.count({ where: startsWith("portal-conn") })),
     client.payment.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
     client.brokerageCalculation.count({ where: { organizationId: orgId, deal: startsWith("deal") } }),
     client.deal.count({ where: startsWith("deal") }),
@@ -350,6 +407,7 @@ export async function previewTeardownCounts(client: CountableClient = prisma): P
     dealOffer, requirementBroadcastRecipient, requirementBroadcast, matchRecommendation,
     catalogueInteraction, catalogueShareProperty, catalogueVersionEvent, catalogueShare,
     whatsAppMessage, whatsAppConversation, sharedPropertyLog,
+    portalOperation, externalLeadEvent, portalListing, propertyPortalConnection,
     payment, brokerageCalculation, deal, document,
     visitFeedback, visit, followUp, leadScoreHistory, activity, notification, savedView,
     propertyAvailabilityReport, propertyReport, propertyFavorite, propertyViewLog, propertyImage,

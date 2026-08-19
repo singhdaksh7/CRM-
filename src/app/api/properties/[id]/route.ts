@@ -41,7 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // A coordinate submitted alongside a placeId came from the address
         // search's confirmed geocode result (see property-address-search.tsx).
         ...(data.latitude != null && data.placeId ? { geocodeStatus: "SUCCESS" as const, geocodedAt: new Date() } : {}),
-      },
+      } as never,
     });
 
     // Best-effort: a property becoming unavailable or changing price after

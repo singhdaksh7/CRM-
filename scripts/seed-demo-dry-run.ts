@@ -29,6 +29,8 @@ import {
   checkPhase8EnumCompatibility,
   checkPhase7SchemaCompatibility,
   checkPhase7EnumCompatibility,
+  checkPortalSchemaCompatibility,
+  checkPortalEnumCompatibility,
 } from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
@@ -242,6 +244,15 @@ export async function runDryRun(
     const phase7Enums = await checkPhase7EnumCompatibility(client);
     record("Phase 7 inventory import enum compatibility", phase7Enums.ok, phase7Enums.ok ? "all Phase 7 enum types exist" : `missing: ${phase7Enums.missing.join(", ")}`);
   } catch (e) { record("Phase 7 inventory import enum compatibility", false, (e as Error).message); }
+
+  try {
+    const portal = await checkPortalSchemaCompatibility(client);
+    record("Property business + portal schema compatibility", portal.ok, portal.ok ? "all commercial/portal columns exist" : `missing: ${portal.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`);
+  } catch (e) { record("Property business + portal schema compatibility", false, (e as Error).message); }
+  try {
+    const portalEnums = await checkPortalEnumCompatibility(client);
+    record("Property business + portal enum compatibility", portalEnums.ok, portalEnums.ok ? "all commercial/portal enum values exist" : `missing: ${portalEnums.missing.join(", ")}`);
+  } catch (e) { record("Property business + portal enum compatibility", false, (e as Error).message); }
 
   try {
     const pendingSetupCheck = await checkPendingSetupEnumCompatibility(client);

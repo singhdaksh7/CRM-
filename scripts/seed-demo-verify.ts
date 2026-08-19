@@ -85,8 +85,9 @@ async function main() {
       ["user", counts.user, DEMO_SEED_PLAN.employees],
       ["owner", counts.owner, DEMO_SEED_PLAN.owners],
       ["inventoryPartner", counts.inventoryPartner, DEMO_SEED_PLAN.inventoryPartners],
-      ["property", counts.property, DEMO_SEED_PLAN.properties],
-      ["lead", counts.lead, DEMO_SEED_PLAN.leads],
+      // Residential generators + the additive commercial/portal rows (see plan.ts).
+      ["property", counts.property, DEMO_SEED_PLAN.properties + DEMO_SEED_PLAN.portalCommercialProperties],
+      ["lead", counts.lead, DEMO_SEED_PLAN.leads + DEMO_SEED_PLAN.portalLeads],
       // Randomized bucket visits + the three hand-built workflow visits.
       ["visit", counts.visit, DEMO_SEED_PLAN.visits + DEMO_SEED_PLAN.workflowVisits],
       ["followUp", counts.followUp, DEMO_SEED_PLAN.followUps],
@@ -99,6 +100,11 @@ async function main() {
       ["propertyReport", counts.propertyReport, DEMO_SEED_PLAN.propertyReports],
       ["propertyFavorite", counts.propertyFavorite, DEMO_SEED_PLAN.propertyFavorites],
       ["propertyViewLog", counts.propertyViewLog, DEMO_SEED_PLAN.propertyViewLogs],
+      // --- Property-portal scenarios (MOCK-only) ---
+      ["propertyPortalConnection", counts.propertyPortalConnection, DEMO_SEED_PLAN.portalConnections],
+      ["externalLeadEvent", counts.externalLeadEvent, DEMO_SEED_PLAN.portalExternalLeadEvents],
+      ["portalListing", counts.portalListing, DEMO_SEED_PLAN.portalListings],
+      ["portalOperation", counts.portalOperation, DEMO_SEED_PLAN.portalOperations],
     ];
     console.log("\n--- Against plan ---");
     for (const [label, actual, target] of expectations) {
@@ -145,6 +151,20 @@ async function main() {
       ["PropertyViewLog referencing a non-demo user/property", () =>
         prisma.propertyViewLog.count({ where: { OR: [{ property: { id: { not: { startsWith: propPrefix } } } }, { user: { id: { not: { startsWith: empPrefix } } } }] } })],
     ];
+    relationshipChecks.push(
+      ["PropertyPortalConnection storing a credential reference (must always be null)", () =>
+        prisma.propertyPortalConnection.count({ where: { organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: `${DEMO_ID_PREFIX}portal-conn-` }, NOT: { credentialReference: null } } })],
+      ["Demo portal connection reporting itself as CONNECTED (no provider is authorized)", () =>
+        prisma.propertyPortalConnection.count({ where: { organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: `${DEMO_ID_PREFIX}portal-conn-` }, status: "CONNECTED" } })],
+      ["ExternalLeadEvent referencing a non-demo lead", () =>
+        prisma.externalLeadEvent.count({ where: { organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: `${DEMO_ID_PREFIX}portal-evt-` }, NOT: [{ leadId: null }, { leadId: { startsWith: `${DEMO_ID_PREFIX}lead-` } }] } })],
+      ["PortalListing referencing a non-demo property", () =>
+        prisma.portalListing.count({ where: { organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: `${DEMO_ID_PREFIX}portal-listing-` }, NOT: { propertyId: { startsWith: propPrefix } } } })],
+      ["Commercial demo property carrying a residential BHK", () =>
+        prisma.property.count({ where: { organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: propPrefix }, assetClass: "COMMERCIAL", NOT: { bhk: 0 } } })],
+      ["Commercial demo lead carrying a residential BHK preference", () =>
+        prisma.lead.count({ where: { organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: `${DEMO_ID_PREFIX}lead-` }, assetClass: "COMMERCIAL", NOT: { preferredBhk: null } } })],
+    );
     for (const [label, check] of relationshipChecks) {
       const bad = await check();
       console.log(`  ${label}: ${bad} ${bad === 0 ? "OK" : "MISMATCH"}`);

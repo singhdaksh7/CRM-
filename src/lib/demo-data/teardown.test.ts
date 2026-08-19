@@ -18,6 +18,7 @@ const MODEL_NAMES = [
   "dealOffer", "requirementBroadcastRecipient", "requirementBroadcast", "matchRecommendation",
   "catalogueInteraction", "catalogueShareProperty", "catalogueVersionEvent", "catalogueShare",
   "whatsAppMessage", "whatsAppConversation", "sharedPropertyLog",
+  "portalOperation", "externalLeadEvent", "portalListing", "propertyPortalConnection",
   "payment", "brokerageCalculation", "deal", "document",
   "visitFeedback", "visitProperty", "visit", "followUp", "leadScoreHistory", "activity", "notification", "savedView",
   "propertyAvailabilityReport", "propertyReport", "propertyFavorite", "propertyViewLog", "propertyImage",
@@ -201,5 +202,113 @@ describe("previewTeardownCounts - mirrors teardownDemoData's filters exactly (re
     for (const name of MODEL_NAMES) {
       expect(mockPrisma[name].deleteMany).not.toHaveBeenCalled();
     }
+  });
+});
+
+/**
+ * Portal teardown: the four portal tables reference Property (required FK),
+ * Lead and each other, so they must be removed strictly before the core
+ * entities - and, like every other filter here, must be incapable of
+ * touching a real (non-demo-prefixed) portal connection or listing.
+ */
+describe("teardownDemoData - property-portal tree", () => {
+  it("deletes every portal table strictly before lead and property", async () => {
+    await teardownDemoData();
+    const leadIdx = callOrder.indexOf("lead");
+    const propertyIdx = callOrder.indexOf("property");
+    for (const model of ["portalOperation", "externalLeadEvent", "portalListing", "propertyPortalConnection"]) {
+      const idx = callOrder.indexOf(model);
+      expect(idx).toBeGreaterThanOrEqual(0);
+      expect(idx).toBeLessThan(leadIdx);
+      expect(idx).toBeLessThan(propertyIdx);
+    }
+  });
+
+  it("deletes portal children before the connection they hang off", async () => {
+    await teardownDemoData();
+    const connectionIdx = callOrder.indexOf("propertyPortalConnection");
+    expect(callOrder.indexOf("portalOperation")).toBeLessThan(connectionIdx);
+    expect(callOrder.indexOf("externalLeadEvent")).toBeLessThan(connectionIdx);
+    expect(callOrder.indexOf("portalListing")).toBeLessThan(connectionIdx);
+  });
+
+  it("scopes every portal delete by BOTH the demo id prefix and the organization", async () => {
+    await teardownDemoData();
+    const expectations: [keyof typeof mockPrisma, string][] = [
+      ["portalOperation", "portal-op-"],
+      ["externalLeadEvent", "portal-evt-"],
+      ["portalListing", "portal-listing-"],
+      ["propertyPortalConnection", "portal-conn-"],
+    ];
+    for (const [model, prefix] of expectations) {
+      const [{ where }] = mockPrisma[model].deleteMany.mock.calls[0];
+      expect(where).toEqual({ organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: `${DEMO_ID_PREFIX}${prefix}` } });
+    }
+  });
+
+  it("reports portal counts alongside every other model", async () => {
+    mockPrisma = buildMockPrisma({ propertyPortalConnection: 5, externalLeadEvent: 9, portalListing: 3, portalOperation: 3 });
+    const { deletedCounts } = await teardownDemoData();
+    expect(deletedCounts.propertyPortalConnection).toBe(5);
+    expect(deletedCounts.externalLeadEvent).toBe(9);
+    expect(deletedCounts.portalListing).toBe(3);
+    expect(deletedCounts.portalOperation).toBe(3);
+  });
+
+  it("previews portal counts with .count() and never .deleteMany()", async () => {
+    mockPrisma = buildMockPrisma({ propertyPortalConnection: 5, externalLeadEvent: 9, portalListing: 3, portalOperation: 3 });
+    const counts = await previewTeardownCounts(mockPrisma as never);
+    expect(counts.propertyPortalConnection).toBe(5);
+    expect(counts.externalLeadEvent).toBe(9);
+    expect(counts.portalListing).toBe(3);
+    expect(counts.portalOperation).toBe(3);
+    for (const model of ["portalOperation", "externalLeadEvent", "portalListing", "propertyPortalConnection"] as const) {
+      expect(mockPrisma[model].deleteMany).not.toHaveBeenCalled();
+    }
+  });
+});
+
+/**
+ * A database that has not yet had the property-business/portal migration
+ * applied has no portal tables at all. Prisma raises P2021 there, which
+ * previously aborted the whole teardown preview - and with it
+ * `seed:demo:verify`, documented as safe to run anywhere, anytime. "Table
+ * absent" and "table present but empty" mean the same thing for teardown.
+ */
+describe("teardownDemoData - pre-migration database (portal tables absent)", () => {
+  function missingTableError() {
+    return Object.assign(new Error("The table `public.external_lead_events` does not exist"), { code: "P2021" });
+  }
+
+  it("still completes and reports 0, rather than aborting the whole teardown", async () => {
+    mockPrisma = buildMockPrisma({ property: 50 });
+    mockPrisma.externalLeadEvent.deleteMany.mockRejectedValue(missingTableError());
+    mockPrisma.portalListing.deleteMany.mockRejectedValue(missingTableError());
+    const { deletedCounts } = await teardownDemoData();
+    expect(deletedCounts.externalLeadEvent).toBe(0);
+    expect(deletedCounts.portalListing).toBe(0);
+    expect(deletedCounts.property).toBe(50);
+  });
+
+  it("keeps previewTeardownCounts usable, so verify never crashes pre-migration", async () => {
+    mockPrisma = buildMockPrisma({ lead: 25 });
+    for (const model of ["portalOperation", "externalLeadEvent", "portalListing", "propertyPortalConnection"] as const) {
+      mockPrisma[model].count.mockRejectedValue(missingTableError());
+    }
+    const counts = await previewTeardownCounts(mockPrisma as never);
+    expect(counts.propertyPortalConnection).toBe(0);
+    expect(counts.lead).toBe(25);
+  });
+
+  it("never swallows a non-P2021 failure", async () => {
+    mockPrisma = buildMockPrisma();
+    mockPrisma.portalOperation.deleteMany.mockRejectedValue(Object.assign(new Error("connection reset"), { code: "P1001" }));
+    await expect(teardownDemoData()).rejects.toThrow("connection reset");
+  });
+
+  it("never swallows a non-P2021 failure in the read-only preview either", async () => {
+    mockPrisma = buildMockPrisma();
+    mockPrisma.portalListing.count.mockRejectedValue(Object.assign(new Error("permission denied"), { code: "P2010" }));
+    await expect(previewTeardownCounts(mockPrisma as never)).rejects.toThrow("permission denied");
   });
 });

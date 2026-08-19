@@ -126,7 +126,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
                       {p.title}
                     </p>
                     <p className="mt-0.5 text-xs text-[#596579]">
-                      {p.area} &middot; {enumToLabel(p.propertyType)} &middot; {p.bhk} BHK
+                      {p.area} &middot; {enumToLabel(p.propertyType)}{p.assetClass === "COMMERCIAL" ? null : <> &middot; {p.bhk} BHK</>}
                       {p.floorNumber !== null && <> &middot; Floor {p.floorNumber}</>}
                     </p>
                     <p className="mt-0.5 text-xs text-[#8A94A6]">{p.address}</p>

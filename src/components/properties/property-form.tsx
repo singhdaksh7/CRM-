@@ -24,6 +24,7 @@ function isValidUrl(value: string): boolean {
 }
 
 type FormValues = {
+  assetClass: "RESIDENTIAL" | "COMMERCIAL";
   title: string;
   propertyType: string;
   listingType: "RENT" | "SALE";
@@ -51,6 +52,7 @@ type FormValues = {
   carpetAreaSqft: string;
   facing: string;
   parkingAvailable: boolean;
+  liftAvailable: boolean;
   tenantPreference: string;
   availableFrom: string;
   amenities: string[];
@@ -77,10 +79,28 @@ type FormValues = {
   internalNotes: string;
   negotiationNotes: string;
   hiddenRemarks: string;
+  commercialFitOut: string;
+  superAreaSqft: string;
+  frontageFeet: string;
+  ceilingHeightFeet: string;
+  cabins: string;
+  workstations: string;
+  washrooms: string;
+  pantryAvailable: boolean;
+  goodsLiftAvailable: boolean;
+  loadingAccessAvailable: boolean;
+  powerLoadKw: string;
+  suitableForTags: string[];
+  leaseTermMonths: string;
+  lockInPeriodMonths: string;
+  noticePeriodMonths: string;
+  escalationPercentage: string;
+  camCharge: string;
 };
 
 function toFormValues(p?: Property): FormValues {
   return {
+    assetClass: p?.assetClass ?? "RESIDENTIAL",
     title: p?.title ?? "",
     propertyType: p?.propertyType ?? "APARTMENT",
     listingType: (p?.listingType as "RENT" | "SALE") ?? "RENT",
@@ -108,6 +128,7 @@ function toFormValues(p?: Property): FormValues {
     carpetAreaSqft: p?.carpetAreaSqft?.toString() ?? "",
     facing: p?.facing ?? "",
     parkingAvailable: p?.parkingAvailable ?? false,
+    liftAvailable: p?.liftAvailable ?? false,
     tenantPreference: p?.tenantPreference ?? "",
     availableFrom: p?.availableFrom ? new Date(p.availableFrom).toISOString().slice(0, 10) : "",
     amenities: p?.amenities ? JSON.parse(p.amenities) : [],
@@ -134,6 +155,8 @@ function toFormValues(p?: Property): FormValues {
     ownerPhone: p?.ownerPhone ?? "",
     ownerAlternatePhone: p?.ownerAlternatePhone ?? "",
     ownerNotes: p?.ownerNotes ?? "",
+    commercialFitOut: p?.commercialFitOut ?? "",
+    superAreaSqft: p?.superAreaSqft?.toString() ?? "", frontageFeet: p?.frontageFeet?.toString() ?? "", ceilingHeightFeet: p?.ceilingHeightFeet?.toString() ?? "", cabins: p?.cabins?.toString() ?? "", workstations: p?.workstations?.toString() ?? "", washrooms: p?.washrooms?.toString() ?? "", pantryAvailable: p?.pantryAvailable ?? false, goodsLiftAvailable: p?.goodsLiftAvailable ?? false, loadingAccessAvailable: p?.loadingAccessAvailable ?? false, powerLoadKw: p?.powerLoadKw?.toString() ?? "", suitableForTags: p?.suitableForTags ? JSON.parse(p.suitableForTags) : [], leaseTermMonths: p?.leaseTermMonths?.toString() ?? "", lockInPeriodMonths: p?.lockInPeriodMonths?.toString() ?? "", noticePeriodMonths: p?.noticePeriodMonths?.toString() ?? "", escalationPercentage: p?.escalationPercentage?.toString() ?? "", camCharge: p?.camCharge?.toString() ?? "",
   };
 }
 
@@ -148,6 +171,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
   }
   const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: defaults });
   const listingType = watch("listingType");
+  const assetClass = watch("assetClass");
   const amenities = watch("amenities");
   const inventorySource = watch("inventorySource");
   const [partners, setPartners] = useState<{ id: string; name: string; company: string | null }[]>([]);
@@ -180,8 +204,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       salePrice: values.salePrice ? Number(values.salePrice) : null,
       pricePerSqft: values.pricePerSqft ? Number(values.pricePerSqft) : null,
       saleBrokeragePct: values.saleBrokeragePct ? Number(values.saleBrokeragePct) : null,
-      bhk: Number(values.bhk),
-      bathrooms: Number(values.bathrooms),
+      bhk: assetClass === "RESIDENTIAL" ? Number(values.bhk) : 0,
+      bathrooms: assetClass === "RESIDENTIAL" ? Number(values.bathrooms) : 0,
       balconies: Number(values.balconies),
       floorNumber: values.floorNumber ? Number(values.floorNumber) : null,
       totalFloors: values.totalFloors ? Number(values.totalFloors) : null,
@@ -216,6 +240,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       internalNotes: blankToNull(values.internalNotes),
       negotiationNotes: blankToNull(values.negotiationNotes),
       hiddenRemarks: blankToNull(values.hiddenRemarks),
+      commercialFitOut: assetClass === "COMMERCIAL" ? values.commercialFitOut || null : null,
+      superAreaSqft: values.superAreaSqft ? Number(values.superAreaSqft) : null, frontageFeet: values.frontageFeet ? Number(values.frontageFeet) : null, ceilingHeightFeet: values.ceilingHeightFeet ? Number(values.ceilingHeightFeet) : null, cabins: values.cabins ? Number(values.cabins) : null, workstations: values.workstations ? Number(values.workstations) : null, washrooms: values.washrooms ? Number(values.washrooms) : null, powerLoadKw: values.powerLoadKw ? Number(values.powerLoadKw) : null, suitableForTags: values.suitableForTags, leaseTermMonths: values.leaseTermMonths ? Number(values.leaseTermMonths) : null, lockInPeriodMonths: values.lockInPeriodMonths ? Number(values.lockInPeriodMonths) : null, noticePeriodMonths: values.noticePeriodMonths ? Number(values.noticePeriodMonths) : null, escalationPercentage: values.escalationPercentage ? Number(values.escalationPercentage) : null, camCharge: values.camCharge ? Number(values.camCharge) : null,
     };
 
     try {
@@ -259,11 +285,12 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           </Field>
           <Field label="Property Type" required>
             <Select {...register("propertyType")}>
-              {["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG"].map((t) => (
+              {(assetClass === "COMMERCIAL" ? ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL"] : ["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "STUDIO", "FARM_HOUSE", "PG", "CO_LIVING", "OTHER"]).map((t) => (
                 <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
               ))}
             </Select>
           </Field>
+          <Field label="Asset Class" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
           <Field label="Listing Type" required>
             <Select {...register("listingType")}>
               <option value="RENT">Rent</option>
@@ -368,6 +395,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       </Section>
 
       <Section title="Property Details">
+        {assetClass === "COMMERCIAL" ? <div className="space-y-4"><div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><Field label="Built-up Area (sqft)" required><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required" })} /></Field><Field label="Carpet Area (sqft)"><Input type="number" {...register("carpetAreaSqft")} /></Field><Field label="Super Area (sqft)"><Input type="number" {...register("superAreaSqft")} /></Field><Field label="Fit-out"><Select {...register("commercialFitOut")}><option value="">Not specified</option><option value="FURNISHED">Furnished</option><option value="SEMI_FURNISHED">Semi-Furnished</option><option value="BARE_SHELL">Bare shell</option></Select></Field><Field label="Workstations"><Input type="number" {...register("workstations")} /></Field><Field label="Cabins"><Input type="number" {...register("cabins")} /></Field><Field label="Washrooms"><Input type="number" {...register("washrooms")} /></Field><Field label="Frontage (ft)"><Input type="number" {...register("frontageFeet")} /></Field><Field label="Power Load (kW)"><Input type="number" {...register("powerLoadKw")} /></Field></div><div className="flex flex-wrap gap-4"><Checkbox label="Parking available" {...register("parkingAvailable")} /><Checkbox label="Lift available" {...register("liftAvailable")} /><Checkbox label="Goods lift" {...register("goodsLiftAvailable")} /><Checkbox label="Pantry" {...register("pantryAvailable")} /><Checkbox label="Loading access" {...register("loadingAccessAvailable")} /></div></div> : <>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           <Field label="BHK" required error={errors.bhk?.message}><Input type="number" {...register("bhk", { required: "BHK is required", min: { value: 0, message: "BHK must be 0-10" }, max: { value: 10, message: "BHK must be 0-10" } })} /></Field>
           <Field label="Bathrooms" required error={errors.bathrooms?.message}><Input type="number" {...register("bathrooms", { required: "Bathrooms required", min: { value: 0, message: "Bathrooms must be 0-10" }, max: { value: 10, message: "Bathrooms must be 0-10" } })} /></Field>
@@ -403,6 +431,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           <Field label="Available From"><Input type="date" {...register("availableFrom")} /></Field>
         </div>
         <Checkbox label="Parking available" {...register("parkingAvailable")} />
+        </>}
         <Field label="Amenities">
           <div className="flex flex-wrap gap-2">
             {AMENITIES_POOL.map((a) => (
