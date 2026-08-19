@@ -548,6 +548,77 @@ export const propertyReportResolveSchema = z.object({
   resolutionNote: z.string().max(2000).optional().nullable(),
 });
 
+export const customerContactSchema = z.object({
+  name: z.string().min(2).max(200),
+  phone: z.string().min(8),
+  email: z.string().email().optional().nullable().or(z.literal("")),
+  source: z.enum(["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL", "OLX", "SQUARE_CONNECT", "DIRECT", "OTHER"]).default("MANUAL"),
+  notes: z.string().max(4000).optional().nullable(),
+  tags: z.array(z.string().max(60)).default([]),
+  status: z.enum(["ACTIVE", "INACTIVE", "DO_NOT_CONTACT", "ARCHIVED"]).default("ACTIVE"),
+  doNotContact: z.boolean().default(false),
+  whatsAppOptOut: z.boolean().default(false),
+});
+
+/** Base object (no .refine()) so callers needing .partial() (PATCH endpoints) can still use it - see customerRequirementSchema below for the create-time refined version. */
+export const customerRequirementBaseSchema = z.object({
+  assetClass: z.enum(["RESIDENTIAL", "COMMERCIAL"]).default("RESIDENTIAL"),
+  transactionType: z.enum(["RENT", "SALE"]).default("RENT"),
+  propertyType: z.enum(["APARTMENT", "BUILDER_FLOOR", "INDEPENDENT_HOUSE", "VILLA", "STUDIO", "FARM_HOUSE", "CO_LIVING", "PLOT", "PG", "OTHER", "OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"]).optional().nullable(),
+  commercialPropertyType: z.enum(["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"]).optional().nullable(),
+  preferredLocalities: z.array(z.string().min(2).max(120)).default([]),
+  minBudget: z.number().int().nonnegative().optional().nullable(),
+  maxBudget: z.number().int().positive().optional().nullable(),
+  minArea: z.number().int().positive().optional().nullable(),
+  maxArea: z.number().int().positive().optional().nullable(),
+  bhk: z.number().int().min(0).max(10).optional().nullable(),
+  floorPreference: z.string().max(100).optional().nullable(),
+  furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]).optional().nullable(),
+  parkingRequired: z.boolean().optional().nullable(),
+  liftRequired: z.boolean().optional().nullable(),
+  commercialFitOutPref: z.enum(["FURNISHED", "SEMI_FURNISHED", "BARE_SHELL"]).optional().nullable(),
+  workstations: z.number().int().positive().optional().nullable(),
+  cabins: z.number().int().nonnegative().optional().nullable(),
+  possession: z.string().max(200).optional().nullable(),
+  notes: z.string().max(4000).optional().nullable(),
+  active: z.boolean().default(true),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("MEDIUM"),
+});
+
+export const customerRequirementSchema = customerRequirementBaseSchema
+  .refine((v) => !v.minBudget || !v.maxBudget || v.minBudget <= v.maxBudget, { message: "minBudget cannot exceed maxBudget", path: ["minBudget"] })
+  .refine((v) => !v.minArea || !v.maxArea || v.minArea <= v.maxArea, { message: "minArea cannot exceed maxArea", path: ["minArea"] });
+
+/** Combined contact+requirement shape for one spreadsheet row (rule 5/6) - a row always describes one customer's one requirement; multiple rows for the same phone number add additional requirements to the same (deduped) contact. Requirement fields are optional since a bare contact-only row is also valid. */
+export const contactImportRowSchema = z.object({
+  name: z.string().min(2).max(200),
+  phone: z.string().min(8),
+  email: z.string().email().optional().nullable().or(z.literal("")),
+  notes: z.string().max(4000).optional().nullable(),
+  assetClass: z.enum(["RESIDENTIAL", "COMMERCIAL"]).optional(),
+  transactionType: z.enum(["RENT", "SALE"]).optional(),
+  bhk: z.number().int().min(0).max(10).optional(),
+  commercialPropertyType: z.enum(["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"]).optional(),
+  locality: z.string().max(120).optional(),
+  minBudget: z.number().int().nonnegative().optional(),
+  maxBudget: z.number().int().positive().optional(),
+  minArea: z.number().int().positive().optional(),
+  maxArea: z.number().int().positive().optional(),
+  floorPreference: z.string().max(100).optional(),
+  furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]).optional(),
+  parkingRequired: z.boolean().optional(),
+  liftRequired: z.boolean().optional(),
+  commercialFitOutPref: z.enum(["FURNISHED", "SEMI_FURNISHED", "BARE_SHELL"]).optional(),
+  workstations: z.number().int().positive().optional(),
+  cabins: z.number().int().nonnegative().optional(),
+  possession: z.string().max(200).optional(),
+  requirementNotes: z.string().max(4000).optional(),
+});
+
+export const customerResponseSchema = z.object({
+  outcome: z.enum(["INTERESTED", "NOT_INTERESTED", "VISIT_REQUESTED", "BUDGET_TOO_HIGH", "LOCATION_NOT_SUITABLE", "ALREADY_PURCHASED", "DO_NOT_CONTACT"]),
+});
+
 export const catalogueExecutiveStatusSchema = z.object({
   executiveStatus: z.enum(["PENDING", "SHOWN", "CUSTOMER_LIKED", "SHORTLISTED", "REJECTED"]),
   note: z.string().max(1000).optional().nullable(),

@@ -131,6 +131,44 @@ async function searchDocuments(parsed: ReturnType<typeof parseSearchQuery>, ctx:
   }));
 }
 
+/** FIELD_EXECUTIVE has no per-contact assignment concept (see AGENTS note in demand-recommendations.ts) - contact/requirement search stays read-only for that role, same as every other role, rather than silently returning nothing. */
+async function searchContacts(parsed: ReturnType<typeof parseSearchQuery>, ctx: SearchContext): Promise<SearchResultItem[]> {
+  const kw = parsed.keywords.join(" ").trim();
+  if (!kw) return [];
+  const rows = await prisma.customerContact.findMany({
+    where: { organizationId: ctx.organizationId, OR: [{ name: { contains: kw, mode: "insensitive" } }, { phone: { contains: kw, mode: "insensitive" } }, { email: { contains: kw, mode: "insensitive" } }] },
+    select: { id: true, name: true, phone: true, status: true },
+    take: PER_ENTITY_LIMIT,
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((c) => ({ entity: "CONTACT", id: c.id, title: c.name, subtitle: c.phone, href: `/customers/${c.id}`, badge: c.status.replace(/_/g, " ") }));
+}
+
+async function searchRequirements(parsed: ReturnType<typeof parseSearchQuery>, ctx: SearchContext): Promise<SearchResultItem[]> {
+  const kw = parsed.keywords.join(" ").trim();
+  if (!kw) return [];
+  const rows = await prisma.customerRequirement.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      OR: [
+        { id: kw },
+        { preferredLocalities: { contains: kw, mode: "insensitive" } },
+        { customerContact: { name: { contains: kw, mode: "insensitive" } } },
+      ],
+    },
+    select: { id: true, assetClass: true, transactionType: true, bhk: true, customerContact: { select: { id: true, name: true } } },
+    take: PER_ENTITY_LIMIT,
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((r) => ({
+    entity: "REQUIREMENT",
+    id: r.id,
+    title: `${r.customerContact.name} - ${r.assetClass === "COMMERCIAL" ? "Commercial" : `${r.bhk ?? "?"} BHK`} ${r.transactionType === "RENT" ? "Rent" : "Sale"}`,
+    subtitle: r.id,
+    href: `/customers/${r.customerContact.id}`,
+  }));
+}
+
 async function searchDeals(parsed: ReturnType<typeof parseSearchQuery>, ctx: SearchContext): Promise<SearchResultItem[]> {
   const kw = parsed.keywords.join(" ").trim();
   if (!kw) return [];
@@ -188,6 +226,8 @@ const ENTITY_SEARCHERS: Record<SearchEntityType, (parsed: ReturnType<typeof pars
   PAYMENT: searchPayments,
   CATALOGUE: searchCatalogues,
   NOTIFICATION: searchNotifications,
+  CONTACT: searchContacts,
+  REQUIREMENT: searchRequirements,
 };
 
 /** Runs the search: parses the query, then queries only the relevant entity/entities (bounded, org/role-scoped). */
