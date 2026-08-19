@@ -4,6 +4,7 @@ import { S3StorageProvider } from "./s3";
 import { R2StorageProvider } from "./r2";
 import { FirebaseStorageProvider } from "./firebase";
 import { DisabledStorageProvider } from "./disabled";
+import { MockStorageProvider } from "./mock";
 
 let savedProvider: string | undefined;
 
@@ -40,6 +41,12 @@ describe("getStorageProvider", () => {
     process.env.STORAGE_PROVIDER = "FIREBASE";
     expect(getStorageProvider()).toBeInstanceOf(FirebaseStorageProvider);
     expect(getStorageProvider().name).toBe("FIREBASE");
+  });
+
+  it("selects MOCK when STORAGE_PROVIDER=MOCK", () => {
+    process.env.STORAGE_PROVIDER = "MOCK";
+    expect(getStorageProvider()).toBeInstanceOf(MockStorageProvider);
+    expect(getStorageProvider().name).toBe("MOCK");
   });
 
   it("selects Disabled when STORAGE_PROVIDER is unset", () => {

@@ -12,7 +12,8 @@ export type DocumentCategory =
   | "BROKERAGE_AGREEMENT"
   | "DEAL_DOCUMENT"
   | "PAYMENT_RECEIPT"
-  | "OWNER_IDENTITY";
+  | "OWNER_IDENTITY"
+  | "PROPERTY_BROCHURE";
 export type DocumentStatus = "ACTIVE" | "EXPIRED" | "DELETED";
 export type Role = "ADMIN" | "DATA_MANAGER" | "FIELD_EXECUTIVE";
 
@@ -69,6 +70,7 @@ export const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   DEAL_DOCUMENT: "Deal Document",
   PAYMENT_RECEIPT: "Payment Receipt",
   OWNER_IDENTITY: "Owner Identity",
+  PROPERTY_BROCHURE: "Property Brochure",
 };
 
 /** Mirrors src/lib/document-access.ts ADMIN_ONLY_CATEGORIES - UI-only labeling/warnings, never the source of truth (the backend re-checks every request). */

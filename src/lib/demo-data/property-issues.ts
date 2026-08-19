@@ -3,7 +3,6 @@ import { prisma } from "../prisma";
 import { Rng } from "./rng";
 import { demoId, DEMO_ORGANIZATION_ID } from "./constants";
 import { appendPropertyTimelineEvent } from "../property-timeline";
-import { ensureDemoAvailabilityReportAsset } from "./assets";
 
 /**
  * Deterministic 1-based property indices for the Property Issues Queue /
@@ -49,7 +48,6 @@ export interface DemoPropertyIssueSet {
  */
 export async function createDemoPropertyIssues(rng: Rng, properties: Property[], fieldExecutives: User[], admin: User): Promise<DemoPropertyIssueSet> {
   const byIndex = (i: number) => properties[i - 1];
-  const assetUrl = ensureDemoAvailabilityReportAsset();
   const availabilityReports: PropertyAvailabilityReport[] = [];
   const propertyReports: PropertyReport[] = [];
 
@@ -59,9 +57,11 @@ export async function createDemoPropertyIssues(rng: Rng, properties: Property[],
         organizationId: DEMO_ORGANIZATION_ID,
         propertyId,
         purpose: "AVAILABILITY_REPORT",
-        storageProvider: "DEMO",
-        storageKey: assetUrl,
-        mimeType: "image/svg+xml",
+        visibility: "PRIVATE",
+        storageProvider: "MOCK",
+        storageKey: `organizations/${DEMO_ORGANIZATION_ID}/properties/${propertyId}/availability-reports/demo-${uploadedById}-${Date.now()}-${Math.random().toString(36).slice(2)}.webp`,
+        originalFilename: "availability-evidence.webp",
+        mimeType: "image/webp",
         sizeBytes: 2048,
         uploadedById,
       },

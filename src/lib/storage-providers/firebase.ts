@@ -76,6 +76,7 @@ export class FirebaseStorageProvider implements StorageProvider {
     const [url] = await file.getSignedUrl({
       action: "read",
       expires: Date.now() + expiresInSeconds * 1000,
+      ...(input.contentDisposition ? { responseDisposition: input.contentDisposition } : {}),
     });
     return { url, expiresInSeconds };
   }
@@ -89,6 +90,12 @@ export class FirebaseStorageProvider implements StorageProvider {
       contentType: metadata.contentType ?? undefined,
       updatedAt: metadata.updated ? new Date(metadata.updated) : undefined,
     };
+  }
+
+  async exists(objectKey: string): Promise<boolean> {
+    const file = this.bucket().file(objectKey);
+    const [exists] = await file.exists();
+    return exists;
   }
 
   async deleteObject(objectKey: string): Promise<void> {

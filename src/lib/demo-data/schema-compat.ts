@@ -324,6 +324,42 @@ export async function checkPortalSchemaCompatibility(client: RawQueryClient) {
   return checkCatalogueSchemaCompatibility(client, REQUIRED_PORTAL_COLUMNS);
 }
 
+/** Storage media phase - PropertyImage extensions + upload sessions + public brochure flag. */
+export const REQUIRED_STORAGE_MEDIA_COLUMNS: readonly RequiredColumn[] = [
+  { table: "property_images", column: "visibility" },
+  { table: "property_images", column: "thumbnailKey" },
+  { table: "property_images", column: "originalFilename" },
+  { table: "documents", column: "isPublic" },
+  { table: "storage_upload_sessions", column: "objectKey" },
+  { table: "storage_upload_sessions", column: "status" },
+  { table: "storage_upload_sessions", column: "expiresAt" },
+  { table: "storage_upload_sessions", column: "organizationId" },
+];
+
+export const REQUIRED_STORAGE_MEDIA_ENUM_VALUES = [
+  "MediaVisibility.PUBLIC",
+  "MediaVisibility.PRIVATE",
+  "StorageUploadStatus.PENDING",
+  "StorageUploadStatus.UPLOADED",
+  "StorageUploadStatus.CONFIRMED",
+  "StorageUploadStatus.FAILED",
+  "StorageUploadStatus.EXPIRED",
+  "DocumentCategory.PROPERTY_BROCHURE",
+] as const;
+
+export async function checkStorageMediaSchemaCompatibility(client: RawQueryClient) {
+  return checkCatalogueSchemaCompatibility(client, REQUIRED_STORAGE_MEDIA_COLUMNS);
+}
+
+export async function checkStorageMediaEnumCompatibility(client: RawQueryClient): Promise<EnumTypeCheckResult> {
+  const rows = await client.$queryRawUnsafe<{ typname: string; enumlabel: string }[]>(
+    `SELECT t.typname, e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname IN ('MediaVisibility','StorageUploadStatus','DocumentCategory')`
+  );
+  const present = new Set(rows.map((row) => `${row.typname}.${row.enumlabel}`));
+  const missing = REQUIRED_STORAGE_MEDIA_ENUM_VALUES.filter((value) => !present.has(value));
+  return { ok: missing.length === 0, missing: [...missing] };
+}
+
 export async function checkPortalEnumCompatibility(client: RawQueryClient): Promise<EnumTypeCheckResult> {
   const rows = await client.$queryRawUnsafe<{ typname: string; enumlabel: string }[]>(
     `SELECT t.typname, e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname IN ('AssetClass','TransactionType','CommercialFitOut','PropertyPortalProvider','PortalConnectionStatus','PortalConnectionMode','PortalCapabilityStatus','PortalListingStatus','PortalOperationStatus','PortalConflictResolution','PortalIngestionStatus')`

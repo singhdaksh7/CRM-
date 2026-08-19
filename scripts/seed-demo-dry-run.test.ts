@@ -3,7 +3,7 @@ import { runDryRun, main, evaluateEnumUsage } from "./seed-demo-dry-run";
 import { UnexpectedWriteError, createReadOnlyClient } from "../src/lib/demo-data/read-only-guard";
 import type { DatasetValidationResult } from "../src/lib/demo-data/validate";
 import { NOTIFICATION_TYPES_USED_BY_DEMO_DATA } from "../src/lib/demo-data/enum-compat";
-import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS, REQUIRED_PHASE8_COLUMNS, REQUIRED_PHASE7_COLUMNS, REQUIRED_PHASE7_ENUM_VALUES, REQUIRED_PORTAL_COLUMNS, REQUIRED_PORTAL_ENUM_VALUES, REQUIRED_DEMAND_POOL_COLUMNS, REQUIRED_DEMAND_POOL_ENUM_TYPES } from "../src/lib/demo-data/schema-compat";
+import { REQUIRED_PHASE4_TABLES, REQUIRED_PHASE4_ENUM_TYPES, REQUIRED_PHASE5_TABLES, REQUIRED_PHASE5_ENUM_TYPES, REQUIRED_ACCOUNT_SETUP_COLUMNS, REQUIRED_PHASE8_COLUMNS, REQUIRED_PHASE7_COLUMNS, REQUIRED_PHASE7_ENUM_VALUES, REQUIRED_PORTAL_COLUMNS, REQUIRED_PORTAL_ENUM_VALUES, REQUIRED_STORAGE_MEDIA_COLUMNS, REQUIRED_STORAGE_MEDIA_ENUM_VALUES, REQUIRED_DEMAND_POOL_COLUMNS, REQUIRED_DEMAND_POOL_ENUM_TYPES } from "../src/lib/demo-data/schema-compat";
 
 /**
  * Proves DEFECT 1 is fixed: every required check contributes to exactly
@@ -48,6 +48,8 @@ const HEALTHY_PHASE7_COLUMNS = REQUIRED_PHASE7_COLUMNS.map((r) => ({ table_name:
 const HEALTHY_PHASE7_ENUM_TYPES = REQUIRED_PHASE7_ENUM_VALUES.map((value) => { const [typname, enumlabel] = value.split("."); return { typname, enumlabel }; });
 const HEALTHY_PORTAL_COLUMNS = REQUIRED_PORTAL_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
 const HEALTHY_PORTAL_ENUM_VALUES = REQUIRED_PORTAL_ENUM_VALUES.map((value) => { const [typname, enumlabel] = value.split("."); return { typname, enumlabel }; });
+const HEALTHY_STORAGE_MEDIA_COLUMNS = REQUIRED_STORAGE_MEDIA_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
+const HEALTHY_STORAGE_MEDIA_ENUM_VALUES = REQUIRED_STORAGE_MEDIA_ENUM_VALUES.map((value) => { const [typname, enumlabel] = value.split("."); return { typname, enumlabel }; });
 const HEALTHY_DEMAND_POOL_COLUMNS = REQUIRED_DEMAND_POOL_COLUMNS.map((r) => ({ table_name: r.table, column_name: r.column }));
 const HEALTHY_DEMAND_POOL_ENUM_TYPES = REQUIRED_DEMAND_POOL_ENUM_TYPES.map((typname) => ({ typname }));
 
@@ -65,6 +67,8 @@ function makeQueryRawUnsafe(overrides?: {
   phase7EnumTypes?: typeof HEALTHY_PHASE7_ENUM_TYPES;
   portalColumns?: typeof HEALTHY_PORTAL_COLUMNS;
   portalEnumValues?: typeof HEALTHY_PORTAL_ENUM_VALUES;
+  storageMediaColumns?: typeof HEALTHY_STORAGE_MEDIA_COLUMNS;
+  storageMediaEnumValues?: typeof HEALTHY_STORAGE_MEDIA_ENUM_VALUES;
   demandPoolColumns?: typeof HEALTHY_DEMAND_POOL_COLUMNS;
   demandPoolEnumTypes?: typeof HEALTHY_DEMAND_POOL_ENUM_TYPES;
 }) {
@@ -80,9 +84,13 @@ function makeQueryRawUnsafe(overrides?: {
   const phase7EnumTypes = overrides?.phase7EnumTypes ?? HEALTHY_PHASE7_ENUM_TYPES;
   const portalColumns = overrides?.portalColumns ?? HEALTHY_PORTAL_COLUMNS;
   const portalEnumValues = overrides?.portalEnumValues ?? HEALTHY_PORTAL_ENUM_VALUES;
+  const storageMediaColumns = overrides?.storageMediaColumns ?? HEALTHY_STORAGE_MEDIA_COLUMNS;
+  const storageMediaEnumValues = overrides?.storageMediaEnumValues ?? HEALTHY_STORAGE_MEDIA_ENUM_VALUES;
   const demandPoolColumns = overrides?.demandPoolColumns ?? HEALTHY_DEMAND_POOL_COLUMNS;
   const demandPoolEnumTypes = overrides?.demandPoolEnumTypes ?? HEALTHY_DEMAND_POOL_ENUM_TYPES;
   return vi.fn().mockImplementation((query: string, tables?: string[]) => {
+    if (query.includes("MediaVisibility") || query.includes("StorageUploadStatus")) return Promise.resolve(storageMediaEnumValues);
+    if (Array.isArray(tables) && tables.includes("storage_upload_sessions")) return Promise.resolve(storageMediaColumns);
     if (query.includes("PropertyPortalProvider")) return Promise.resolve(portalEnumValues);
     if (Array.isArray(tables) && tables.includes("property_portal_connections")) return Promise.resolve(portalColumns);
     if (Array.isArray(tables) && tables.includes("customer_contacts")) return Promise.resolve(demandPoolColumns);

@@ -13,7 +13,7 @@ const requestSchema = z.object({
   fileName: z.string().min(1).max(255),
   fileType: z.string().min(1).max(100),
   fileSizeBytes: z.number().int().positive().optional(),
-  category: z.enum(["GENERAL", "AADHAAR", "PAN", "REGISTRY", "OWNERSHIP_PROOF", "RENT_AGREEMENT", "SALE_AGREEMENT", "BROKERAGE_AGREEMENT", "DEAL_DOCUMENT", "PAYMENT_RECEIPT", "OWNER_IDENTITY"]).default("GENERAL"),
+  category: z.enum(["GENERAL", "AADHAAR", "PAN", "REGISTRY", "OWNERSHIP_PROOF", "RENT_AGREEMENT", "SALE_AGREEMENT", "BROKERAGE_AGREEMENT", "DEAL_DOCUMENT", "PAYMENT_RECEIPT", "OWNER_IDENTITY", "PROPERTY_BROCHURE"]).default("GENERAL"),
 });
 
 /**

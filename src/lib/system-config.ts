@@ -97,6 +97,10 @@ export interface SystemConfigValues {
   freshnessNeedsVerificationDays: number;
   /** ACTIVE (Phase 4) - rules/inventory-freshness.ts: days since last verification/visit/update before a property moves from NEEDS_VERIFICATION to STALE. */
   freshnessStaleDays: number;
+  /** ACTIVE - max ACTIVE IMAGE rows per property (storage media phase). */
+  maxImagesPerProperty: number;
+  /** ACTIVE - soft org storage budget in bytes (enforced as a hook; 0 = unlimited). */
+  maxStorageBytes: number;
   /** ACTIVE (Demand Pool) - src/lib/demand-matching.ts MatchTierConfig.budgetStretchPct (fraction). How far above a requirement's max budget a property may still be scored (STRETCH tier) instead of excluded. */
   propertyMatchBudgetStretchPct: number;
   /** ACTIVE (Demand Pool) - src/lib/demand-recommendations.ts contact-frequency-safety gate: minimum days before the same contact/lead may be recommended another property. */
@@ -140,6 +144,8 @@ export const DEFAULT_SYSTEM_CONFIG: SystemConfigValues = {
   catalogueFollowUpDelayHours: 24,
   freshnessNeedsVerificationDays: 30,
   freshnessStaleDays: 60,
+  maxImagesPerProperty: 25,
+  maxStorageBytes: 0,
   propertyMatchBudgetStretchPct: 0.2,
   minimumDaysBetweenPropertyRecommendations: 7,
   requirementStaleAfterDays: 180,

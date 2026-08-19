@@ -10,7 +10,6 @@ import { normalizeIndianPhone, getWhatsAppProvider, buildRequirementSummary } fr
 import { isWithinCustomerCareWindow } from "@/integrations/whatsapp/whatsapp-window";
 import { getWhatsAppTemplate, renderTemplateBody } from "@/integrations/whatsapp/whatsapp-templates";
 import { getPublicCatalogueUrl, buildCatalogueMessageText, toPublicCatalogueDTO } from "./catalogue-dto";
-import { getCoverImageUrls } from "./property-images";
 import { appendPropertyTimelineEvent } from "./property-timeline";
 import type { PublicCatalogueDTO } from "./catalogue-dto";
 import type { Role } from "@prisma/client";
@@ -350,9 +349,23 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
  */
 export async function withResolvedCoverImages(dto: PublicCatalogueDTO): Promise<PublicCatalogueDTO> {
   if (dto.properties.length === 0) return dto;
-  const urls = await getCoverImageUrls(dto.properties.map((p) => p.id), getOrganizationId());
-  if (Object.keys(urls).length === 0) return dto;
-  return { ...dto, properties: dto.properties.map((p) => ({ ...p, coverImage: urls[p.id] ?? p.coverImage })) };
+  const { getCoverImageUrls, getPublicOrderedImageUrls } = await import("./property-images");
+  const orgId = getOrganizationId();
+  const urls = await getCoverImageUrls(dto.properties.map((p) => p.id), orgId);
+  const properties = await Promise.all(
+    dto.properties.map(async (p) => {
+      const coverImage = urls[p.id] ?? p.coverImage;
+      let images = p.images;
+      try {
+        const ordered = await getPublicOrderedImageUrls(p.id, orgId);
+        if (ordered.length > 0) images = ordered;
+      } catch {
+        // keep legacy images
+      }
+      return { ...p, coverImage, images };
+    })
+  );
+  return { ...dto, properties };
 }
 
 export async function getCatalogueByToken(token: string) {
