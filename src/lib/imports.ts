@@ -3,7 +3,8 @@ import { getOrganizationId } from "./organization";
 import { generateCode } from "./utils";
 import { recordAudit } from "./audit";
 import { logger } from "./logger";
-import { propertySchema, leadSchema, ownerSchema, employeeSchema } from "./validators";
+import { propertySchema, leadSchema, ownerSchema, employeeSchema, contactImportRowSchema } from "./validators";
+import { normalizeIndianPhone } from "@/integrations/whatsapp/phone";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import type { ImportEntityType } from "@prisma/client";
@@ -17,6 +18,7 @@ const NUMERIC_FIELDS: Record<ImportEntityType, string[]> = {
   LEADS: ["minBudget", "maxBudget", "preferredBhk"],
   OWNERS: [],
   EMPLOYEES: ["maxActiveLeads"],
+  CONTACTS: ["bhk", "minBudget", "maxBudget", "minArea", "maxArea", "workstations", "cabins"],
 };
 
 const BOOLEAN_FIELDS: Record<ImportEntityType, string[]> = {
@@ -24,6 +26,7 @@ const BOOLEAN_FIELDS: Record<ImportEntityType, string[]> = {
   LEADS: [],
   OWNERS: [],
   EMPLOYEES: ["isAvailable", "autoAssignEnabled"],
+  CONTACTS: ["parkingRequired", "liftRequired"],
 };
 
 /**
@@ -65,10 +68,33 @@ export function coerceTypes(mapped: Record<string, unknown>, entityType: ImportE
 }
 
 function validateRow(entityType: ImportEntityType, mapped: Record<string, unknown>): { valid: true; data: Record<string, unknown> } | { valid: false; error: string } {
-  const schema = { PROPERTIES: propertySchema, LEADS: leadSchema, OWNERS: ownerSchema, EMPLOYEES: employeeSchema }[entityType];
+  const schema = { PROPERTIES: propertySchema, LEADS: leadSchema, OWNERS: ownerSchema, EMPLOYEES: employeeSchema, CONTACTS: contactImportRowSchema }[entityType];
   const result = schema.safeParse(mapped);
   if (!result.success) return { valid: false, error: result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") };
   return { valid: true, data: result.data as Record<string, unknown> };
+}
+
+/** True only when this row would add nothing new: the contact already exists AND (no requirement fields were given, OR an identical active requirement already exists) - see rule 7 "do not silently overwrite existing requirements". A contact-reuse-plus-new-requirement row is NOT a duplicate; createEntity handles that case by reusing the contact and adding the requirement. */
+async function contactRowIsDuplicate(data: Record<string, unknown>, organizationId: string): Promise<boolean> {
+  const normalizedPhone = normalizeIndianPhone(data.phone as string);
+  if (!normalizedPhone) return false; // let schema-level validation catch an unparseable phone, not duplicate detection
+  const contact = await prisma.customerContact.findUnique({ where: { organizationId_normalizedPhone: { organizationId, normalizedPhone } } });
+  if (!contact) return false;
+  const hasRequirementFields = data.assetClass !== undefined || data.transactionType !== undefined || data.minBudget !== undefined || data.maxBudget !== undefined || data.locality !== undefined;
+  if (!hasRequirementFields) return true;
+  const preferredLocalities = JSON.stringify(data.locality ? [data.locality] : []);
+  const identical = await prisma.customerRequirement.findFirst({
+    where: {
+      customerContactId: contact.id,
+      active: true,
+      assetClass: (data.assetClass as never) ?? "RESIDENTIAL",
+      transactionType: (data.transactionType as never) ?? "RENT",
+      minBudget: (data.minBudget as number) ?? null,
+      maxBudget: (data.maxBudget as number) ?? null,
+      preferredLocalities,
+    },
+  });
+  return Boolean(identical);
 }
 
 async function findExistingDuplicate(entityType: ImportEntityType, data: Record<string, unknown>, organizationId: string): Promise<boolean> {
@@ -79,6 +105,8 @@ async function findExistingDuplicate(entityType: ImportEntityType, data: Record<
       return !!(await prisma.owner.findFirst({ where: { organizationId, phone: data.phone as string } }));
     case "EMPLOYEES":
       return !!(await prisma.user.findUnique({ where: { email: (data.email as string).toLowerCase() } }));
+    case "CONTACTS":
+      return contactRowIsDuplicate(data, organizationId);
     case "PROPERTIES":
       return !!(await prisma.property.findFirst({ where: { organizationId, ownerPhone: data.ownerPhone as string, title: data.title as string } }));
   }
@@ -258,6 +286,58 @@ async function createEntity(entityType: ImportEntityType, data: Record<string, u
       });
       return user.id;
     }
+    case "CONTACTS": {
+      // Reuse-by-phone (rule 7): never duplicate the person. If the contact
+      // already exists, only the requirement (when the row has one) is new.
+      const normalizedPhone = normalizeIndianPhone(data.phone as string)!;
+      let contact = await prisma.customerContact.findUnique({ where: { organizationId_normalizedPhone: { organizationId, normalizedPhone } } });
+      let contactWasCreated = false;
+      if (!contact) {
+        contact = await prisma.customerContact.create({
+          data: {
+            organizationId,
+            name: data.name as string,
+            phone: data.phone as string,
+            normalizedPhone,
+            email: (data.email as string) || null,
+            notes: (data.notes as string) ?? null,
+            createdById: actorId,
+          },
+        });
+        contactWasCreated = true;
+      }
+      const hasRequirementFields = data.assetClass !== undefined || data.transactionType !== undefined || data.minBudget !== undefined || data.maxBudget !== undefined || data.locality !== undefined;
+      if (!hasRequirementFields) return contact.id;
+      const requirement = await prisma.customerRequirement.create({
+        data: {
+          organizationId,
+          customerContactId: contact.id,
+          assetClass: (data.assetClass as never) ?? "RESIDENTIAL",
+          transactionType: (data.transactionType as never) ?? "RENT",
+          commercialPropertyType: (data.commercialPropertyType as never) ?? null,
+          preferredLocalities: JSON.stringify(data.locality ? [data.locality] : []),
+          minBudget: (data.minBudget as number) ?? null,
+          maxBudget: (data.maxBudget as number) ?? null,
+          minArea: (data.minArea as number) ?? null,
+          maxArea: (data.maxArea as number) ?? null,
+          bhk: data.assetClass === "COMMERCIAL" ? null : (data.bhk as number) ?? null,
+          floorPreference: (data.floorPreference as string) ?? null,
+          furnishing: (data.furnishing as never) ?? null,
+          parkingRequired: (data.parkingRequired as boolean) ?? null,
+          liftRequired: (data.liftRequired as boolean) ?? null,
+          commercialFitOutPref: (data.commercialFitOutPref as never) ?? null,
+          workstations: (data.workstations as number) ?? null,
+          cabins: (data.cabins as number) ?? null,
+          possession: (data.possession as string) ?? null,
+          notes: (data.requirementNotes as string) ?? null,
+          createdById: actorId,
+        },
+      });
+      // Only the row's own new object is rollback-eligible: if the contact
+      // was reused (pre-existing), rollback must delete the requirement
+      // only, never a contact this import didn't create.
+      return contactWasCreated ? contact.id : requirement.id;
+    }
     case "PROPERTIES": {
       const propertyCode = generateCode("PROP", (await prisma.property.count()) + 1);
       const property = await prisma.property.create({
@@ -298,6 +378,15 @@ async function rollbackCreatedEntities(entityType: ImportEntityType, ids: string
       break;
     case "PROPERTIES":
       await prisma.property.deleteMany({ where: { id: { in: ids } } });
+      break;
+    case "CONTACTS":
+      // ids is a mix of newly-created contact ids and newly-created
+      // requirement ids (see createEntity's CONTACTS case) - deleting
+      // requirements first is not strictly required (the FK cascades), but
+      // makes the two deleteMany calls independently correct regardless of
+      // which table a given id actually belongs to.
+      await prisma.customerRequirement.deleteMany({ where: { id: { in: ids } } });
+      await prisma.customerContact.deleteMany({ where: { id: { in: ids } } });
       break;
   }
 }

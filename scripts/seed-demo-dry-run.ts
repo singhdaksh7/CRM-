@@ -31,6 +31,8 @@ import {
   checkPhase7EnumCompatibility,
   checkPortalSchemaCompatibility,
   checkPortalEnumCompatibility,
+  checkDemandPoolSchemaCompatibility,
+  checkDemandPoolEnumTypesExist,
 } from "../src/lib/demo-data/schema-compat";
 import { checkNotificationTypeEnumInProduction } from "../src/lib/demo-data/enum-compat";
 
@@ -253,6 +255,15 @@ export async function runDryRun(
     const portalEnums = await checkPortalEnumCompatibility(client);
     record("Property business + portal enum compatibility", portalEnums.ok, portalEnums.ok ? "all commercial/portal enum values exist" : `missing: ${portalEnums.missing.join(", ")}`);
   } catch (e) { record("Property business + portal enum compatibility", false, (e as Error).message); }
+
+  try {
+    const demandPool = await checkDemandPoolSchemaCompatibility(client);
+    record("Demand pool schema compatibility", demandPool.ok, demandPool.ok ? "all demand-pool columns exist" : `missing: ${demandPool.missing.map((m) => `${m.table}.${m.column}`).join(", ")}`);
+  } catch (e) { record("Demand pool schema compatibility", false, (e as Error).message); }
+  try {
+    const demandPoolEnums = await checkDemandPoolEnumTypesExist(client);
+    record("Demand pool enum compatibility", demandPoolEnums.ok, demandPoolEnums.ok ? "all demand-pool enum types exist" : `missing: ${demandPoolEnums.missing.join(", ")}`);
+  } catch (e) { record("Demand pool enum compatibility", false, (e as Error).message); }
 
   try {
     const pendingSetupCheck = await checkPendingSetupEnumCompatibility(client);
