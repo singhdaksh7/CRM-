@@ -47,7 +47,7 @@ interface BulkResult {
  * the same rows/columns the page already rendered inline, now client-side
  * so selection state can live here.
  */
-export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; employees: User[]; canManage: boolean }) {
+export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; employees: Pick<User, "id" | "name">[]; canManage: boolean }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [action, setAction] = useState<BulkAction>("");

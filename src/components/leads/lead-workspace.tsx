@@ -19,6 +19,9 @@ import type { HealthScoreResult, Suggestion } from "@/lib/rules";
 import { computeLeadTimelineSummary } from "@/lib/timeline-summary";
 import { NewMatchesPanel } from "./new-matches-panel";
 
+/** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
+type UserSummary = Pick<User, "id" | "name">;
+
 interface ScoreFactor {
   label: string;
   delta: number;
@@ -38,7 +41,7 @@ type LeadWithRelations = {
   status: string;
   priority: string;
   assignedToId: string | null;
-  assignedTo: User | null;
+  assignedTo: UserSummary | null;
   assignmentStrategy: string | null;
   assignmentReason: string | null;
   autoAssignedAt: Date | null;
@@ -46,9 +49,9 @@ type LeadWithRelations = {
   scoreExplanation: string | null;
   scoreUpdatedAt: Date | null;
   notes: string | null;
-  activities: { id: string; type: string; description: string; createdAt: Date; actor: User | null }[];
-  followUps: { id: string; type: string; dueDate: Date; status: string; notes: string | null; owner: User | null }[];
-  visits: { id: string; visitDate: Date; visitTime: string; status: string; outcome: string | null; property: { id: string; title: string }; assignedTo: User | null; employeeNotes: string | null }[];
+  activities: { id: string; type: string; description: string; createdAt: Date; actor: UserSummary | null }[];
+  followUps: { id: string; type: string; dueDate: Date; status: string; notes: string | null; owner: UserSummary | null }[];
+  visits: { id: string; visitDate: Date; visitTime: string; status: string; outcome: string | null; property: { id: string; title: string }; assignedTo: UserSummary | null; employeeNotes: string | null }[];
   sharedProperties: { id: string; propertyIds: string; createdAt: Date; whatsappLink: string }[];
   matchRecommendations: React.ComponentProps<typeof NewMatchesPanel>["recommendations"];
   catalogueShares: React.ComponentProps<typeof NewMatchesPanel>["catalogues"];
@@ -77,7 +80,7 @@ export function LeadWorkspace({
   providerSendConfigured,
 }: {
   lead: LeadWithRelations;
-  employees: User[];
+  employees: UserSummary[];
   role: string;
   health: HealthScoreResult | null;
   suggestions: Suggestion[];
@@ -125,7 +128,7 @@ function OverviewTab({
   onTabAction,
 }: {
   lead: LeadWithRelations;
-  employees: User[];
+  employees: UserSummary[];
   canManage: boolean;
   health: HealthScoreResult | null;
   suggestions: Suggestion[];
@@ -387,7 +390,7 @@ function ActivityTab({ activities, createdAt, followUps }: { activities: LeadWit
   );
 }
 
-function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; followUps: LeadWithRelations["followUps"]; employees: User[] }) {
+function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; followUps: LeadWithRelations["followUps"]; employees: UserSummary[] }) {
   const router = useRouter();
   const [type, setType] = useState<FollowUpType>("PHONE_CALL");
   const [dueDate, setDueDate] = useState("");

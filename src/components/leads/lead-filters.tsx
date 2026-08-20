@@ -5,7 +5,7 @@ import { Select, Input } from "@/components/ui/form";
 import { Search } from "lucide-react";
 import type { User } from "@prisma/client";
 
-export function LeadFilters({ employees }: { employees: User[] }) {
+export function LeadFilters({ employees }: { employees: Pick<User, "id" | "name">[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();

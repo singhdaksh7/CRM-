@@ -51,7 +51,16 @@ async function safe<T>(panel: string, fallback: T, query: () => Promise<T>): Pro
   }
 }
 
-type ActivityWithRelations = Prisma.ActivityGetPayload<{ include: { actor: true; lead: true } }>;
+const recentActivitySelect = {
+  id: true,
+  description: true,
+  createdAt: true,
+  leadId: true,
+  actor: { select: { id: true, name: true } },
+  lead: { select: { id: true, clientName: true, status: true } },
+} satisfies Prisma.ActivitySelect;
+
+type ActivityWithRelations = Prisma.ActivityGetPayload<{ select: typeof recentActivitySelect }>;
 type MonthlyTrendPoint = { month: string; leads: number; deals: number };
 
 export interface DashboardCriticalData {
@@ -300,7 +309,7 @@ async function computeSecondaryData(role: Role, userId: string): Promise<Dashboa
     },
     async () => {
       recentActivities = await safe("recentActivities", recentActivities, () =>
-        prisma.activity.findMany({ where: { leadId: { not: null } }, include: { actor: true, lead: true }, orderBy: { createdAt: "desc" }, take: 8 })
+        prisma.activity.findMany({ where: { leadId: { not: null } }, select: recentActivitySelect, orderBy: { createdAt: "desc" }, take: 8 })
       );
     },
     async () => {

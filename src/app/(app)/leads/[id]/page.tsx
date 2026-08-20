@@ -7,6 +7,7 @@ import { LeadWorkspace } from "@/components/leads/lead-workspace";
 import { getLeadHealth, getLeadSuggestions, computeVisitSuggestions } from "@/lib/rules";
 import { Phone, Mail, MapPin, Wallet } from "lucide-react";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
+import { assignedToSelect } from "@/lib/user-select";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,10 +16,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const lead = await prisma.lead.findUnique({
     where: { id },
     include: {
-      assignedTo: true,
-      activities: { orderBy: { createdAt: "desc" }, include: { actor: true } },
-      followUps: { orderBy: { dueDate: "asc" }, include: { owner: true } },
-      visits: { orderBy: { visitDate: "desc" }, include: { property: true, assignedTo: true } },
+      assignedTo: { select: assignedToSelect },
+      activities: { orderBy: { createdAt: "desc" }, include: { actor: { select: assignedToSelect } } },
+      followUps: { orderBy: { dueDate: "asc" }, include: { owner: { select: assignedToSelect } } },
+      visits: { orderBy: { visitDate: "desc" }, include: { property: true, assignedTo: { select: assignedToSelect } } },
       sharedProperties: { orderBy: { createdAt: "desc" } },
       matchRecommendations: { where: { status: "PENDING" }, orderBy: { score: "desc" }, include: { property: { select: { id: true, propertyCode: true, title: true, area: true, bhk: true, monthlyRent: true, salePrice: true, listingType: true, inventorySource: true, status: true, coverImage: true, lastVerifiedAt: true, pendingVerification: true } } } },
       catalogueShares: { where: { status: "ACTIVE" }, select: { id: true, title: true, version: true }, orderBy: { updatedAt: "desc" } },
@@ -27,7 +28,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   if (!lead) notFound();
   if (session!.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session!.user.id) notFound();
 
-  const employees = await prisma.user.findMany({ where: { role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" } });
+  // Only id/name are ever rendered from this list (assignment dropdowns) - see
+  // src/lib/user-select.ts for why this excludes passwordHash and other
+  // account fields that used to be serialized into the RSC payload here.
+  const employees = await prisma.user.findMany({
+    where: { role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" },
+    select: assignedToSelect,
+  });
   const canManage = session!.user.role === "ADMIN" || session!.user.role === "DATA_MANAGER";
   const [health, suggestions] = await Promise.all([getLeadHealth(lead.id), getLeadSuggestions(lead.id, canManage)]);
   const hasPendingFollowUp = lead.followUps.some((f) => f.status === "PENDING");

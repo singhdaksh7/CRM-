@@ -17,7 +17,7 @@ export function ScheduleVisitModal({
 }: {
   leads: Lead[];
   properties: Property[];
-  employees: User[];
+  employees: Pick<User, "id" | "name">[];
   /** Deep-linked from the Demand Pool "Schedule Visit" bridge (VISIT_REQUESTED response) - opens this modal pre-filled instead of auto-creating a visit. */
   initialLeadId?: string;
   initialPropertyId?: string;
