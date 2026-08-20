@@ -6,7 +6,7 @@ import { getOrganizationId } from "@/lib/organization";
 export async function GET(request: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const provider = request.nextUrl.searchParams.get("provider");
     const status = request.nextUrl.searchParams.get("status");
     const where = { organizationId, ...(provider ? { provider: provider as never } : {}), ...(status ? { ingestionStatus: status as never } : {}) };

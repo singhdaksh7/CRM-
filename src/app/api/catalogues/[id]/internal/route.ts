@@ -3,6 +3,7 @@ import { requireSession, handleApiError } from "@/lib/api-auth";
 import { assertLeadAccessible } from "@/lib/lead-access";
 import { getCatalogueById } from "@/lib/catalogues";
 import { toExecutiveCatalogueDTO } from "@/lib/catalogue-dto";
+import { getOrganizationId } from "@/lib/organization";
 
 /**
  * Objective 9 - the executive's internal view of a catalogue, keyed by
@@ -16,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"]);
     const { id } = await params;
-    const catalogue = await getCatalogueById(id);
+    const catalogue = await getCatalogueById(id, getOrganizationId(session.user));
     await assertLeadAccessible(session, catalogue.leadId);
 
     return NextResponse.json({ catalogue: toExecutiveCatalogueDTO(catalogue) });

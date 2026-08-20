@@ -15,8 +15,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await withTiming("auth", "(app)/layout", () => auth());
   if (!session) redirect("/login");
 
-  const { role, id } = session.user;
-  const organizationId = getOrganizationId(id);
+  const { role } = session.user;
+  const organizationId = getOrganizationId(session.user);
 
   after(() => {
     runThrottledSweep(organizationId, LAZY_SWEEP_THROTTLE_SECONDS).catch((err) => {

@@ -8,13 +8,15 @@ import { getLeadHealth, getLeadSuggestions, computeVisitSuggestions } from "@/li
 import { Phone, Mail, MapPin, Wallet } from "lucide-react";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
 import { assignedToSelect } from "@/lib/user-select";
+import { getOrganizationId } from "@/lib/organization";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
+  const organizationId = getOrganizationId(session!.user);
 
-  const lead = await prisma.lead.findUnique({
-    where: { id },
+  const lead = await prisma.lead.findFirst({
+    where: { id, organizationId },
     include: {
       assignedTo: { select: assignedToSelect },
       activities: { orderBy: { createdAt: "desc" }, include: { actor: { select: assignedToSelect } } },
@@ -32,11 +34,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   // src/lib/user-select.ts for why this excludes passwordHash and other
   // account fields that used to be serialized into the RSC payload here.
   const employees = await prisma.user.findMany({
-    where: { role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" },
+    where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" },
     select: assignedToSelect,
   });
   const canManage = session!.user.role === "ADMIN" || session!.user.role === "DATA_MANAGER";
-  const [health, suggestions] = await Promise.all([getLeadHealth(lead.id), getLeadSuggestions(lead.id, canManage)]);
+  const [health, suggestions] = await Promise.all([getLeadHealth(lead.id, organizationId), getLeadSuggestions(lead.id, canManage)]);
   const hasPendingFollowUp = lead.followUps.some((f) => f.status === "PENDING");
   const visitSuggestions = Object.fromEntries(
     lead.visits.map((v) => [

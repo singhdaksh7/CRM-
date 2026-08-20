@@ -5,7 +5,7 @@ import { matchPropertiesToLead } from "@/lib/matching";
 import { RequirementBoard } from "@/components/requirements/requirement-board";
 
 export default async function RequirementsPage() {
-  const session = await auth(); const organizationId = getOrganizationId(session!.user.id);
+  const session = await auth(); const organizationId = getOrganizationId(session!.user);
   const [leads, properties, partners] = await Promise.all([
     prisma.lead.findMany({ where: { organizationId, status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "INVALID"] } }, include: { assignedTo: { select: { id: true, name: true } }, requirementBroadcasts: { orderBy: { createdAt: "desc" }, take: 1, include: { recipients: { include: { inventoryPartner: { select: { name: true } } } } } }, matchRecommendations: { where: { status: "PENDING" }, select: { id: true } } }, take: 250, orderBy: { createdAt: "asc" } }),
     prisma.property.findMany({ where: { organizationId, status: "AVAILABLE" }, take: 1000 }),

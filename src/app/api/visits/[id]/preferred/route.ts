@@ -14,7 +14,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const session = await requireSession();
     const { id } = await params;
     const { propertyIds } = preferredPropertiesSchema.parse(await req.json());
-    const properties = await setPreferredProperties(id, getOrganizationId(session.user.id), session.user, propertyIds);
+    const properties = await setPreferredProperties(id, getOrganizationId(session.user), session.user, propertyIds);
     return NextResponse.json({ properties });
   } catch (err) {
     return handleApiError(err);

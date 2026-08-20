@@ -90,3 +90,16 @@ export function buildObjectKey(params: { organizationId: string; entityType: str
     fileName: params.fileName,
   });
 }
+
+/**
+ * True only if `key` is namespaced under this organization's own prefix
+ * (`organizations/{organizationId}/...`). src/lib/storage.ts's
+ * createDownloadUrl/deleteObject/verifyUploadedObject take a raw key with
+ * no org check of their own - every route that accepts a client-supplied
+ * key (rather than one it generated server-side) MUST call this first, or
+ * a caller could attach/confirm/download another organization's object by
+ * submitting its key.
+ */
+export function objectKeyBelongsToOrg(key: string, organizationId: string): boolean {
+  return key === `organizations/${organizationId}` || key.startsWith(`organizations/${organizationId}/`);
+}

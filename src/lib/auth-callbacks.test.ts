@@ -39,8 +39,8 @@ vi.mock("./rate-limit", () => ({ checkRateLimit, clientIp: () => "203.0.113.5" }
 
 await import("./auth");
 
-const activeState = { authVersion: 3, status: "ACTIVE", role: "ADMIN" };
-const signedInUser = { id: "u1", name: "Sagar", email: "sagar@example.com", role: "FIELD_EXECUTIVE", authVersion: 3 };
+const activeState = { authVersion: 3, status: "ACTIVE", role: "ADMIN", organizationId: "org1" };
+const signedInUser = { id: "u1", name: "Sagar", email: "sagar@example.com", role: "FIELD_EXECUTIVE", authVersion: 3, organizationId: "org1" };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -114,12 +114,12 @@ describe("jwt callback - session revocation on subsequent requests", () => {
 });
 
 describe("session callback", () => {
-  it("exposes only id and role, never authVersion or any secret", () => {
+  it("exposes only id, role, and organizationId, never authVersion or any secret", () => {
     const session = capturedConfig.callbacks.session({
       session: { user: { name: "Sagar", email: "sagar@example.com" } },
-      token: { id: "u1", role: "ADMIN", authVersion: 3 },
+      token: { id: "u1", role: "ADMIN", authVersion: 3, organizationId: "org1" },
     });
-    expect(session.user).toMatchObject({ id: "u1", role: "ADMIN" });
+    expect(session.user).toMatchObject({ id: "u1", role: "ADMIN", organizationId: "org1" });
     expect(session.user.authVersion).toBeUndefined();
   });
 });

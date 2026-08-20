@@ -45,9 +45,9 @@ describe("verifyCredentials", () => {
     await expect(verifyCredentials("nobody@example.com", "whatever")).resolves.toBeNull();
   });
 
-  it("carries authVersion into the session payload and never the password hash", async () => {
+  it("carries authVersion and organizationId into the session payload and never the password hash", async () => {
     const result = await verifyCredentials(user.email, "valid");
-    expect(result).toEqual({ id: "u1", name: "Sagar", email: "sagar@example.com", role: "FIELD_EXECUTIVE", authVersion: 4 });
+    expect(result).toEqual({ id: "u1", name: "Sagar", email: "sagar@example.com", role: "FIELD_EXECUTIVE", authVersion: 4, organizationId: "org1" });
     expect(Object.keys(result!)).not.toContain("passwordHash");
   });
 

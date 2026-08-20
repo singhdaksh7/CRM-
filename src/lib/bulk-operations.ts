@@ -82,6 +82,7 @@ export async function bulkGenerateCatalogues(ids: string[], organizationId: stri
 
     const catalogue = await createCatalogue({
       leadId: id,
+      organizationId,
       createdByUserId: actorUserId,
       createdByRole: actorRole,
       title: `Bulk catalogue - ${new Date().toLocaleDateString("en-IN")}`,

@@ -15,12 +15,13 @@ import type { Prisma } from "@prisma/client";
 
 export default async function PropertiesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const session = await auth();
+  const organizationId = getOrganizationId(session!.user);
   const sp = await searchParams;
   const view = sp.view === "table" ? "table" : "card";
   const canCreate = session?.user?.role === "ADMIN" || session?.user?.role === "DATA_MANAGER";
   const page = parsePage(sp.page);
 
-  const where: Prisma.PropertyWhereInput = {};
+  const where: Prisma.PropertyWhereInput = { organizationId };
   if (sp.q) {
     where.OR = [
       { title: { contains: sp.q } },
@@ -47,7 +48,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   );
 
   const coverImageUrls =
-    view === "card" && properties.length > 0 ? await getCoverImageUrls(properties.map((p) => p.id), getOrganizationId()) : {};
+    view === "card" && properties.length > 0 ? await getCoverImageUrls(properties.map((p) => p.id), organizationId) : {};
 
   return (
     <div className="space-y-6">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, handleApiError } from "@/lib/api-auth";
 import { ownerVerificationSchema } from "@/lib/validators";
 import { verifyOwner } from "@/lib/owners";
+import { getOrganizationId } from "@/lib/organization";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       status: data.verificationStatus,
       notes: data.notes,
       actorId: session.user.id,
+      organizationId: getOrganizationId(session.user),
     });
 
     return NextResponse.json({ owner });

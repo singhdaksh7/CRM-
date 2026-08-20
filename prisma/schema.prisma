@@ -991,6 +991,10 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([role, isRead])
+  // Serves searchNotifications() in src/lib/search/entity-search.ts, now
+  // that it carries an organizationId predicate (see org-isolation audit) -
+  // no existing index covered organizationId at all.
+  @@index([organizationId, createdAt])
   @@map("notifications")
 }
 
@@ -1161,15 +1165,20 @@ model Property {
   @@index([organizationId, assetClass, listingType])
   @@index([organizationId, inventorySource])
   @@index([partnerId])
-  // The main /properties list (src/app/(app)/properties/page.tsx) and the
-  // GET /api/properties route default-sort newest-first with no other
-  // filter applied in the common case; there was no index at all covering
-  // a bare createdAt sort, so Postgres had to sort the full result set
-  // in-memory instead of walking an index in order. (Both of those queries
-  // currently have no organizationId predicate - a separate multi-tenancy
-  // gap out of scope for this performance pass - so this is a plain index,
-  // not an organizationId-prefixed composite.)
-  @@index([createdAt])
+  // GET /api/properties and the /properties list page default-sort
+  // newest-first, and are now organizationId-scoped (org-isolation audit -
+  // previously missing that predicate entirely, which was the actual
+  // vulnerability, not just a performance gap). Verified live at
+  // src/app/api/properties/route.ts: `where: { organizationId, ... }`,
+  // `orderBy: { createdAt }`. A plain (unprefixed) createdAt index would be
+  // redundant since no surviving query sorts by createdAt without an
+  // organizationId predicate.
+  @@index([organizationId, createdAt])
+  // propertiesByLocation (dashboard-data.ts) and propertiesByArea/
+  // propertiesByBhk (locality-analytics-data.ts) groupBy area/bhk, both
+  // organizationId-scoped for the same reason.
+  @@index([organizationId, area])
+  @@index([organizationId, bhk])
   @@map("properties")
 }
 
@@ -1269,28 +1278,38 @@ model Lead {
   @@index([organizationId, assignedToId])
   @@index([organizationId, assetClass, transactionType])
   @@index([organizationId, portalProvider, externalLeadId])
-  // Serves the main /leads list (src/app/(app)/leads/page.tsx): org-scoped,
-  // paginated, default-sorted newest-first - previously had no index
-  // covering both the organizationId filter and the createdAt sort, so
-  // every page load beyond a trivial dataset size required an in-memory
-  // sort over every one of the org's lead rows.
+  // Serves the main /leads list (src/app/(app)/leads/page.tsx) and GET
+  // /api/leads: org-scoped, paginated, default-sorted newest-first.
+  // Also covers dashboard-data.ts's newLeadsToday count, which is
+  // organizationId + createdAt-range scoped post-merge (org-isolation
+  // audit added the organizationId predicate that was previously missing
+  // there - see src/lib/dashboard-data.ts computeCriticalData).
   @@index([organizationId, createdAt])
-  // The dashboard's newLeadsToday count (src/lib/dashboard-data.ts) filters
-  // only by a createdAt range, with no organizationId predicate (a
-  // separate, pre-existing multi-tenancy gap in that query, out of scope
-  // for this performance pass - see PERFORMANCE.md / audit notes). This
-  // index matches that literal query shape as found; if/when that query
-  // gains an organizationId filter, prefer folding this into an
-  // organizationId-prefixed composite instead.
-  @@index([createdAt])
-  // Dashboard's unassignedLeads count filters assignedToId: null with no
-  // organizationId predicate (same gap as above) - the existing
-  // [organizationId, assignedToId] composite can't serve a query that
-  // never supplies organizationId.
-  @@index([assignedToId])
-  // Dashboard's dealsClosedThisMonth count: status = CLOSED_WON AND
-  // updatedAt >= start-of-month, again with no organizationId predicate.
-  @@index([status, updatedAt])
+  // The three indexes below serve dashboard-data.ts queries that gained an
+  // organizationId predicate as part of the org-isolation audit (they were
+  // previously missing it entirely, which was itself the vulnerability -
+  // see the audit report). Sized to the literal shape of each query:
+  // - dealsClosedThisMonth: organizationId + status + updatedAt range
+  // - leadsBySource: organizationId + groupBy column
+  // - leadsByStatus: organizationId + groupBy(status) - deliberately NOT a
+  //   separate [organizationId, status] index; [organizationId, status,
+  //   updatedAt] below already serves any query filtering/grouping on just
+  //   the (organizationId, status) prefix, so a narrower index here would
+  //   be pure write-amplification with no read benefit.
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, source])
+  // NOTE: an unprefixed @@index([assignedToId]) and @@index([createdAt])/
+  // @@index([status, updatedAt]) existed on the performance branch to serve
+  // queries that were missing an organizationId predicate at the time
+  // (a pre-existing multi-tenancy gap, not yet fixed). The org-isolation
+  // merge fixed every one of those call sites to filter by organizationId
+  // first (verified by reading src/lib/dashboard-data.ts,
+  // src/app/(app)/leads/page.tsx, src/app/api/leads/bulk-auto-assign/route.ts,
+  // src/lib/rules/dashboard-actions.ts - every assignedToId/createdAt/
+  // status+updatedAt filter on Lead now carries organizationId in the same
+  // where clause), so the existing [organizationId, assignedToId] index
+  // above and the composites here already serve them. The unprefixed
+  // indexes are dropped as redundant write-amplification.
   @@map("leads")
 }
 
@@ -1643,6 +1662,10 @@ model Activity {
   @@index([crmOwnerId])
   @@index([dealId])
   @@index([inventoryPartnerId])
+  // Serves GET /api/activities and dashboard-data.ts's recentActivities,
+  // both now organizationId-scoped (see org-isolation audit) - previously
+  // no index covered organizationId on this table at all.
+  @@index([organizationId, createdAt])
   @@map("activities")
 }
 

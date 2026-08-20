@@ -16,7 +16,7 @@ const RESULT_CAP = 20;
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const sp = req.nextUrl.searchParams;
     const q = sp.get("q")?.trim();
 

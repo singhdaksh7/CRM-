@@ -1,7 +1,6 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
-import { getOrganizationId } from "./organization";
 import { startOfIstDay, endOfIstDay } from "./ist-date";
 import type { LeadStatus } from "@prisma/client";
 
@@ -90,8 +89,7 @@ export interface OwnerDashboardData {
   funnel: FunnelStage[];
 }
 
-export async function getOwnerDashboardData(): Promise<OwnerDashboardData> {
-  const organizationId = getOrganizationId();
+export async function getOwnerDashboardData(organizationId: string): Promise<OwnerDashboardData> {
   return withTiming("ownerDashboard", "/owner-dashboard", () =>
     cached(`owner-dashboard:${organizationId}`, OWNER_DASHBOARD_CACHE_TTL_SECONDS, () => computeOwnerDashboardData(organizationId))
   );

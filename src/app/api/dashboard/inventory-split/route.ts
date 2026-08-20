@@ -7,7 +7,7 @@ import { getOrganizationId } from "@/lib/organization";
 export async function GET() {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const groups = await prisma.property.groupBy({
       by: ["inventorySource", "status"],

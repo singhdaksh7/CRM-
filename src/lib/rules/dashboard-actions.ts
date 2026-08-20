@@ -1,6 +1,6 @@
 import { prisma } from "../prisma";
 import { cached } from "../cache";
-import { getOrganizationId } from "../organization";
+import { resolveOrganizationIdForUser } from "../organization";
 import { makeRule, sortRulesBySeverity } from "./rule-engine";
 import type { RuleResult } from "./types";
 import type { Role } from "@prisma/client";
@@ -30,7 +30,7 @@ async function safe(label: string, fn: () => Promise<RuleResult[]>): Promise<Rul
 }
 
 export async function getActionCenterItems(role: Role, userId: string): Promise<RuleResult[]> {
-  const organizationId = getOrganizationId(userId);
+  const organizationId = await resolveOrganizationIdForUser(userId);
   return cached(`action-center:${organizationId}:${role}:${userId}`, ACTION_CENTER_CACHE_TTL_SECONDS, () =>
     computeActionCenterItems(organizationId, role, userId)
   );

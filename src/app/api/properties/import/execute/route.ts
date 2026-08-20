@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const limit = await checkRateLimit("import", session.user.id);
     if (!limit.allowed) return rateLimitResponse(limit);
     const data = schema.parse(await req.json());
-    const result = await executeInventoryImport({ ...data, actorId: session.user.id, organizationId: getOrganizationId(session.user.id) });
+    const result = await executeInventoryImport({ ...data, actorId: session.user.id, organizationId: getOrganizationId(session.user) });
     return NextResponse.json(result, { status: 201 });
   } catch (error) { return handleApiError(error); }
 }

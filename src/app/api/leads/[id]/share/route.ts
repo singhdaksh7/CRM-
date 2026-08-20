@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const lead = await prisma.lead.findFirst({ where: { id, organizationId } });
     if (!lead) throw new ApiError(404, "Lead not found");
     if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!Array.isArray(propertyIds) || propertyIds.length === 0) throw new ApiError(400, "propertyIds is required");
     if (!message?.trim()) throw new ApiError(400, "message is required");
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const lead = await prisma.lead.findFirst({ where: { id, organizationId } });
     if (!lead) throw new ApiError(404, "Lead not found");
 

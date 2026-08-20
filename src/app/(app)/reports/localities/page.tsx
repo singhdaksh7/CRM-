@@ -1,9 +1,12 @@
 import { getLocalityAnalytics } from "@/lib/locality-analytics-data";
 import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { BarChartCard, PieChartCard } from "@/components/dashboard/charts-dynamic";
+import { auth } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
 
 export default async function LocalityAnalyticsPage() {
-  const data = await getLocalityAnalytics();
+  const session = await auth();
+  const data = await getLocalityAnalytics(getOrganizationId(session!.user));
 
   return (
     <div className="space-y-6">

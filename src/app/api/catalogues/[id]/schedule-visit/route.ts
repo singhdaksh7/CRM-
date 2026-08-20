@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const visit = await scheduleVisitFromCatalogue({
       catalogueShareId: id,
-      organizationId: getOrganizationId(session.user.id),
+      organizationId: getOrganizationId(session.user),
       propertyIds: input.propertyIds,
       assignedToId: input.assignedToId,
       visitDate,

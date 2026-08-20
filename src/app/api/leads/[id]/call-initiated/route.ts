@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
+import { getOrganizationId } from "@/lib/organization";
 
 /**
  * Change 13 - Lead Timeline should include "Call Made". A tel: link can't
@@ -13,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession();
     const { id: leadId } = await params;
-    const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } });
+    const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: getOrganizationId(session.user) }, select: { id: true } });
     if (!lead) throw new ApiError(404, "Lead not found");
 
     await logActivity({ leadId, type: "CALL_INITIATED", description: "Call initiated from the field", actorId: session.user.id });

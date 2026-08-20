@@ -8,7 +8,7 @@ const MAX_PAGE_SIZE = 100;
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const sp = req.nextUrl.searchParams;
     const where: Record<string, unknown> = { organizationId };
 

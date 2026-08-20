@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const lead = await prisma.lead.findFirst({
       where: { id, organizationId },
       include: {
@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.lead.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Lead not found");
     if (session.user.role === "FIELD_EXECUTIVE" && existing.assignedToId !== session.user.id) {

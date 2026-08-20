@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { recordAudit } from "./audit";
 import { logger } from "./logger";
 import {
@@ -29,6 +28,7 @@ async function assertPropertyExists(propertyId: string, organizationId: string) 
 
 export async function uploadPropertyImage(params: {
   actorId: string;
+  organizationId: string;
   role: Role;
   propertyId: string;
   fileName: string;
@@ -38,7 +38,7 @@ export async function uploadPropertyImage(params: {
   caption?: string | null;
   isCover?: boolean;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const purpose = params.purpose ?? "IMAGE";
 
   if (!canUploadPropertyImage(params.role, purpose)) {
@@ -181,8 +181,8 @@ export async function getPublicOrderedImageUrls(propertyId: string, organization
 }
 
 /** Soft-delete then promote next IMAGE as cover when the deleted row was the cover. */
-export async function softDeletePropertyImage(params: { imageId: string; actorId: string; role: Role }) {
-  const organizationId = getOrganizationId(params.actorId);
+export async function softDeletePropertyImage(params: { imageId: string; actorId: string; organizationId: string; role: Role }) {
+  const organizationId = params.organizationId;
   const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
   if (!existing) throw new ApiError(404, "Property image not found");
   if (params.role !== "ADMIN" && params.role !== "DATA_MANAGER") throw new ApiError(403, "You do not have permission to delete property images");
@@ -218,9 +218,9 @@ export async function softDeletePropertyImage(params: { imageId: string; actorId
 }
 
 /** Admin-only permanent deletion of the physical object - the DB row stays soft-deleted regardless of whether this succeeds. */
-export async function physicalDeletePropertyImage(params: { imageId: string; actorId: string; role: Role }) {
+export async function physicalDeletePropertyImage(params: { imageId: string; actorId: string; organizationId: string; role: Role }) {
   if (params.role !== "ADMIN") throw new ApiError(403, "Only Admins may permanently delete a stored object");
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
   if (!existing) throw new ApiError(404, "Property image not found");
 
@@ -240,12 +240,13 @@ export async function physicalDeletePropertyImage(params: { imageId: string; act
 export async function updatePropertyImage(params: {
   imageId: string;
   actorId: string;
+  organizationId: string;
   role: Role;
   caption?: string | null;
   isCover?: boolean;
 }) {
   if (params.role !== "ADMIN" && params.role !== "DATA_MANAGER") throw new ApiError(403, "You do not have permission to edit property images");
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
   if (!existing) throw new ApiError(404, "Property image not found");
   if (existing.status === "DELETED") throw new ApiError(409, "Cannot edit a deleted image");
@@ -275,9 +276,9 @@ export async function updatePropertyImage(params: {
 }
 
 /** Bulk sortOrder update for drag/keyboard reordering - applied as a single transaction so a partial failure never leaves the gallery in a half-reordered state. */
-export async function reorderPropertyImages(params: { propertyId: string; actorId: string; role: Role; order: string[] }) {
+export async function reorderPropertyImages(params: { propertyId: string; actorId: string; organizationId: string; role: Role; order: string[] }) {
   if (params.role !== "ADMIN" && params.role !== "DATA_MANAGER") throw new ApiError(403, "You do not have permission to reorder property images");
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
 
   const existing = await prisma.propertyImage.findMany({ where: { propertyId: params.propertyId, organizationId, status: "ACTIVE" }, select: { id: true } });
   const existingIds = new Set(existing.map((e) => e.id));
@@ -306,18 +307,20 @@ export async function reorderPropertyImages(params: { propertyId: string; actorI
 export async function replacePropertyImage(params: {
   imageId: string;
   actorId: string;
+  organizationId: string;
   role: Role;
   fileName: string;
   mimeType: string;
   buffer: Buffer;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
   if (!existing) throw new ApiError(404, "Property image not found");
   if (existing.status === "DELETED") throw new ApiError(409, "Cannot replace a deleted image");
 
   const next = await uploadPropertyImage({
     actorId: params.actorId,
+    organizationId,
     role: params.role,
     propertyId: existing.propertyId,
     fileName: params.fileName,

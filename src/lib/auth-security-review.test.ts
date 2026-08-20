@@ -138,8 +138,8 @@ describe("no secret is ever persisted, returned or logged", () => {
     expect(securityPageSource).toContain("where: { id: session.user.id }");
   });
 
-  it("the session guard reads only the three scalars it needs", () => {
-    expect(sessionGuardSource).toContain("select: { authVersion: true, status: true, role: true }");
+  it("the session guard reads only the four scalars it needs", () => {
+    expect(sessionGuardSource).toContain("select: { authVersion: true, status: true, role: true, organizationId: true }");
     expect(sessionGuardSource).not.toContain("passwordHash");
   });
 

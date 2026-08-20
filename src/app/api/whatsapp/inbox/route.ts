@@ -8,7 +8,7 @@ import type { Prisma } from "@prisma/client";
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const filter = req.nextUrl.searchParams.get("filter") ?? "all";
     const search = req.nextUrl.searchParams.get("search")?.trim();
     const cursor = req.nextUrl.searchParams.get("cursor") ?? undefined;

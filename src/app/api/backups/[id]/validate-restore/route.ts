@@ -15,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession(["ADMIN"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const backup = await prisma.backupRecord.findFirst({ where: { id, organizationId } });
     if (!backup) throw new ApiError(404, "Backup record not found");
 

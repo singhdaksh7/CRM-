@@ -10,7 +10,7 @@ import { PROPERTY_PORTAL_PROVIDERS, type PropertyPortalProviderId } from "@/inte
 export async function POST(request: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { propertyId, provider } = (await request.json()) as { propertyId?: string; provider?: string };
     if (!propertyId || !provider || !PROPERTY_PORTAL_PROVIDERS.includes(provider as PropertyPortalProviderId)) {
       return NextResponse.json({ error: "A valid propertyId and provider are required" }, { status: 400 });

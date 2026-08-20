@@ -7,7 +7,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   try {
     const { token } = await params;
     const catalogue = await getCatalogueByToken(token);
-    const dto = await withResolvedCoverImages(toPublicCatalogueDTO(catalogue));
+    const dto = await withResolvedCoverImages(toPublicCatalogueDTO(catalogue), catalogue.organizationId);
     return NextResponse.json({ catalogue: dto });
   } catch (err) {
     return handleApiError(err);

@@ -8,15 +8,19 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagination";
 import { withTiming } from "@/lib/perf";
 import { AlertTriangle, CalendarClock, CalendarDays } from "lucide-react";
+import { getOrganizationId } from "@/lib/organization";
+import { assignedToSelect } from "@/lib/user-select";
 import type { Prisma } from "@prisma/client";
 
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const session = await auth();
+  const organizationId = getOrganizationId(session!.user);
   const sp = await searchParams;
   const bucket = sp.bucket ?? "today";
   const page = parsePage(sp.page);
 
   const scoped: Prisma.FollowUpWhereInput = {
+    organizationId,
     leadId: { not: null },
     ...(session!.user.role === "FIELD_EXECUTIVE" ? { ownerId: session!.user.id } : {}),
   };
@@ -35,9 +39,9 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
       prisma.followUp.count({ where: { ...scoped, status: { not: "COMPLETED" }, dueDate: { lt: startOfToday } } }),
       prisma.followUp.count({ where: { ...scoped, dueDate: { gte: startOfToday, lte: endOfToday } } }),
       prisma.followUp.count({ where: { ...scoped, dueDate: { gt: endOfToday } } }),
-      prisma.lead.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
-      prisma.user.findMany({ where: { status: "ACTIVE" } }),
-      prisma.followUp.findMany({ where, include: { lead: true, owner: true }, orderBy: { dueDate: "asc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
+      prisma.lead.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 100 }),
+      prisma.user.findMany({ where: { organizationId, status: "ACTIVE" }, select: assignedToSelect }),
+      prisma.followUp.findMany({ where, include: { lead: true, owner: { select: assignedToSelect } }, orderBy: { dueDate: "asc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
       prisma.followUp.count({ where }),
     ])
   );

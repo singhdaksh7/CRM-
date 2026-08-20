@@ -10,11 +10,13 @@ import { Clock, Mail, Phone } from "lucide-react";
 import { getOrganizationId } from "@/lib/organization";
 import { EmployeeAccountControls } from "@/components/employees/account-controls";
 import { formatLastLogin } from "@/lib/last-login";
+import { auth } from "@/lib/auth";
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await auth();
   const employee = await prisma.user.findFirst({
-    where: { id, organizationId: getOrganizationId() },
+    where: { id, organizationId: getOrganizationId(session!.user) },
     include: {
       assignedLeads: { orderBy: { createdAt: "desc" } },
       assignedVisits: { include: { property: true, lead: true }, orderBy: { visitDate: "desc" } },

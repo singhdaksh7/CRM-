@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { recordAudit } from "./audit";
 import { documentEntityField } from "./documents-entity";
 import { verifyUploadedObject, uploadFileBuffer, buildDocumentObjectKey, activeStorageProviderName, assertFileAllowed, assertMagicBytesMatch, StorageValidationError } from "./storage";
@@ -45,6 +44,7 @@ function entityIdFields(entityType: DocumentEntityType, entityId: string) {
  */
 export async function uploadDocument(params: {
   actorId: string;
+  organizationId: string;
   role: Role;
   entityType: DocumentEntityType;
   entityId: string;
@@ -54,7 +54,7 @@ export async function uploadDocument(params: {
   category?: DocumentCategory;
   expiresAt?: string | null;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const category = params.category ?? "GENERAL";
 
   if (!canUploadDocumentCategory(params.role, category)) {
@@ -125,13 +125,14 @@ export async function uploadDocument(params: {
 export async function replaceDocument(params: {
   documentId: string;
   actorId: string;
+  organizationId: string;
   fileName: string;
   fileType: string;
   fileUrl?: string;
   storageKey?: string;
   fileSizeBytes?: number | null;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const previous = await prisma.document.findFirst({ where: { id: params.documentId, organizationId } });
   if (!previous) throw new ApiError(404, "Document not found");
   if (previous.status === "DELETED") throw new ApiError(409, "Cannot replace a deleted document");

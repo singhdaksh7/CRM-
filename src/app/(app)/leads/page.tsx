@@ -16,7 +16,7 @@ import type { Prisma } from "@prisma/client";
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const session = await auth();
   const sp = await searchParams;
-  const organizationId = getOrganizationId(session!.user.id);
+  const organizationId = getOrganizationId(session!.user);
   const page = parsePage(sp.page);
 
   const where: Prisma.LeadWhereInput = { organizationId };

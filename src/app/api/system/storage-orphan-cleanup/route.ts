@@ -12,7 +12,7 @@ export async function POST() {
     const limitResult = await checkRateLimit("document", session.user.id);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const sessions = await cleanupExpiredUploadSessions(50);
     const softDeleted = await cleanupSoftDeletedPropertyObjects({ organizationId, limit: 25 });
 

@@ -6,9 +6,14 @@ import Link from "next/link";
 import { Badge, FOLLOWUP_STATUS_TONE } from "@/components/ui/badge";
 import { formatDateTime, enumToLabel } from "@/lib/utils";
 import { CheckCircle2 } from "lucide-react";
-import type { FollowUp, Lead, User } from "@prisma/client";
+import type { FollowUp, Lead } from "@prisma/client";
 
-export function FollowUpRow({ followUp }: { followUp: FollowUp & { lead: Lead; owner: User | null } }) {
+// Only owner.name is ever rendered here - see src/lib/user-select.ts for
+// why the server component that provides `followUp.owner` deliberately
+// excludes passwordHash and other account fields.
+type FollowUpOwner = { id: string; name: string } | null;
+
+export function FollowUpRow({ followUp }: { followUp: FollowUp & { lead: Lead; owner: FollowUpOwner } }) {
   const router = useRouter();
 
   async function complete() {

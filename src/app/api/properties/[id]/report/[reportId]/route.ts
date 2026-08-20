@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id: propertyId, reportId } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const report = await prisma.propertyReport.findFirst({ where: { id: reportId, propertyId, organizationId }, include: { property: true } });
     if (!report) throw new ApiError(404, "Property report not found");

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id: visitId } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const visit = await prisma.visit.findFirst({ where: { id: visitId, organizationId } });
     if (!visit) throw new ApiError(404, "Visit not found");

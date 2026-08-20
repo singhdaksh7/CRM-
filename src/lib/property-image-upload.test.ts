@@ -89,7 +89,7 @@ describe("property-image-upload sessions", () => {
   it("creates an upload session with a server-generated object key", async () => {
     const { createPropertyImageUploadSession } = await import("./property-image-upload");
     const result = await createPropertyImageUploadSession({
-      actorId: "admin1",
+      actorId: "admin1", organizationId: "org_default",
       role: "ADMIN",
       propertyId: "prop1",
       fileName: "living.webp",
@@ -115,7 +115,7 @@ describe("property-image-upload sessions", () => {
     const { createPropertyImageUploadSession } = await import("./property-image-upload");
     await expect(
       createPropertyImageUploadSession({
-        actorId: "admin1",
+        actorId: "admin1", organizationId: "org_default",
         role: "ADMIN",
         propertyId: "prop1",
         fileName: "x.svg",
@@ -141,13 +141,13 @@ describe("property-image-upload sessions", () => {
 
     const { confirmPropertyImageUpload } = await import("./property-image-upload");
     const first = await confirmPropertyImageUpload({
-      actorId: "admin1",
+      actorId: "admin1", organizationId: "org_default",
       role: "ADMIN",
       propertyId: "prop1",
       sessionId: "sess1",
     });
     const second = await confirmPropertyImageUpload({
-      actorId: "admin1",
+      actorId: "admin1", organizationId: "org_default",
       role: "ADMIN",
       propertyId: "prop1",
       sessionId: "sess1",
@@ -185,7 +185,7 @@ describe("property-image-upload sessions", () => {
 
     const { confirmPropertyImageUpload } = await import("./property-image-upload");
     const image = await confirmPropertyImageUpload({
-      actorId: "admin1",
+      actorId: "admin1", organizationId: "org_default",
       role: "ADMIN",
       propertyId: "prop1",
       sessionId: "sess1",
@@ -200,7 +200,7 @@ describe("property-image-upload sessions", () => {
     const { createPropertyImageUploadSession } = await import("./property-image-upload");
     await expect(
       createPropertyImageUploadSession({
-        actorId: "fe1",
+        actorId: "fe1", organizationId: "org_default",
         role: "FIELD_EXECUTIVE",
         propertyId: "prop1",
         fileName: "plan.webp",

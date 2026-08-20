@@ -1,7 +1,6 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
-import { getOrganizationId } from "./organization";
 
 const LOCALITY_ANALYTICS_CACHE_TTL_SECONDS = 60;
 
@@ -22,8 +21,7 @@ export interface LocalityAnalyticsData {
   inventoryRentVsSale: { name: string; value: number }[];
 }
 
-export async function getLocalityAnalytics(): Promise<LocalityAnalyticsData> {
-  const organizationId = getOrganizationId();
+export async function getLocalityAnalytics(organizationId: string): Promise<LocalityAnalyticsData> {
   return withTiming("localityAnalytics", "/reports/localities", () =>
     cached(`locality-analytics:${organizationId}`, LOCALITY_ANALYTICS_CACHE_TTL_SECONDS, () => computeLocalityAnalytics(organizationId))
   );
@@ -31,10 +29,10 @@ export async function getLocalityAnalytics(): Promise<LocalityAnalyticsData> {
 
 async function computeLocalityAnalytics(organizationId: string): Promise<LocalityAnalyticsData> {
   const [leadsByLocation, propertiesByArea, propertiesByBhk, propertiesAll, soldProperties] = await Promise.all([
-    prisma.lead.groupBy({ by: ["preferredLocation"], _count: { _all: true }, _avg: { maxBudget: true } }),
-    prisma.property.groupBy({ by: ["area"], _count: { _all: true }, where: { status: { in: ["AVAILABLE", "RESERVED"] } } }),
-    prisma.property.groupBy({ by: ["bhk"], _count: { _all: true }, where: { status: { in: ["AVAILABLE", "RESERVED"] } } }),
-    prisma.property.findMany({ select: { listingType: true, monthlyRent: true, salePrice: true } }),
+    prisma.lead.groupBy({ by: ["preferredLocation"], _count: { _all: true }, _avg: { maxBudget: true }, where: { organizationId } }),
+    prisma.property.groupBy({ by: ["area"], _count: { _all: true }, where: { organizationId, status: { in: ["AVAILABLE", "RESERVED"] } } }),
+    prisma.property.groupBy({ by: ["bhk"], _count: { _all: true }, where: { organizationId, status: { in: ["AVAILABLE", "RESERVED"] } } }),
+    prisma.property.findMany({ where: { organizationId }, select: { listingType: true, monthlyRent: true, salePrice: true } }),
     prisma.property.findMany({
       where: { organizationId, status: { in: ["SOLD", "RENTED"] } },
       select: { area: true, createdAt: true, updatedAt: true },

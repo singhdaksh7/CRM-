@@ -1,5 +1,4 @@
 import { prisma } from "./prisma";
-import { getOrganizationId } from "./organization";
 import { createNotification } from "./notifications";
 import { logActivity } from "./activity";
 import { logger } from "./logger";
@@ -19,18 +18,18 @@ export interface AutomationRuleInput {
   isActive?: boolean;
 }
 
-export async function listAutomationRules(organizationId?: string) {
+export async function listAutomationRules(organizationId: string) {
   return prisma.automationRule.findMany({
-    where: { organizationId: organizationId ?? getOrganizationId() },
+    where: { organizationId },
     include: { createdBy: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });
 }
 
-export async function createAutomationRule(params: AutomationRuleInput & { createdById: string }) {
+export async function createAutomationRule(params: AutomationRuleInput & { createdById: string; organizationId: string }) {
   return prisma.automationRule.create({
     data: {
-      organizationId: getOrganizationId(params.createdById),
+      organizationId: params.organizationId,
       name: params.name,
       trigger: params.trigger,
       actionType: params.actionType,

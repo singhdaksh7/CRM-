@@ -10,9 +10,9 @@ import { readTake, readSkip } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
   try {
-    await requireSession();
+    const session = await requireSession();
     const sp = req.nextUrl.searchParams;
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { organizationId: getOrganizationId(session.user) };
 
     const q = sp.get("q");
     if (q) {
@@ -75,11 +75,13 @@ export async function POST(req: NextRequest) {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const body = await req.json();
     const data = createPropertySchema.parse(body);
-    const count = await prisma.property.count();
+    const organizationId = getOrganizationId(session.user);
+    const count = await prisma.property.count({ where: { organizationId } });
 
     const property = await prisma.property.create({
       data: {
         ...data,
+        organizationId,
         propertyCode: generateCode("PROP", count + 1),
         amenities: JSON.stringify(data.amenities),
         suitableForTags: JSON.stringify(data.suitableForTags),
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
     });
 
     await appendPropertyTimelineEvent({
-      organizationId: getOrganizationId(session.user.id),
+      organizationId,
       propertyId: property.id,
       eventType: "CREATED",
       actorId: session.user.id,

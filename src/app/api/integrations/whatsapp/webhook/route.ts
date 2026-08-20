@@ -3,7 +3,7 @@ import { getWhatsAppProvider, loadWhatsAppConfig } from "@/integrations/whatsapp
 import { hashPayload, recordWebhookEventOnce, markWebhookEventProcessed } from "@/lib/webhook-events";
 import { resolveInboundConversation, recordInboundMessage, updateDeliveryStatus, sanitizeMediaFilename, validateInboundMedia } from "@/lib/whatsapp-inbox";
 import { recordAudit } from "@/lib/audit";
-import { getOrganizationId } from "@/lib/organization";
+import { getSystemOrganizationId } from "@/lib/organization";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
@@ -67,11 +67,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { messages, statuses } = provider.parseInboundWebhook(payload);
-  const organizationId = getOrganizationId();
+  // No CRM user session on an inbound Meta webhook call - trusted system
+  // context, same pattern as the Housing integration's own resolver.
+  const organizationId = getSystemOrganizationId();
   logger.info("whatsapp_webhook_received", { messageCount: messages.length, statusCount: statuses.length });
 
   for (const inbound of messages) {
     const { isNew } = await recordWebhookEventOnce({
+      organizationId,
       provider: "META_CLOUD",
       externalEventId: inbound.externalEventId,
       eventType: "message",
@@ -109,6 +112,7 @@ export async function POST(req: NextRequest) {
 
   for (const statusEvent of statuses) {
     const { isNew } = await recordWebhookEventOnce({
+      organizationId,
       provider: "META_CLOUD",
       externalEventId: statusEvent.externalEventId,
       eventType: "status",

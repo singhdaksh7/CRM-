@@ -3,9 +3,12 @@ import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { BarChartCard, PieChartCard } from "@/components/dashboard/charts-dynamic";
 import { XCircle, AlertTriangle } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
 
 export default async function LostDealAnalysisPage() {
-  const data = await getLostDealAnalytics();
+  const session = await auth();
+  const data = await getLostDealAnalytics(getOrganizationId(session!.user));
 
   return (
     <div className="space-y-6">

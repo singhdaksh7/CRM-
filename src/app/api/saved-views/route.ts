@@ -17,7 +17,7 @@ const createSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const entityType = req.nextUrl.searchParams.get("entityType");
     if (!entityType || !ENTITY_TYPES.includes(entityType as (typeof ENTITY_TYPES)[number])) {
       throw new ApiError(400, "entityType must be LEAD or PROPERTY");
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const body = createSchema.parse(await req.json());
 
     const view = await prisma.savedView.create({

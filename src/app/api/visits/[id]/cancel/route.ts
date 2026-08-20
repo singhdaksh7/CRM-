@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
     const { reason } = cancelVisitSchema.parse(await req.json());
-    const visit = await cancelVisit(id, getOrganizationId(session.user.id), session.user, reason);
+    const visit = await cancelVisit(id, getOrganizationId(session.user), session.user, reason);
     return NextResponse.json({ visit });
   } catch (err) {
     return handleApiError(err);

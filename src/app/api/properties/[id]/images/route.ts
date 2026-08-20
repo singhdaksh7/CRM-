@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const limitResult = await checkRateLimit("propertyImageAccess", session.user.id);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const images = await listPropertyImages(id, organizationId);
     const withUrls = await Promise.all(
       images.map(async (img) => ({ ...img, url: await getPropertyImageUrl(img.storageKey) }))
@@ -52,6 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const image = await uploadPropertyImage({
       actorId: session.user.id,
+      organizationId: getOrganizationId(session.user),
       role: session.user.role,
       propertyId: id,
       fileName: file.name,

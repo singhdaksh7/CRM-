@@ -10,7 +10,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const sp = req.nextUrl.searchParams;
     const take = readTake(sp);
     const skip = readSkip(sp);
@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
       rows: data.rows,
       columnMapping: data.columnMapping,
       actorId: session.user.id,
+      organizationId: getOrganizationId(session.user),
     });
 
     return NextResponse.json({ job, outcomes }, { status: 201 });

@@ -1,7 +1,6 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
-import { getOrganizationId } from "./organization";
 
 const ACTIVITY_ANALYTICS_CACHE_TTL_SECONDS = 60;
 
@@ -17,8 +16,7 @@ export interface ActivityAnalyticsData {
   ageingLeads: { bucket: string; count: number }[];
 }
 
-export async function getActivityAnalytics(): Promise<ActivityAnalyticsData> {
-  const organizationId = getOrganizationId();
+export async function getActivityAnalytics(organizationId: string): Promise<ActivityAnalyticsData> {
   return withTiming("activityAnalytics", "/reports/activity", () =>
     cached(`activity-analytics:${organizationId}`, ACTIVITY_ANALYTICS_CACHE_TTL_SECONDS, () => computeActivityAnalytics(organizationId))
   );

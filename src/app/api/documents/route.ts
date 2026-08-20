@@ -8,13 +8,14 @@ import { canUploadDocumentCategory } from "@/lib/document-access";
 import { recordAudit } from "@/lib/audit";
 import { readTake, readSkip } from "@/lib/pagination";
 import { verifyUploadedObject, activeStorageProviderName } from "@/lib/storage";
+import { objectKeyBelongsToOrg } from "@/lib/storage-providers/object-key";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const sp = req.nextUrl.searchParams;
     const where: Record<string, unknown> = { organizationId, status: { not: "DELETED" } };
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
     const limitResult = await checkRateLimit("document", session.user.id);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const body = await req.json();
     const data = documentMetadataSchema.parse(body);
 
@@ -90,6 +91,14 @@ export async function POST(req: NextRequest) {
     // its real size/type rather than trusting whatever the client claimed.
     let fileSizeBytes = data.fileSizeBytes ?? null;
     if (data.storageKey) {
+      // The client supplies this key (it comes back from the presigned
+      // upload-url flow) - without this check a caller could attach an
+      // object key belonging to another organization's bucket prefix to a
+      // Document row it otherwise legitimately owns, and later download or
+      // delete that object through the normally-safe GET/DELETE routes.
+      if (!objectKeyBelongsToOrg(data.storageKey, organizationId)) {
+        throw new ApiError(400, "Invalid storage key for this organization");
+      }
       try {
         const verified = await verifyUploadedObject(data.storageKey);
         fileSizeBytes = verified.sizeBytes;

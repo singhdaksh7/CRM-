@@ -35,7 +35,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
   const page = parsePage(sp.page);
   const user = session!.user;
   const canManage = user.role !== "FIELD_EXECUTIVE";
-  const organizationId = getOrganizationId(user.id);
+  const organizationId = getOrganizationId(user);
   const now = new Date();
 
   // Three bugs previously lived in these five lines:

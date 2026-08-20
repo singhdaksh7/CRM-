@@ -206,7 +206,13 @@ async function searchNotifications(parsed: ReturnType<typeof parseSearchQuery>, 
   const kw = parsed.keywords.join(" ").trim();
   if (!kw) return [];
   const rows = await prisma.notification.findMany({
-    where: { ...notificationVisibilityWhere(ctx.userId, ctx.role), OR: [{ title: { contains: kw, mode: "insensitive" } }, { message: { contains: kw, mode: "insensitive" } }] },
+    where: {
+      organizationId: ctx.organizationId,
+      AND: [
+        notificationVisibilityWhere(ctx.userId, ctx.role),
+        { OR: [{ title: { contains: kw, mode: "insensitive" } }, { message: { contains: kw, mode: "insensitive" } }] },
+      ],
+    },
     select: { id: true, title: true, message: true, leadId: true, propertyId: true, createdAt: true },
     take: PER_ENTITY_LIMIT,
     orderBy: { createdAt: "desc" },

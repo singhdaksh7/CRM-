@@ -4,6 +4,8 @@ import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Download } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
 
 const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
   { key: "daily", label: "Daily" },
@@ -14,7 +16,8 @@ const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
 export default async function EmployeePerformancePage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const { period: periodParam } = await searchParams;
   const period = (PERIODS.some((p) => p.key === periodParam) ? periodParam : "monthly") as LeaderboardPeriod;
-  const employees = await getEmployeePerformance(period);
+  const session = await auth();
+  const employees = await getEmployeePerformance(period, getOrganizationId(session!.user));
 
   return (
     <div className="space-y-6">

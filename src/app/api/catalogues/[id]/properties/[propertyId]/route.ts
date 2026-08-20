@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
+import { assertLeadAccessible } from "@/lib/lead-access";
 import { getCatalogueById } from "@/lib/catalogues";
+import { getOrganizationId } from "@/lib/organization";
 import { logActivity } from "@/lib/activity";
 
 /**
@@ -17,7 +19,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id, propertyId } = await params;
-    const catalogue = await getCatalogueById(id);
+    // This route previously had NO lead/org ownership check at all before
+    // mutating a catalogue by id - getCatalogueById's own organizationId
+    // enforcement now closes that (a cross-org id 404s), and
+    // assertLeadAccessible restores the same lead-assignment scoping every
+    // other catalogue-mutation route already has.
+    const catalogue = await getCatalogueById(id, getOrganizationId(session.user));
+    await assertLeadAccessible(session, catalogue.leadId);
 
     const cp = catalogue.properties.find((p) => p.propertyId === propertyId);
     if (!cp) throw new ApiError(404, "Property not found in this catalogue");

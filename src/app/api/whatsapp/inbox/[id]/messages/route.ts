@@ -7,7 +7,7 @@ import { sendOutboundMessage } from "@/lib/whatsapp-messages";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireSession(); const { id } = await ctx.params; const organizationId = getOrganizationId(session.user.id);
+    const session = await requireSession(); const { id } = await ctx.params; const organizationId = getOrganizationId(session.user);
     const conversation = await prisma.whatsAppConversation.findFirst({ where: { id, ...inboxAccessWhere(session.user, organizationId) } });
     if (!conversation) throw new ApiError(404, "Conversation not found");
     const cursor = req.nextUrl.searchParams.get("cursor") ?? undefined;
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireSession(); const { id } = await ctx.params; const organizationId = getOrganizationId(session.user.id);
+    const session = await requireSession(); const { id } = await ctx.params; const organizationId = getOrganizationId(session.user);
     const conversation = await prisma.whatsAppConversation.findFirst({ where: { id, ...inboxAccessWhere(session.user, organizationId) } });
     if (!conversation) throw new ApiError(404, "Conversation not found");
     if (!conversation.leadId) throw new ApiError(400, "Link this conversation to a lead before sending");

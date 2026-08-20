@@ -5,12 +5,13 @@ import { followUpSchema } from "@/lib/validators";
 import { logActivity } from "@/lib/activity";
 import { getOrganizationId } from "@/lib/organization";
 import { createNotification } from "@/lib/notifications";
+import { assignedToSelect } from "@/lib/user-select";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
     const sp = req.nextUrl.searchParams;
-    const where: Record<string, unknown> = { organizationId: getOrganizationId(session.user.id) };
+    const where: Record<string, unknown> = { organizationId: getOrganizationId(session.user) };
     if (session.user.role === "FIELD_EXECUTIVE") where.ownerId = session.user.id;
 
     const bucket = sp.get("bucket"); // overdue | today | upcoming
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     const followUps = await prisma.followUp.findMany({
       where,
-      include: { lead: true, owner: true },
+      include: { lead: true, owner: { select: assignedToSelect } },
       orderBy: { dueDate: "asc" },
     });
     return NextResponse.json({ followUps });
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     const session = await requireSession();
     const body = await req.json();
     const data = followUpSchema.parse(body);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const followUp = await prisma.followUp.create({ data: { ...data, organizationId, dueDate: new Date(data.dueDate) } });
     await logActivity({ leadId: data.leadId, type: "FOLLOW_UP_SCHEDULED", description: `${data.type.replace(/_/g, " ")} follow-up scheduled`, actorId: session.user.id });

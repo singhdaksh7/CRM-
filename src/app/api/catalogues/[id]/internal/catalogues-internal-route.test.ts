@@ -2,14 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const catalogueShareFindUnique = vi.fn();
-const leadFindUnique = vi.fn();
+const leadFindFirst = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    catalogueShare: { findUnique: (...a: unknown[]) => catalogueShareFindUnique(...a) },
-    lead: { findUnique: (...a: unknown[]) => leadFindUnique(...a) },
+    catalogueShare: { findFirst: (...a: unknown[]) => catalogueShareFindUnique(...a) },
+    lead: { findFirst: (...a: unknown[]) => leadFindFirst(...a) },
   },
 }));
+
+vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org_default" }));
 
 let sessionUser: { id: string; role: string } = { id: "fe1", role: "FIELD_EXECUTIVE" };
 
@@ -59,7 +61,7 @@ beforeEach(() => {
 
 describe("GET /api/catalogues/[id]/internal", () => {
   it("returns the executive DTO for the assigned executive's own lead", async () => {
-    leadFindUnique.mockResolvedValue({ id: "lead1", assignedToId: "fe1" });
+    leadFindFirst.mockResolvedValue({ id: "lead1", assignedToId: "fe1" });
     const { GET } = await import("./route");
     const res = await GET(new NextRequest(new Request("https://x.test/api/catalogues/cat1/internal")), { params: Promise.resolve({ id: "cat1" }) });
     expect(res.status).toBe(200);
@@ -68,7 +70,7 @@ describe("GET /api/catalogues/[id]/internal", () => {
   });
 
   it("denies a FIELD_EXECUTIVE for a lead not assigned to them", async () => {
-    leadFindUnique.mockResolvedValue({ id: "lead1", assignedToId: "someone-else" });
+    leadFindFirst.mockResolvedValue({ id: "lead1", assignedToId: "someone-else" });
     const { GET } = await import("./route");
     const res = await GET(new NextRequest(new Request("https://x.test/api/catalogues/cat1/internal")), { params: Promise.resolve({ id: "cat1" }) });
     expect(res.status).toBe(403);
@@ -76,7 +78,7 @@ describe("GET /api/catalogues/[id]/internal", () => {
 
   it("allows ADMIN regardless of assignment", async () => {
     sessionUser = { id: "admin1", role: "ADMIN" };
-    leadFindUnique.mockResolvedValue({ id: "lead1", assignedToId: "someone-else" });
+    leadFindFirst.mockResolvedValue({ id: "lead1", assignedToId: "someone-else" });
     const { GET } = await import("./route");
     const res = await GET(new NextRequest(new Request("https://x.test/api/catalogues/cat1/internal")), { params: Promise.resolve({ id: "cat1" }) });
     expect(res.status).toBe(200);

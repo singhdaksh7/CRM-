@@ -67,7 +67,7 @@ async function computeFieldOpsSummary(organizationId: string): Promise<FieldOpsS
     prisma.property.groupBy({ by: ["inventorySource"], where: { organizationId, status: { not: "INACTIVE" } }, _count: true }),
     prisma.property.count({ where: { organizationId, status: "INACTIVE" } }),
     prisma.property.count({ where: { organizationId, status: "AVAILABLE", updatedAt: { lt: staleCutoff } } }),
-    getEmployeePerformance("monthly"),
+    getEmployeePerformance("monthly", organizationId),
     getInventoryFreshnessOverview(organizationId),
   ]);
 

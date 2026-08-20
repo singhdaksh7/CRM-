@@ -6,7 +6,7 @@ import { ConflictList, type ConflictListing } from "@/components/property-portal
 export default async function PortalSyncConflictsPage() {
   const session = await auth();
   if (!session || session.user.role === "FIELD_EXECUTIVE") return null;
-  const organizationId = getOrganizationId(session.user.id);
+  const organizationId = getOrganizationId(session.user);
 
   const listings = await prisma.portalListing.findMany({
     where: { organizationId, status: "SYNC_CONFLICT" },

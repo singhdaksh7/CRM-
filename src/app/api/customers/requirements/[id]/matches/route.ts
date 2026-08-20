@@ -9,7 +9,7 @@ import { recomputeMatchesForRequirement } from "@/lib/demand-recommendations";
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const requirement = await prisma.customerRequirement.findFirst({ where: { id, organizationId } });
     if (!requirement) throw new ApiError(404, "Requirement not found");
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const requirement = await prisma.customerRequirement.findFirst({ where: { id, organizationId } });
     if (!requirement) throw new ApiError(404, "Requirement not found");

@@ -14,7 +14,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const anchor = await prisma.document.findFirst({ where: { id, organizationId } });
     if (!anchor) throw new ApiError(404, "Document not found");

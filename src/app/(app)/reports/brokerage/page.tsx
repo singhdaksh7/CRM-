@@ -3,9 +3,12 @@ import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { BarChartCard } from "@/components/dashboard/charts-dynamic";
 import { Wallet, Clock, CheckCircle2, TrendingUp } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
 
 export default async function BrokerageAnalyticsPage() {
-  const data = await getBrokerageAnalytics();
+  const session = await auth();
+  const data = await getBrokerageAnalytics(getOrganizationId(session!.user));
 
   return (
     <div className="space-y-6">

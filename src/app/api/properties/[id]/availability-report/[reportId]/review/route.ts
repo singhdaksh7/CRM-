@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession(["ADMIN"]);
     const { id: propertyId, reportId } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const report = await prisma.propertyAvailabilityReport.findFirst({
       where: { id: reportId, propertyId, organizationId },

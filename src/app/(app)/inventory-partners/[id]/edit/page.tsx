@@ -7,7 +7,7 @@ import { InventoryPartnerForm } from "@/components/inventory-partners/inventory-
 export default async function EditInventoryPartnerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const organizationId = getOrganizationId(session?.user?.id);
+  const organizationId = getOrganizationId(session?.user);
 
   const partner = await prisma.inventoryPartner.findFirst({ where: { id, organizationId } });
   if (!partner) notFound();

@@ -8,7 +8,7 @@ import { recordAudit } from "@/lib/audit";
 export async function PATCH(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const body = await req.json() as { recommendationIds?: string[]; action?: "IGNORE" };
     const ids = [...new Set(body.recommendationIds ?? [])];
     if (body.action !== "IGNORE" || ids.length === 0) throw new ApiError(400, "IGNORE and recommendationIds are required");
