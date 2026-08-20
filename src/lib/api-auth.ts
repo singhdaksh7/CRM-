@@ -28,8 +28,15 @@ export async function requireSession(allowedRoles?: Role[]) {
  * ever send the client that opaque ID, never the raw error/stack.
  */
 export function handleApiError(err: unknown) {
-  if (err instanceof ApiError) {
-    return NextResponse.json({ error: err.message }, { status: err.status });
+  // Duck-typed rather than `instanceof ApiError` alone so errors thrown by
+  // modules that deliberately avoid importing this file (e.g.
+  // src/lib/organization.ts's OrganizationResolutionError - it can't pull
+  // in the full NextAuth stack this module transitively drags in without
+  // breaking a wide swath of unrelated tests) still map to the right HTTP
+  // status instead of falling through to a generic 500.
+  if (err instanceof ApiError || (err instanceof Error && "status" in err && typeof (err as { status: unknown }).status === "number")) {
+    const status = err instanceof ApiError ? err.status : (err as unknown as { status: number }).status;
+    return NextResponse.json({ error: err.message }, { status });
   }
   if (err && typeof err === "object" && "issues" in err) {
     return NextResponse.json({ error: "Validation failed", issues: (err as { issues: unknown }).issues }, { status: 400 });

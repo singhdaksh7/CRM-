@@ -13,7 +13,7 @@ import type { Prisma } from "@prisma/client";
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const sp = req.nextUrl.searchParams;
     const where: Prisma.CustomerContactWhereInput = { organizationId };
 
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const body = customerContactSchema.parse(await req.json());
     const normalizedPhone = normalizeIndianPhone(body.phone);
     if (!normalizedPhone) return NextResponse.json({ error: "Invalid Indian mobile number" }, { status: 400 });

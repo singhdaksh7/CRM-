@@ -7,7 +7,7 @@ import { getFieldOpsSummary } from "@/lib/field-ops-summary-data";
 export async function GET() {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const summary = await getFieldOpsSummary(organizationId);
     return NextResponse.json({ summary });
   } catch (err) {

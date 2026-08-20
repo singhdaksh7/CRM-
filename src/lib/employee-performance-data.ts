@@ -1,7 +1,6 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
-import { getOrganizationId } from "./organization";
 import { startOfIstDay, startOfIstWeek, startOfIstMonth } from "./ist-date";
 
 const EMPLOYEE_PERFORMANCE_CACHE_TTL_SECONDS = 60;
@@ -37,8 +36,7 @@ export function rankEmployees(rows: Omit<EmployeeKpi, "conversionPct">[]): Emplo
     .sort((a, b) => b.dealsClosed - a.dealsClosed || b.brokerageGenerated - a.brokerageGenerated);
 }
 
-export async function getEmployeePerformance(period: LeaderboardPeriod = "monthly"): Promise<EmployeeKpi[]> {
-  const organizationId = getOrganizationId();
+export async function getEmployeePerformance(period: LeaderboardPeriod, organizationId: string): Promise<EmployeeKpi[]> {
   return withTiming("employeePerformance", "/reports/employees", () =>
     cached(`employee-performance:${organizationId}:${period}`, EMPLOYEE_PERFORMANCE_CACHE_TTL_SECONDS, () => computeEmployeePerformance(organizationId, period))
   );

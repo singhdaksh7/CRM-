@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { Prisma, type Role } from "@prisma/client";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
-import { getOrganizationId } from "./organization";
+import { resolveOrganizationIdForUser } from "./organization";
 
 /**
  * Upper bound on concurrent Prisma queries this module issues per data
@@ -107,7 +107,7 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
   const endOfToday = new Date(now);
   endOfToday.setHours(23, 59, 59, 999);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const organizationId = getOrganizationId(userId);
+  const organizationId = await resolveOrganizationIdForUser(userId);
 
   const scopedLead = role === "FIELD_EXECUTIVE" ? { assignedToId: userId } : {};
   const scopedVisit = role === "FIELD_EXECUTIVE" ? { assignedToId: userId } : {};
@@ -261,7 +261,7 @@ export async function getDashboardSecondaryData(role: Role, userId: string): Pro
 }
 
 async function computeSecondaryData(role: Role, userId: string): Promise<DashboardSecondaryData> {
-  const organizationId = getOrganizationId(userId);
+  const organizationId = await resolveOrganizationIdForUser(userId);
   const scopedLead = role === "FIELD_EXECUTIVE" ? { assignedToId: userId } : {};
 
   let employeeLeadCounts: DashboardSecondaryData["employeeLeadCounts"] = [];

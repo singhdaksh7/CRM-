@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { generateCode } from "./utils";
 import { logActivity } from "./activity";
-import { getOrganizationId } from "./organization";
+import { getSystemOrganizationId } from "./organization";
 import { autoAssignLead } from "./assignment";
 import { recalculateLeadScore } from "./scoring";
 import { runMatchingForLead } from "./lead-matching";
@@ -23,7 +23,8 @@ type WebhookLeadInput = z.infer<typeof mockWebhookLeadSchema>;
  * only had to be wired once instead of once per integration route.
  */
 export async function ingestWebhookLead(data: WebhookLeadInput, source: LeadSource) {
-  const organizationId = getOrganizationId();
+  // Inbound external-portal webhook, no CRM user session - trusted system context.
+  const organizationId = getSystemOrganizationId();
 
   const existing = await prisma.lead.findUnique({ where: { externalLeadId: data.externalLeadId } });
   if (existing) throw new ApiError(409, "Duplicate lead - externalLeadId already ingested");

@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { generateCode } from "./utils";
 import { recordAudit } from "./audit";
 import { terminalStatusFor, validateStageTransition } from "./deal-stage";
@@ -78,6 +77,7 @@ export async function transitionDealStage(params: {
   stage: DealStage;
   actorId: string;
   actorRole: "ADMIN" | "DATA_MANAGER" | "FIELD_EXECUTIVE";
+  organizationId: string;
   notes?: string | null;
   lostReason?: string | null;
   lostReasonCategory?: LostDealReasonCategory | null;
@@ -88,7 +88,7 @@ export async function transitionDealStage(params: {
   kpSharePct?: number;
   partnerSharePct?: number;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const deal = await prisma.deal.findFirst({ where: { id: params.dealId, organizationId }, include: { property: { select: { inventorySource: true, listingType: true } } } });
   if (!deal) throw new ApiError(404, "Deal not found");
   if (params.actorRole === "FIELD_EXECUTIVE" && deal.assignedToId !== params.actorId) {

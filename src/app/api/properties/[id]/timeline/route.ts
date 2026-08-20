@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id } = await params;
-    const events = await getPropertyTimeline(id, getOrganizationId(session.user.id));
+    const events = await getPropertyTimeline(id, getOrganizationId(session.user));
     return NextResponse.json({ events });
   } catch (err) {
     return handleApiError(err);

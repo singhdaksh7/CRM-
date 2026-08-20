@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runThrottledSweep } from "@/lib/notifications";
-import { getOrganizationId } from "@/lib/organization";
+import { getSystemOrganizationId } from "@/lib/organization";
 import { withTiming } from "@/lib/perf";
 import { logger, newRequestId } from "@/lib/logger";
 
@@ -38,7 +38,8 @@ async function handleSweep(req: NextRequest) {
     const result = await withTiming(
       "notificationsSweep",
       route,
-      () => runThrottledSweep(getOrganizationId(), CRON_LOCK_TTL_SECONDS),
+      // Vercel Cron call, no CRM user session - trusted system context.
+      () => runThrottledSweep(getSystemOrganizationId(), CRON_LOCK_TTL_SECONDS),
       requestId
     );
     return NextResponse.json({ ok: true, requestId, ...result });

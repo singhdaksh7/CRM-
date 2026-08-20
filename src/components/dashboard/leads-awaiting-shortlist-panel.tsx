@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { getLeadsAwaitingShortlist } from "@/lib/dashboard-data";
-import { getOrganizationId } from "@/lib/organization";
+import { resolveOrganizationIdForUser } from "@/lib/organization";
 import { formatINR, timeAgo, enumToLabel } from "@/lib/utils";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
 import { EmptyState } from "@/components/ui/states";
 import { Search, Phone, MessageCircle, ArrowRight, UserCog } from "lucide-react";
 
 export async function LeadsAwaitingShortlistPanel({ userId }: { userId: string }) {
-  const organizationId = getOrganizationId(userId);
+  const organizationId = await resolveOrganizationIdForUser(userId);
   const { leads, totalCount } = await getLeadsAwaitingShortlist(organizationId);
 
   return (

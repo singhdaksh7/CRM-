@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
     const sp = req.nextUrl.searchParams;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     // Org scope + role scope in one place. A FIELD_EXECUTIVE is pinned to
     // assignedToId - the person who must physically perform the visit - and
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const body = await req.json();
     const { overrideConflict, overrideReason, propertyIds, catalogueShareId, ...data } = visitSchema.parse(body);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     // `propertyId` remains the primary/first property so existing single-
     // property callers are unchanged; `propertyIds` (when sent) is the full

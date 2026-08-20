@@ -10,10 +10,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
 
-    const limitResult = await checkMapsQuota("mapsReverify", session.user.id, getOrganizationId(session.user.id));
+    const limitResult = await checkMapsQuota("mapsReverify", session.user.id, getOrganizationId(session.user));
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
-    const property = await geocodeProperty({ propertyId: id, actorId: session.user.id, role: session.user.role });
+    const property = await geocodeProperty({ propertyId: id, actorId: session.user.id, organizationId: getOrganizationId(session.user), role: session.user.role });
     return NextResponse.json({ property });
   } catch (err) {
     return handleApiError(err);

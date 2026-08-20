@@ -3,7 +3,7 @@ import { ApiError } from "./api-auth";
 import { getOrganizationId } from "./organization";
 import type { Role } from "@prisma/client";
 
-type SessionLike = { user: { id: string; role: Role } };
+type SessionLike = { user: { id: string; role: Role; organizationId: string } };
 
 /**
  * Single source of truth for "can this session touch this lead". Reused by
@@ -15,7 +15,7 @@ type SessionLike = { user: { id: string; role: Role } };
  * a User can only ever be assigned leads within their own organization.
  */
 export async function assertLeadAccessible(session: SessionLike, leadId: string) {
-  const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: getOrganizationId(session.user.id) } });
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: getOrganizationId(session.user) } });
   if (!lead) throw new ApiError(404, "Lead not found");
   if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
     throw new ApiError(403, "Forbidden - this lead is not assigned to you");

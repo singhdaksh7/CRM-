@@ -7,7 +7,7 @@ import { getOrganizationId } from "@/lib/organization";
 export default async function EditPropertyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const property = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session!.user.id) } });
+  const property = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session!.user) } });
   if (!property) notFound();
 
   return (

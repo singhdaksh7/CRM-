@@ -1,7 +1,6 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
-import { getOrganizationId } from "./organization";
 import { istMonthKey, istMonthLabel } from "./ist-date";
 
 const BROKERAGE_ANALYTICS_CACHE_TTL_SECONDS = 60;
@@ -23,8 +22,7 @@ function istQuarterAndYear(monthKey: string): { quarter: string; year: string } 
   return { quarter: `Q${Math.floor((month - 1) / 3) + 1} ${year}`, year: String(year) };
 }
 
-export async function getBrokerageAnalytics(): Promise<BrokerageAnalyticsData> {
-  const organizationId = getOrganizationId();
+export async function getBrokerageAnalytics(organizationId: string): Promise<BrokerageAnalyticsData> {
   return withTiming("brokerageAnalytics", "/reports/brokerage", () =>
     cached(`brokerage-analytics:${organizationId}`, BROKERAGE_ANALYTICS_CACHE_TTL_SECONDS, () => computeBrokerageAnalytics(organizationId))
   );

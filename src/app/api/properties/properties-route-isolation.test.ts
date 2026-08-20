@@ -72,7 +72,7 @@ vi.mock("@/lib/api-auth", async () => {
 });
 
 const getOrganizationId = vi.fn();
-vi.mock("@/lib/organization", () => ({ getOrganizationId: (userId?: string) => getOrganizationId(userId) }));
+vi.mock("@/lib/organization", () => ({ getOrganizationId: (user?: { id?: string }) => getOrganizationId(user) }));
 vi.mock("@/lib/property-timeline", () => ({ appendPropertyTimelineEvent: vi.fn() }));
 vi.mock("@/lib/match-recommendations", () => ({ recommendPropertyToWaitingLeads: vi.fn() }));
 
@@ -85,7 +85,7 @@ function listRequest() {
 beforeEach(() => {
   vi.clearAllMocks();
   propertyFindMany.mockImplementation(async (args: { where: Record<string, unknown> }) => properties.filter((p) => p.organizationId === args.where.organizationId));
-  getOrganizationId.mockImplementation((userId?: string) => (userId === "org-a-user" ? ORG_A : userId === "org-b-user" ? ORG_B : ORG_A));
+  getOrganizationId.mockImplementation((user?: { id?: string }) => (user?.id === "org-a-user" ? ORG_A : user?.id === "org-b-user" ? ORG_B : ORG_A));
 });
 
 describe("GET /api/properties - organization isolation", () => {

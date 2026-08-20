@@ -32,7 +32,7 @@ vi.mock("./api-auth", () => ({
   },
 }));
 
-vi.mock("./organization", () => ({ getOrganizationId: () => "org_default" }));
+vi.mock("./organization", () => ({ getOrganizationId: () => "org_default", resolveOrganizationIdForUser: async () => "org_default" }));
 const logActivity = vi.fn();
 vi.mock("./activity", () => ({ logActivity: (...a: unknown[]) => logActivity(...a) }));
 const createNotification = vi.fn();

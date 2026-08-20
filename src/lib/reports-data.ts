@@ -4,32 +4,32 @@ import { withTiming } from "./perf";
 
 const REPORTS_CACHE_TTL_SECONDS = 45;
 
-export async function getReportsData() {
-  return withTiming("reportsData", "/reports", () => cached("reports:summary", REPORTS_CACHE_TTL_SECONDS, computeReportsData));
+export async function getReportsData(organizationId: string) {
+  return withTiming("reportsData", "/reports", () => cached(`reports:summary:${organizationId}`, REPORTS_CACHE_TTL_SECONDS, () => computeReportsData(organizationId)));
 }
 
-async function computeReportsData() {
+async function computeReportsData(organizationId: string) {
   const [leadsBySource, leadsByEmployee, totalLeads, closedWon, closedLost, totalVisits, visitsCompleted, propertiesByLocation, propertiesByBudget, rentVsSale] = await Promise.all([
-    prisma.lead.groupBy({ by: ["source"], _count: { _all: true } }),
+    prisma.lead.groupBy({ by: ["source"], where: { organizationId }, _count: { _all: true } }),
     prisma.user.findMany({
-      where: { role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] } },
+      where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] } },
       select: {
         id: true,
         name: true,
-        _count: { select: { assignedLeads: true, assignedVisits: true } },
-        assignedLeads: { select: { status: true } },
+        _count: { select: { assignedLeads: { where: { organizationId } }, assignedVisits: { where: { organizationId } } } },
+        assignedLeads: { where: { organizationId }, select: { status: true } },
       },
     }),
     // Replaces loading every lead/visit row into memory just to count/filter
     // in JS with DB-level count() aggregates.
-    prisma.lead.count(),
-    prisma.lead.count({ where: { status: "CLOSED_WON" } }),
-    prisma.lead.count({ where: { status: "CLOSED_LOST" } }),
-    prisma.visit.count(),
-    prisma.visit.count({ where: { status: "COMPLETED" } }),
-    prisma.property.groupBy({ by: ["area"], _count: { _all: true } }),
-    prisma.property.findMany({ select: { listingType: true, monthlyRent: true, salePrice: true } }),
-    prisma.lead.groupBy({ by: ["requirementType"], _count: { _all: true } }),
+    prisma.lead.count({ where: { organizationId } }),
+    prisma.lead.count({ where: { organizationId, status: "CLOSED_WON" } }),
+    prisma.lead.count({ where: { organizationId, status: "CLOSED_LOST" } }),
+    prisma.visit.count({ where: { organizationId } }),
+    prisma.visit.count({ where: { organizationId, status: "COMPLETED" } }),
+    prisma.property.groupBy({ by: ["area"], where: { organizationId }, _count: { _all: true } }),
+    prisma.property.findMany({ where: { organizationId }, select: { listingType: true, monthlyRent: true, salePrice: true } }),
+    prisma.lead.groupBy({ by: ["requirementType"], where: { organizationId }, _count: { _all: true } }),
   ]);
 
   const conversionRate = totalLeads > 0 ? Math.round((closedWon / totalLeads) * 1000) / 10 : 0;

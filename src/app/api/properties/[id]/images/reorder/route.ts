@@ -3,6 +3,7 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { reorderPropertyImages } from "@/lib/property-images";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getPropertyImageUrl } from "@/lib/property-images";
+import { getOrganizationId } from "@/lib/organization";
 
 /** Bulk-saves a new display order (drag-and-drop or up/down controls) as a single transaction. Body: { order: string[] } - the full set of active image ids for this property, in the desired order. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       throw new ApiError(400, "order must be an array of image ids");
     }
 
-    const images = await reorderPropertyImages({ propertyId: id, actorId: session.user.id, role: session.user.role, order: body.order });
+    const images = await reorderPropertyImages({ propertyId: id, actorId: session.user.id, organizationId: getOrganizationId(session.user), role: session.user.role, order: body.order });
     const withUrls = await Promise.all(images.map(async (img) => ({ ...img, url: await getPropertyImageUrl(img.storageKey) })));
     return NextResponse.json({ images: withUrls });
   } catch (err) {

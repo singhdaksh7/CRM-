@@ -36,13 +36,13 @@ vi.mock("@/lib/api-auth", async () => {
 });
 
 const getOrganizationId = vi.fn();
-vi.mock("@/lib/organization", () => ({ getOrganizationId: (userId?: string) => getOrganizationId(userId) }));
+vi.mock("@/lib/organization", () => ({ getOrganizationId: (user?: { id?: string }) => getOrganizationId(user) }));
 
 const { GET } = await import("./route");
 
 beforeEach(() => {
   vi.clearAllMocks();
-  getOrganizationId.mockImplementation((userId?: string) => (userId === "org-a-user" ? ORG_A : ORG_B));
+  getOrganizationId.mockImplementation((user?: { id?: string }) => (user?.id === "org-a-user" ? ORG_A : ORG_B));
 });
 
 describe("GET /api/leads - organization isolation", () => {

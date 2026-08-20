@@ -12,7 +12,7 @@ import { recordAudit } from "@/lib/audit";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const recommendation = await prisma.propertyRecommendation.findFirst({ where: { id, organizationId } });
     if (!recommendation) throw new ApiError(404, "Recommendation not found");

@@ -6,17 +6,17 @@ vi.mock("./prisma", () => ({ prisma: { user: { findUnique } } }));
 
 const { getSessionAuthState, isSessionStillValid } = await import("./session-guard");
 
-const active = { authVersion: 3, status: "ACTIVE" as const, role: "ADMIN" as const };
+const active = { authVersion: 3, status: "ACTIVE" as const, role: "ADMIN" as const, organizationId: "org_a" };
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("getSessionAuthState", () => {
-  it("reads only the three columns the guard needs - never the password hash", async () => {
+  it("reads only the four columns the guard needs - never the password hash", async () => {
     findUnique.mockResolvedValue(active);
     await getSessionAuthState("u1");
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: "u1" },
-      select: { authVersion: true, status: true, role: true },
+      select: { authVersion: true, status: true, role: true, organizationId: true },
     });
   });
 
@@ -50,6 +50,10 @@ describe("isSessionStillValid", () => {
 
   it("rejects a session for a user row that no longer exists", () => {
     expect(isSessionStillValid(null, 3)).toBe(false);
+  });
+
+  it("fails closed: rejects an otherwise-valid session whose user row has no organization association, rather than falling back to a default tenant", () => {
+    expect(isSessionStillValid({ ...active, organizationId: "" }, 3)).toBe(false);
   });
 
   it.each([undefined, null, "3", NaN])("rejects a non-numeric token version (%s)", (version) => {

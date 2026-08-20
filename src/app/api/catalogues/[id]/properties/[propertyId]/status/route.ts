@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!cp) throw new ApiError(404, "Property not found in this catalogue");
 
     const data = catalogueExecutiveStatusSchema.parse(await req.json());
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     await prisma.catalogueShareProperty.update({
       where: { id: cp.id },

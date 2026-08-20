@@ -13,7 +13,7 @@ import { recordAudit } from "@/lib/audit";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const requirement = await prisma.customerRequirement.findFirst({
       where: { id, organizationId },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { setManualPropertyLocation, markPropertyLocationApproximate, setPublicLocationMode, clearPropertyLocation } from "@/lib/property-location";
+import { getOrganizationId } from "@/lib/organization";
 
 const patchSchema = z
   .object({
@@ -19,6 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
+    const organizationId = getOrganizationId(session.user);
     const body = await req.json();
     const data = patchSchema.parse(body);
 
@@ -27,13 +29,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (data.latitude === undefined || data.longitude === undefined) {
         throw new ApiError(400, "Both latitude and longitude are required together");
       }
-      property = await setManualPropertyLocation({ propertyId: id, actorId: session.user.id, role: session.user.role, latitude: data.latitude, longitude: data.longitude });
+      property = await setManualPropertyLocation({ propertyId: id, actorId: session.user.id, organizationId, role: session.user.role, latitude: data.latitude, longitude: data.longitude });
     }
     if (data.markApproximate) {
-      property = await markPropertyLocationApproximate({ propertyId: id, actorId: session.user.id, role: session.user.role });
+      property = await markPropertyLocationApproximate({ propertyId: id, actorId: session.user.id, organizationId, role: session.user.role });
     }
     if (data.publicLocationMode) {
-      property = await setPublicLocationMode({ propertyId: id, actorId: session.user.id, role: session.user.role, mode: data.publicLocationMode });
+      property = await setPublicLocationMode({ propertyId: id, actorId: session.user.id, organizationId, role: session.user.role, mode: data.publicLocationMode });
     }
 
     return NextResponse.json({ property });
@@ -47,7 +49,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const property = await clearPropertyLocation({ propertyId: id, actorId: session.user.id, role: session.user.role });
+    const property = await clearPropertyLocation({ propertyId: id, actorId: session.user.id, organizationId: getOrganizationId(session.user), role: session.user.role });
     return NextResponse.json({ property });
   } catch (err) {
     return handleApiError(err);

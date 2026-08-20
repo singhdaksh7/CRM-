@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { catalogueId, recommendationIds } = await req.json() as { catalogueId: string; recommendationIds: string[] };
     if (!catalogueId || !Array.isArray(recommendationIds) || recommendationIds.length === 0) throw new ApiError(400, "catalogueId and recommendationIds are required");
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const catalogue = await prisma.catalogueShare.findFirst({ where: { id: catalogueId, organizationId, status: "ACTIVE" }, include: { properties: true, lead: true } });
     if (!catalogue) throw new ApiError(404, "Active catalogue not found");
     const recommendations = await prisma.matchRecommendation.findMany({ where: { id: { in: recommendationIds }, organizationId, leadId: catalogue.leadId, status: "PENDING" }, include: { property: true } });

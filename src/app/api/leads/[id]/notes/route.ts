@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { note } = await req.json();
     if (!note?.trim()) throw new ApiError(400, "note is required");
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const lead = await prisma.lead.findFirst({ where: { id, organizationId } });
     if (!lead) throw new ApiError(404, "Lead not found");
     if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {

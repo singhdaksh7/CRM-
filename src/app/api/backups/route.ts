@@ -12,7 +12,7 @@ const createBackupSchema = z.object({
 export async function GET() {
   try {
     const session = await requireSession(["ADMIN"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const backups = await prisma.backupRecord.findMany({
       where: { organizationId },
       include: { triggeredBy: { select: { id: true, name: true } }, restoreValidations: true },
@@ -33,7 +33,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { type } = createBackupSchema.parse(await req.json().catch(() => ({})));
 
     const backup = await prisma.backupRecord.create({

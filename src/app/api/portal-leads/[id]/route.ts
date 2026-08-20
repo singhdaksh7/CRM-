@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await context.params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const input = actionSchema.parse(await request.json());
     const event = await prisma.externalLeadEvent.findFirst({ where: { id, organizationId } });
     if (!event) return NextResponse.json({ error: "Portal lead event not found" }, { status: 404 });

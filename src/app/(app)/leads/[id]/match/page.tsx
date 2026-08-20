@@ -15,7 +15,7 @@ export default async function LeadMatchPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const session = await auth();
 
-  const lead = await prisma.lead.findFirst({ where: { id, organizationId: getOrganizationId(session!.user.id) } });
+  const lead = await prisma.lead.findFirst({ where: { id, organizationId: getOrganizationId(session!.user) } });
   if (!lead) notFound();
   if (session!.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session!.user.id) notFound();
 

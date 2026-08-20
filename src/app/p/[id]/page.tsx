@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { formatINR, enumToLabel } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { getCoverImageUrls, getPublicOrderedImageUrls } from "@/lib/property-images";
-import { getOrganizationId } from "@/lib/organization";
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage";
 import { Building, MapPin, BedDouble, Bath, Ruler, Phone, CalendarCheck, FileText } from "lucide-react";
 
@@ -17,7 +16,13 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
   const property = await prisma.property.findUnique({ where: { id } });
   if (!property) notFound();
 
-  const organizationId = getOrganizationId();
+  // Public, unauthenticated page - there is no session to resolve a tenant
+  // from. The property row itself is the only trustworthy source of which
+  // organization owns it (it was looked up by bare id above with no org
+  // filter, since anyone can view any org's public listing by design - but
+  // every subsequent org-scoped lookup below must use ITS organizationId,
+  // never a session-derived or default one).
+  const organizationId = property.organizationId;
   let coverImage = property.coverImage;
   let gallery: string[] = [];
   let publicDocs: { id: string; fileName: string; url: string }[] = [];

@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.visit.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Visit not found");
     if (session.user.role === "FIELD_EXECUTIVE" && existing.assignedToId !== session.user.id) {

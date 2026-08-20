@@ -1,12 +1,10 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
-import { getOrganizationId } from "./organization";
 import { matchPropertiesToLead } from "./matching";
 
 const ACTIVE_LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION"] as const;
 
-export async function getPhase5Analytics(userId?: string) {
-  const organizationId = getOrganizationId(userId);
+export async function getPhase5Analytics(organizationId: string) {
   return cached(`phase5:analytics:${organizationId}`, 45, () => compute(organizationId));
 }
 

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
     const sp = req.nextUrl.searchParams;
-    const where: Record<string, unknown> = { organizationId: getOrganizationId(session.user.id) };
+    const where: Record<string, unknown> = { organizationId: getOrganizationId(session.user) };
 
     const q = sp.get("q");
     if (q) {
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const body = await req.json();
     const data = createPropertySchema.parse(body);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const count = await prisma.property.count({ where: { organizationId } });
 
     const property = await prisma.property.create({

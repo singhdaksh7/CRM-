@@ -18,7 +18,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const page = parsePage(sp.page);
 
   const where: Prisma.NotificationWhereInput = {
-    organizationId: getOrganizationId(session!.user.id),
+    organizationId: getOrganizationId(session!.user),
     ...notificationVisibilityWhere(session!.user.id, session!.user.role),
     ...(typeFilter ? { type: typeFilter } : {}),
     ...(unreadOnly ? { isRead: false } : {}),

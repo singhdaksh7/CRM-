@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const session = await requireSession(["ADMIN"]);
     const rules = await prisma.leadAssignmentRule.findMany({
-      where: { organizationId: getOrganizationId(session.user.id) },
+      where: { organizationId: getOrganizationId(session.user) },
       include: { employee: true },
       orderBy: { priority: "desc" },
     });
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = assignmentRuleSchema.parse(body);
     const rule = await prisma.leadAssignmentRule.create({
-      data: { ...data, organizationId: getOrganizationId(session.user.id) },
+      data: { ...data, organizationId: getOrganizationId(session.user) },
     });
     return NextResponse.json({ rule }, { status: 201 });
   } catch (err) {

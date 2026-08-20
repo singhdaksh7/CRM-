@@ -10,7 +10,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/api-auth", async () => {
   const { NextResponse } = await import("next/server");
   return {
-    requireSession: async () => ({ user: { id: "admin1", role: "ADMIN" } }),
+    requireSession: async () => ({ user: { id: "admin1", role: "ADMIN", organizationId: "org_default" } }),
     handleApiError: (err: unknown) => NextResponse.json({ error: String(err) }, { status: 500 }),
   };
 });

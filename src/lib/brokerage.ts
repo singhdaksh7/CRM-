@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { calculateBrokerage, type BrokerageInput } from "./brokerage-calc";
 
 export { calculateBrokerage };
@@ -9,12 +8,13 @@ export type { BrokerageInput, BrokerageResult } from "./brokerage-calc";
 export async function recordBrokerageCalculation(params: {
   dealId: string;
   actorId: string;
+  organizationId: string;
   input: BrokerageInput;
   splitWithUserId?: string | null;
   employeeId?: string | null;
   notes?: string | null;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const deal = await prisma.deal.findFirst({ where: { id: params.dealId, organizationId } });
   if (!deal) throw new ApiError(404, "Deal not found");
 

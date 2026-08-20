@@ -22,7 +22,7 @@ export async function GET() {
   try {
     const session = await requireSession();
     const employees = await prisma.user.findMany({
-      where: { organizationId: getOrganizationId(session.user.id) },
+      where: { organizationId: getOrganizationId(session.user) },
       select: EMPLOYEE_SELECT,
       orderBy: { createdAt: "asc" },
     });
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const session = await requireSession(["ADMIN"]);
     const body = await req.json();
     const data = employeeSchema.parse(body);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
     if (existing) throw new ApiError(409, "Email already in use");

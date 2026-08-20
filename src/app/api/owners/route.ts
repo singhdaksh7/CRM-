@@ -10,7 +10,7 @@ import { readTake, readSkip } from "@/lib/pagination";
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const sp = req.nextUrl.searchParams;
     const where: Record<string, unknown> = { organizationId };
 
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const body = await req.json();
     const data = ownerSchema.parse(body);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const ownerCode = await generateOwnerCode();
 
     const owner = await prisma.owner.create({

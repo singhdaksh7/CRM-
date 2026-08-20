@@ -14,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession();
     const { id: leadId } = await params;
-    const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: getOrganizationId(session.user.id) }, select: { id: true } });
+    const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: getOrganizationId(session.user) }, select: { id: true } });
     if (!lead) throw new ApiError(404, "Lead not found");
 
     await logActivity({ leadId, type: "CALL_INITIATED", description: "Call initiated from the field", actorId: session.user.id });

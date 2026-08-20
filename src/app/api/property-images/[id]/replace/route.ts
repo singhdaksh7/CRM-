@@ -3,6 +3,7 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { isStorageConfigured } from "@/lib/storage";
 import { replacePropertyImage } from "@/lib/property-images";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { getOrganizationId } from "@/lib/organization";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const image = await replacePropertyImage({
       imageId: id,
       actorId: session.user.id,
+      organizationId: getOrganizationId(session.user),
       role: session.user.role,
       fileName: file.name,
       mimeType: file.type,

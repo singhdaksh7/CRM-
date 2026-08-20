@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (Number.isNaN(visitDate.getTime())) throw new ApiError(400, "Invalid visit date");
     }
 
-    const visit = await rescheduleVisit(id, getOrganizationId(session.user.id), session.user, {
+    const visit = await rescheduleVisit(id, getOrganizationId(session.user), session.user, {
       visitDate,
       visitTime: input.visitTime,
       assignedToId: input.assignedToId,

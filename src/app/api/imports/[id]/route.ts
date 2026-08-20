@@ -7,7 +7,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const job = await prisma.importJob.findFirst({
       where: { id, organizationId },
       include: { records: { orderBy: { rowNumber: "asc" } }, createdBy: { select: { id: true, name: true } } },

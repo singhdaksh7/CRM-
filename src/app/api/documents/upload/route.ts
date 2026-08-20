@@ -3,6 +3,7 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { isStorageConfigured } from "@/lib/storage";
 import { uploadDocument } from "@/lib/documents";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { getOrganizationId } from "@/lib/organization";
 import type { DocumentCategory, DocumentEntityType } from "@prisma/client";
 
 const ENTITY_TYPES = new Set<DocumentEntityType>(["PROPERTY", "LEAD", "OWNER", "DEAL", "PAYMENT"]);
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
 
     const document = await uploadDocument({
       actorId: session.user.id,
+      organizationId: getOrganizationId(session.user),
       role: session.user.role,
       entityType: entityType as DocumentEntityType,
       entityId,

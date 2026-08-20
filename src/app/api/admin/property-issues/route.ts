@@ -14,7 +14,7 @@ import { getPropertyIssues } from "@/lib/property-issues";
 export async function GET() {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const issues = await getPropertyIssues(organizationId);
     return NextResponse.json({ issues, total: issues.length });
   } catch (err) {

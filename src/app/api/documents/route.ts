@@ -15,7 +15,7 @@ import { logger } from "@/lib/logger";
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const sp = req.nextUrl.searchParams;
     const where: Record<string, unknown> = { organizationId, status: { not: "DELETED" } };
 
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const limitResult = await checkRateLimit("document", session.user.id);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const body = await req.json();
     const data = documentMetadataSchema.parse(body);
 

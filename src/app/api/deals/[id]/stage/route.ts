@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, handleApiError } from "@/lib/api-auth";
 import { dealStageUpdateSchema } from "@/lib/validators";
 import { transitionDealStage } from "@/lib/deals";
+import { getOrganizationId } from "@/lib/organization";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       partnerSharePct: data.partnerSharePct,
       actorId: session.user.id,
       actorRole: session.user.role,
+      organizationId: getOrganizationId(session.user),
     });
 
     return NextResponse.json({ deal });

@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const deal = await prisma.deal.findFirst({ where: { id, organizationId } });
     if (!deal) throw new ApiError(404, "Deal not found");
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const deal = await prisma.deal.findFirst({ where: { id, organizationId } });
     if (!deal) throw new ApiError(404, "Deal not found");
 

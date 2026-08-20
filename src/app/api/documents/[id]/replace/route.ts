@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const limitResult = await checkRateLimit("documentReplace", session.user.id);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.document.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Document not found");
     const allowed = await canAccessDocument(session.user.role, session.user.id, existing);
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       throw new ApiError(400, "Invalid storage key for this organization");
     }
 
-    const document = await replaceDocument({ documentId: id, actorId: session.user.id, ...data });
+    const document = await replaceDocument({ documentId: id, actorId: session.user.id, organizationId, ...data });
     return NextResponse.json({ document }, { status: 201 });
   } catch (err) {
     return handleApiError(err);

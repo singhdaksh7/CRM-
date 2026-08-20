@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, handleApiError } from "@/lib/api-auth";
 import { brokerageCalculationSchema } from "@/lib/validators";
 import { recordBrokerageCalculation } from "@/lib/brokerage";
+import { getOrganizationId } from "@/lib/organization";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const calculation = await recordBrokerageCalculation({
       dealId: id,
       actorId: session.user.id,
+      organizationId: getOrganizationId(session.user),
       input: data,
       splitWithUserId: data.splitWithUserId,
       employeeId: data.employeeId,

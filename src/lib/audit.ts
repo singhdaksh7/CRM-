@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { getOrganizationId } from "./organization";
+import { resolveOrganizationIdForUser, DEFAULT_ORGANIZATION_ID } from "./organization";
 import type { AuditAction, AuditResult } from "@prisma/client";
 
 const REDACTED_FIELDS = new Set([
@@ -24,6 +24,12 @@ export function redact(values: Record<string, unknown> | null | undefined): Reco
  */
 export async function recordAudit(params: {
   userId?: string | null;
+  /** Pass this whenever the caller already resolved it (e.g. from the
+   * session) - avoids the extra lookup below. Falls back to resolving from
+   * userId, and only as a last resort (system-triggered entries with
+   * neither) to DEFAULT_ORGANIZATION_ID, so audit logging itself never
+   * throws and blocks the operation it's recording. */
+  organizationId?: string | null;
   action: AuditAction;
   entityType: string;
   entityId?: string | null;
@@ -34,9 +40,12 @@ export async function recordAudit(params: {
   ipAddress?: string | null;
   device?: string | null;
 }) {
+  const organizationId =
+    params.organizationId ??
+    (params.userId ? await resolveOrganizationIdForUser(params.userId).catch(() => DEFAULT_ORGANIZATION_ID) : DEFAULT_ORGANIZATION_ID);
   return prisma.auditLog.create({
     data: {
-      organizationId: getOrganizationId(params.userId ?? undefined),
+      organizationId,
       userId: params.userId ?? null,
       action: params.action,
       entityType: params.entityType,

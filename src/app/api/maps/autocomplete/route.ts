@@ -9,7 +9,7 @@ import { getOrganizationId } from "@/lib/organization";
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const limitResult = await checkMapsQuota("mapsAutocomplete", session.user.id, getOrganizationId(session.user.id));
+    const limitResult = await checkMapsQuota("mapsAutocomplete", session.user.id, getOrganizationId(session.user));
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
     const query = req.nextUrl.searchParams.get("q") ?? "";

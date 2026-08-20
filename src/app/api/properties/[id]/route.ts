@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id } = await params;
-    const property = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user.id) } });
+    const property = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user) } });
     if (!property) throw new ApiError(404, "Property not found");
     return NextResponse.json({ property });
   } catch (err) {
@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
     const { amenities, images, availableFrom, ...data } = propertySchema.partial().parse(body);
-    const existing = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user.id) } });
+    const existing = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user) } });
     if (!existing) throw new ApiError(404, "Property not found");
     const property = await prisma.property.update({
       where: { id },
@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       // Phase 4, Objective 8 - complete property history, not just
       // inventory-status changes. One event per kind of change actually
       // made in this request, not a generic catch-all.
-      const organizationId = getOrganizationId(session.user.id);
+      const organizationId = getOrganizationId(session.user);
       if (data.status && data.status !== existing.status) {
         await appendPropertyTimelineEvent({ organizationId, propertyId: id, eventType: "STATUS_CHANGED", fromValue: existing.status, toValue: data.status, actorId: session.user.id });
       }
@@ -92,7 +92,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const existing = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user.id) } });
+    const existing = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user) } });
     if (!existing) throw new ApiError(404, "Property not found");
     await prisma.property.update({ where: { id }, data: { status: "INACTIVE" } });
     return NextResponse.json({ success: true });

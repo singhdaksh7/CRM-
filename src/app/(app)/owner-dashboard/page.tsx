@@ -1,9 +1,12 @@
 import { getOwnerDashboardData } from "@/lib/owner-dashboard-data";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Users, UserCheck, CalendarCheck, ClipboardList, Handshake, Wallet, CheckCircle2 } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
 
 export default async function OwnerDashboardPage() {
-  const data = await getOwnerDashboardData();
+  const session = await auth();
+  const data = await getOwnerDashboardData(getOrganizationId(session!.user));
 
   return (
     <div className="space-y-6">

@@ -6,7 +6,7 @@ import { PropertyIssueRow } from "@/components/admin/property-issue-row";
 
 export default async function PropertyIssuesPage() {
   const session = await auth();
-  const organizationId = getOrganizationId(session?.user?.id);
+  const organizationId = getOrganizationId(session?.user);
   const issuesRaw = await getPropertyIssues(organizationId);
   const issues = issuesRaw.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() }));
 

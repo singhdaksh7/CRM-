@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // is per-document via canAccessDocument below, not a role gate here.
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const limitResult = await checkRateLimit("documentDownload", session.user.id);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
@@ -73,7 +73,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const limitResult = await checkRateLimit("documentDelete", session.user.id);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);

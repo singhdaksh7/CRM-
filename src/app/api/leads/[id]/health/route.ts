@@ -7,7 +7,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id } = await params;
-    const result = await getLeadHealth(id, getOrganizationId(session.user.id));
+    const result = await getLeadHealth(id, getOrganizationId(session.user));
     if (!result) throw new ApiError(404, "Lead not found");
     return NextResponse.json(result);
   } catch (err) {

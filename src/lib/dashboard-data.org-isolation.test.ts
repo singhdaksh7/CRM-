@@ -140,8 +140,8 @@ vi.mock("./prisma", () => ({
   },
 }));
 
-const getOrganizationId = vi.fn();
-vi.mock("./organization", () => ({ getOrganizationId: (userId?: string) => getOrganizationId(userId) }));
+const resolveOrganizationIdForUser = vi.fn();
+vi.mock("./organization", () => ({ resolveOrganizationIdForUser: (userId?: string) => resolveOrganizationIdForUser(userId) }));
 
 vi.mock("./cache", () => ({
   cached: (_key: string, _ttl: number, compute: () => unknown) => compute(),
@@ -151,7 +151,7 @@ vi.mock("./cache", () => ({
 import { getDashboardCriticalData, getDashboardSecondaryData } from "./dashboard-data";
 
 beforeEach(() => {
-  getOrganizationId.mockImplementation((userId?: string) => (userId === "org-a-user" ? ORG_A : userId === "org-b-user" ? ORG_B : ORG_A));
+  resolveOrganizationIdForUser.mockImplementation(async (userId?: string) => (userId === "org-a-user" ? ORG_A : userId === "org-b-user" ? ORG_B : ORG_A));
 });
 
 describe("dashboard-data two-organization isolation", () => {

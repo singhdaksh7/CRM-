@@ -6,7 +6,7 @@ import { inboxAccessWhere } from "@/lib/whatsapp-inbox";
 
 export async function GET() {
   try {
-    const session = await requireSession(); const organizationId = getOrganizationId(session.user.id);
+    const session = await requireSession(); const organizationId = getOrganizationId(session.user);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const conversationScope = inboxAccessWhere(session.user, organizationId);
     const messageScope = { organizationId, ...(session.user.role === "FIELD_EXECUTIVE" ? { conversation: { OR: [{ assignedToId: session.user.id }, { lead: { assignedToId: session.user.id } }] } } : {}) };

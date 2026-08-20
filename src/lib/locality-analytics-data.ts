@@ -1,7 +1,6 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
-import { getOrganizationId } from "./organization";
 
 const LOCALITY_ANALYTICS_CACHE_TTL_SECONDS = 60;
 
@@ -22,8 +21,7 @@ export interface LocalityAnalyticsData {
   inventoryRentVsSale: { name: string; value: number }[];
 }
 
-export async function getLocalityAnalytics(): Promise<LocalityAnalyticsData> {
-  const organizationId = getOrganizationId();
+export async function getLocalityAnalytics(organizationId: string): Promise<LocalityAnalyticsData> {
   return withTiming("localityAnalytics", "/reports/localities", () =>
     cached(`locality-analytics:${organizationId}`, LOCALITY_ANALYTICS_CACHE_TTL_SECONDS, () => computeLocalityAnalytics(organizationId))
   );

@@ -12,7 +12,7 @@ import { getOrganizationId } from "@/lib/organization";
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const organizationId = getOrganizationId(session!.user.id);
+  const organizationId = getOrganizationId(session!.user);
 
   const lead = await prisma.lead.findFirst({
     where: { id, organizationId },

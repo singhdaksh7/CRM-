@@ -3,6 +3,7 @@ import { requireSession, handleApiError } from "@/lib/api-auth";
 import { confirmPropertyImageUpload } from "@/lib/property-image-upload";
 import { getPropertyImageUrl } from "@/lib/property-images";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { getOrganizationId } from "@/lib/organization";
 import { z } from "zod";
 
 const schema = z.object({
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = schema.parse(await req.json());
     const image = await confirmPropertyImageUpload({
       actorId: session.user.id,
+      organizationId: getOrganizationId(session.user),
       role: session.user.role,
       propertyId: id,
       sessionId: body.sessionId,

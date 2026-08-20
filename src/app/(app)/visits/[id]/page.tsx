@@ -31,7 +31,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
 
   let visit;
   try {
-    visit = await loadVisitForActor(id, getOrganizationId(session.user.id), session.user);
+    visit = await loadVisitForActor(id, getOrganizationId(session.user), session.user);
   } catch {
     notFound();
   }
@@ -41,7 +41,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
   // Executives available for reassignment - only loaded for managers.
   const employees = dto.can.manage
     ? await prisma.user.findMany({
-        where: { organizationId: getOrganizationId(session.user.id), role: "FIELD_EXECUTIVE", status: "ACTIVE" },
+        where: { organizationId: getOrganizationId(session.user), role: "FIELD_EXECUTIVE", status: "ACTIVE" },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       })

@@ -14,7 +14,7 @@ import { formatINR } from "@/lib/utils";
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const recommendation = await prisma.propertyRecommendation.findFirst({
       where: { id, organizationId },

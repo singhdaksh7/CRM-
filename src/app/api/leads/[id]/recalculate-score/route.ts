@@ -12,7 +12,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     // callers all already source leadId from an org-scoped read) - this is
     // the one route that takes an id straight from the URL, so verify
     // ownership here before triggering a write.
-    const owned = await prisma.lead.findFirst({ where: { id, organizationId: getOrganizationId(session.user.id) }, select: { id: true } });
+    const owned = await prisma.lead.findFirst({ where: { id, organizationId: getOrganizationId(session.user) }, select: { id: true } });
     if (!owned) throw new ApiError(404, "Lead not found");
     const result = await recalculateLeadScore(id, "MANUAL_RECALCULATE");
     return NextResponse.json(result);

@@ -12,7 +12,7 @@ import { getOrganizationId } from "@/lib/organization";
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const sp = req.nextUrl.searchParams;
     const type = sp.get("type");

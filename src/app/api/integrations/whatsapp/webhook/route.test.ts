@@ -19,7 +19,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org_default" }));
+vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org_default", getSystemOrganizationId: () => "org_default" }));
 const logActivity = vi.fn();
 vi.mock("@/lib/activity", () => ({ logActivity: (...a: unknown[]) => logActivity(...a) }));
 const createNotification = vi.fn();

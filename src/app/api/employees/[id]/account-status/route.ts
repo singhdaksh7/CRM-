@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!limit.allowed) return rateLimitResponse(limit);
 
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { action } = bodySchema.parse(await req.json());
 
     const result =

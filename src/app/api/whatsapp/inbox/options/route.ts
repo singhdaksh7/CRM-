@@ -7,7 +7,7 @@ import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config
 
 export async function GET() {
   try {
-    const session = await requireSession(); const organizationId = getOrganizationId(session.user.id);
+    const session = await requireSession(); const organizationId = getOrganizationId(session.user);
     const [leads, employees, catalogues, properties] = await Promise.all([
       prisma.lead.findMany({ where: { organizationId, ...(session.user.role === "FIELD_EXECUTIVE" ? { assignedToId: session.user.id } : {}) }, orderBy: { clientName: "asc" }, take: 200, select: { id: true, clientName: true, phone: true, leadCode: true } }),
       prisma.user.findMany({ where: { organizationId, status: "ACTIVE" }, orderBy: { name: "asc" }, select: { id: true, name: true, role: true } }),

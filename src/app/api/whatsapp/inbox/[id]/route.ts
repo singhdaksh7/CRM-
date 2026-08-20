@@ -8,7 +8,7 @@ import { recordAudit } from "@/lib/audit";
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(); const { id } = await ctx.params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const conversation = await prisma.whatsAppConversation.findFirst({
       where: { id, ...inboxAccessWhere(session.user, organizationId) },
       include: { lead: { include: { assignedTo: { select: { id: true, name: true } }, catalogueShares: { where: { status: "ACTIVE" }, orderBy: { createdAt: "desc" }, take: 1 }, visits: { where: { visitDate: { gte: new Date() } }, orderBy: { visitDate: "asc" }, take: 1 }, deals: { where: { status: "OPEN" }, take: 1 } } }, assignedTo: { select: { id: true, name: true } } },
@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(); const { id } = await ctx.params;
-    const organizationId = getOrganizationId(session.user.id); const body = await req.json();
+    const organizationId = getOrganizationId(session.user); const body = await req.json();
     const current = await prisma.whatsAppConversation.findFirst({ where: { id, ...inboxAccessWhere(session.user, organizationId) } });
     if (!current) throw new ApiError(404, "Conversation not found");
     if (body.action === "read") { await markConversationRead(id, organizationId); return NextResponse.json({ ok: true }); }

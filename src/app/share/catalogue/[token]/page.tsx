@@ -13,7 +13,7 @@ export default async function PublicCataloguePage({ params }: { params: Promise<
     notFound();
   }
 
-  const dto = await withResolvedCoverImages(toPublicCatalogueDTO(catalogue));
+  const dto = await withResolvedCoverImages(toPublicCatalogueDTO(catalogue), catalogue.organizationId);
 
   return (
     <div className="min-h-screen bg-[#FAFBFC]">

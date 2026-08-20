@@ -78,7 +78,7 @@ describe("uploadDocument - permissions", () => {
     documentCreate.mockResolvedValue({ id: "doc1", storageProvider: "FIREBASE" });
 
     const doc = await uploadDocument({
-      actorId: "admin1", role: "ADMIN", entityType: "LEAD", entityId: "lead1",
+      actorId: "admin1", organizationId: "org_default", role: "ADMIN", entityType: "LEAD", entityId: "lead1",
       fileName: "aadhaar.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, category: "AADHAAR",
     });
     expect(doc.id).toBe("doc1");
@@ -88,7 +88,7 @@ describe("uploadDocument - permissions", () => {
   it("Field Executive upload of an AADHAAR document is denied before touching storage or the database", async () => {
     await expect(
       uploadDocument({
-        actorId: "fe1", role: "FIELD_EXECUTIVE", entityType: "LEAD", entityId: "lead1",
+        actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", entityType: "LEAD", entityId: "lead1",
         fileName: "aadhaar.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, category: "AADHAAR",
       })
     ).rejects.toThrow(ApiError);
@@ -103,7 +103,7 @@ describe("uploadDocument - permissions", () => {
     documentCreate.mockResolvedValue({ id: "doc2", storageProvider: "FIREBASE" });
 
     const doc = await uploadDocument({
-      actorId: "fe1", role: "FIELD_EXECUTIVE", entityType: "LEAD", entityId: "lead1",
+      actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", entityType: "LEAD", entityId: "lead1",
       fileName: "note.pdf", mimeType: "application/pdf", buffer: PDF_BYTES, category: "GENERAL",
     });
     expect(doc.id).toBe("doc2");
@@ -115,7 +115,7 @@ describe("uploadDocument - entity validation", () => {
     leadFindFirst.mockResolvedValue(null);
     await expect(
       uploadDocument({
-        actorId: "admin1", role: "ADMIN", entityType: "LEAD", entityId: "does-not-exist",
+        actorId: "admin1", organizationId: "org_default", role: "ADMIN", entityType: "LEAD", entityId: "does-not-exist",
         fileName: "note.pdf", mimeType: "application/pdf", buffer: PDF_BYTES,
       })
     ).rejects.toThrow(ApiError);
@@ -129,7 +129,7 @@ describe("uploadDocument - upload verification", () => {
     const notActuallyAPdf = Buffer.from("this is not a pdf");
     await expect(
       uploadDocument({
-        actorId: "admin1", role: "ADMIN", entityType: "LEAD", entityId: "lead1",
+        actorId: "admin1", organizationId: "org_default", role: "ADMIN", entityType: "LEAD", entityId: "lead1",
         fileName: "fake.pdf", mimeType: "application/pdf", buffer: notActuallyAPdf,
       })
     ).rejects.toThrow(ApiError);
@@ -142,7 +142,7 @@ describe("uploadDocument - upload verification", () => {
     const oversized = Buffer.concat([PDF_BYTES, Buffer.alloc(26 * 1024 * 1024)]);
     await expect(
       uploadDocument({
-        actorId: "admin1", role: "ADMIN", entityType: "LEAD", entityId: "lead1",
+        actorId: "admin1", organizationId: "org_default", role: "ADMIN", entityType: "LEAD", entityId: "lead1",
         fileName: "huge.pdf", mimeType: "application/pdf", buffer: oversized,
       })
     ).rejects.toThrow(ApiError);
@@ -157,7 +157,7 @@ describe("uploadDocument - success + audit", () => {
     documentCreate.mockResolvedValue({ id: "doc3", storageProvider: "FIREBASE", category: "GENERAL" });
 
     const doc = await uploadDocument({
-      actorId: "admin1", role: "ADMIN", entityType: "LEAD", entityId: "lead1",
+      actorId: "admin1", organizationId: "org_default", role: "ADMIN", entityType: "LEAD", entityId: "lead1",
       fileName: "note.pdf", mimeType: "application/pdf", buffer: PDF_BYTES,
     });
 

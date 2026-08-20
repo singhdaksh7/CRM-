@@ -23,7 +23,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const result = await issuePasswordResetToken({
       userId: id,
-      organizationId: getOrganizationId(session.user.id),
+      organizationId: getOrganizationId(session.user),
       actorId: session.user.id,
     });
     return NextResponse.json(result);

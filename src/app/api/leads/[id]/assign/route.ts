@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params;
     const { employeeId } = await req.json();
     if (!employeeId) throw new ApiError(400, "employeeId is required");
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const employee = await prisma.user.findFirst({ where: { id: employeeId, organizationId } });
     if (!employee) throw new ApiError(404, "Employee not found");

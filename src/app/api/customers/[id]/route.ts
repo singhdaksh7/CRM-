@@ -9,7 +9,7 @@ import { recordAudit } from "@/lib/audit";
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const contact = await prisma.customerContact.findFirst({
       where: { id, organizationId },
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const existing = await prisma.customerContact.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Contact not found");

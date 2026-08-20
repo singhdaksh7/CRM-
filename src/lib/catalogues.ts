@@ -1,7 +1,6 @@
 import { randomBytes } from "crypto";
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { logActivity } from "./activity";
 import { notifyRoles, createNotification } from "./notifications";
 import { sendOutboundMessage } from "./whatsapp-messages";
@@ -38,6 +37,7 @@ export interface CataloguePropertyInput {
 
 export interface CreateCatalogueParams {
   leadId: string;
+  organizationId: string;
   createdByUserId: string;
   /** Role of the creating user - when FIELD_EXECUTIVE, Admin/Data Manager are notified the catalogue needs review before sending. Optional so existing internal callers (tests, scripts) keep working without it. */
   createdByRole?: Role;
@@ -58,8 +58,8 @@ function generateToken(): string {
 export async function createCatalogue(params: CreateCatalogueParams) {
   if (params.properties.length === 0) throw new ApiError(400, "Select at least one property for the catalogue");
 
-  const organizationId = getOrganizationId();
-  const lead = await prisma.lead.findUnique({ where: { id: params.leadId } });
+  const organizationId = params.organizationId;
+  const lead = await prisma.lead.findFirst({ where: { id: params.leadId, organizationId } });
   if (!lead) throw new ApiError(404, "Lead not found");
 
   const propertyIds = params.properties.map((p) => p.propertyId);
@@ -193,7 +193,7 @@ export async function updateCatalogue(catalogueId: string, patch: UpdateCatalogu
   if (existing.status !== "ACTIVE") throw new ApiError(400, `Cannot edit a ${existing.status.toLowerCase()} catalogue`);
 
   if (patch.properties) {
-    const organizationId = getOrganizationId();
+    const organizationId = existing.organizationId;
     const propertyIds = patch.properties.map((p) => p.propertyId);
     const found = await prisma.property.findMany({ where: { id: { in: propertyIds }, organizationId } });
     if (found.length !== propertyIds.length) throw new ApiError(400, "One or more selected properties were not found in this organization's inventory");
@@ -347,10 +347,10 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
  * unit-testable per the comment at the top of catalogue-dto.ts. Removed or
  * never-uploaded images fall back to whatever coverImage the DTO already has.
  */
-export async function withResolvedCoverImages(dto: PublicCatalogueDTO): Promise<PublicCatalogueDTO> {
+export async function withResolvedCoverImages(dto: PublicCatalogueDTO, organizationId: string): Promise<PublicCatalogueDTO> {
   if (dto.properties.length === 0) return dto;
   const { getCoverImageUrls, getPublicOrderedImageUrls } = await import("./property-images");
-  const orgId = getOrganizationId();
+  const orgId = organizationId;
   const urls = await getCoverImageUrls(dto.properties.map((p) => p.id), orgId);
   const properties = await Promise.all(
     dto.properties.map(async (p) => {

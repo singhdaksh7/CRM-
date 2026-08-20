@@ -6,7 +6,7 @@ import { getOrganizationId } from "@/lib/organization";
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const leadId = req.nextUrl.searchParams.get("leadId");
     const activities = await prisma.activity.findMany({
       where: leadId ? { organizationId, leadId } : { organizationId },

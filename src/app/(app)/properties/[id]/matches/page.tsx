@@ -12,7 +12,7 @@ export default async function PropertyMatchesPage({ params }: { params: Promise<
   if (!canViewDemandPool(session.user.role)) redirect("/dashboard");
 
   const { id } = await params;
-  const organizationId = getOrganizationId(session.user.id);
+  const organizationId = getOrganizationId(session.user);
   const property = await prisma.property.findFirst({ where: { id, organizationId } });
   if (!property) notFound();
 

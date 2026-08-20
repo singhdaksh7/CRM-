@@ -37,7 +37,7 @@ export async function POST() {
       return NextResponse.json({ success: false, provider: activeStorageProviderName(), detail: "Storage is not configured", steps }, { status: 503 });
     }
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     objectKey = `organizations/${organizationId}/_health-checks/${randomUUID()}.png`;
     const buffer = Buffer.from(TEST_PNG_BASE64, "base64");
 

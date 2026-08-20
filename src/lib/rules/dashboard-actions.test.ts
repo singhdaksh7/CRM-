@@ -24,7 +24,7 @@ vi.mock("../prisma", () => ({
   },
 }));
 
-vi.mock("../organization", () => ({ getOrganizationId: () => "org_default" }));
+vi.mock("../organization", () => ({ getOrganizationId: () => "org_default", resolveOrganizationIdForUser: async () => "org_default" }));
 
 // Cache is bypassed in tests so every call actually exercises the compute path
 // and mock assertions below see the real Prisma call args, not a cache hit.

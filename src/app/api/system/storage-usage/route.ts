@@ -11,7 +11,7 @@ export async function GET() {
     const limitResult = await checkRateLimit("document", session.user.id);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 
-    const summary = await getStorageUsageSummary(getOrganizationId(session.user.id));
+    const summary = await getStorageUsageSummary(getOrganizationId(session.user));
     return NextResponse.json(summary);
   } catch (err) {
     return handleApiError(err);

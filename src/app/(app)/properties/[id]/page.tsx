@@ -42,7 +42,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   // so the lookup itself can be organization-scoped, not just used for
   // downstream reads/permission checks.
   const session = await auth();
-  const organizationId = getOrganizationId(session!.user.id);
+  const organizationId = getOrganizationId(session!.user);
   const property = await prisma.property.findFirst({ where: { id, organizationId }, include: { partner: true } });
   if (!property) notFound();
   const canEditDistribution = ["ADMIN", "DATA_MANAGER"].includes(session!.user.role);

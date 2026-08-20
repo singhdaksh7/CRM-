@@ -12,7 +12,7 @@ import { getOrganizationId } from "@/lib/organization";
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const body = await req.json().catch(() => ({}));
 
     const leadIds: string[] = Array.isArray(body.leadIds) && body.leadIds.length > 0
