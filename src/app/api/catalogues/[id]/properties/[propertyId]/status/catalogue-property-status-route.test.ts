@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const catalogueShareFindUnique = vi.fn();
-const leadFindUnique = vi.fn();
+const leadFindFirst = vi.fn();
 const catalogueSharePropertyUpdate = vi.fn();
 const activityCreate = vi.fn();
 const auditLogCreate = vi.fn();
@@ -11,7 +11,7 @@ const propertyTimelineEventCreate = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     catalogueShare: { findUnique: (...a: unknown[]) => catalogueShareFindUnique(...a) },
-    lead: { findUnique: (...a: unknown[]) => leadFindUnique(...a) },
+    lead: { findFirst: (...a: unknown[]) => leadFindFirst(...a) },
     catalogueShareProperty: { update: (...a: unknown[]) => catalogueSharePropertyUpdate(...a) },
     activity: { create: (...a: unknown[]) => activityCreate(...a) },
     auditLog: { create: (...a: unknown[]) => auditLogCreate(...a) },
@@ -73,7 +73,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   sessionUser = { id: "fe1", role: "FIELD_EXECUTIVE" };
   catalogueShareFindUnique.mockResolvedValue(CATALOGUE);
-  leadFindUnique.mockResolvedValue({ id: "lead1", assignedToId: "fe1" });
+  leadFindFirst.mockResolvedValue({ id: "lead1", assignedToId: "fe1" });
 });
 
 describe("PATCH /api/catalogues/[id]/properties/[propertyId]/status", () => {
@@ -87,7 +87,7 @@ describe("PATCH /api/catalogues/[id]/properties/[propertyId]/status", () => {
   });
 
   it("denies a FIELD_EXECUTIVE for a lead not assigned to them", async () => {
-    leadFindUnique.mockResolvedValue({ id: "lead1", assignedToId: "someone-else" });
+    leadFindFirst.mockResolvedValue({ id: "lead1", assignedToId: "someone-else" });
     const { PATCH } = await import("./route");
     const res = await PATCH(patchReq({ executiveStatus: "SHOWN" }), params());
     expect(res.status).toBe(403);

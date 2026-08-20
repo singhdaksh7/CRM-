@@ -5,6 +5,7 @@ import { dealSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
 import { isRestrictedToOwnRecords } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
+import { assertDealLinksBelongToOrg } from "@/lib/deals";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -50,6 +51,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const body = await req.json();
     const { expectedCloseDate, ...data } = dealSchema.partial().parse(body);
+    await assertDealLinksBelongToOrg(organizationId, data);
 
     const deal = await prisma.deal.update({
       where: { id },

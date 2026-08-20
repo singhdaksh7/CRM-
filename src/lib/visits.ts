@@ -181,6 +181,12 @@ export async function scheduleVisit(input: ScheduleVisitInput) {
   });
   if (properties.length !== propertyIds.length) throw new ApiError(400, "One or more selected properties could not be found");
 
+  // Same protection as the property check above, for the lead this visit is
+  // being scheduled against - without it a caller could staple another
+  // org's lead onto a visit it's creating.
+  const leadExists = await prisma.lead.findFirst({ where: { id: input.leadId, organizationId: input.organizationId }, select: { id: true } });
+  if (!leadExists) throw new ApiError(400, "Lead could not be found");
+
   const requestIds = dedupePreservingOrder(input.requestInteractionIds ?? []);
 
   // Create the visit and consume the originating client request(s) in ONE

@@ -126,7 +126,11 @@ vi.mock("./prisma", () => {
         return { count: targets.length };
       }),
     },
-    lead: { update: vi.fn(async () => ({})), updateMany: vi.fn(async () => ({ count: 0 })) },
+    lead: {
+      findFirst: vi.fn(async ({ where }: { where: Row }) => db.leads.find((l) => matches(l, where)) ?? null),
+      update: vi.fn(async () => ({})),
+      updateMany: vi.fn(async () => ({ count: 0 })),
+    },
     // Interactive transaction WITH rollback. Rollback is the whole point of
     // the double-confirmation guard - the losing confirmation must take its
     // half-created Visit down with it - so the fake models it by snapshotting

@@ -4,7 +4,7 @@ import { requireSession, handleApiError } from "@/lib/api-auth";
 import { dealSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
 import { isRestrictedToOwnRecords } from "@/lib/permissions";
-import { generateDealCode, recordDealActivity } from "@/lib/deals";
+import { generateDealCode, recordDealActivity, assertDealLinksBelongToOrg } from "@/lib/deals";
 import { recordAudit } from "@/lib/audit";
 import { readTake, readSkip } from "@/lib/pagination";
 
@@ -62,7 +62,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = dealSchema.parse(body);
     const organizationId = getOrganizationId(session.user.id);
-    const dealCode = await generateDealCode();
+    await assertDealLinksBelongToOrg(organizationId, data);
+    const dealCode = await generateDealCode(organizationId);
 
     const deal = await prisma.deal.create({
       data: {
