@@ -6,6 +6,7 @@ export interface SessionAuthState {
   authVersion: number;
   status: "PENDING_SETUP" | "ACTIVE" | "INACTIVE";
   role: Role;
+  organizationId: string;
 }
 
 /**
@@ -24,7 +25,7 @@ export async function getSessionAuthState(userId: string): Promise<SessionAuthSt
   if (!userId) return null;
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { authVersion: true, status: true, role: true },
+    select: { authVersion: true, status: true, role: true, organizationId: true },
   });
   return user ?? null;
 }
@@ -40,5 +41,10 @@ export async function getSessionAuthState(userId: string): Promise<SessionAuthSt
 export function isSessionStillValid(state: SessionAuthState | null, tokenAuthVersion: unknown): boolean {
   if (!state) return false;
   if (state.status !== "ACTIVE") return false;
+  // Fail closed: a user row with no organization association (should never
+  // happen given the NOT NULL column, but defends against future schema
+  // relaxation) must never carry a usable session - never fall back to a
+  // default tenant for an authenticated request.
+  if (!state.organizationId) return false;
   return typeof tokenAuthVersion === "number" && tokenAuthVersion === state.authVersion;
 }

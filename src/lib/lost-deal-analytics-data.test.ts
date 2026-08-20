@@ -27,7 +27,7 @@ describe("getLostDealAnalytics - migration-pending fallback", () => {
     dealGroupBy.mockRejectedValue(new Error('The column `deals.lostReasonCategory` does not exist in the current database.'));
     dealFindMany.mockResolvedValue([]);
 
-    const result = await getLostDealAnalytics();
+    const result = await getLostDealAnalytics("org_default");
 
     expect(result.migrationPending).toBe(true);
     expect(result.totalLost).toBe(0);
@@ -40,7 +40,7 @@ describe("getLostDealAnalytics - migration-pending fallback", () => {
       .mockResolvedValueOnce([{ lostReasonCategory: "PRICE", _count: { _all: 1 } }]);
     dealFindMany.mockResolvedValue([]);
 
-    const result = await getLostDealAnalytics();
+    const result = await getLostDealAnalytics("org_default");
 
     expect(result.migrationPending).toBe(false);
     expect(result.totalLost).toBe(3);

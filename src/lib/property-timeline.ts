@@ -30,9 +30,9 @@ export async function appendPropertyTimelineEvent(params: {
 }
 
 /** Oldest first, matching how a timeline reads naturally. */
-export async function getPropertyTimeline(propertyId: string) {
+export async function getPropertyTimeline(propertyId: string, organizationId: string) {
   return prisma.propertyTimelineEvent.findMany({
-    where: { propertyId },
+    where: { propertyId, organizationId },
     orderBy: { createdAt: "asc" },
     include: { actor: { select: { id: true, name: true, role: true } } },
   });

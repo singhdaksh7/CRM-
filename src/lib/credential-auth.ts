@@ -50,11 +50,14 @@ export async function verifyCredentials(email: string, password: string) {
 
   // Only non-secret identity fields cross into the JWT. `authVersion` is the
   // session-revocation counter re-checked on every subsequent request.
+  // organizationId is the server-resolved tenant identity (never client
+  // input) - re-verified on every subsequent request too, see auth.ts.
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
     authVersion: user.authVersion,
+    organizationId: user.organizationId,
   };
 }

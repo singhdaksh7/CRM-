@@ -7,7 +7,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const outcome = await autoAssignLead(id, getOrganizationId(session.user.id));
+    const outcome = await autoAssignLead(id, getOrganizationId(session.user));
     return NextResponse.json(outcome);
   } catch (err) {
     return handleApiError(err);

@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
+import { resolveOrganizationIdForUser } from "./organization";
 import { logActivity } from "./activity";
 import { createNotification } from "./notifications";
 import { recalculateLeadScore } from "./scoring";
@@ -28,10 +28,10 @@ interface SendMessageParams {
 export async function sendOutboundMessage(params: SendMessageParams) {
   if (!params.content?.trim()) throw new ApiError(400, "Message content is required");
 
-  const organizationId = getOrganizationId();
+  const organizationId = await resolveOrganizationIdForUser(params.sentByUserId);
   const conversation = params.conversationId
     ? await prisma.whatsAppConversation.findFirst({ where: { id: params.conversationId, organizationId, leadId: params.leadId } })
-    : await findOrCreateConversation(params.leadId);
+    : await findOrCreateConversation(params.leadId, organizationId);
   if (!conversation) throw new ApiError(404, "Conversation not found");
   const provider = getWhatsAppProvider();
   const messageType = params.messageType ?? "TEXT";
@@ -203,12 +203,11 @@ const SIMULATED_REPLIES = [
 export { SIMULATED_REPLIES };
 
 /** Mock-mode only: simulates the client replying, running the exact same pipeline a real inbound webhook would trigger. */
-export async function simulateReply(leadId: string, text: string) {
+export async function simulateReply(leadId: string, text: string, organizationId: string) {
   const provider = getWhatsAppProvider();
   if (provider.name !== "MOCK") throw new ApiError(400, "Simulated replies are only available when WHATSAPP_PROVIDER=MOCK");
 
-  const conversation = await findOrCreateConversation(leadId);
-  const organizationId = getOrganizationId();
+  const conversation = await findOrCreateConversation(leadId, organizationId);
 
   const message = await prisma.whatsAppMessage.create({
     data: {

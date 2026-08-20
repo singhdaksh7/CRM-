@@ -14,7 +14,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   try {
     const session = await requireSession();
     const { id } = await params;
-    const visit = await startVisit(id, getOrganizationId(session.user.id), session.user);
+    const visit = await startVisit(id, getOrganizationId(session.user), session.user);
     return NextResponse.json({ visit });
   } catch (err) {
     return handleApiError(err);

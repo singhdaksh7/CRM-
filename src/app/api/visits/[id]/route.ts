@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.visit.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Visit not found");
     if (session.user.role === "FIELD_EXECUTIVE" && existing.assignedToId !== session.user.id) {
@@ -41,6 +41,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const body = await req.json();
     const { overrideConflict, overrideReason, ...data } = visitSchema.partial().parse(body);
+
+    // data.leadId/data.propertyId are client-suppliable via visitSchema -
+    // without this check a caller could re-point a Visit it owns at another
+    // organization's lead/property just by submitting that id.
+    if (data.leadId) {
+      const lead = await prisma.lead.findFirst({ where: { id: data.leadId, organizationId }, select: { id: true } });
+      if (!lead) throw new ApiError(404, "Lead not found");
+    }
+    if (data.propertyId) {
+      const prop = await prisma.property.findFirst({ where: { id: data.propertyId, organizationId }, select: { id: true } });
+      if (!prop) throw new ApiError(404, "Property not found");
+    }
 
     const reschedule = data.visitDate !== undefined || data.visitTime !== undefined || data.assignedToId !== undefined || data.propertyId !== undefined;
     let conflictData: Record<string, unknown> = {};

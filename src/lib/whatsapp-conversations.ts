@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { logActivity } from "./activity";
 import { normalizeIndianPhone, getWhatsAppProvider, loadWhatsAppConfig } from "@/integrations/whatsapp";
 import type { WhatsAppDirection } from "@prisma/client";
@@ -14,8 +13,7 @@ const DEFAULT_PAGE_SIZE = 50;
  * number changes) - the unique constraint is on (leadId, phoneNumber), not
  * leadId alone, which is exactly the flexibility the schema comment calls for.
  */
-export async function findOrCreateConversation(leadId: string) {
-  const organizationId = getOrganizationId();
+export async function findOrCreateConversation(leadId: string, organizationId: string) {
   const lead = await prisma.lead.findFirstOrThrow({ where: { id: leadId, organizationId } });
   const phoneNumber = normalizeIndianPhone(lead.phone, loadWhatsAppConfig().defaultCountryCode);
   if (!phoneNumber) {

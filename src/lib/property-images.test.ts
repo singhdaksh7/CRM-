@@ -86,7 +86,7 @@ describe("uploadPropertyImage - permissions", () => {
     uploadFileBuffer.mockResolvedValue({ objectKey: "k", sizeBytes: JPEG_BYTES.byteLength, contentType: "image/jpeg" });
     propertyImageCreate.mockResolvedValue({ id: "img1", isCover: false });
 
-    const image = await uploadPropertyImage({ actorId: "admin1", role: "ADMIN", propertyId: "prop1", fileName: "plan.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, purpose: "FLOOR_PLAN" });
+    const image = await uploadPropertyImage({ actorId: "admin1", organizationId: "org_default", role: "ADMIN", propertyId: "prop1", fileName: "plan.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, purpose: "FLOOR_PLAN" });
     expect(image.id).toBe("img1");
   });
 
@@ -95,13 +95,13 @@ describe("uploadPropertyImage - permissions", () => {
     uploadFileBuffer.mockResolvedValue({ objectKey: "k", sizeBytes: JPEG_BYTES.byteLength, contentType: "image/jpeg" });
     propertyImageCreate.mockResolvedValue({ id: "img2", isCover: false });
 
-    const image = await uploadPropertyImage({ actorId: "fe1", role: "FIELD_EXECUTIVE", propertyId: "prop1", fileName: "visit.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, purpose: "IMAGE" });
+    const image = await uploadPropertyImage({ actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", propertyId: "prop1", fileName: "visit.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, purpose: "IMAGE" });
     expect(image.id).toBe("img2");
   });
 
   it("Field Executive is denied uploading a FLOOR_PLAN", async () => {
     await expect(
-      uploadPropertyImage({ actorId: "fe1", role: "FIELD_EXECUTIVE", propertyId: "prop1", fileName: "plan.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, purpose: "FLOOR_PLAN" })
+      uploadPropertyImage({ actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", propertyId: "prop1", fileName: "plan.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, purpose: "FLOOR_PLAN" })
     ).rejects.toThrow(ApiError);
     expect(uploadFileBuffer).not.toHaveBeenCalled();
     expect(propertyFindFirst).not.toHaveBeenCalled(); // permission denied before the entity check even runs
@@ -110,7 +110,7 @@ describe("uploadPropertyImage - permissions", () => {
   it("rejects upload to a property outside the actor's organization", async () => {
     propertyFindFirst.mockResolvedValue(null);
     await expect(
-      uploadPropertyImage({ actorId: "admin1", role: "ADMIN", propertyId: "cross-org-prop", fileName: "x.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES })
+      uploadPropertyImage({ actorId: "admin1", organizationId: "org_default", role: "ADMIN", propertyId: "cross-org-prop", fileName: "x.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES })
     ).rejects.toThrow(ApiError);
     expect(uploadFileBuffer).not.toHaveBeenCalled();
   });
@@ -122,7 +122,7 @@ describe("uploadPropertyImage - cover image handling", () => {
     uploadFileBuffer.mockResolvedValue({ objectKey: "k", sizeBytes: JPEG_BYTES.byteLength, contentType: "image/jpeg" });
     propertyImageCreate.mockResolvedValue({ id: "img3", isCover: true });
 
-    await uploadPropertyImage({ actorId: "admin1", role: "ADMIN", propertyId: "prop1", fileName: "cover.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, isCover: true });
+    await uploadPropertyImage({ actorId: "admin1", organizationId: "org_default", role: "ADMIN", propertyId: "prop1", fileName: "cover.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES, isCover: true });
     expect(propertyImageUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ propertyId: "prop1", isCover: true }), data: { isCover: false } }));
   });
 });
@@ -131,31 +131,31 @@ describe("softDeletePropertyImage", () => {
   it("Admin can soft-delete", async () => {
     propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", isCover: false, storageKey: "k" });
     propertyImageUpdate.mockResolvedValue({ id: "img1", status: "DELETED" });
-    const result = await softDeletePropertyImage({ imageId: "img1", actorId: "admin1", role: "ADMIN" });
+    const result = await softDeletePropertyImage({ imageId: "img1", actorId: "admin1", organizationId: "org_default", role: "ADMIN" });
     expect(result.status).toBe("DELETED");
   });
 
   it("Field Executive is denied", async () => {
     propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", isCover: false, storageKey: "k" });
-    await expect(softDeletePropertyImage({ imageId: "img1", actorId: "fe1", role: "FIELD_EXECUTIVE" })).rejects.toThrow(ApiError);
+    await expect(softDeletePropertyImage({ imageId: "img1", actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE" })).rejects.toThrow(ApiError);
     expect(propertyImageUpdate).not.toHaveBeenCalled();
   });
 
   it("throws 404 for a nonexistent image", async () => {
     propertyImageFindFirst.mockResolvedValue(null);
-    await expect(softDeletePropertyImage({ imageId: "missing", actorId: "admin1", role: "ADMIN" })).rejects.toThrow(ApiError);
+    await expect(softDeletePropertyImage({ imageId: "missing", actorId: "admin1", organizationId: "org_default", role: "ADMIN" })).rejects.toThrow(ApiError);
   });
 });
 
 describe("physicalDeletePropertyImage", () => {
   it("Admin-only", async () => {
     propertyImageFindFirst.mockResolvedValue({ id: "img1", storageKey: "k" });
-    await physicalDeletePropertyImage({ imageId: "img1", actorId: "admin1", role: "ADMIN" });
+    await physicalDeletePropertyImage({ imageId: "img1", actorId: "admin1", organizationId: "org_default", role: "ADMIN" });
     expect(deleteObjectMock).toHaveBeenCalledWith("k");
   });
 
   it("Data Manager is denied physical deletion", async () => {
-    await expect(physicalDeletePropertyImage({ imageId: "img1", actorId: "dm1", role: "DATA_MANAGER" })).rejects.toThrow(ApiError);
+    await expect(physicalDeletePropertyImage({ imageId: "img1", actorId: "dm1", organizationId: "org_default", role: "DATA_MANAGER" })).rejects.toThrow(ApiError);
     expect(deleteObjectMock).not.toHaveBeenCalled();
   });
 });
@@ -168,7 +168,7 @@ describe("replacePropertyImage", () => {
     propertyImageCreate.mockResolvedValue({ id: "new1", isCover: true });
     propertyImageUpdate.mockResolvedValue({ id: "old1", status: "DELETED" });
 
-    const next = await replacePropertyImage({ imageId: "old1", actorId: "admin1", role: "ADMIN", fileName: "new.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES });
+    const next = await replacePropertyImage({ imageId: "old1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", fileName: "new.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES });
 
     expect(next.id).toBe("new1");
     expect(deleteObjectMock).not.toHaveBeenCalled(); // old physical object is left in place
@@ -178,7 +178,7 @@ describe("replacePropertyImage", () => {
   it("refuses to replace an already-deleted image", async () => {
     propertyImageFindFirst.mockResolvedValue({ id: "old1", status: "DELETED" });
     await expect(
-      replacePropertyImage({ imageId: "old1", actorId: "admin1", role: "ADMIN", fileName: "new.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES })
+      replacePropertyImage({ imageId: "old1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", fileName: "new.jpg", mimeType: "image/jpeg", buffer: JPEG_BYTES })
     ).rejects.toThrow(ApiError);
     expect(uploadFileBuffer).not.toHaveBeenCalled();
   });
@@ -189,7 +189,7 @@ describe("replacePropertyImage", () => {
     const notActuallyAnImage = Buffer.from("not an image");
 
     await expect(
-      replacePropertyImage({ imageId: "old1", actorId: "admin1", role: "ADMIN", fileName: "new.jpg", mimeType: "image/jpeg", buffer: notActuallyAnImage })
+      replacePropertyImage({ imageId: "old1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", fileName: "new.jpg", mimeType: "image/jpeg", buffer: notActuallyAnImage })
     ).rejects.toThrow();
     expect(propertyImageUpdate).not.toHaveBeenCalled();
     expect(uploadFileBuffer).not.toHaveBeenCalled();
@@ -201,19 +201,19 @@ describe("updatePropertyImage", () => {
     propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "ACTIVE", caption: null, isCover: false });
     propertyImageUpdate.mockResolvedValue({ id: "img1", caption: "Living room", isCover: true });
 
-    const image = await updatePropertyImage({ imageId: "img1", actorId: "dm1", role: "DATA_MANAGER", caption: "Living room", isCover: true });
+    const image = await updatePropertyImage({ imageId: "img1", actorId: "dm1", organizationId: "org_default", role: "DATA_MANAGER", caption: "Living room", isCover: true });
     expect(image.caption).toBe("Living room");
     expect(propertyImageUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ propertyId: "prop1", isCover: true }) }));
   });
 
   it("Field Executive is denied editing captions/cover", async () => {
-    await expect(updatePropertyImage({ imageId: "img1", actorId: "fe1", role: "FIELD_EXECUTIVE", caption: "x" })).rejects.toThrow(ApiError);
+    await expect(updatePropertyImage({ imageId: "img1", actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", caption: "x" })).rejects.toThrow(ApiError);
     expect(propertyImageUpdate).not.toHaveBeenCalled();
   });
 
   it("refuses to edit a deleted image", async () => {
     propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "DELETED" });
-    await expect(updatePropertyImage({ imageId: "img1", actorId: "admin1", role: "ADMIN", caption: "x" })).rejects.toThrow(ApiError);
+    await expect(updatePropertyImage({ imageId: "img1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", caption: "x" })).rejects.toThrow(ApiError);
   });
 });
 
@@ -223,7 +223,7 @@ describe("reorderPropertyImages", () => {
       .mockResolvedValueOnce([{ id: "a" }, { id: "b" }, { id: "c" }]) // existing-set validation
       .mockResolvedValueOnce([{ id: "b" }, { id: "a" }, { id: "c" }]); // listPropertyImages after reorder
 
-    await reorderPropertyImages({ propertyId: "prop1", actorId: "admin1", role: "ADMIN", order: ["b", "a", "c"] });
+    await reorderPropertyImages({ propertyId: "prop1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", order: ["b", "a", "c"] });
 
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(propertyImageUpdate).toHaveBeenCalledTimes(3);
@@ -232,12 +232,12 @@ describe("reorderPropertyImages", () => {
 
   it("rejects an order that doesn't match the current active id set", async () => {
     propertyImageFindMany.mockResolvedValueOnce([{ id: "a" }, { id: "b" }]);
-    await expect(reorderPropertyImages({ propertyId: "prop1", actorId: "admin1", role: "ADMIN", order: ["a", "z"] })).rejects.toThrow(ApiError);
+    await expect(reorderPropertyImages({ propertyId: "prop1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", order: ["a", "z"] })).rejects.toThrow(ApiError);
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
   it("Field Executive is denied reordering", async () => {
-    await expect(reorderPropertyImages({ propertyId: "prop1", actorId: "fe1", role: "FIELD_EXECUTIVE", order: [] })).rejects.toThrow(ApiError);
+    await expect(reorderPropertyImages({ propertyId: "prop1", actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", order: [] })).rejects.toThrow(ApiError);
     expect(propertyImageFindMany).not.toHaveBeenCalled();
   });
 });

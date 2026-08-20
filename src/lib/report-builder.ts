@@ -1,5 +1,4 @@
 import { prisma } from "./prisma";
-import { getOrganizationId } from "./organization";
 
 export const REPORT_TYPES = ["leads", "visits", "employees", "brokerage", "properties"] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
@@ -36,8 +35,7 @@ export function toCsv(result: ReportResult): string {
   return [result.header, ...result.rows].map((r) => r.map(csvEscape).join(",")).join("\n");
 }
 
-export async function buildReport(type: ReportType, filters: ReportFilters): Promise<ReportResult> {
-  const organizationId = getOrganizationId();
+export async function buildReport(type: ReportType, filters: ReportFilters, organizationId: string): Promise<ReportResult> {
   const createdAtRange = filters.from || filters.to ? { gte: filters.from, lte: filters.to } : undefined;
 
   switch (type) {

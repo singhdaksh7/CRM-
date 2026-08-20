@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id, propertyId } = await params;
     const input = visitPropertyOutcomeSchema.parse(await req.json());
 
-    const visitProperty = await recordVisitPropertyOutcome(id, propertyId, getOrganizationId(session.user.id), session.user, input);
+    const visitProperty = await recordVisitPropertyOutcome(id, propertyId, getOrganizationId(session.user), session.user, input);
     return NextResponse.json({ visitProperty });
   } catch (err) {
     return handleApiError(err);

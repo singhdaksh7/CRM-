@@ -10,7 +10,7 @@ const NEW_PROPERTY_WINDOW_DAYS = 7;
 export async function GET() {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const newPropertyCutoff = new Date(Date.now() - NEW_PROPERTY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
     const [

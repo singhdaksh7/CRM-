@@ -15,7 +15,7 @@ const bulkSchema = z.discriminatedUnion("action", [
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const body = bulkSchema.parse(await req.json());
 
     switch (body.action) {

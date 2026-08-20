@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { getCatalogueById } from "@/lib/catalogues";
 import { toExecutiveCatalogueDTO } from "@/lib/catalogue-dto";
 import { assertLeadAccessible } from "@/lib/lead-access";
+import { getOrganizationId } from "@/lib/organization";
 import { Badge } from "@/components/ui/badge";
 import { CataloguePropertyCard } from "@/components/executive-dashboard/catalogue-property-card";
 
@@ -13,7 +14,7 @@ export default async function ExecutiveCatalogueViewPage({ params }: { params: P
 
   let catalogue;
   try {
-    catalogue = await getCatalogueById(id);
+    catalogue = await getCatalogueById(id, getOrganizationId(session.user));
     await assertLeadAccessible({ user: session.user }, catalogue.leadId);
   } catch {
     notFound();

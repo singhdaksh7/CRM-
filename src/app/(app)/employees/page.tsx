@@ -9,11 +9,13 @@ import { getOrganizationId } from "@/lib/organization";
 import { withTiming } from "@/lib/perf";
 import { cached } from "@/lib/cache";
 import { formatLastLogin } from "@/lib/last-login";
+import { auth } from "@/lib/auth";
 
 export default async function EmployeesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const page = parsePage(sp.page);
-  const organizationId = getOrganizationId();
+  const session = await auth();
+  const organizationId = getOrganizationId(session!.user);
 
   const { employees, totalCount } = await withTiming("employeesPageQuery", "/employees", () =>
     cached(`employees:list:${organizationId}:${page}`, 30, () =>

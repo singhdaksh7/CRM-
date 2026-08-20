@@ -3,6 +3,7 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { isStorageConfigured } from "@/lib/storage";
 import { createPropertyImageUploadSession } from "@/lib/property-image-upload";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { getOrganizationId } from "@/lib/organization";
 import { z } from "zod";
 import type { PropertyImagePurpose } from "@prisma/client";
 
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = schema.parse(await req.json());
     const result = await createPropertyImageUploadSession({
       actorId: session.user.id,
+      organizationId: getOrganizationId(session.user),
       role: session.user.role,
       propertyId: id,
       fileName: body.fileName,

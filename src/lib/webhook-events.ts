@@ -1,6 +1,5 @@
 import { createHash } from "crypto";
 import { prisma } from "./prisma";
-import { getOrganizationId } from "./organization";
 import { Prisma } from "@prisma/client";
 
 export function hashPayload(raw: string): string {
@@ -16,6 +15,7 @@ export function hashPayload(raw: string): string {
  * webhook contract).
  */
 export async function recordWebhookEventOnce(params: {
+  organizationId: string;
   provider: string;
   externalEventId: string;
   eventType: string;
@@ -24,7 +24,7 @@ export async function recordWebhookEventOnce(params: {
   try {
     await prisma.integrationWebhookEvent.create({
       data: {
-        organizationId: getOrganizationId(),
+        organizationId: params.organizationId,
         provider: params.provider,
         externalEventId: params.externalEventId,
         eventType: params.eventType,

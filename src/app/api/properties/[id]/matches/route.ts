@@ -11,7 +11,7 @@ import { getSystemConfig } from "@/lib/system-config";
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const property = await prisma.property.findFirst({ where: { id, organizationId } });
     if (!property) throw new ApiError(404, "Property not found");
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const property = await prisma.property.findFirst({ where: { id, organizationId } });
     if (!property) throw new ApiError(404, "Property not found");

@@ -10,7 +10,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/api-auth", async () => {
   const { NextResponse } = await import("next/server");
   return {
-    requireSession: async () => ({ user: { id: "admin1", role: "ADMIN" } }),
+    requireSession: async () => ({ user: { id: "admin1", role: "ADMIN", organizationId: "org_default" } }),
     handleApiError: (err: unknown) => NextResponse.json({ error: String(err) }, { status: 500 }),
   };
 });
@@ -26,7 +26,7 @@ describe("GET /api/properties/[id]/timeline", () => {
     propertyTimelineEventFindMany.mockResolvedValue([{ id: "e1", eventType: "CREATED" }]);
     const res = await GET(new NextRequest(new Request("https://x.test/api/properties/p1/timeline")), { params: Promise.resolve({ id: "p1" }) });
     expect(res.status).toBe(200);
-    expect(propertyTimelineEventFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { propertyId: "p1" }, orderBy: { createdAt: "asc" } }));
+    expect(propertyTimelineEventFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { propertyId: "p1", organizationId: "org_default" }, orderBy: { createdAt: "asc" } }));
     const body = await res.json();
     expect(body.events).toHaveLength(1);
   });

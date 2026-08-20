@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const leadFindUnique = vi.fn();
+const leadFindFirst = vi.fn();
 const activityCreate = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { lead: { findUnique: (...a: unknown[]) => leadFindUnique(...a) }, activity: { create: (...a: unknown[]) => activityCreate(...a) } },
+  prisma: { lead: { findFirst: (...a: unknown[]) => leadFindFirst(...a) }, activity: { create: (...a: unknown[]) => activityCreate(...a) } },
 }));
+
+vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org_default" }));
 
 const { MockApiError } = vi.hoisted(() => {
   class MockApiError extends Error {
@@ -39,13 +41,13 @@ beforeEach(() => {
 
 describe("POST /api/leads/[id]/call-initiated", () => {
   it("404s when the lead doesn't exist", async () => {
-    leadFindUnique.mockResolvedValue(null);
+    leadFindFirst.mockResolvedValue(null);
     const res = await POST(new NextRequest(new Request("https://x.test", { method: "POST" })), { params: Promise.resolve({ id: "lead1" }) });
     expect(res.status).toBe(404);
   });
 
   it("logs a CALL_INITIATED activity", async () => {
-    leadFindUnique.mockResolvedValue({ id: "lead1" });
+    leadFindFirst.mockResolvedValue({ id: "lead1" });
     const res = await POST(new NextRequest(new Request("https://x.test", { method: "POST" })), { params: Promise.resolve({ id: "lead1" }) });
     expect(res.status).toBe(200);
     expect(activityCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ leadId: "lead1", type: "CALL_INITIATED" }) }));

@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const owner = await prisma.owner.findFirst({
       where: { id, organizationId },
@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.owner.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Owner not found");
 
@@ -74,7 +74,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const session = await requireSession(["ADMIN"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.owner.findFirst({
       where: { id, organizationId },
       include: { _count: { select: { properties: true, deals: true } } },

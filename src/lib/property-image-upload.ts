@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { recordAudit } from "./audit";
 import { logger } from "./logger";
 import {
@@ -47,6 +46,7 @@ export async function assertPropertyImageQuota(propertyId: string, organizationI
  */
 export async function createPropertyImageUploadSession(params: {
   actorId: string;
+  organizationId: string;
   role: Role;
   propertyId: string;
   fileName: string;
@@ -63,7 +63,7 @@ export async function createPropertyImageUploadSession(params: {
     throw new ApiError(503, "File storage is not configured on this deployment - see DEPLOYMENT.md 'File Storage'");
   }
 
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const purpose = params.purpose ?? "IMAGE";
   const visibility: MediaVisibility =
     params.visibility ?? (purpose === "AVAILABILITY_REPORT" ? "PRIVATE" : "PUBLIC");
@@ -140,13 +140,14 @@ export async function createPropertyImageUploadSession(params: {
  */
 export async function confirmPropertyImageUpload(params: {
   actorId: string;
+  organizationId: string;
   role: Role;
   propertyId: string;
   sessionId: string;
   width?: number | null;
   height?: number | null;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const session = await prisma.storageUploadSession.findFirst({
     where: { id: params.sessionId, organizationId, entityId: params.propertyId, purpose: "PROPERTY_IMAGE" },
   });

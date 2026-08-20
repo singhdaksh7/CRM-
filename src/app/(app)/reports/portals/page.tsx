@@ -5,7 +5,7 @@ import { FailedOperationsPanel } from "@/components/property-portals/failed-oper
 
 export default async function PortalReportPage() {
   const session = await auth(); if (!session || session.user.role === "FIELD_EXECUTIVE") return null;
-  const organizationId = getOrganizationId(session.user.id);
+  const organizationId = getOrganizationId(session.user);
   const [providers, linkedLeadEvents, transactions, statuses, listings, failedOps] = await Promise.all([
     prisma.externalLeadEvent.groupBy({ by: ["provider"], where: { organizationId }, _count: { _all: true } }),
     prisma.externalLeadEvent.count({ where: { organizationId, leadId: { not: null } } }),

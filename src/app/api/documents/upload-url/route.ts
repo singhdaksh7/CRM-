@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       throw new ApiError(503, "File storage is not configured on this deployment - see DEPLOYMENT.md 'File Storage'");
     }
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const data = requestSchema.parse(await req.json());
 
     if (!canUploadDocumentCategory(session.user.role, data.category)) {

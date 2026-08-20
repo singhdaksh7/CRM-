@@ -1,7 +1,6 @@
 import { randomBytes } from "crypto";
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { logActivity } from "./activity";
 import { notifyRoles, createNotification } from "./notifications";
 import { sendOutboundMessage } from "./whatsapp-messages";
@@ -38,6 +37,7 @@ export interface CataloguePropertyInput {
 
 export interface CreateCatalogueParams {
   leadId: string;
+  organizationId: string;
   createdByUserId: string;
   /** Role of the creating user - when FIELD_EXECUTIVE, Admin/Data Manager are notified the catalogue needs review before sending. Optional so existing internal callers (tests, scripts) keep working without it. */
   createdByRole?: Role;
@@ -58,8 +58,8 @@ function generateToken(): string {
 export async function createCatalogue(params: CreateCatalogueParams) {
   if (params.properties.length === 0) throw new ApiError(400, "Select at least one property for the catalogue");
 
-  const organizationId = getOrganizationId();
-  const lead = await prisma.lead.findUnique({ where: { id: params.leadId } });
+  const organizationId = params.organizationId;
+  const lead = await prisma.lead.findFirst({ where: { id: params.leadId, organizationId } });
   if (!lead) throw new ApiError(404, "Lead not found");
 
   const propertyIds = params.properties.map((p) => p.propertyId);
@@ -161,9 +161,19 @@ const CATALOGUE_SENDER_INCLUDE = {
   organization: { select: { id: true, name: true } },
 };
 
-export async function getCatalogueById(catalogueId: string) {
-  const catalogue = await prisma.catalogueShare.findUnique({
-    where: { id: catalogueId },
+/**
+ * Self-defending on organizationId: takes it as a required parameter and
+ * enforces it in the lookup itself (findFirst, not findUnique). Every
+ * caller (internal to this file and every API route) previously had to
+ * remember to independently check ownership (most did, via
+ * assertLeadAccessible + a leadId match; one route - the catalogue
+ * property-removal DELETE handler - did not, and was a real cross-org
+ * write gap, now closed by this check alone). A cross-org catalogueId
+ * now 404s here instead of ever being loaded.
+ */
+export async function getCatalogueById(catalogueId: string, organizationId: string) {
+  const catalogue = await prisma.catalogueShare.findFirst({
+    where: { id: catalogueId, organizationId },
     include: CATALOGUE_SENDER_INCLUDE,
   });
   if (!catalogue) throw new ApiError(404, "Catalogue not found");
@@ -188,12 +198,11 @@ interface UpdateCatalogueParams {
   properties?: CataloguePropertyInput[];
 }
 
-export async function updateCatalogue(catalogueId: string, patch: UpdateCatalogueParams) {
-  const existing = await getCatalogueById(catalogueId);
+export async function updateCatalogue(catalogueId: string, organizationId: string, patch: UpdateCatalogueParams) {
+  const existing = await getCatalogueById(catalogueId, organizationId);
   if (existing.status !== "ACTIVE") throw new ApiError(400, `Cannot edit a ${existing.status.toLowerCase()} catalogue`);
 
   if (patch.properties) {
-    const organizationId = getOrganizationId();
     const propertyIds = patch.properties.map((p) => p.propertyId);
     const found = await prisma.property.findMany({ where: { id: { in: propertyIds }, organizationId } });
     if (found.length !== propertyIds.length) throw new ApiError(400, "One or more selected properties were not found in this organization's inventory");
@@ -230,16 +239,16 @@ export async function updateCatalogue(catalogueId: string, patch: UpdateCatalogu
   });
 }
 
-export async function revokeCatalogue(catalogueId: string, actorId: string) {
-  const catalogue = await getCatalogueById(catalogueId);
+export async function revokeCatalogue(catalogueId: string, organizationId: string, actorId: string) {
+  const catalogue = await getCatalogueById(catalogueId, organizationId);
   const updated = await prisma.catalogueShare.update({ where: { id: catalogueId }, data: { status: "REVOKED" } });
   await logActivity({ leadId: catalogue.leadId, type: "CATALOGUE_REVOKED", description: `Catalogue "${catalogue.title}" revoked`, actorId });
   return updated;
 }
 
 /** Sends the catalogue via the configured provider, and records the same event in the legacy SharedPropertyLog for the lead's existing "Shared" tab. */
-export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
-  const catalogue = await getCatalogueById(catalogueId);
+export async function sendCatalogue(catalogueId: string, organizationId: string, sentByUserId: string) {
+  const catalogue = await getCatalogueById(catalogueId, organizationId);
   if (catalogue.status !== "ACTIVE") throw new ApiError(400, `Cannot send a ${catalogue.status.toLowerCase()} catalogue`);
 
   const message = buildCatalogueMessageText(catalogue);
@@ -347,10 +356,10 @@ export async function sendCatalogue(catalogueId: string, sentByUserId: string) {
  * unit-testable per the comment at the top of catalogue-dto.ts. Removed or
  * never-uploaded images fall back to whatever coverImage the DTO already has.
  */
-export async function withResolvedCoverImages(dto: PublicCatalogueDTO): Promise<PublicCatalogueDTO> {
+export async function withResolvedCoverImages(dto: PublicCatalogueDTO, organizationId: string): Promise<PublicCatalogueDTO> {
   if (dto.properties.length === 0) return dto;
   const { getCoverImageUrls, getPublicOrderedImageUrls } = await import("./property-images");
-  const orgId = getOrganizationId();
+  const orgId = organizationId;
   const urls = await getCoverImageUrls(dto.properties.map((p) => p.id), orgId);
   const properties = await Promise.all(
     dto.properties.map(async (p) => {

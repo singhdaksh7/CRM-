@@ -26,7 +26,7 @@ function formatBudget(min: unknown, max: unknown): string | null {
 export default async function PortalLeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const session = await auth();
   const params = await searchParams;
-  const organizationId = getOrganizationId(session!.user.id);
+  const organizationId = getOrganizationId(session!.user);
   const events = await prisma.externalLeadEvent.findMany({ where: { organizationId, ...(params.provider ? { provider: params.provider as never } : {}), ...(params.status ? { ingestionStatus: params.status as never } : {}) }, include: { lead: { select: { leadCode: true, clientName: true, assignedToId: true } } }, orderBy: { receivedAt: "desc" }, take: 200 });
   const visible = session!.user.role === "FIELD_EXECUTIVE" ? events.filter((event) => event.lead?.assignedToId === session!.user.id) : events;
   const canAct = session!.user.role === "ADMIN" || session!.user.role === "DATA_MANAGER";

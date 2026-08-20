@@ -1,7 +1,6 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { withTiming } from "./perf";
-import { getOrganizationId } from "./organization";
 import { istMonthKey, istMonthLabel } from "./ist-date";
 import { logger } from "./logger";
 import type { LostDealReasonCategory } from "@prisma/client";
@@ -32,8 +31,7 @@ export interface LostDealAnalyticsData {
 
 const EMPTY_RESULT: LostDealAnalyticsData = { totalLost: 0, byReason: [], trend: [], topReasonLast90Days: [], uncategorizedCount: 0, migrationPending: true };
 
-export async function getLostDealAnalytics(): Promise<LostDealAnalyticsData> {
-  const organizationId = getOrganizationId();
+export async function getLostDealAnalytics(organizationId: string): Promise<LostDealAnalyticsData> {
   return withTiming("lostDealAnalytics", "/reports/lost-deals", () =>
     cached(`lost-deal-analytics:${organizationId}`, LOST_DEAL_ANALYTICS_CACHE_TTL_SECONDS, () => computeLostDealAnalytics(organizationId))
   );

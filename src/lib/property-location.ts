@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { recordAudit } from "./audit";
 import { logger } from "./logger";
 import { geocodeAddressCached } from "./geocoding";
@@ -27,9 +26,9 @@ async function loadProperty(propertyId: string, organizationId: string) {
  * on the property detail map panel). Does not overwrite the user-entered
  * `address`/`area`/`landmark` fields - only the geocode-derived metadata.
  */
-export async function geocodeProperty(params: { propertyId: string; actorId: string; role: Role }) {
+export async function geocodeProperty(params: { propertyId: string; actorId: string; organizationId: string; role: Role }) {
   assertCanEditLocation(params.role);
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const property = await loadProperty(params.propertyId, organizationId);
 
   const query = [property.address, property.area, property.city, "India"].filter(Boolean).join(", ");
@@ -76,12 +75,12 @@ export async function geocodeProperty(params: { propertyId: string; actorId: str
 }
 
 /** Manually sets (or corrects) a property's coordinates - e.g. dragging a pin, or entering coordinates directly. Marked MANUAL/geocodeStatus so it's clear this was never verified by the maps provider. */
-export async function setManualPropertyLocation(params: { propertyId: string; actorId: string; role: Role; latitude: number; longitude: number }) {
+export async function setManualPropertyLocation(params: { propertyId: string; actorId: string; organizationId: string; role: Role; latitude: number; longitude: number }) {
   assertCanEditLocation(params.role);
   if (!isValidCoordinates({ latitude: params.latitude, longitude: params.longitude })) {
     throw new ApiError(400, "Invalid coordinates");
   }
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const property = await loadProperty(params.propertyId, organizationId);
 
   const plausible = isPlausibleDelhiNcrCoordinates({ latitude: params.latitude, longitude: params.longitude });
@@ -110,9 +109,9 @@ export async function setManualPropertyLocation(params: { propertyId: string; ac
 }
 
 /** Marks the current coordinates as approximate rather than exact - e.g. an Admin reviewing a geocode result that landed on the wrong building. */
-export async function markPropertyLocationApproximate(params: { propertyId: string; actorId: string; role: Role }) {
+export async function markPropertyLocationApproximate(params: { propertyId: string; actorId: string; organizationId: string; role: Role }) {
   assertCanEditLocation(params.role);
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const property = await loadProperty(params.propertyId, organizationId);
 
   const updated = await prisma.property.update({ where: { id: property.id }, data: { locationPrecision: "APPROXIMATE" } });
@@ -127,9 +126,9 @@ export async function markPropertyLocationApproximate(params: { propertyId: stri
 }
 
 /** Controls what the public catalogue is allowed to reveal for this property - independent of how precise the stored coordinate actually is. Defaults to LOCALITY_ONLY; this is the only place that can widen or narrow that. */
-export async function setPublicLocationMode(params: { propertyId: string; actorId: string; role: Role; mode: LocationPrecision }) {
+export async function setPublicLocationMode(params: { propertyId: string; actorId: string; organizationId: string; role: Role; mode: LocationPrecision }) {
   assertCanEditLocation(params.role);
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const property = await loadProperty(params.propertyId, organizationId);
 
   const updated = await prisma.property.update({ where: { id: property.id }, data: { publicLocationMode: params.mode } });
@@ -147,9 +146,9 @@ export async function setPublicLocationMode(params: { propertyId: string; actorI
 }
 
 /** Clears any stored coordinate/geocode metadata - used by "Clear location" in the property form. Manual address fields (address/area/city/landmark) are untouched. */
-export async function clearPropertyLocation(params: { propertyId: string; actorId: string; role: Role }) {
+export async function clearPropertyLocation(params: { propertyId: string; actorId: string; organizationId: string; role: Role }) {
   assertCanEditLocation(params.role);
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const property = await loadProperty(params.propertyId, organizationId);
 
   const updated = await prisma.property.update({

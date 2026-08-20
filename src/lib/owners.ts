@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { generateCode } from "./utils";
 import { recordAudit } from "./audit";
 import type { OwnerVerificationStatus } from "@prisma/client";
@@ -60,9 +59,10 @@ export async function verifyOwner(params: {
   ownerId: string;
   status: OwnerVerificationStatus;
   actorId: string;
+  organizationId: string;
   notes?: string | null;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const owner = await prisma.owner.findFirst({ where: { id: params.ownerId, organizationId } });
   if (!owner) throw new ApiError(404, "Owner not found");
 

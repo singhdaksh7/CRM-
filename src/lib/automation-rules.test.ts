@@ -78,7 +78,7 @@ beforeEach(() => {
 describe("createAutomationRule", () => {
   it("always creates a rule disabled, regardless of what the caller passes as isActive", async () => {
     automationRuleCreate.mockResolvedValue({ id: "r1", isActive: false });
-    await createAutomationRule({ name: "Test", trigger: "LEAD_CREATED", actionType: "ASSIGN_EMPLOYEE", isActive: true, createdById: "u1" });
+    await createAutomationRule({ name: "Test", trigger: "LEAD_CREATED", actionType: "ASSIGN_EMPLOYEE", isActive: true, createdById: "u1", organizationId: "org_default" });
     expect(automationRuleCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ isActive: false }) }));
   });
 });

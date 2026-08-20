@@ -470,8 +470,16 @@ export async function getLeadSuggestions(leadId: string, canManage: boolean): Pr
   });
 }
 
-export async function getPropertySuggestions(propertyId: string): Promise<Suggestion[]> {
-  const property = await prisma.property.findUnique({ where: { id: propertyId }, include: { owner: true } });
+/**
+ * Self-defending on organizationId: takes it as a required parameter and
+ * enforces it in the property lookup itself (findFirst, not findUnique),
+ * rather than relying on every caller having already validated ownership
+ * before calling this. A cross-org propertyId now returns [] (same as
+ * "not found") instead of ever computing suggestions from another
+ * organization's property.
+ */
+export async function getPropertySuggestions(propertyId: string, organizationId: string): Promise<Suggestion[]> {
+  const property = await prisma.property.findFirst({ where: { id: propertyId, organizationId }, include: { owner: true } });
   if (!property) return [];
 
   const activeLeadCount = await prisma.lead.count({

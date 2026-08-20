@@ -8,7 +8,7 @@ import { recordAudit } from "@/lib/audit";
 /** Records a partner response against the selected recipient; property creation stays on the normal Property API. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireSession(["ADMIN", "DATA_MANAGER"]); const organizationId = getOrganizationId(session.user.id); const { id } = await params;
+    const session = await requireSession(["ADMIN", "DATA_MANAGER"]); const organizationId = getOrganizationId(session.user); const { id } = await params;
     const { partnerId, propertyId, note } = await req.json() as { partnerId: string; propertyId?: string; note?: string };
     const recipient = await prisma.requirementBroadcastRecipient.findFirst({ where: { requirementBroadcastId: id, inventoryPartnerId: partnerId, requirementBroadcast: { organizationId } }, include: { requirementBroadcast: true } });
     if (!recipient) throw new ApiError(404, "Selected broadcast recipient not found");

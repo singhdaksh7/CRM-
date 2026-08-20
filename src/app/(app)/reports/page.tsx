@@ -11,7 +11,8 @@ import { TrendingUp, Trophy, XCircle, CalendarCheck, MapPinned, Star } from "luc
 
 export default async function ReportsPage() {
   const session = await auth();
-  const [data, visits] = await Promise.all([getReportsData(), getVisitAnalytics(getOrganizationId(session?.user.id))]);
+  const organizationId = getOrganizationId(session?.user);
+  const [data, visits] = await Promise.all([getReportsData(organizationId), getVisitAnalytics(organizationId)]);
 
   return (
     <div className="space-y-6">

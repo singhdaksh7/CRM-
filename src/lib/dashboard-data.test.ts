@@ -46,7 +46,7 @@ vi.mock("./prisma", () => ({
   },
 }));
 
-vi.mock("./organization", () => ({ getOrganizationId: () => "org_default" }));
+vi.mock("./organization", () => ({ getOrganizationId: () => "org_default", resolveOrganizationIdForUser: async () => "org_default" }));
 
 // .env sets a real REDIS_URL (Upstash) for local/dev use, and dashboard-data
 // leans on it for short-TTL caching - if left unmocked here, every test in

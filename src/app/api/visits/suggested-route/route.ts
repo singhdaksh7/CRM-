@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       throw new ApiError(403, "You can only view your own route");
     }
 
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const limitResult = await checkMapsQuota("mapsRouteSuggestion", session.user.id, organizationId);
     if (!limitResult.allowed) return rateLimitResponse(limitResult);
 

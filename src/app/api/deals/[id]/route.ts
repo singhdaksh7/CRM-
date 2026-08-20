@@ -5,12 +5,13 @@ import { dealSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
 import { isRestrictedToOwnRecords } from "@/lib/permissions";
 import { recordAudit } from "@/lib/audit";
+import { assertDealLinksBelongToOrg } from "@/lib/deals";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
 
     const deal = await prisma.deal.findFirst({
       where: { id, organizationId },
@@ -44,12 +45,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.deal.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Deal not found");
 
     const body = await req.json();
     const { expectedCloseDate, ...data } = dealSchema.partial().parse(body);
+    await assertDealLinksBelongToOrg(organizationId, data);
 
     const deal = await prisma.deal.update({
       where: { id },
@@ -71,7 +73,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const session = await requireSession(["ADMIN"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.deal.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Deal not found");
 

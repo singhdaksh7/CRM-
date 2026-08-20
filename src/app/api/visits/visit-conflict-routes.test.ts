@@ -5,6 +5,7 @@ const visitFindFirst = vi.fn();
 const visitCreate = vi.fn();
 const visitUpdate = vi.fn();
 const leadUpdate = vi.fn();
+const leadFindFirst = vi.fn();
 // POST now delegates the write to scheduleVisit() in src/lib/visits.ts, which
 // first checks every selected property belongs to the organization. That is
 // the only additional prisma surface this route reaches.
@@ -17,7 +18,7 @@ vi.mock("@/lib/prisma", () => {
       create: (...a: unknown[]) => visitCreate(...a),
       update: (...a: unknown[]) => visitUpdate(...a),
     },
-    lead: { update: (...a: unknown[]) => leadUpdate(...a) },
+    lead: { update: (...a: unknown[]) => leadUpdate(...a), findFirst: (...a: unknown[]) => leadFindFirst(...a) },
     property: { findMany: (...a: unknown[]) => propertyFindMany(...a) },
     // scheduleVisit now creates the visit and claims any originating client
     // visit request inside ONE transaction. This route passes no request ids,
@@ -87,6 +88,7 @@ beforeEach(() => {
   sessionUser = { id: "admin1", role: "ADMIN" };
   // The single selected property exists in this organization.
   propertyFindMany.mockResolvedValue([{ id: "prop1", title: "Flat", area: "Janakpuri" }]);
+  leadFindFirst.mockResolvedValue({ id: "lead1" });
   visitCreate.mockResolvedValue({ id: "v1", assignedToId: "emp1", leadId: "lead1", visitDate: new Date("2026-02-10T05:30:00Z"), lead: { clientName: "Rahul" }, assignedTo: { name: "Sagar" }, properties: [] });
 });
 

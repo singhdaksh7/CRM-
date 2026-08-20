@@ -8,7 +8,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const property = await prisma.property.findFirst({ where: { id, organizationId }, select: { id: true } });
     if (!property) throw new ApiError(404, "Property not found");
 

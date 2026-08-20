@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const owner = await prisma.owner.findFirst({ where: { id, organizationId } });
     if (!owner) throw new ApiError(404, "Owner not found");
 

@@ -16,7 +16,7 @@ function csvEscape(value: unknown): string {
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const idsParam = req.nextUrl.searchParams.get("ids");
     const ids = idsParam ? idsParam.split(",").filter(Boolean) : undefined;
 

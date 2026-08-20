@@ -12,7 +12,7 @@ import { Pencil, Phone, Building2 } from "lucide-react";
 export default async function InventoryPartnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const organizationId = getOrganizationId(session?.user?.id);
+  const organizationId = getOrganizationId(session?.user);
   const canManage = session?.user?.role === "ADMIN" || session?.user?.role === "DATA_MANAGER";
 
   const partner = await prisma.inventoryPartner.findFirst({

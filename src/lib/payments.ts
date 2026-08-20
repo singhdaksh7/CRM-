@@ -1,6 +1,5 @@
 import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
-import { getOrganizationId } from "./organization";
 import { recordDealActivity } from "./deals";
 import { recordAudit } from "./audit";
 import { Prisma, type PaymentStatus } from "@prisma/client";
@@ -28,9 +27,10 @@ export async function updatePaymentStatus(params: {
   paymentId: string;
   status: PaymentStatus;
   actorId: string;
+  organizationId: string;
   paidAt?: Date | null;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
   const payment = await prisma.payment.findFirst({ where: { id: params.paymentId, organizationId }, include: { deal: true } });
   if (!payment) throw new ApiError(404, "Payment not found");
 

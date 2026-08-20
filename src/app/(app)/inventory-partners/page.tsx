@@ -15,7 +15,7 @@ export default async function InventoryPartnersPage({ searchParams }: { searchPa
   const sp = await searchParams;
   const canCreate = session?.user?.role === "ADMIN" || session?.user?.role === "DATA_MANAGER";
   const page = parsePage(sp.page);
-  const organizationId = getOrganizationId(session?.user?.id);
+  const organizationId = getOrganizationId(session?.user);
 
   const where: Prisma.InventoryPartnerWhereInput = { organizationId };
   if (sp.q) {

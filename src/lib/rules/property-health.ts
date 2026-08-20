@@ -142,8 +142,8 @@ const POSITIVE_VISIT_OUTCOMES = new Set(["HIGHLY_INTERESTED", "INTERESTED", "REA
 const NEGATIVE_VISIT_OUTCOMES = new Set(["NOT_INTERESTED", "REJECTED"]);
 
 /** Orchestration: loads what computePropertyHealth needs and returns the result. */
-export async function getPropertyHealth(propertyId: string): Promise<HealthScoreResult | null> {
-  const property = await prisma.property.findUnique({ where: { id: propertyId }, include: { owner: true } });
+export async function getPropertyHealth(propertyId: string, organizationId: string): Promise<HealthScoreResult | null> {
+  const property = await prisma.property.findFirst({ where: { id: propertyId, organizationId }, include: { owner: true } });
   if (!property) return null;
 
   const since = new Date();

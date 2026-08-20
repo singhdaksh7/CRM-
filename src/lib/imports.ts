@@ -1,5 +1,4 @@
 import { prisma } from "./prisma";
-import { getOrganizationId } from "./organization";
 import { generateCode } from "./utils";
 import { recordAudit } from "./audit";
 import { logger } from "./logger";
@@ -132,8 +131,9 @@ export async function runImport(params: {
   rows: Record<string, string>[];
   columnMapping: Record<string, string>;
   actorId: string;
+  organizationId: string;
 }) {
-  const organizationId = getOrganizationId(params.actorId);
+  const organizationId = params.organizationId;
 
   const job = await prisma.importJob.create({
     data: {

@@ -7,13 +7,15 @@ import { LeadWorkspace } from "@/components/leads/lead-workspace";
 import { getLeadHealth, getLeadSuggestions, computeVisitSuggestions } from "@/lib/rules";
 import { Phone, Mail, MapPin, Wallet } from "lucide-react";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
+import { getOrganizationId } from "@/lib/organization";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
+  const organizationId = getOrganizationId(session!.user);
 
-  const lead = await prisma.lead.findUnique({
-    where: { id },
+  const lead = await prisma.lead.findFirst({
+    where: { id, organizationId },
     include: {
       assignedTo: true,
       activities: { orderBy: { createdAt: "desc" }, include: { actor: true } },
@@ -27,9 +29,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   if (!lead) notFound();
   if (session!.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session!.user.id) notFound();
 
-  const employees = await prisma.user.findMany({ where: { role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" } });
+  const employees = await prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" } });
   const canManage = session!.user.role === "ADMIN" || session!.user.role === "DATA_MANAGER";
-  const [health, suggestions] = await Promise.all([getLeadHealth(lead.id), getLeadSuggestions(lead.id, canManage)]);
+  const [health, suggestions] = await Promise.all([getLeadHealth(lead.id, organizationId), getLeadSuggestions(lead.id, canManage)]);
   const hasPendingFollowUp = lead.followUps.some((f) => f.status === "PENDING");
   const visitSuggestions = Object.fromEntries(
     lead.visits.map((v) => [

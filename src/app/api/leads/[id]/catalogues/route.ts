@@ -3,6 +3,7 @@ import { requireSession, handleApiError } from "@/lib/api-auth";
 import { assertLeadAccessible } from "@/lib/lead-access";
 import { createCatalogueSchema } from "@/lib/validators";
 import { createCatalogue, listCataloguesForLead } from "@/lib/catalogues";
+import { getOrganizationId } from "@/lib/organization";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const data = createCatalogueSchema.parse(await req.json());
     const catalogue = await createCatalogue({
       leadId: id,
+      organizationId: getOrganizationId(session.user),
       createdByUserId: session.user.id,
       createdByRole: session.user.role,
       title: data.title,

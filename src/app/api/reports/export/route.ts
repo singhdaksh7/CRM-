@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { recordAudit } from "@/lib/audit";
 import { buildReport, toCsv, REPORT_TYPES, type ReportType } from "@/lib/report-builder";
+import { getOrganizationId } from "@/lib/organization";
 
 /**
  * Custom Report Builder export (Phase 3, Module 6 + Module 9). Produces a
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     const from = fromParam ? new Date(fromParam) : undefined;
     const to = toParam ? new Date(toParam) : undefined;
 
-    const result = await buildReport(type, { from, to });
+    const result = await buildReport(type, { from, to }, getOrganizationId(session.user));
 
     const metaLines = [
       `# KP Properties - Delhi Broker CRM`,

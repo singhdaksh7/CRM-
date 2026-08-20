@@ -14,6 +14,6 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const data = schema.parse(await req.json());
-    return NextResponse.json({ rows: await previewInventoryImport({ ...data, organizationId: getOrganizationId(session.user.id) }) });
+    return NextResponse.json({ rows: await previewInventoryImport({ ...data, organizationId: getOrganizationId(session.user) }) });
   } catch (error) { return handleApiError(error); }
 }

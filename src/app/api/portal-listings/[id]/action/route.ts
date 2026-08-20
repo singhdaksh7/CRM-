@@ -17,7 +17,7 @@ const ACTIONS: ListingAction[] = ["PUBLISH", "UPDATE", "DEACTIVATE"];
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const { action } = (await request.json()) as { action?: ListingAction };
     if (!action || !ACTIONS.includes(action)) return NextResponse.json({ error: "A valid action (PUBLISH, UPDATE, DEACTIVATE) is required" }, { status: 400 });

@@ -154,7 +154,10 @@ export interface AutoAssignOutcome {
 
 /** Runs the full auto-assignment pipeline for one lead: rule match -> eligible pool -> strategy -> assign. */
 export async function autoAssignLead(leadId: string, organizationId = DEFAULT_ORGANIZATION_ID): Promise<AutoAssignOutcome> {
-  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
+  // organizationId-scoped so a caller can never pass another organization's
+  // leadId (e.g. via the bulk-auto-assign endpoint's client-supplied
+  // leadIds list) and have it silently reassigned.
+  const lead = await prisma.lead.findFirstOrThrow({ where: { id: leadId, organizationId } });
 
   const rule = await findMatchingRule(organizationId, lead);
   if (rule?.strategy === "MANUAL_ONLY") {

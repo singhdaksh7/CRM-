@@ -1,0 +1,47 @@
+-- ============================================================================
+-- CONDITIONAL backfill - only needed if the read-only audit
+-- (2026-08-20-org-resolution-readonly-audit.sql, queries 3 and 4) actually
+-- finds rows. In a healthy single-tenant deployment (the only kind that has
+-- existed so far) it should find none, and this file should not be run at
+-- all - in that case there is nothing to do here.
+--
+-- NOT APPLIED to any database as part of this change.
+--
+-- DELIBERATELY NOT A RUNNABLE SCRIPT. There is no generic
+-- "UPDATE users SET organizationId = ..." statement in this file, even
+-- commented out - a blanket reassignment is exactly the mistake this file
+-- exists to prevent: it could mass-reassign every affected user to the same
+-- organization without anyone having individually confirmed that's correct
+-- for each one. If the read-only audit ever finds affected rows, the
+-- required process is:
+--
+--   1. Run the audit's query 3 (users with no/dangling organizationId) and
+--      query 4 (leads/visits/follow-ups whose org disagrees with their
+--      assigned user) and get the actual list of affected row ids.
+--   2. For EACH id, a human decides the correct target organization - this
+--      is a real business decision (which brokerage does this user/lead
+--      actually belong to), not something inferable from the query alone.
+--      "org_default" is the answer today only because every organization
+--      that currently exists IS org_default; that stops being true the
+--      moment a second real tenant is onboarded, and this file must not be
+--      the thing that quietly papers over getting that wrong.
+--   3. Write ONE UPDATE per id (or a small explicit VALUES list built from
+--      the reviewed set, never a bare WHERE clause matching "everything
+--      broken"), e.g.:
+--
+--        UPDATE users SET "organizationId" = '<reviewed-target-org-id>'
+--          WHERE id = '<specific-user-id-from-step-1>';
+--
+--      repeated for each confirmed id - never a single statement whose
+--      WHERE clause is "organizationId IS NULL OR NOT IN (...)" or
+--      equivalent, since that reassigns every matching row to the same
+--      target in one shot regardless of whether that's correct for all of
+--      them.
+--   4. Run each statement inside its own transaction, and re-run the
+--      relevant read-only audit query afterward to confirm it now returns
+--      zero rows for that id.
+--
+-- None of this touches passwordHash, tokens, or any other secret column -
+-- it would only ever touch the organizationId column on users/leads/
+-- visits/follow_ups.
+-- ============================================================================

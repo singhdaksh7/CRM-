@@ -1,5 +1,4 @@
 import { prisma } from "./prisma";
-import { getOrganizationId } from "./organization";
 import { cached, invalidateCache } from "./cache";
 import { logger } from "./logger";
 
@@ -171,8 +170,8 @@ export function mergeSystemConfig(overrides: Partial<SystemConfigValues> | null 
  * rules/lead-health.ts/rules/property-health.ts - a missing table here must
  * degrade to "use the old hardcoded defaults", never break lead creation.
  */
-export async function getSystemConfig(organizationId?: string): Promise<SystemConfigValues> {
-  const orgId = organizationId ?? getOrganizationId();
+export async function getSystemConfig(organizationId: string): Promise<SystemConfigValues> {
+  const orgId = organizationId;
   return cached(`system-config:${orgId}`, SYSTEM_CONFIG_CACHE_TTL_SECONDS, async () => {
     let row;
     try {
@@ -191,11 +190,11 @@ export async function getSystemConfig(organizationId?: string): Promise<SystemCo
 }
 
 export async function updateSystemConfig(params: {
-  organizationId?: string;
+  organizationId: string;
   updatedById: string;
   patch: Partial<SystemConfigValues>;
 }): Promise<SystemConfigValues> {
-  const orgId = params.organizationId ?? getOrganizationId();
+  const orgId = params.organizationId;
   const existing = await prisma.systemConfig.findUnique({ where: { organizationId: orgId } });
   const currentOverrides = existing ? (JSON.parse(existing.values) as Partial<SystemConfigValues>) : {};
   const nextOverrides: Partial<SystemConfigValues> = {

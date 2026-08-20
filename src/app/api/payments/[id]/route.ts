@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const payment = await prisma.payment.findFirst({
       where: { id, organizationId },
       include: { deal: { select: { id: true, dealCode: true } }, documents: true },
@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.payment.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Payment not found");
 
@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
 
     if (status && status !== existing.status) {
-      payment = await updatePaymentStatus({ paymentId: id, status, actorId: session.user.id });
+      payment = await updatePaymentStatus({ paymentId: id, status, actorId: session.user.id, organizationId });
     } else {
       await recordAudit({ userId: session.user.id, action: "UPDATE", entityType: "Payment", entityId: id, oldValues: existing, newValues: data });
     }
@@ -62,7 +62,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const session = await requireSession(["ADMIN"]);
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const existing = await prisma.payment.findFirst({ where: { id, organizationId } });
     if (!existing) throw new ApiError(404, "Payment not found");
 

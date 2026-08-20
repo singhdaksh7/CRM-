@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { rows, mapping } = schema.parse(await req.json());
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const preview = await previewContactImport({ rows, columnMapping: mapping, organizationId });
     return NextResponse.json({ rows: preview });
   } catch (error) {

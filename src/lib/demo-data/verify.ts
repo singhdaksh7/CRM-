@@ -164,12 +164,12 @@ export async function runVerification(params: {
   try {
     const leadLabels: string[] = [];
     for (const leadId of Object.values(params.leadScenarioIds)) {
-      const h = await getLeadHealth(leadId);
+      const h = await getLeadHealth(leadId, orgId);
       if (h) leadLabels.push(h.label);
     }
     const propertyLabels: string[] = [];
     for (const propertyId of Object.values(params.propertyScenarioIds)) {
-      const h = await getPropertyHealth(propertyId);
+      const h = await getPropertyHealth(propertyId, orgId);
       if (h) propertyLabels.push(h.label);
     }
     const leadOverview = await getLeadHealthOverview(orgId);

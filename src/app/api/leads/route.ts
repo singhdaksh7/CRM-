@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
     const sp = req.nextUrl.searchParams;
-    const where: Record<string, unknown> = { organizationId: getOrganizationId(session.user.id) };
+    const where: Record<string, unknown> = { organizationId: getOrganizationId(session.user) };
 
     if (session.user.role === "FIELD_EXECUTIVE") {
       where.assignedToId = session.user.id;
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const body = await req.json();
     const data = leadSchema.parse(body);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const count = await prisma.lead.count({ where: { organizationId } });
 
     // Non-blocking duplicate check: webhook leads already hard-block on

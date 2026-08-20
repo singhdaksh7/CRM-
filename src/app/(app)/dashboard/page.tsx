@@ -10,7 +10,7 @@ import { Building2, Home, Landmark, Users, UserX, BellRing, CalendarClock, Troph
 import type { Role } from "@prisma/client";
 import Link from "next/link";
 import { getActionCenterItems, getLeadHealthOverview, getPropertyHealthOverview } from "@/lib/rules";
-import { getOrganizationId } from "@/lib/organization";
+import { resolveOrganizationIdForUser } from "@/lib/organization";
 import { ActionCenterList } from "@/components/dashboard/action-center-list";
 import { HealthOverviewCard } from "@/components/dashboard/health-overview-card";
 import { DemoDataBanner } from "@/components/dashboard/demo-data-banner";
@@ -172,12 +172,12 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
 }
 
 async function ManagerVisitBoardSection({ userId }: { userId: string }) {
-  const board = await getManagerVisitBoard(getOrganizationId(userId));
+  const board = await getManagerVisitBoard(await resolveOrganizationIdForUser(userId));
   return <ManagerVisitBoard board={board} />;
 }
 
 async function FieldOpsSummarySection({ userId }: { userId: string }) {
-  const organizationId = getOrganizationId(userId);
+  const organizationId = await resolveOrganizationIdForUser(userId);
   const summary = await getFieldOpsSummary(organizationId);
   return <FieldOpsSummaryPanel summary={summary} />;
 }
@@ -188,7 +188,7 @@ async function SmartActionCenter({ role, userId }: { role: Role; userId: string 
 }
 
 async function HealthOverviewSection({ role, userId }: { role: Role; userId: string }) {
-  const organizationId = getOrganizationId(userId);
+  const organizationId = await resolveOrganizationIdForUser(userId);
   const [leadDistribution, propertyDistribution] = await Promise.all([
     getLeadHealthOverview(organizationId, role === "FIELD_EXECUTIVE" ? userId : undefined),
     getPropertyHealthOverview(organizationId),

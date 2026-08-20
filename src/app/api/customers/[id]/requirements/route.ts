@@ -11,7 +11,7 @@ import { recordAudit } from "@/lib/audit";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
-    const organizationId = getOrganizationId(session.user.id);
+    const organizationId = getOrganizationId(session.user);
     const { id } = await params;
     const contact = await prisma.customerContact.findFirst({ where: { id, organizationId } });
     if (!contact) throw new ApiError(404, "Contact not found");

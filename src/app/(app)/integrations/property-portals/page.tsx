@@ -8,7 +8,7 @@ import { getHousingWebhookUrl } from "@/integrations/housing/config";
 
 export default async function PropertyPortalsPage() {
   const session = await auth();
-  const organizationId = getOrganizationId(session!.user.id);
+  const organizationId = getOrganizationId(session!.user);
   const connections = await prisma.propertyPortalConnection.findMany({ where: { organizationId }, select: { provider: true, status: true, connectionMode: true, displayName: true, lastSyncAt: true, lastSuccessfulSyncAt: true, lastErrorSummary: true } });
   const byProvider = new Map(connections.map((connection) => [connection.provider, connection]));
   const lastHousingEvent = await prisma.externalLeadEvent.findFirst({ where: { organizationId, provider: "HOUSING" }, orderBy: { receivedAt: "desc" }, select: { receivedAt: true, ingestionStatus: true } });

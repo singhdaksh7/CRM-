@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PropertyForm } from "@/components/properties/property-form";
+import { auth } from "@/lib/auth";
+import { getOrganizationId } from "@/lib/organization";
 
 export default async function EditPropertyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const property = await prisma.property.findUnique({ where: { id } });
+  const session = await auth();
+  const property = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session!.user) } });
   if (!property) notFound();
 
   return (
