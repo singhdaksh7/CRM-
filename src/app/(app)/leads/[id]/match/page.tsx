@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PropertyMatchingWorkspace } from "@/components/leads/property-matching-workspace";
+import { getOrganizationId } from "@/lib/organization";
 
 /**
  * Canonical entry point for the unified Property Matching Workspace - browse
@@ -14,7 +15,7 @@ export default async function LeadMatchPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const session = await auth();
 
-  const lead = await prisma.lead.findUnique({ where: { id } });
+  const lead = await prisma.lead.findFirst({ where: { id, organizationId: getOrganizationId(session!.user.id) } });
   if (!lead) notFound();
   if (session!.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session!.user.id) notFound();
 

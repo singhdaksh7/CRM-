@@ -11,9 +11,9 @@ import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireSession();
+    const session = await requireSession();
     const { id } = await params;
-    const property = await prisma.property.findUnique({ where: { id } });
+    const property = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user.id) } });
     if (!property) throw new ApiError(404, "Property not found");
     return NextResponse.json({ property });
   } catch (err) {
@@ -27,7 +27,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
     const { amenities, images, availableFrom, ...data } = propertySchema.partial().parse(body);
-    const existing = await prisma.property.findUnique({ where: { id } });
+    const existing = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user.id) } });
+    if (!existing) throw new ApiError(404, "Property not found");
     const property = await prisma.property.update({
       where: { id },
       data: {
@@ -89,8 +90,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireSession(["ADMIN", "DATA_MANAGER"]);
+    const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
+    const existing = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user.id) } });
+    if (!existing) throw new ApiError(404, "Property not found");
     await prisma.property.update({ where: { id }, data: { status: "INACTIVE" } });
     return NextResponse.json({ success: true });
   } catch (err) {

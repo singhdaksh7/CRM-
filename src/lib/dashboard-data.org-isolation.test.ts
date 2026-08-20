@@ -88,7 +88,7 @@ const leadGroupBy = vi.fn(async (args: { where: Record<string, unknown>; by: str
   for (const l of filtered) groups.set(l[key], (groups.get(l[key]) ?? 0) + 1);
   return Array.from(groups.entries()).map(([k, count]) => ({ [key]: k, _count: { _all: count } }));
 });
-const leadFindMany = vi.fn(async () => []);
+const leadFindMany = vi.fn(async (..._args: unknown[]) => []);
 
 const propertyGroupBy = vi.fn(async (args: { where?: Record<string, unknown> }) => {
   const filtered = properties.filter((p) => (args.where?.organizationId === undefined ? true : p.organizationId === args.where.organizationId));
@@ -120,11 +120,11 @@ const queryRaw = vi.fn(async (strings: TemplateStringsArray, ...values: unknown[
   return [{ bucket: today, count: BigInt(filtered.length) }];
 });
 
-const followUpCount = vi.fn(async () => 0);
-const visitCount = vi.fn(async () => 0);
-const whatsAppMessageCount = vi.fn(async () => 0);
-const catalogueInteractionCount = vi.fn(async () => 0);
-const catalogueInteractionFindMany = vi.fn(async () => []);
+const followUpCount = vi.fn(async (..._args: unknown[]) => 0);
+const visitCount = vi.fn(async (..._args: unknown[]) => 0);
+const whatsAppMessageCount = vi.fn(async (..._args: unknown[]) => 0);
+const catalogueInteractionCount = vi.fn(async (..._args: unknown[]) => 0);
+const catalogueInteractionFindMany = vi.fn(async (..._args: unknown[]) => []);
 
 vi.mock("./prisma", () => ({
   prisma: {

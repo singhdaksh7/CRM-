@@ -152,9 +152,9 @@ export function computeLeadHealth(input: LeadHealthInput, staleLeadDays = 14): H
   return buildHealthScore(factors, 50, fallback);
 }
 
-/** Orchestration: loads what computeLeadHealth needs and returns the result. Read-only, org-scoped via the lead's own organizationId. */
-export async function getLeadHealth(leadId: string): Promise<HealthScoreResult | null> {
-  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+/** Orchestration: loads what computeLeadHealth needs and returns the result. Read-only, org-scoped to the caller's organizationId. */
+export async function getLeadHealth(leadId: string, organizationId: string): Promise<HealthScoreResult | null> {
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId } });
   if (!lead) return null;
 
   const [config, availableProperties, pendingFollowUpCount, overdueFollowUpCount, scheduledVisitCount, missedVisitCount, catalogueSentCount, catalogueViewedCount, clientInterestCount, failedWhatsAppCount, feedback] = await Promise.all([

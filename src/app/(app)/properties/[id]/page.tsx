@@ -33,16 +33,24 @@ const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const property = await prisma.property.findUnique({ where: { id }, include: { partner: true } });
-  if (!property) notFound();
+  // (app)/layout.tsx already redirects to /login when there is no session,
+  // so this is always present here - resolved before the property lookup
+  // so the lookup itself can be organization-scoped, not just used for
+  // downstream reads/permission checks.
+  // (app)/layout.tsx already redirects to /login when there is no session,
+  // so this is always present here - resolved before the property lookup
+  // so the lookup itself can be organization-scoped, not just used for
+  // downstream reads/permission checks.
   const session = await auth();
-  const organizationId = session ? getOrganizationId(session.user.id) : property.organizationId;
-  const canEditDistribution = session ? ["ADMIN", "DATA_MANAGER"].includes(session.user.role) : false;
+  const organizationId = getOrganizationId(session!.user.id);
+  const property = await prisma.property.findFirst({ where: { id, organizationId }, include: { partner: true } });
+  if (!property) notFound();
+  const canEditDistribution = ["ADMIN", "DATA_MANAGER"].includes(session!.user.role);
 
   const [health, suggestions, timelineEvents, freshness, connections, listings, operations] = await Promise.all([
-    getPropertyHealth(property.id),
+    getPropertyHealth(property.id, organizationId),
     getPropertySuggestions(property.id),
-    getPropertyTimeline(property.id),
+    getPropertyTimeline(property.id, organizationId),
     getInventoryFreshness(property.id),
     prisma.propertyPortalConnection.findMany({ where: { organizationId } }),
     prisma.portalListing.findMany({ where: { organizationId, propertyId: property.id } }),
