@@ -6,6 +6,7 @@ import { generateCode } from "@/lib/utils";
 import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
 import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
+import { readTake, readSkip } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
   try {
@@ -56,7 +57,13 @@ export async function GET(req: NextRequest) {
         ? [{ monthlyRent: "desc" as const }, { salePrice: "desc" as const }]
         : { createdAt: "desc" as const };
 
-    const properties = await prisma.property.findMany({ where, orderBy: orderBy as never });
+    // Bounded like every other list endpoint in this app (see src/lib/pagination.ts) -
+    // this route previously ran an unbounded findMany() that returned every
+    // property row in the org on every call (used by EntityPicker's
+    // as-you-type search, which already sends `take` but had it ignored).
+    const take = readTake(sp);
+    const skip = readSkip(sp);
+    const properties = await prisma.property.findMany({ where, orderBy: orderBy as never, take, skip });
     return NextResponse.json({ properties });
   } catch (err) {
     return handleApiError(err);
