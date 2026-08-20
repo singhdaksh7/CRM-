@@ -1,0 +1,55 @@
+-- ============================================================================
+-- CONDITIONAL backfill - only needed if the read-only audit
+-- (2026-08-20-org-resolution-readonly-audit.sql, queries 3 and 4) actually
+-- finds rows. In a healthy single-tenant deployment (the only kind that has
+-- existed so far) it should find none, and this file should not be run at
+-- all.
+--
+-- NOT APPLIED to any database as part of this change. Do not run this
+-- against production without first running the read-only audit and having a
+-- human confirm which organization each affected row actually belongs to -
+-- the "-> 'org_default'" reassignments below are a same-org-as-everything-
+-- else-today default, not a verified correct answer for a genuinely
+-- multi-tenant deployment. If a second real organization exists by the time
+-- this is needed, replace 'org_default' below with the correct target org
+-- per row instead of running this as-is.
+--
+-- Each statement is wrapped in its own transaction and prints a manual
+-- verification query to run first. None of them touch passwordHash, tokens,
+-- or any other secret column.
+-- ============================================================================
+
+-- Repair users with a null/empty/dangling organizationId (query 3 in the
+-- read-only audit). Run the SELECT first; only run the UPDATE if you've
+-- confirmed 'org_default' is the correct target for every listed row.
+--
+-- SELECT id, email, role, status, "organizationId" FROM users
+--   WHERE "organizationId" IS NULL OR "organizationId" = ''
+--     OR "organizationId" NOT IN (SELECT id FROM organizations);
+--
+-- BEGIN;
+-- UPDATE users
+--   SET "organizationId" = 'org_default'
+--   WHERE "organizationId" IS NULL OR "organizationId" = ''
+--     OR "organizationId" NOT IN (SELECT id FROM organizations);
+-- COMMIT;
+
+-- Repair a Lead/Visit/FollowUp whose own organizationId disagrees with the
+-- organizationId of the User it's assigned/owned by (query 4 in the
+-- read-only audit). The correct fix is almost always to make the
+-- lead/visit/follow-up match the ASSIGNED USER's organization (the
+-- assignment itself is the more recent, more deliberate signal), not the
+-- reverse - but confirm this per-row before running.
+--
+-- BEGIN;
+-- UPDATE leads l SET "organizationId" = u."organizationId"
+--   FROM users u WHERE u.id = l."assignedToId" AND l."organizationId" <> u."organizationId";
+-- UPDATE visits v SET "organizationId" = u."organizationId"
+--   FROM users u WHERE u.id = v."assignedToId" AND v."organizationId" <> u."organizationId";
+-- UPDATE follow_ups f SET "organizationId" = u."organizationId"
+--   FROM users u WHERE u.id = f."ownerId" AND f."organizationId" <> u."organizationId";
+-- COMMIT;
+
+-- This file is intentionally left with every statement commented out - it
+-- is a reviewed-by-hand template, not a script meant to be piped into psql
+-- directly.
