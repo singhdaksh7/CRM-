@@ -1161,6 +1161,15 @@ model Property {
   @@index([organizationId, assetClass, listingType])
   @@index([organizationId, inventorySource])
   @@index([partnerId])
+  // The main /properties list (src/app/(app)/properties/page.tsx) and the
+  // GET /api/properties route default-sort newest-first with no other
+  // filter applied in the common case; there was no index at all covering
+  // a bare createdAt sort, so Postgres had to sort the full result set
+  // in-memory instead of walking an index in order. (Both of those queries
+  // currently have no organizationId predicate - a separate multi-tenancy
+  // gap out of scope for this performance pass - so this is a plain index,
+  // not an organizationId-prefixed composite.)
+  @@index([createdAt])
   @@map("properties")
 }
 
@@ -1260,6 +1269,28 @@ model Lead {
   @@index([organizationId, assignedToId])
   @@index([organizationId, assetClass, transactionType])
   @@index([organizationId, portalProvider, externalLeadId])
+  // Serves the main /leads list (src/app/(app)/leads/page.tsx): org-scoped,
+  // paginated, default-sorted newest-first - previously had no index
+  // covering both the organizationId filter and the createdAt sort, so
+  // every page load beyond a trivial dataset size required an in-memory
+  // sort over every one of the org's lead rows.
+  @@index([organizationId, createdAt])
+  // The dashboard's newLeadsToday count (src/lib/dashboard-data.ts) filters
+  // only by a createdAt range, with no organizationId predicate (a
+  // separate, pre-existing multi-tenancy gap in that query, out of scope
+  // for this performance pass - see PERFORMANCE.md / audit notes). This
+  // index matches that literal query shape as found; if/when that query
+  // gains an organizationId filter, prefer folding this into an
+  // organizationId-prefixed composite instead.
+  @@index([createdAt])
+  // Dashboard's unassignedLeads count filters assignedToId: null with no
+  // organizationId predicate (same gap as above) - the existing
+  // [organizationId, assignedToId] composite can't serve a query that
+  // never supplies organizationId.
+  @@index([assignedToId])
+  // Dashboard's dealsClosedThisMonth count: status = CLOSED_WON AND
+  // updatedAt >= start-of-month, again with no organizationId predicate.
+  @@index([status, updatedAt])
   @@map("leads")
 }
 
