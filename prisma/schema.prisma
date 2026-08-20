@@ -1166,13 +1166,17 @@ model Property {
   @@index([organizationId, inventorySource])
   @@index([partnerId])
   // GET /api/properties and the /properties list page default-sort
-  // newest-first; both gained an organizationId predicate as part of the
-  // org-isolation audit (previously missing it entirely - the actual
-  // vulnerability, not just a performance gap).
+  // newest-first, and are now organizationId-scoped (org-isolation audit -
+  // previously missing that predicate entirely, which was the actual
+  // vulnerability, not just a performance gap). Verified live at
+  // src/app/api/properties/route.ts: `where: { organizationId, ... }`,
+  // `orderBy: { createdAt }`. A plain (unprefixed) createdAt index would be
+  // redundant since no surviving query sorts by createdAt without an
+  // organizationId predicate.
   @@index([organizationId, createdAt])
   // propertiesByLocation (dashboard-data.ts) and propertiesByArea/
   // propertiesByBhk (locality-analytics-data.ts) groupBy area/bhk, both
-  // now organizationId-scoped for the same reason.
+  // organizationId-scoped for the same reason.
   @@index([organizationId, area])
   @@index([organizationId, bhk])
   @@map("properties")
@@ -1274,11 +1278,17 @@ model Lead {
   @@index([organizationId, assignedToId])
   @@index([organizationId, assetClass, transactionType])
   @@index([organizationId, portalProvider, externalLeadId])
+  // Serves the main /leads list (src/app/(app)/leads/page.tsx) and GET
+  // /api/leads: org-scoped, paginated, default-sorted newest-first.
+  // Also covers dashboard-data.ts's newLeadsToday count, which is
+  // organizationId + createdAt-range scoped post-merge (org-isolation
+  // audit added the organizationId predicate that was previously missing
+  // there - see src/lib/dashboard-data.ts computeCriticalData).
+  @@index([organizationId, createdAt])
   // The three indexes below serve dashboard-data.ts queries that gained an
   // organizationId predicate as part of the org-isolation audit (they were
   // previously missing it entirely, which was itself the vulnerability -
   // see the audit report). Sized to the literal shape of each query:
-  // - newLeadsToday: organizationId + createdAt range
   // - dealsClosedThisMonth: organizationId + status + updatedAt range
   // - leadsBySource: organizationId + groupBy column
   // - leadsByStatus: organizationId + groupBy(status) - deliberately NOT a
@@ -1286,9 +1296,20 @@ model Lead {
   //   updatedAt] below already serves any query filtering/grouping on just
   //   the (organizationId, status) prefix, so a narrower index here would
   //   be pure write-amplification with no read benefit.
-  @@index([organizationId, createdAt])
   @@index([organizationId, status, updatedAt])
   @@index([organizationId, source])
+  // NOTE: an unprefixed @@index([assignedToId]) and @@index([createdAt])/
+  // @@index([status, updatedAt]) existed on the performance branch to serve
+  // queries that were missing an organizationId predicate at the time
+  // (a pre-existing multi-tenancy gap, not yet fixed). The org-isolation
+  // merge fixed every one of those call sites to filter by organizationId
+  // first (verified by reading src/lib/dashboard-data.ts,
+  // src/app/(app)/leads/page.tsx, src/app/api/leads/bulk-auto-assign/route.ts,
+  // src/lib/rules/dashboard-actions.ts - every assignedToId/createdAt/
+  // status+updatedAt filter on Lead now carries organizationId in the same
+  // where clause), so the existing [organizationId, assignedToId] index
+  // above and the composites here already serve them. The unprefixed
+  // indexes are dropped as redundant write-amplification.
   @@map("leads")
 }
 

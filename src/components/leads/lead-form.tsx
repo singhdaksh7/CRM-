@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import type { User } from "@prisma/client";
 import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
@@ -36,7 +35,12 @@ type FormValues = {
   liftRequired: boolean;
 };
 
-export function LeadForm({ employees }: { employees: User[] }) {
+// Only id/name are ever rendered here - see src/lib/user-select.ts for why
+// the server component that provides `employees` deliberately excludes
+// passwordHash and other account fields rather than passing a full User row.
+type EmployeeOption = { id: string; name: string };
+
+export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const { register, handleSubmit, watch } = useForm<FormValues>({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession, handleApiError } from "@/lib/api-auth";
 import { getUnreadCount } from "@/lib/notifications";
+import { getOrganizationId } from "@/lib/organization";
 import { withTiming } from "@/lib/perf";
 
 /**
@@ -13,7 +14,8 @@ export async function GET() {
   const route = "/api/notifications/unread-count";
   try {
     const session = await withTiming("auth", route, () => requireSession());
-    const unreadCount = await withTiming("getUnreadCount", route, () => getUnreadCount(session.user.id, session.user.role));
+    const organizationId = getOrganizationId(session.user);
+    const unreadCount = await withTiming("getUnreadCount", route, () => getUnreadCount(session.user.id, session.user.role, organizationId));
     return NextResponse.json({ unreadCount });
   } catch (err) {
     return handleApiError(err);

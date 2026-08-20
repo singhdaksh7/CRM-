@@ -9,6 +9,7 @@ import { runMatchingForLead } from "@/lib/lead-matching";
 import { notifyRoles } from "@/lib/notifications";
 import { getOrganizationId } from "@/lib/organization";
 import { logger } from "@/lib/logger";
+import { assignedToSelect } from "@/lib/user-select";
 
 const REQUIREMENT_FIELDS = ["preferredLocation", "minBudget", "maxBudget", "preferredBhk", "requirementType", "moveInDate"] as const;
 
@@ -20,10 +21,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const lead = await prisma.lead.findFirst({
       where: { id, organizationId },
       include: {
-        assignedTo: true,
-        activities: { orderBy: { createdAt: "desc" }, include: { actor: true } },
-        followUps: { orderBy: { dueDate: "asc" }, include: { owner: true } },
-        visits: { orderBy: { visitDate: "desc" }, include: { property: true, assignedTo: true } },
+        assignedTo: { select: assignedToSelect },
+        activities: { orderBy: { createdAt: "desc" }, include: { actor: { select: assignedToSelect } } },
+        followUps: { orderBy: { dueDate: "asc" }, include: { owner: { select: assignedToSelect } } },
+        visits: { orderBy: { visitDate: "desc" }, include: { property: true, assignedTo: { select: assignedToSelect } } },
         sharedProperties: { orderBy: { createdAt: "desc" } },
       } as never,
     });
@@ -108,7 +109,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    const finalLead = await prisma.lead.findUnique({ where: { id }, include: { assignedTo: true } });
+    const finalLead = await prisma.lead.findUnique({ where: { id }, include: { assignedTo: { select: assignedToSelect } } });
     return NextResponse.json({ lead: finalLead });
   } catch (err) {
     return handleApiError(err);

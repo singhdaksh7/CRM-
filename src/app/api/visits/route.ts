@@ -7,6 +7,7 @@ import { checkVisitConflict } from "@/lib/visit-conflict";
 import { recordAudit } from "@/lib/audit";
 import { scheduleVisit, visitRoleScopeWhere, upcomingVisitsWhere, todaysVisitsWhere } from "@/lib/visits";
 import { startOfIstDay, endOfIstDay } from "@/lib/ist-date";
+import { assignedToSelect } from "@/lib/user-select";
 import type { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
       include: {
         lead: true,
         property: true,
-        assignedTo: true,
+        assignedTo: { select: assignedToSelect },
         properties: { include: { property: true }, orderBy: { sequence: "asc" } },
       },
       orderBy: { visitDate: "asc" },

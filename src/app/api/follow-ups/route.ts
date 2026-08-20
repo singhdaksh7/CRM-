@@ -5,6 +5,7 @@ import { followUpSchema } from "@/lib/validators";
 import { logActivity } from "@/lib/activity";
 import { getOrganizationId } from "@/lib/organization";
 import { createNotification } from "@/lib/notifications";
+import { assignedToSelect } from "@/lib/user-select";
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     const followUps = await prisma.followUp.findMany({
       where,
-      include: { lead: true, owner: true },
+      include: { lead: true, owner: { select: assignedToSelect } },
       orderBy: { dueDate: "asc" },
     });
     return NextResponse.json({ followUps });

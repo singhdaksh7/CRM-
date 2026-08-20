@@ -1,6 +1,6 @@
 import { getLocalityAnalytics } from "@/lib/locality-analytics-data";
 import { ReportsTabs } from "@/components/dashboard/reports-tabs";
-import { BarChartCard, PieChartCard } from "@/components/dashboard/charts";
+import { BarChartCard, PieChartCard } from "@/components/dashboard/charts-dynamic";
 import { auth } from "@/lib/auth";
 import { getOrganizationId } from "@/lib/organization";
 

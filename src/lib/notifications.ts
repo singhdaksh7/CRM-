@@ -53,10 +53,18 @@ export function notificationVisibilityWhere(userId: string, role: Role) {
   };
 }
 
-export async function getUnreadCount(userId: string, role: Role): Promise<number> {
+export async function getUnreadCount(userId: string, role: Role, organizationId: string): Promise<number> {
   return withTiming("getUnreadCount", "notifications", () =>
     prisma.notification.count({
-      where: { ...notificationVisibilityWhere(userId, role), isRead: false },
+      // organizationId is required here, not just userId/role - the
+      // `{ userId: null, role }` branch of notificationVisibilityWhere
+      // matches role-broadcast notifications (see notifyRoles()), which
+      // are role-scoped, not user-scoped, so without this predicate an
+      // ADMIN/DATA_MANAGER in one org would be counted into the broadcast
+      // notifications of every other org sharing that role. See GET
+      // /api/notifications (src/app/api/notifications/route.ts), which
+      // already adds this predicate at the call site.
+      where: { organizationId, ...notificationVisibilityWhere(userId, role), isRead: false },
     })
   );
 }
@@ -84,7 +92,10 @@ export async function generateDueFollowUpNotifications(organizationId = DEFAULT_
       dueDate: { lte: now },
       leadId: { not: null },
     },
-    include: { lead: true, owner: true },
+    // `owner` was never read below (only followUp.ownerId is) - dropped
+    // from the include entirely rather than given a narrow select, so no
+    // User row (passwordHash included) is ever fetched for this sweep.
+    include: { lead: true },
   });
 
   if (dueFollowUps.length === 0) return { checked: 0, created: 0 };

@@ -1,7 +1,7 @@
 import { getLostDealAnalytics } from "@/lib/lost-deal-analytics-data";
 import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { BarChartCard, PieChartCard } from "@/components/dashboard/charts";
+import { BarChartCard, PieChartCard } from "@/components/dashboard/charts-dynamic";
 import { XCircle, AlertTriangle } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getOrganizationId } from "@/lib/organization";

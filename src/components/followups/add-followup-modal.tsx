@@ -6,11 +6,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { Plus, X } from "lucide-react";
-import type { Lead, User } from "@prisma/client";
+import type { Lead } from "@prisma/client";
 
 const TYPES = ["PHONE_CALL", "WHATSAPP", "PROPERTY_SHARING", "VISIT_CONFIRMATION", "NEGOTIATION", "DOCUMENTATION", "PAYMENT_REMINDER"];
 
-export function AddFollowUpModal({ leads, employees }: { leads: Lead[]; employees: User[] }) {
+// Only id/name are ever rendered here - see src/lib/user-select.ts for why
+// the server component that provides `employees` deliberately excludes
+// passwordHash and other account fields rather than passing a full User row.
+type EmployeeOption = { id: string; name: string };
+
+export function AddFollowUpModal({ leads, employees }: { leads: Lead[]; employees: EmployeeOption[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);

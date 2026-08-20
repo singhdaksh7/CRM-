@@ -41,6 +41,7 @@ import {
   RATING_DESCRIPTIONS,
   visitOutcomeFromRating,
 } from "./visit-progress";
+import { assignedToSelect } from "./user-select";
 import type { Prisma, Role, VisitPropertyStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -91,11 +92,11 @@ export async function loadVisitForActor(visitId: string, organizationId: string,
     include: {
       lead: true,
       property: true,
-      assignedTo: true,
+      assignedTo: { select: assignedToSelect },
       catalogueShare: true,
       // `partner` is needed so the detail DTO can show INDIRECT-inventory
       // contact details under the existing DIRECT/INDIRECT exposure rule.
-      properties: { include: { property: { include: { partner: true } }, visitedBy: true }, orderBy: { sequence: "asc" } },
+      properties: { include: { property: { include: { partner: true } }, visitedBy: { select: assignedToSelect } }, orderBy: { sequence: "asc" } },
     },
   });
   if (!visit) throw new ApiError(404, "Visit not found");
@@ -217,7 +218,7 @@ export async function scheduleVisit(input: ScheduleVisitInput) {
           })),
         },
       },
-      include: { lead: true, assignedTo: true, properties: { include: { property: true }, orderBy: { sequence: "asc" } } },
+      include: { lead: true, assignedTo: { select: assignedToSelect }, properties: { include: { property: true }, orderBy: { sequence: "asc" } } },
     });
 
     if (requestIds.length > 0) {

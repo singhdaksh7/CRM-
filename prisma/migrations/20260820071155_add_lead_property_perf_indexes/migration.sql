@@ -1,0 +1,42 @@
+-- This migration is now a deliberate no-op.
+--
+-- Original content (never applied to any database - dev, staging, or
+-- production) added four indexes to serve query shapes that predated the
+-- org-isolation security audit (5acd9d5 and related commits on main):
+--   properties_createdAt_idx            (unprefixed)
+--   leads_organizationId_createdAt_idx  (duplicate of the same index in
+--                                         20260820090000_org_isolation_indexes)
+--   leads_createdAt_idx                 (unprefixed)
+--   leads_assignedToId_idx              (unprefixed)
+--   leads_status_updatedAt_idx          (unprefixed)
+--
+-- Reconciled during the feature/performance-optimization <- origin/main
+-- merge (2026-08-20). The org-isolation audit added an organizationId
+-- predicate to every query these indexes were built for, which was
+-- verified by reading the call sites directly rather than assumed:
+--   - GET /api/properties (src/app/api/properties/route.ts) and the
+--     /properties list page: `where: { organizationId, ... }`,
+--     `orderBy: { createdAt }`.
+--   - GET /api/leads (src/app/api/leads/route.ts) and the /leads list
+--     page: `where: { organizationId: ..., ... }`, `orderBy: { createdAt }`.
+--   - dashboard-data.ts newLeadsToday / dealsClosedThisMonth: both now
+--     `where: { organizationId, ... }` (see computeCriticalData).
+--   - dashboard-data.ts unassignedLeads: now
+--     `where: { organizationId, assignedToId: null }`.
+--   - No remaining call site anywhere in the codebase filters Lead by a
+--     bare assignedToId, createdAt, or (status, updatedAt) without an
+--     organizationId predicate in the same where clause (grepped across
+--     src/ for assignedToId/createdAt usage on the Lead model).
+--
+-- With every one of those queries now organizationId-scoped, the
+-- organizationId-prefixed composite indexes added by
+-- 20260820090000_org_isolation_indexes (leads_organizationId_createdAt_idx,
+-- leads_organizationId_status_updatedAt_idx, properties_organizationId_
+-- createdAt_idx, and the existing leads_organizationId_assignedToId_idx)
+-- already serve them. Re-adding the unprefixed/duplicate indexes here
+-- would be pure write-amplification with no read benefit, and would
+-- duplicate leads_organizationId_createdAt_idx outright.
+--
+-- Left as an empty, applied-and-tracked no-op migration (rather than
+-- deleted) so the migration history stays linear and prisma migrate
+-- status does not show a gap. Still NOT applied to any database.

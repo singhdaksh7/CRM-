@@ -11,11 +11,12 @@ import { formatDate, enumToLabel } from "@/lib/utils";
 import { withTiming } from "@/lib/perf";
 import { getOrganizationId } from "@/lib/organization";
 import { computeVisitProgress, todaysVisitsWhere, upcomingVisitsWhere, visitRoleScopeWhere } from "@/lib/visits";
+import { assignedToSelect } from "@/lib/user-select";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 
 type VisitWithRelations = Prisma.VisitGetPayload<{
-  include: { lead: true; property: true; assignedTo: true; properties: { include: { property: true } } };
+  include: { lead: true; property: true; assignedTo: { select: typeof assignedToSelect }; properties: { include: { property: true } } };
 }>;
 
 const TABS = [
@@ -58,7 +59,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
     Promise.all([
       prisma.visit.findMany({
         where,
-        include: { lead: true, property: true, assignedTo: true, properties: { include: { property: true }, orderBy: { sequence: "asc" } } },
+        include: { lead: true, property: true, assignedTo: { select: assignedToSelect }, properties: { include: { property: true }, orderBy: { sequence: "asc" } } },
         orderBy: { visitDate: tab === "upcoming" ? "asc" : "desc" },
         skip: isAllTab ? (page - 1) * DEFAULT_PAGE_SIZE : 0,
         take: isAllTab ? DEFAULT_PAGE_SIZE : SAFETY_CAP,
@@ -68,7 +69,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       // them were, so the Schedule Visit modal could offer another org's data.
       canManage ? prisma.lead.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 100 }) : Promise.resolve([]),
       canManage ? prisma.property.findMany({ where: { organizationId, status: "AVAILABLE" }, take: 200 }) : Promise.resolve([]),
-      canManage ? prisma.user.findMany({ where: { organizationId, role: "FIELD_EXECUTIVE", status: "ACTIVE" } }) : Promise.resolve([]),
+      canManage ? prisma.user.findMany({ where: { organizationId, role: "FIELD_EXECUTIVE", status: "ACTIVE" }, select: assignedToSelect }) : Promise.resolve([]),
     ])
   );
 

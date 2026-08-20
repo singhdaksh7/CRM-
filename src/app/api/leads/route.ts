@@ -12,6 +12,8 @@ import { notifyRoles } from "@/lib/notifications";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
 import { logger } from "@/lib/logger";
 import { runAutomationRules } from "@/lib/automation-rules";
+import { readTake, readSkip } from "@/lib/pagination";
+import { assignedToSelect } from "@/lib/user-select";
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,10 +46,17 @@ export async function GET(req: NextRequest) {
     const transactionType = sp.get("transactionType");
     if (transactionType) where.transactionType = transactionType;
 
+    // Bounded (see src/lib/pagination.ts) - previously an unbounded findMany()
+    // that returned every lead row in the org, with the full assignedTo User
+    // row (including passwordHash) attached to each one.
+    const take = readTake(sp);
+    const skip = readSkip(sp);
     const leads = await prisma.lead.findMany({
       where,
-      include: { assignedTo: true },
+      include: { assignedTo: { select: assignedToSelect } },
       orderBy: { createdAt: "desc" },
+      take,
+      skip,
     });
     return NextResponse.json({ leads });
   } catch (err) {
@@ -116,7 +125,7 @@ export async function POST(req: NextRequest) {
       leadId: lead.id,
     });
 
-    const finalLead = await prisma.lead.findUnique({ where: { id: lead.id }, include: { assignedTo: true } });
+    const finalLead = await prisma.lead.findUnique({ where: { id: lead.id }, include: { assignedTo: { select: assignedToSelect } } });
     return NextResponse.json({ lead: finalLead, duplicateWarning }, { status: 201 });
   } catch (err) {
     return handleApiError(err);

@@ -22,7 +22,14 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
       Promise.all([
         prisma.user.findMany({
           where: { organizationId },
-          include: { _count: { select: { assignedLeads: true, assignedVisits: true, followUps: true } } },
+          // Explicit select (never `include`) - only the fields this table
+          // actually renders, deliberately excluding the credential hash and
+          // other account/auth fields from the RSC payload.
+          select: {
+            id: true, name: true, role: true, email: true, phone: true,
+            maxActiveLeads: true, isAvailable: true, lastLoginAt: true, status: true,
+            _count: { select: { assignedLeads: true, assignedVisits: true, followUps: true } },
+          },
           orderBy: { createdAt: "asc" },
           skip: (page - 1) * DEFAULT_PAGE_SIZE,
           take: DEFAULT_PAGE_SIZE,

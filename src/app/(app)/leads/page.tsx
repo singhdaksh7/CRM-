@@ -9,6 +9,7 @@ import { BulkAutoAssignButton } from "@/components/leads/bulk-auto-assign-button
 import { LeadsTable } from "@/components/leads/leads-table";
 import { SavedViewsBar } from "@/components/saved-views/saved-views-bar";
 import { getOrganizationId } from "@/lib/organization";
+import { assignedToSelect } from "@/lib/user-select";
 import { Plus } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 
@@ -31,9 +32,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   const [leads, totalCount, employees, unassignedCount] = await withTiming("leadsPageQuery", "/leads", () =>
     Promise.all([
-      prisma.lead.findMany({ where, include: { assignedTo: true }, orderBy: { createdAt: "desc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
+      prisma.lead.findMany({ where, include: { assignedTo: { select: assignedToSelect } }, orderBy: { createdAt: "desc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
       prisma.lead.count({ where }),
-      prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" } }),
+      // Only id/name are rendered (assignment filter + bulk-assign dropdowns) -
+      // select instead of a bare findMany() so passwordHash and other account
+      // fields never leave the server for this dropdown data.
+      prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" }, select: assignedToSelect }),
       prisma.lead.count({ where: { organizationId, assignedToId: null, status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"] } } }),
     ])
   );

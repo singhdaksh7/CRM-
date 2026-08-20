@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { getPhase5Analytics } from "@/lib/phase5-analytics";
 import { getOrganizationId } from "@/lib/organization";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { BarChartCard, PieChartCard } from "@/components/dashboard/charts";
+import { BarChartCard, PieChartCard } from "@/components/dashboard/charts-dynamic";
 import { Building2, Clock, Trophy, XCircle } from "lucide-react";
 
 export default async function Phase5ReportsPage() {

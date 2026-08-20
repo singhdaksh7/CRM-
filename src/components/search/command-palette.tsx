@@ -46,6 +46,7 @@ export function CommandPalette({ role }: { role: Role }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const closePalette = useCallback(() => {
     setOpen(false);
@@ -73,6 +74,11 @@ export function CommandPalette({ role }: { role: Role }) {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 2) {
+      // A query shrinking back below the minimum (backspace) should cancel
+      // whatever the previous, longer query still had in flight - otherwise
+      // its response can land after we've already cleared the list and
+      // repopulate it with stale results.
+      abortRef.current?.abort();
       // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale results once the query drops below the minimum length
       setResults([]);
       setChips([]);
@@ -80,15 +86,25 @@ export function CommandPalette({ role }: { role: Role }) {
     }
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
+      // Cancel any still-in-flight request from a previous keystroke before
+      // starting a new one - without this, a fast typer can have an older
+      // request's response resolve after a newer one and overwrite the
+      // current results with stale data (in addition to the wasted DB work
+      // of a query nobody will see the result of).
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           setResults(data.results ?? []);
           setChips(data.query?.chips ?? []);
         }
+      } catch (err) {
+        if ((err as { name?: string })?.name !== "AbortError") throw err;
       } finally {
-        setLoading(false);
+        if (abortRef.current === controller) setLoading(false);
       }
     }, DEBOUNCE_MS);
     return () => {

@@ -8,6 +8,7 @@ import { runMatchingForLead } from "./lead-matching";
 import { notifyRoles } from "./notifications";
 import { ApiError } from "./api-auth";
 import { logger } from "./logger";
+import { assignedToSelect } from "./user-select";
 import type { z } from "zod";
 import type { mockWebhookLeadSchema } from "./validators";
 import type { LeadSource } from "@prisma/client";
@@ -70,7 +71,7 @@ export async function ingestWebhookLead(data: WebhookLeadInput, source: LeadSour
     leadId: lead.id,
   });
 
-  const finalLead = await prisma.lead.findUnique({ where: { id: lead.id }, include: { assignedTo: true } });
+  const finalLead = await prisma.lead.findUnique({ where: { id: lead.id }, include: { assignedTo: { select: assignedToSelect } } });
   logger.info("lead_webhook_ingested", { leadId: lead.id, source, externalLeadId: data.externalLeadId, assigned: !!assignment });
   return { lead: finalLead, assignment, score };
 }
