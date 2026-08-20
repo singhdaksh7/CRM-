@@ -3,53 +3,45 @@
 -- (2026-08-20-org-resolution-readonly-audit.sql, queries 3 and 4) actually
 -- finds rows. In a healthy single-tenant deployment (the only kind that has
 -- existed so far) it should find none, and this file should not be run at
--- all.
+-- all - in that case there is nothing to do here.
 --
--- NOT APPLIED to any database as part of this change. Do not run this
--- against production without first running the read-only audit and having a
--- human confirm which organization each affected row actually belongs to -
--- the "-> 'org_default'" reassignments below are a same-org-as-everything-
--- else-today default, not a verified correct answer for a genuinely
--- multi-tenant deployment. If a second real organization exists by the time
--- this is needed, replace 'org_default' below with the correct target org
--- per row instead of running this as-is.
+-- NOT APPLIED to any database as part of this change.
 --
--- Each statement is wrapped in its own transaction and prints a manual
--- verification query to run first. None of them touch passwordHash, tokens,
--- or any other secret column.
+-- DELIBERATELY NOT A RUNNABLE SCRIPT. There is no generic
+-- "UPDATE users SET organizationId = ..." statement in this file, even
+-- commented out - a blanket reassignment is exactly the mistake this file
+-- exists to prevent: it could mass-reassign every affected user to the same
+-- organization without anyone having individually confirmed that's correct
+-- for each one. If the read-only audit ever finds affected rows, the
+-- required process is:
+--
+--   1. Run the audit's query 3 (users with no/dangling organizationId) and
+--      query 4 (leads/visits/follow-ups whose org disagrees with their
+--      assigned user) and get the actual list of affected row ids.
+--   2. For EACH id, a human decides the correct target organization - this
+--      is a real business decision (which brokerage does this user/lead
+--      actually belong to), not something inferable from the query alone.
+--      "org_default" is the answer today only because every organization
+--      that currently exists IS org_default; that stops being true the
+--      moment a second real tenant is onboarded, and this file must not be
+--      the thing that quietly papers over getting that wrong.
+--   3. Write ONE UPDATE per id (or a small explicit VALUES list built from
+--      the reviewed set, never a bare WHERE clause matching "everything
+--      broken"), e.g.:
+--
+--        UPDATE users SET "organizationId" = '<reviewed-target-org-id>'
+--          WHERE id = '<specific-user-id-from-step-1>';
+--
+--      repeated for each confirmed id - never a single statement whose
+--      WHERE clause is "organizationId IS NULL OR NOT IN (...)" or
+--      equivalent, since that reassigns every matching row to the same
+--      target in one shot regardless of whether that's correct for all of
+--      them.
+--   4. Run each statement inside its own transaction, and re-run the
+--      relevant read-only audit query afterward to confirm it now returns
+--      zero rows for that id.
+--
+-- None of this touches passwordHash, tokens, or any other secret column -
+-- it would only ever touch the organizationId column on users/leads/
+-- visits/follow_ups.
 -- ============================================================================
-
--- Repair users with a null/empty/dangling organizationId (query 3 in the
--- read-only audit). Run the SELECT first; only run the UPDATE if you've
--- confirmed 'org_default' is the correct target for every listed row.
---
--- SELECT id, email, role, status, "organizationId" FROM users
---   WHERE "organizationId" IS NULL OR "organizationId" = ''
---     OR "organizationId" NOT IN (SELECT id FROM organizations);
---
--- BEGIN;
--- UPDATE users
---   SET "organizationId" = 'org_default'
---   WHERE "organizationId" IS NULL OR "organizationId" = ''
---     OR "organizationId" NOT IN (SELECT id FROM organizations);
--- COMMIT;
-
--- Repair a Lead/Visit/FollowUp whose own organizationId disagrees with the
--- organizationId of the User it's assigned/owned by (query 4 in the
--- read-only audit). The correct fix is almost always to make the
--- lead/visit/follow-up match the ASSIGNED USER's organization (the
--- assignment itself is the more recent, more deliberate signal), not the
--- reverse - but confirm this per-row before running.
---
--- BEGIN;
--- UPDATE leads l SET "organizationId" = u."organizationId"
---   FROM users u WHERE u.id = l."assignedToId" AND l."organizationId" <> u."organizationId";
--- UPDATE visits v SET "organizationId" = u."organizationId"
---   FROM users u WHERE u.id = v."assignedToId" AND v."organizationId" <> u."organizationId";
--- UPDATE follow_ups f SET "organizationId" = u."organizationId"
---   FROM users u WHERE u.id = f."ownerId" AND f."organizationId" <> u."organizationId";
--- COMMIT;
-
--- This file is intentionally left with every statement commented out - it
--- is a reviewed-by-hand template, not a script meant to be piped into psql
--- directly.

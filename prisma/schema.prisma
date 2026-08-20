@@ -1274,17 +1274,21 @@ model Lead {
   @@index([organizationId, assignedToId])
   @@index([organizationId, assetClass, transactionType])
   @@index([organizationId, portalProvider, externalLeadId])
-  // The four indexes below serve dashboard-data.ts queries that gained an
+  // The three indexes below serve dashboard-data.ts queries that gained an
   // organizationId predicate as part of the org-isolation audit (they were
   // previously missing it entirely, which was itself the vulnerability -
   // see the audit report). Sized to the literal shape of each query:
   // - newLeadsToday: organizationId + createdAt range
   // - dealsClosedThisMonth: organizationId + status + updatedAt range
-  // - leadsBySource / leadsByStatus: organizationId + groupBy column
+  // - leadsBySource: organizationId + groupBy column
+  // - leadsByStatus: organizationId + groupBy(status) - deliberately NOT a
+  //   separate [organizationId, status] index; [organizationId, status,
+  //   updatedAt] below already serves any query filtering/grouping on just
+  //   the (organizationId, status) prefix, so a narrower index here would
+  //   be pure write-amplification with no read benefit.
   @@index([organizationId, createdAt])
   @@index([organizationId, status, updatedAt])
   @@index([organizationId, source])
-  @@index([organizationId, status])
   @@map("leads")
 }
 

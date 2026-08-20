@@ -107,3 +107,22 @@ SELECT 'customer_contacts', "organizationId", count(*) FROM customer_contacts GR
 UNION ALL
 SELECT 'customer_requirements', "organizationId", count(*) FROM customer_requirements GROUP BY "organizationId"
 ORDER BY 1, 2;
+
+-- 6. One-shot executive summary answering "do we actually have more than
+--    one real tenant, and how much of everything is still on org_default":
+--    total organization count, total user count, how many users sit on
+--    the literal 'org_default' row vs. elsewhere, and how many DISTINCT
+--    organizations actually have at least one user. Note on "duplicate/
+--    ambiguous org relationships": not applicable to this schema by
+--    construction - User.organizationId is a single NOT NULL foreign key
+--    (one user belongs to exactly one organization, never several), so
+--    there is no many-to-many membership table that could produce an
+--    ambiguous/duplicate association in the first place; query 3 above is
+--    the relevant integrity check for this schema shape (a dangling or
+--    empty organizationId), not a duplicate-membership check.
+SELECT
+  (SELECT count(*) FROM organizations)                                   AS total_organizations,
+  (SELECT count(*) FROM users)                                           AS total_users,
+  (SELECT count(*) FROM users WHERE "organizationId" = 'org_default')    AS users_on_org_default,
+  (SELECT count(*) FROM users WHERE "organizationId" <> 'org_default')   AS users_on_other_orgs,
+  (SELECT count(DISTINCT "organizationId") FROM users)                  AS distinct_orgs_with_users;

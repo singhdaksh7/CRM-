@@ -84,6 +84,23 @@ export async function resolveOrganizationIdForUser(userId: string): Promise<stri
  * DEFAULT_ORGANIZATION_ID only because this product runs a single
  * organization in practice today; set SYSTEM_ORGANIZATION_ID explicitly
  * once that's no longer true.
+ *
+ * INVARIANT - every current caller (the notification-sweep cron, the
+ * WhatsApp Meta webhook, mock-portal webhook lead ingestion) is, and must
+ * remain, a SINGLE-ORGANIZATION job: the whole deployment has exactly one
+ * WhatsApp provider config and one set of portal integrations, so there is
+ * only ever one correct org for these jobs to run as - the fallback to
+ * org_default is safe because it can never be one org among several that
+ * silently absorbs another org's activity. This function must NEVER be
+ * used by a job that logically needs to act across multiple organizations
+ * (e.g. a future scheduled job that sweeps every tenant). Such a job must
+ * NOT call this and silently process only org_default - it must instead
+ * enumerate `Organization` rows explicitly (`prisma.organization.findMany()`)
+ * and run its logic once per org with that org's own id, or take an
+ * explicit trusted tenant context per invocation. Do not add a new
+ * multi-org iteration path here "for convenience" - if one is ever
+ * genuinely needed, it belongs in the caller, not folded into this
+ * single-org resolver.
  */
 export function getSystemOrganizationId(): string {
   return process.env.SYSTEM_ORGANIZATION_ID?.trim() || DEFAULT_ORGANIZATION_ID;

@@ -35,8 +35,13 @@
 -- dealsClosedThisMonth count (organizationId + status=CLOSED_WON +
 -- updatedAt range).
 --
--- leads_organizationId_source_idx / leads_organizationId_status_idx:
--- dashboard-data.ts's leadsBySource/leadsByStatus groupBy queries.
+-- leads_organizationId_source_idx: dashboard-data.ts's leadsBySource
+-- groupBy query. leadsByStatus's groupBy(organizationId, status)
+-- deliberately has NO separate index of its own here -
+-- leads_organizationId_status_updatedAt_idx below already covers any
+-- query filtering/grouping on just the (organizationId, status) prefix,
+-- so a narrower [organizationId, status] index would be pure write
+-- amplification with no read benefit.
 --
 -- NOTE on the sibling feature/performance-optimization branch: that branch
 -- independently added properties_createdAt_idx, leads_createdAt_idx,
@@ -76,9 +81,6 @@ CREATE INDEX "leads_organizationId_status_updatedAt_idx" ON "leads"("organizatio
 
 -- CreateIndex
 CREATE INDEX "leads_organizationId_source_idx" ON "leads"("organizationId", "source");
-
--- CreateIndex
-CREATE INDEX "leads_organizationId_status_idx" ON "leads"("organizationId", "status");
 
 -- CreateIndex
 CREATE INDEX "activities_organizationId_createdAt_idx" ON "activities"("organizationId", "createdAt");
