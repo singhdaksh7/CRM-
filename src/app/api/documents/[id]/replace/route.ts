@@ -6,6 +6,7 @@ import { getOrganizationId } from "@/lib/organization";
 import { replaceDocument } from "@/lib/documents";
 import { canAccessDocument } from "@/lib/document-access";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { objectKeyBelongsToOrg } from "@/lib/storage-providers/object-key";
 
 const replaceSchema = z.object({
   fileName: z.string().min(1).max(255),
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const body = await req.json();
     const data = replaceSchema.parse(body);
+    if (data.storageKey && !objectKeyBelongsToOrg(data.storageKey, organizationId)) {
+      throw new ApiError(400, "Invalid storage key for this organization");
+    }
 
     const document = await replaceDocument({ documentId: id, actorId: session.user.id, ...data });
     return NextResponse.json({ document }, { status: 201 });
