@@ -991,6 +991,10 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([role, isRead])
+  // Serves searchNotifications() in src/lib/search/entity-search.ts, now
+  // that it carries an organizationId predicate (see org-isolation audit) -
+  // no existing index covered organizationId at all.
+  @@index([organizationId, createdAt])
   @@map("notifications")
 }
 
@@ -1161,6 +1165,16 @@ model Property {
   @@index([organizationId, assetClass, listingType])
   @@index([organizationId, inventorySource])
   @@index([partnerId])
+  // GET /api/properties and the /properties list page default-sort
+  // newest-first; both gained an organizationId predicate as part of the
+  // org-isolation audit (previously missing it entirely - the actual
+  // vulnerability, not just a performance gap).
+  @@index([organizationId, createdAt])
+  // propertiesByLocation (dashboard-data.ts) and propertiesByArea/
+  // propertiesByBhk (locality-analytics-data.ts) groupBy area/bhk, both
+  // now organizationId-scoped for the same reason.
+  @@index([organizationId, area])
+  @@index([organizationId, bhk])
   @@map("properties")
 }
 
@@ -1260,6 +1274,17 @@ model Lead {
   @@index([organizationId, assignedToId])
   @@index([organizationId, assetClass, transactionType])
   @@index([organizationId, portalProvider, externalLeadId])
+  // The four indexes below serve dashboard-data.ts queries that gained an
+  // organizationId predicate as part of the org-isolation audit (they were
+  // previously missing it entirely, which was itself the vulnerability -
+  // see the audit report). Sized to the literal shape of each query:
+  // - newLeadsToday: organizationId + createdAt range
+  // - dealsClosedThisMonth: organizationId + status + updatedAt range
+  // - leadsBySource / leadsByStatus: organizationId + groupBy column
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, source])
+  @@index([organizationId, status])
   @@map("leads")
 }
 
@@ -1612,6 +1637,10 @@ model Activity {
   @@index([crmOwnerId])
   @@index([dealId])
   @@index([inventoryPartnerId])
+  // Serves GET /api/activities and dashboard-data.ts's recentActivities,
+  // both now organizationId-scoped (see org-isolation audit) - previously
+  // no index covered organizationId on this table at all.
+  @@index([organizationId, createdAt])
   @@map("activities")
 }
 
