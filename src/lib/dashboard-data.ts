@@ -146,7 +146,7 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
     },
     async () => {
       newLeadsToday = await safe("newLeadsToday", 0, () =>
-        prisma.lead.count({ where: { ...scopedLead, createdAt: { gte: startOfToday, lte: endOfToday } } })
+        prisma.lead.count({ where: { organizationId, ...scopedLead, createdAt: { gte: startOfToday, lte: endOfToday } } })
       );
     },
     async () => {
@@ -168,7 +168,7 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
     },
     async () => {
       unassignedLeads = await safe("unassignedLeads", 0, () =>
-        prisma.lead.count({ where: { assignedToId: null } })
+        prisma.lead.count({ where: { organizationId, assignedToId: null } })
       );
     },
     async () => {
@@ -185,7 +185,7 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
     },
     async () => {
       dealsClosedThisMonth = await safe("dealsClosedThisMonth", 0, () =>
-        prisma.lead.count({ where: { ...scopedLead, status: "CLOSED_WON", updatedAt: { gte: startOfMonth } } })
+        prisma.lead.count({ where: { organizationId, ...scopedLead, status: "CLOSED_WON", updatedAt: { gte: startOfMonth } } })
       );
     },
     async () => {
@@ -261,6 +261,7 @@ export async function getDashboardSecondaryData(role: Role, userId: string): Pro
 }
 
 async function computeSecondaryData(role: Role, userId: string): Promise<DashboardSecondaryData> {
+  const organizationId = getOrganizationId(userId);
   const scopedLead = role === "FIELD_EXECUTIVE" ? { assignedToId: userId } : {};
 
   let employeeLeadCounts: DashboardSecondaryData["employeeLeadCounts"] = [];
@@ -274,37 +275,37 @@ async function computeSecondaryData(role: Role, userId: string): Promise<Dashboa
     async () => {
       employeeLeadCounts = await safe("employeeLeadCounts", employeeLeadCounts, async () => {
         const rows = await prisma.user.findMany({
-          where: { role: "FIELD_EXECUTIVE" },
-          select: { id: true, name: true, _count: { select: { assignedLeads: true } } },
+          where: { organizationId, role: "FIELD_EXECUTIVE" },
+          select: { id: true, name: true, _count: { select: { assignedLeads: { where: { organizationId } } } } },
         });
         return rows.map((e) => ({ name: e.name, count: e._count.assignedLeads }));
       });
     },
     async () => {
       leadsBySource = await safe("leadsBySource", leadsBySource, async () => {
-        const rows = await prisma.lead.groupBy({ by: ["source"], _count: { _all: true }, where: scopedLead });
+        const rows = await prisma.lead.groupBy({ by: ["source"], _count: { _all: true }, where: { organizationId, ...scopedLead } });
         return rows.map((s) => ({ name: s.source.replace(/_/g, " "), value: s._count._all }));
       });
     },
     async () => {
       leadsByStatus = await safe("leadsByStatus", leadsByStatus, async () => {
-        const rows = await prisma.lead.groupBy({ by: ["status"], _count: { _all: true }, where: scopedLead });
+        const rows = await prisma.lead.groupBy({ by: ["status"], _count: { _all: true }, where: { organizationId, ...scopedLead } });
         return rows.map((s) => ({ name: s.status.replace(/_/g, " "), value: s._count._all }));
       });
     },
     async () => {
       propertiesByLocation = await safe("propertiesByLocation", propertiesByLocation, async () => {
-        const rows = await prisma.property.groupBy({ by: ["area"], _count: { _all: true } });
+        const rows = await prisma.property.groupBy({ by: ["area"], _count: { _all: true }, where: { organizationId } });
         return rows.map((p) => ({ name: p.area, value: p._count._all })).sort((a, b) => b.value - a.value).slice(0, 8);
       });
     },
     async () => {
       recentActivities = await safe("recentActivities", recentActivities, () =>
-        prisma.activity.findMany({ where: { leadId: { not: null } }, include: { actor: true, lead: true }, orderBy: { createdAt: "desc" }, take: 8 })
+        prisma.activity.findMany({ where: { organizationId, leadId: { not: null }, ...(role === "FIELD_EXECUTIVE" ? { lead: { assignedToId: userId } } : {}) }, include: { actor: true, lead: true }, orderBy: { createdAt: "desc" }, take: 8 })
       );
     },
     async () => {
-      monthlyTrend = await safe("monthlyTrend", monthlyTrend, () => getMonthlyTrend(role, userId));
+      monthlyTrend = await safe("monthlyTrend", monthlyTrend, () => getMonthlyTrend(role, userId, organizationId));
     },
   ];
 
@@ -416,7 +417,7 @@ async function computeLeadsAwaitingShortlist(organizationId: string): Promise<Le
  * leads-count and one deals-count per month) with 2 grouped raw-SQL
  * aggregates, then fills in any month with no rows as 0.
  */
-async function getMonthlyTrend(role: Role, userId: string): Promise<MonthlyTrendPoint[]> {
+async function getMonthlyTrend(role: Role, userId: string, organizationId: string): Promise<MonthlyTrendPoint[]> {
   const now = new Date();
   const months: { key: string; label: string }[] = [];
   for (let i = 5; i >= 0; i--) {
@@ -430,14 +431,14 @@ async function getMonthlyTrend(role: Role, userId: string): Promise<MonthlyTrend
     prisma.$queryRaw<{ bucket: Date; count: bigint }[]>`
       SELECT date_trunc('month', "createdAt") AS bucket, count(*)::bigint AS count
       FROM "leads"
-      WHERE "createdAt" >= ${rangeStart}
+      WHERE "organizationId" = ${organizationId} AND "createdAt" >= ${rangeStart}
       ${scopeClause}
       GROUP BY 1
     `,
     prisma.$queryRaw<{ bucket: Date; count: bigint }[]>`
       SELECT date_trunc('month', "updatedAt") AS bucket, count(*)::bigint AS count
       FROM "leads"
-      WHERE status = 'CLOSED_WON' AND "updatedAt" >= ${rangeStart}
+      WHERE "organizationId" = ${organizationId} AND status = 'CLOSED_WON' AND "updatedAt" >= ${rangeStart}
       ${scopeClause}
       GROUP BY 1
     `,
