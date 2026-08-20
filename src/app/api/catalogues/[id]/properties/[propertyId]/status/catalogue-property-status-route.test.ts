@@ -10,7 +10,7 @@ const propertyTimelineEventCreate = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    catalogueShare: { findUnique: (...a: unknown[]) => catalogueShareFindUnique(...a) },
+    catalogueShare: { findFirst: (...a: unknown[]) => catalogueShareFindUnique(...a) },
     lead: { findFirst: (...a: unknown[]) => leadFindFirst(...a) },
     catalogueShareProperty: { update: (...a: unknown[]) => catalogueSharePropertyUpdate(...a) },
     activity: { create: (...a: unknown[]) => activityCreate(...a) },

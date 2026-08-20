@@ -56,7 +56,7 @@ const ORG_B = "org_b";
 const USER_A = { authVersion: 1, status: "ACTIVE" as const, role: "ADMIN" as const, organizationId: ORG_A };
 const USER_B = { authVersion: 1, status: "ACTIVE" as const, role: "FIELD_EXECUTIVE" as const, organizationId: ORG_B };
 
-async function resolveSessionFor(userId: string, dbState: typeof USER_A) {
+async function resolveSessionFor(userId: string, dbState: { authVersion: number; status: "ACTIVE"; role: string; organizationId: string }) {
   getSessionAuthState.mockResolvedValueOnce(dbState);
   const token = await capturedConfig.callbacks.jwt({ token: { id: userId, authVersion: dbState.authVersion } });
   expect(token).not.toBeNull();
@@ -88,8 +88,9 @@ describe("two-organization authentication", () => {
     // Simulates a request handler that spreads untrusted query/body data
     // onto an object before this call - organizationId here must still
     // come from the trusted session field, not from smuggled input.
-    const tampered = { ...sessionA.user, id: "user-a", queryParams: { organizationId: ORG_B } } as typeof sessionA.user & {
-      queryParams: { organizationId: string };
+    const tampered: { organizationId?: string | null; queryParams: { organizationId: string } } = {
+      organizationId: sessionA.user.organizationId as string,
+      queryParams: { organizationId: ORG_B },
     };
     expect(getOrganizationId(tampered)).toBe(ORG_A);
   });

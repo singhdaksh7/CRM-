@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const session = await requireSession(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"]);
     const { id, propertyId } = await params;
-    const catalogue = await getCatalogueById(id);
+    const catalogue = await getCatalogueById(id, getOrganizationId(session.user));
     await assertLeadAccessible(session, catalogue.leadId);
 
     const cp = catalogue.properties.find((p) => p.propertyId === propertyId);

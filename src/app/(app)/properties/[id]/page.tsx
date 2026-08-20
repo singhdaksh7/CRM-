@@ -49,9 +49,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
   const [health, suggestions, timelineEvents, freshness, connections, listings, operations] = await Promise.all([
     getPropertyHealth(property.id, organizationId),
-    getPropertySuggestions(property.id),
+    getPropertySuggestions(property.id, organizationId),
     getPropertyTimeline(property.id, organizationId),
-    getInventoryFreshness(property.id),
+    getInventoryFreshness(property.id, organizationId),
     prisma.propertyPortalConnection.findMany({ where: { organizationId } }),
     prisma.portalListing.findMany({ where: { organizationId, propertyId: property.id } }),
     prisma.portalOperation.findMany({ where: { organizationId, status: { in: ["RETRYABLE", "DEAD_LETTER"] }, portalListing: { propertyId: property.id } } }),

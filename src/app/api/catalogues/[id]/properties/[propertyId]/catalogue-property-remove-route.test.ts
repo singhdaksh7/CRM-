@@ -4,13 +4,15 @@ import { NextRequest } from "next/server";
 const catalogueShareFindUnique = vi.fn();
 const transaction = vi.fn();
 const activityCreate = vi.fn();
+const leadFindFirst = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    catalogueShare: { findUnique: (...a: unknown[]) => catalogueShareFindUnique(...a), update: vi.fn() },
+    catalogueShare: { findFirst: (...a: unknown[]) => catalogueShareFindUnique(...a), update: vi.fn() },
     catalogueShareProperty: { update: vi.fn() },
     catalogueVersionEvent: { create: vi.fn() },
     activity: { create: (...a: unknown[]) => activityCreate(...a) },
+    lead: { findFirst: (...a: unknown[]) => leadFindFirst(...a) },
     $transaction: (...a: unknown[]) => transaction(...a),
   },
 }));
@@ -43,6 +45,8 @@ vi.mock("@/lib/api-auth", async () => {
   };
 });
 
+vi.mock("@/lib/organization", () => ({ getOrganizationId: (user: { id: string }) => (user.id === "admin1" ? "org_default" : "org_other") }));
+
 function CATALOGUE(overrides = {}) {
   return {
     id: "cat1",
@@ -66,7 +70,14 @@ function params() {
 beforeEach(() => {
   vi.clearAllMocks();
   sessionUser = { id: "admin1", role: "ADMIN" };
-  catalogueShareFindUnique.mockResolvedValue(CATALOGUE());
+  // Behavioral, not a dumb stub: only resolves when the where clause's
+  // organizationId actually matches the catalogue's own org - so a
+  // cross-org lookup genuinely 404s here rather than the mock papering
+  // over a missing filter in the route/lib code.
+  catalogueShareFindUnique.mockImplementation((args: { where: { organizationId: string } }) =>
+    args.where.organizationId === "org_default" ? CATALOGUE() : null
+  );
+  leadFindFirst.mockResolvedValue({ id: "lead1", assignedToId: null });
   transaction.mockResolvedValue([]);
 });
 
@@ -99,5 +110,13 @@ describe("DELETE /api/catalogues/[id]/properties/[propertyId]", () => {
     const { DELETE } = await import("./route");
     const res = await DELETE(req(), params());
     expect(res.status).toBe(409);
+  });
+
+  it("404s (not a successful mutation) when an ADMIN from a different organization requests the same catalogue id - this route previously had NO lead/org check at all before mutating", async () => {
+    sessionUser = { id: "admin-other-org", role: "ADMIN" };
+    const { DELETE } = await import("./route");
+    const res = await DELETE(req(), params());
+    expect(res.status).toBe(404);
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

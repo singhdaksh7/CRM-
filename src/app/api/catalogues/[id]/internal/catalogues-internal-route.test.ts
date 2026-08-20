@@ -6,7 +6,7 @@ const leadFindFirst = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    catalogueShare: { findUnique: (...a: unknown[]) => catalogueShareFindUnique(...a) },
+    catalogueShare: { findFirst: (...a: unknown[]) => catalogueShareFindUnique(...a) },
     lead: { findFirst: (...a: unknown[]) => leadFindFirst(...a) },
   },
 }));

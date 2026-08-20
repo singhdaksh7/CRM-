@@ -55,14 +55,20 @@ export function computeInventoryFreshness(input: InventoryFreshnessInput, thresh
   return "STALE";
 }
 
-/** Orchestration: loads what computeInventoryFreshness needs for a single property. */
-export async function getInventoryFreshness(propertyId: string): Promise<FreshnessLabel | null> {
-  const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { organizationId: true, updatedAt: true, lastVerifiedAt: true } });
+/**
+ * Self-defending on organizationId: takes it as a required parameter and
+ * enforces it in the property lookup itself (findFirst, not findUnique),
+ * rather than relying on every caller having already validated ownership
+ * before calling this. A cross-org propertyId now returns null (same as
+ * "not found").
+ */
+export async function getInventoryFreshness(propertyId: string, organizationId: string): Promise<FreshnessLabel | null> {
+  const property = await prisma.property.findFirst({ where: { id: propertyId, organizationId }, select: { organizationId: true, updatedAt: true, lastVerifiedAt: true } });
   if (!property) return null;
 
   const [config, lastVisit] = await Promise.all([
     getSystemConfig(property.organizationId),
-    prisma.visit.findFirst({ where: { propertyId }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+    prisma.visit.findFirst({ where: { propertyId, organizationId }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
   ]);
 
   return computeInventoryFreshness(
