@@ -5,6 +5,7 @@ const leadCount = vi.fn();
 const leadCreate = vi.fn();
 const leadFindFirst = vi.fn();
 const leadFindUnique = vi.fn();
+const leadFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -13,6 +14,7 @@ vi.mock("@/lib/prisma", () => ({
       create: (...a: unknown[]) => leadCreate(...a),
       findFirst: (...a: unknown[]) => leadFindFirst(...a),
       findUnique: (...a: unknown[]) => leadFindUnique(...a),
+      findMany: (...a: unknown[]) => leadFindMany(...a),
     },
   },
 }));
@@ -63,12 +65,16 @@ vi.mock("@/integrations/whatsapp", () => ({
   },
 }));
 
-const { POST } = await import("./route");
+const { POST, GET } = await import("./route");
 
 function jsonRequest(body: unknown) {
   return new NextRequest(
     new Request("https://x.test/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
   );
+}
+
+function getRequest(query = "") {
+  return new NextRequest(new Request(`https://x.test/api/leads${query}`));
 }
 
 const VALID_BODY = {
@@ -91,6 +97,42 @@ beforeEach(() => {
   runMatchingForLead.mockResolvedValue({ matchCount: 0 });
   leadCreate.mockResolvedValue({ id: "lead1", clientName: "Rahul Sharma", preferredLocation: "Janakpuri", assignedToId: "emp1" });
   leadFindUnique.mockResolvedValue({ id: "lead1", clientName: "Rahul Sharma" });
+  leadFindMany.mockResolvedValue([]);
+});
+
+describe("GET /api/leads - bounded pagination", () => {
+  it("passes a bounded default take when the client sends none, instead of an unbounded findMany", async () => {
+    await GET(getRequest());
+
+    expect(leadFindMany).toHaveBeenCalledTimes(1);
+    const args = leadFindMany.mock.calls[0][0];
+    expect(typeof args.take).toBe("number");
+    expect(args.take).toBeGreaterThan(0);
+    expect(args.take).toBeLessThanOrEqual(200); // MAX_PAGE_SIZE in src/lib/pagination.ts
+    expect(args.skip).toBe(0);
+  });
+
+  it("honors a client-supplied take (e.g. EntityPicker's as-you-type take=10), clamped to the max page size", async () => {
+    await GET(getRequest("?take=10"));
+
+    const args = leadFindMany.mock.calls[0][0];
+    expect(args.take).toBe(10);
+  });
+
+  it("clamps an oversized take request instead of returning the entire table", async () => {
+    await GET(getRequest("?take=999999"));
+
+    const args = leadFindMany.mock.calls[0][0];
+    expect(args.take).toBeLessThanOrEqual(200);
+  });
+
+  it("never includes passwordHash in the assignedTo projection", async () => {
+    await GET(getRequest());
+
+    const args = leadFindMany.mock.calls[0][0];
+    expect(args.include.assignedTo.select).toEqual({ id: true, name: true });
+    expect(args.include.assignedTo.select.passwordHash).toBeUndefined();
+  });
 });
 
 describe("POST /api/leads - duplicate-lead soft warning", () => {

@@ -55,7 +55,7 @@ export function NotificationBell() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch of the unread count once the shell has already rendered
+    // Initial fetch of the unread count once the shell has already rendered.
     loadCount();
 
     let interval: ReturnType<typeof setInterval> | null = null;
