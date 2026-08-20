@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, Check, CheckCheck } from "lucide-react";
 import { timeAgo } from "@/lib/utils";
 import { NOTIFICATION_ICONS, notificationHref } from "./notification-meta";
 import type { Notification } from "@prisma/client";
 
-const UNREAD_COUNT_POLL_MS = 30_000;
+// Widened from 30s: the bell already refreshes on window focus, so a
+// backgrounded/inactive tab doesn't need a tight interval to still feel
+// live the moment the user comes back to it. Paired with the
+// visibilitychange handling below (pause entirely while the tab is
+// hidden) so a user with many tabs open isn't polling from all of them
+// at once in the background.
+const UNREAD_COUNT_POLL_MS = 45_000;
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -18,12 +24,22 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[] | null>(null);
   const [loading, setLoading] = useState(false);
+  // Guards against overlapping requests - a slow response plus a focus
+  // event (or the interval firing again) should never fire a second
+  // concurrent /unread-count request.
+  const inFlight = useRef(false);
 
   async function loadCount() {
-    const res = await fetch("/api/notifications/unread-count");
-    if (res.ok) {
-      const data = await res.json();
-      setUnreadCount(data.unreadCount);
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      const res = await fetch("/api/notifications/unread-count");
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadCount(data.unreadCount);
+      }
+    } finally {
+      inFlight.current = false;
     }
   }
 
@@ -41,11 +57,38 @@ export function NotificationBell() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch of the unread count once the shell has already rendered
     loadCount();
-    const interval = setInterval(loadCount, UNREAD_COUNT_POLL_MS);
+
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const startPolling = () => {
+      if (interval) return;
+      interval = setInterval(loadCount, UNREAD_COUNT_POLL_MS);
+    };
+    const stopPolling = () => {
+      if (!interval) return;
+      clearInterval(interval);
+      interval = null;
+    };
+
+    // Backgrounded tabs (switched away, minimized, other-tab-focused)
+    // shouldn't keep polling a database every 45s for a count nobody is
+    // looking at - pause while hidden, catch up with one fetch + resume
+    // polling the moment the tab is visible again.
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        loadCount();
+        startPolling();
+      }
+    };
     const onFocus = () => loadCount();
+
+    if (!document.hidden) startPolling();
+    document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("focus", onFocus);
     return () => {
-      clearInterval(interval);
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", onFocus);
     };
   }, []);
