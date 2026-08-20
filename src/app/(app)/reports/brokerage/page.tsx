@@ -1,7 +1,7 @@
 import { getBrokerageAnalytics } from "@/lib/brokerage-analytics-data";
 import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { BarChartCard } from "@/components/dashboard/charts";
+import { BarChartCard } from "@/components/dashboard/charts-dynamic";
 import { Wallet, Clock, CheckCircle2, TrendingUp } from "lucide-react";
 
 export default async function BrokerageAnalyticsPage() {

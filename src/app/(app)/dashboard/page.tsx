@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { getDashboardCriticalData, getDashboardSecondaryData } from "@/lib/dashboard-data";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { BarChartCard, PieChartCard, TrendChartCard } from "@/components/dashboard/charts";
+import { BarChartCard, PieChartCard, TrendChartCard } from "@/components/dashboard/charts-dynamic";
 import { LeadsAwaitingShortlistPanel } from "@/components/dashboard/leads-awaiting-shortlist-panel";
 import { Badge, LEAD_STATUS_TONE } from "@/components/ui/badge";
 import { timeAgo, enumToLabel } from "@/lib/utils";

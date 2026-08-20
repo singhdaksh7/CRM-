@@ -3,7 +3,7 @@ import { getVisitAnalytics, MIN_REACTION_SAMPLE } from "@/lib/visit-analytics-da
 import { getOrganizationId } from "@/lib/organization";
 import { auth } from "@/lib/auth";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { BarChartCard, PieChartCard } from "@/components/dashboard/charts";
+import { BarChartCard, PieChartCard } from "@/components/dashboard/charts-dynamic";
 import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { Badge } from "@/components/ui/badge";
 import { enumToLabel } from "@/lib/utils";
