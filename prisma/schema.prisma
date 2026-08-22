@@ -287,6 +287,16 @@ enum FollowUpStatus {
   COMPLETED
   RESCHEDULED
   OVERDUE
+  // simplified-role-workflow (continuation pass) - a distinct terminal state
+  // for the "Cancel" action on the Add Follow-up UX (spec item 4), so a
+  // cancelled follow-up stops appearing in Today's Work without being
+  // conflated with COMPLETED (which means the work was actually done).
+  // Additive; every existing query that scopes active work whitelists
+  // `{ in: ["PENDING", "OVERDUE"] }` rather than blacklisting COMPLETED (see
+  // src/lib/notifications.ts, src/lib/dashboard-data.ts, src/lib/todays-work.ts
+  // etc.), so CANCELLED rows are automatically excluded from all of them
+  // without needing to touch each call site.
+  CANCELLED
 }
 
 enum ActivityType {

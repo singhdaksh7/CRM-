@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, handleApiError } from "@/lib/api-auth";
+import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { followUpSchema } from "@/lib/validators";
 import { logActivity } from "@/lib/activity";
 import { getOrganizationId } from "@/lib/organization";
 import { createNotification } from "@/lib/notifications";
 import { assignedToSelect } from "@/lib/user-select";
+import { assertLeadAccessible } from "@/lib/lead-access";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,6 +46,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = followUpSchema.parse(body);
     const organizationId = getOrganizationId(session.user);
+
+    // simplified-role-workflow security fix: this route previously created a
+    // FollowUp for ANY leadId in the request body with no check that the
+    // caller can actually access that lead - a field executive could attach
+    // a follow-up to a lead assigned to a different employee (or, before
+    // org-isolation, another organization's lead). assertLeadAccessible is
+    // the same gate every other per-lead route uses; a field executive is
+    // additionally required to own the assignment (writes stay stricter than
+    // the read-only "Unassigned Leads" browsing tab, same policy as
+    // POST /api/leads/[id]/phones).
+    const lead = await assertLeadAccessible(session, data.leadId);
+    if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
+      throw new ApiError(403, "Forbidden - this lead is not assigned to you");
+    }
 
     const followUp = await prisma.followUp.create({ data: { ...data, organizationId, dueDate: new Date(data.dueDate) } });
     await logActivity({ leadId: data.leadId, type: "FOLLOW_UP_SCHEDULED", description: `${data.type.replace(/_/g, " ")} follow-up scheduled`, actorId: session.user.id });
