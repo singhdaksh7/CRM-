@@ -63,15 +63,18 @@ export async function addLeadPhone(params: {
 
   try {
     // targeted fix pass (Correctness issue C) - the demote-then-create used
-    // to be two separate awaited calls. Under two concurrent "make primary"
-    // requests, both could pass the demote step before either's create ran,
-    // leaving two PRIMARY rows for the same lead. Bundling both statements
-    // into ONE transaction closes that window: whichever request's
-    // transaction commits second necessarily sees the first one's already-
-    // demoted row (Prisma's default transaction isolation serializes
-    // conflicting writes to the same rows), so at most one PRIMARY can ever
-    // survive. The demote step only runs when the new row is itself PRIMARY -
-    // adding a plain ALTERNATE number must never touch the existing PRIMARY.
+    // to be two separate awaited calls. Bundling both statements into ONE
+    // transaction closes the window where two concurrent "make primary"
+    // requests could each demote-then-see-nothing-to-demote and both still
+    // insert a PRIMARY row. This narrows the race but is NOT itself
+    // sufficient under PostgreSQL's default READ COMMITTED isolation - see
+    // the Blocker 3 comment on the LeadPhone model in schema.prisma and on
+    // the lead_phones_one_primary_per_lead partial unique index in
+    // prisma/migrations/20260822120000_simplified_role_workflow_additive/migration.sql,
+    // which is the actual DB-level backstop this catch block's P2002
+    // handling below is written against. The demote step only runs when the
+    // new row is itself PRIMARY - adding a plain ALTERNATE number must never
+    // touch the existing PRIMARY.
     const operations: Prisma.PrismaPromise<unknown>[] = [];
     if (type === "PRIMARY") {
       operations.push(prisma.leadPhone.updateMany({ where: { organizationId, leadId, type: "PRIMARY" }, data: { type: "ALTERNATE" } }));
@@ -92,12 +95,30 @@ export async function addLeadPhone(params: {
     const results = await prisma.$transaction(operations);
     return results[results.length - 1] as Awaited<ReturnType<typeof prisma.leadPhone.create>>;
   } catch (err) {
-    // The DB's own @@unique([organizationId, leadId, phone]) constraint -
-    // not a separate findFirst-then-create check, which would itself race
-    // under concurrent submissions of the same number - is the authoritative
-    // duplicate guard. This turns that constraint violation into the same
-    // clean 409 a duplicate always deserves, instead of an opaque 500.
+    // Two distinct DB-level unique constraints can both surface as P2002
+    // here, and each deserves its own clean conflict response rather than a
+    // generic 500 OR being conflated with the other:
+    //   A. @@unique([organizationId, leadId, phone]) - the same number
+    //      submitted twice for this lead (not a separate findFirst-then-
+    //      create check, which would itself race under concurrent
+    //      submissions of the same number - the DB constraint is the
+    //      authoritative guard).
+    //   B. lead_phones_one_primary_per_lead (raw-SQL partial unique index,
+    //      see schema.prisma's LeadPhone doc comment and the migration) -
+    //      two concurrent "make primary" requests both reached the INSERT;
+    //      one wins, the other lands here. This is Blocker 3's actual
+    //      backstop, not just a hypothetical.
+    // Postgres reports the violated index/constraint name in the error
+    // detail, which Prisma surfaces via err.meta.target; for a raw-SQL
+    // index Prisma doesn't recognize from its own DMMF, target is the bare
+    // index name string rather than a column-name array, so this checks for
+    // both shapes.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const target = err.meta?.target;
+      const targetText = Array.isArray(target) ? target.join(",") : String(target ?? "");
+      if (targetText.includes("one_primary_per_lead")) {
+        throw new ApiError(409, "Another phone number was just marked primary for this lead - refresh and try again");
+      }
       throw new ApiError(409, "This number is already saved for this lead");
     }
     throw err;

@@ -1353,11 +1353,21 @@ enum LeadPhoneType {
  * normalized to the same E.164-ish Indian format normalizeIndianPhone()
  * produces (see src/integrations/whatsapp.ts), org-scoped like every other
  * child table, unique per (organizationId, leadId, phone) to prevent the
- * same number being added twice to one lead, and at most one PRIMARY row per
- * lead (enforced in application code in src/lib/lead-phones.ts - Postgres has
- * no portable "at most one row where flag=true" constraint without a partial
- * unique index, which is left as a follow-up rather than hand-writing raw
- * SQL into a Prisma-managed migration).
+ * same number being added twice to one lead (@@unique below - Prisma-schema
+ * expressible, so declared normally), and at most one PRIMARY row per lead.
+ *
+ * The PRIMARY invariant is NOT expressed here - Prisma's schema DSL has no
+ * way to declare a partial (WHERE-qualified) unique index in this Prisma
+ * version, so `@@unique([organizationId, leadId])` would incorrectly also
+ * forbid a lead ever having more than one ALTERNATE number. The actual
+ * DB-level constraint - a partial unique index on (organizationId, leadId)
+ * WHERE type = 'PRIMARY' - is hand-written directly into
+ * prisma/migrations/20260822120000_simplified_role_workflow_additive/migration.sql
+ * (see that file's comments for the full reasoning and the pre-flight
+ * check). src/lib/lead-phones.ts's $transaction-based demote-then-create
+ * reduces the *frequency* of a race but is not itself sufficient under
+ * READ COMMITTED - the partial unique index is the real backstop, and
+ * addLeadPhone() turns a P2002 against it into a clean 409.
  *
  * Deliberately NOT a dedicated Customer/CustomerContact merge: adding a
  * number to a Lead never merges it with another Lead that already has that

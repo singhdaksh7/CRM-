@@ -47,8 +47,8 @@ import { Prisma } from "@prisma/client";
 const ORG_A = "org_a";
 const ORG_B = "org_b";
 
-function p2002(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" });
+function p2002(target?: string | string[]): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test", meta: target !== undefined ? { target } : undefined });
 }
 
 describe("normalizeOrThrow", () => {
@@ -124,9 +124,45 @@ describe("addLeadPhone", () => {
     // Simulates two requests racing past any in-process check and both
     // reaching the database - the DB's own unique constraint is what
     // actually prevents the duplicate row, surfaced here as Prisma's P2002.
+    transactionMock.mockRejectedValueOnce(p2002(["organizationId", "leadId", "phone"]));
+
+    await expect(addLeadPhone({ organizationId: ORG_A, leadId: "lead_1", phone: "9876543210" })).rejects.toMatchObject({ status: 409, message: "This number is already saved for this lead" });
+  });
+
+  // Blocker 3 (correctness issue C follow-up) - the $transaction demote-then
+  // -create alone does not prevent two concurrent "make primary" requests
+  // from both reaching the INSERT under READ COMMITTED (see the long
+  // comment in this function and in schema.prisma's LeadPhone doc comment).
+  // The lead_phones_one_primary_per_lead partial unique index
+  // (prisma/migrations/20260822120000_.../migration.sql) is the actual
+  // backstop; this proves the losing request gets a clean, distinct 409
+  // rather than either a 500 or being misreported as a duplicate-NUMBER
+  // conflict. True concurrent-transaction behavior against a real Postgres
+  // instance is not exercised here - see this file's transactionMock
+  // comment - this test only proves the P2002-classification contract:
+  // given a P2002 whose meta.target names the partial index, the caller is
+  // told specifically "someone else just made a number primary", not a
+  // generic duplicate-number message.
+  it("converts a concurrent PRIMARY conflict (partial unique index violation) into a distinct clean 409, not the duplicate-number message", async () => {
+    leadFindFirst.mockResolvedValue({ id: "lead_1", phone: "919999999999" });
+    transactionMock.mockRejectedValueOnce(p2002("lead_phones_one_primary_per_lead"));
+
+    let caught: unknown;
+    try {
+      await addLeadPhone({ organizationId: ORG_A, leadId: "lead_1", phone: "9876543210", type: "PRIMARY" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as ApiError).status).toBe(409);
+    expect((caught as Error).message).toMatch(/just marked primary/);
+  });
+
+  it("still returns a clean 409 for a PRIMARY conflict even when Prisma can't resolve the target (defaults to the duplicate-number message rather than a 500)", async () => {
+    leadFindFirst.mockResolvedValue({ id: "lead_1", phone: "919999999999" });
     transactionMock.mockRejectedValueOnce(p2002());
 
-    await expect(addLeadPhone({ organizationId: ORG_A, leadId: "lead_1", phone: "9876543210" })).rejects.toMatchObject({ status: 409 });
+    await expect(addLeadPhone({ organizationId: ORG_A, leadId: "lead_1", phone: "9876543210", type: "PRIMARY" })).rejects.toMatchObject({ status: 409 });
   });
 
   it("re-throws a non-conflict database error rather than misreporting it as a duplicate", async () => {

@@ -23,12 +23,40 @@
 --    only, NOT a cross-lead merge: the same phone number may legitimately
 --    exist on more than one Lead row (e.g. a family member enquiring
 --    separately), matching the existing warn-don't-merge behavior already
---    used for Lead.phone duplicates in POST /api/leads. "At most one PRIMARY
---    row per lead" is enforced in application code
---    (src/lib/lead-phones.ts), not a DB constraint - Postgres has no
---    portable "at most one row where type='PRIMARY'" constraint without a
---    partial unique index; adding one is a suggested follow-up, not done
---    here to keep this migration a straight schema-diff output.
+--    used for Lead.phone duplicates in POST /api/leads.
+--
+--    "At most one PRIMARY row per lead" (Blocker 3, correctness issue C
+--    follow-up): src/lib/lead-phones.ts bundles the demote-old-PRIMARY +
+--    create-new-PRIMARY into a single $transaction, but under PostgreSQL's
+--    default READ COMMITTED isolation that transaction alone does NOT
+--    prevent two concurrent "add new PRIMARY" requests from both
+--    succeeding - the second request's UPDATE ... WHERE type='PRIMARY' can
+--    legitimately match zero rows (the first transaction already demoted
+--    the only PRIMARY row and committed) while its own INSERT still goes
+--    through, leaving two PRIMARY rows. The lead_phones_one_primary_per_lead
+--    partial unique index below is the actual backstop: Postgres enforces
+--    it at the index level regardless of transaction isolation, so the
+--    losing concurrent request gets a clean P2002 (converted to a 409 in
+--    addLeadPhone) instead of silently producing a second PRIMARY row.
+--    Prisma's schema DSL cannot express a partial (WHERE-qualified) unique
+--    index in this Prisma version, so the invariant is declared here in raw
+--    SQL only - see the comment on the LeadPhone model in schema.prisma,
+--    which documents this and points back to this migration rather than
+--    pretending the Prisma schema alone expresses the full invariant.
+--
+--    Pre-flight check (run before applying this migration in any
+--    environment that might already have lead_phones rows - see runbook
+--    note below for why that's not expected to matter here):
+--      SELECT "organizationId", "leadId", count(*) FROM lead_phones
+--        WHERE type = 'PRIMARY' GROUP BY 1, 2 HAVING count(*) > 1;
+--    Expected result: 0 rows. lead_phones is a brand-new table created by
+--    this same migration, and this migration has not been applied to any
+--    database (dev, staging, or production) as of this branch - so there is
+--    no possible pre-existing data and the partial unique index can be
+--    created directly, with no cleanup step required first. If this
+--    migration is ever split or reordered such that lead_phones rows could
+--    already exist before this index is added, re-run the query above and
+--    resolve any duplicates before applying.
 --
 -- 2. FollowUpType enum: adds VISIT_EXPECTED and GENERAL_FOLLOW_UP. The
 --    simple "Add Follow-up" form (spec item 6) offers CALL / WHATSAPP /
@@ -83,6 +111,14 @@ CREATE INDEX "lead_phones_organizationId_phone_idx" ON "lead_phones"("organizati
 
 -- CreateIndex
 CREATE UNIQUE INDEX "lead_phones_organizationId_leadId_phone_key" ON "lead_phones"("organizationId", "leadId", "phone");
+
+-- CreateIndex (Blocker 3, correctness issue C follow-up - hand-written, not
+-- Prisma-schema-generated: Prisma's schema DSL cannot express a partial
+-- WHERE-qualified unique index in this Prisma version, so this is the sole
+-- source of the "at most one PRIMARY LeadPhone per lead" invariant. See the
+-- long comment above and the LeadPhone model doc comment in schema.prisma.)
+-- Conceptually: UNIQUE (organizationId, leadId) WHERE type = 'PRIMARY'.
+CREATE UNIQUE INDEX "lead_phones_one_primary_per_lead" ON "lead_phones"("organizationId", "leadId") WHERE "type" = 'PRIMARY';
 
 -- AddForeignKey
 ALTER TABLE "lead_phones" ADD CONSTRAINT "lead_phones_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
