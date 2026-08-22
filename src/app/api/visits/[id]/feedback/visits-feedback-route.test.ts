@@ -89,4 +89,17 @@ describe("POST /api/visits/[id]/feedback", () => {
     const res = await POST(req(VALID_BODY), params());
     expect(res.status).toBe(200);
   });
+
+  // simplified-role-workflow (targeted fix pass, Correctness issue E) - the
+  // rating field that briefly lived on VisitFeedback was removed as a
+  // duplicate of VisitProperty.reactionRating/Visit.overallRating before it
+  // was ever applied to any database; this route no longer accepts or
+  // persists one at all (see the VisitFeedback model comment in
+  // schema.prisma for the full reasoning).
+  it("does not persist a rating field even if the client sends one (removed, not silently ignored data)", async () => {
+    const res = await POST(req({ ...VALID_BODY, rating: 4 }), params());
+    expect(res.status).toBe(200);
+    const createCall = visitFeedbackUpsert.mock.calls[0][0].create;
+    expect(createCall).not.toHaveProperty("rating");
+  });
 });

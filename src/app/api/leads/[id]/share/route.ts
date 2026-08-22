@@ -5,17 +5,13 @@ import { logActivity } from "@/lib/activity";
 import { getWhatsAppAdapter } from "@/lib/whatsapp";
 import { getOrganizationId } from "@/lib/organization";
 import { recalculateLeadScore } from "@/lib/scoring";
+import { assertLeadAccessible } from "@/lib/lead-access";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
     const { id } = await params;
-    const organizationId = getOrganizationId(session.user);
-    const lead = await prisma.lead.findFirst({ where: { id, organizationId } });
-    if (!lead) throw new ApiError(404, "Lead not found");
-    if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
-      throw new ApiError(403, "Forbidden");
-    }
+    await assertLeadAccessible(session, id);
     const history = await prisma.sharedPropertyLog.findMany({ where: { leadId: id }, orderBy: { createdAt: "desc" } });
     return NextResponse.json({ history });
   } catch (err) {

@@ -11,7 +11,8 @@ import { Badge, VISIT_STATUS_TONE, VISIT_PROPERTY_STATUS_TONE } from "@/componen
 import { formatDate, formatDateTime, enumToLabel } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { RATING_DESCRIPTIONS } from "@/lib/visits";
-import { ArrowLeft, Star } from "lucide-react";
+import { listCataloguesForLead } from "@/lib/catalogues";
+import { ArrowLeft, Star, Eye } from "lucide-react";
 
 /**
  * Visit Detail. One page, two audiences:
@@ -37,6 +38,14 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
   }
 
   const dto = toVisitDetailDTO(visit, session.user);
+
+  // simplified-role-workflow (continuation pass, spec item 9) - the FULL
+  // catalogue-share history for this lead (not just the one this visit was
+  // scheduled from, if any), so a field executive can see everything already
+  // shown to this client before walking in. Access was already checked by
+  // loadVisitForActor above; reuses the same listCataloguesForLead the lead
+  // workspace's Catalogues tab calls - no second history table.
+  const sharedCatalogues = await listCataloguesForLead(dto.client.leadId);
 
   // Executives available for reassignment - only loaded for managers.
   const employees = dto.can.manage
@@ -77,7 +86,19 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
       <Section title="Client">
         <Row label="Name" value={<Link href={`/leads/${dto.client.leadId}`} className="font-semibold text-[#3366FF] hover:underline">{dto.client.name}</Link>} />
         <Row label="Lead code" value={<span className="font-mono text-xs">{dto.client.leadCode}</span>} />
-        {dto.client.phone && <Row label="Phone" value={<a href={`tel:${dto.client.phone}`} className="text-[#3366FF]">{dto.client.phone}</a>} />}
+        {dto.client.phone && (
+          <Row
+            label="Phone"
+            value={
+              <span className="flex flex-wrap items-center gap-3">
+                <a href={`tel:${dto.client.phone}`} className="font-semibold text-[#3366FF]">{dto.client.phone}</a>
+                <a href={`https://wa.me/${dto.client.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#25D366]">
+                  WhatsApp
+                </a>
+              </span>
+            }
+          />
+        )}
         {dto.client.requirement && <Row label="Requirement" value={dto.client.requirement} />}
         {dto.client.preferredLocation && <Row label="Preferred area" value={dto.client.preferredLocation} />}
       </Section>
@@ -108,6 +129,35 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
             }
           />
         </Section>
+      )}
+
+      {/* CATALOGUES PREVIOUSLY SHARED - full history, spec item 9 */}
+      {sharedCatalogues.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Catalogues Previously Shared</h2>
+          <div className="space-y-2">
+            {sharedCatalogues.map((c) => (
+              <a
+                key={c.id}
+                href={`/share/catalogue/${c.token}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-2 rounded-xl border border-[#E7ECF2] bg-white p-3 shadow-xs hover:border-[#3366FF]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#1B2430]">{c.title}</p>
+                  <p className="text-xs text-[#8A94A6]">
+                    {c.properties.length} propert{c.properties.length === 1 ? "y" : "ies"} &middot; {formatDate(c.createdAt)}
+                    {c.createdBy && ` by ${c.createdBy.name}`}
+                  </p>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#3366FF]">
+                  <Eye className="h-3.5 w-3.5" /> View
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* PROPERTIES */}

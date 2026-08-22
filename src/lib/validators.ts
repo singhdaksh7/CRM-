@@ -259,10 +259,14 @@ export const preferredPropertiesSchema = z.object({
 export const followUpSchema = z.object({
   leadId: z.string(),
   ownerId: z.string().optional().nullable(),
-  type: z.enum(["PHONE_CALL", "WHATSAPP", "PROPERTY_SHARING", "VISIT_CONFIRMATION", "NEGOTIATION", "DOCUMENTATION", "PAYMENT_REMINDER"]),
+  // simplified-role-workflow: VISIT_EXPECTED/GENERAL_FOLLOW_UP were added to
+  // the Prisma FollowUpType enum but this validator was never updated to
+  // match - fixed here, otherwise the human-friendly Add Follow-up form
+  // (spec item 4) could never actually create those two types.
+  type: z.enum(["PHONE_CALL", "WHATSAPP", "PROPERTY_SHARING", "VISIT_CONFIRMATION", "NEGOTIATION", "DOCUMENTATION", "PAYMENT_REMINDER", "VISIT_EXPECTED", "GENERAL_FOLLOW_UP"]),
   dueDate: z.string(),
   notes: z.string().optional().nullable(),
-  status: z.enum(["PENDING", "COMPLETED", "RESCHEDULED", "OVERDUE"]).default("PENDING"),
+  status: z.enum(["PENDING", "COMPLETED", "RESCHEDULED", "OVERDUE", "CANCELLED"]).default("PENDING"),
 });
 
 export const employeeSchema = z.object({

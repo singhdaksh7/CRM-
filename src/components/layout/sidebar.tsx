@@ -24,6 +24,8 @@ import {
   ShieldAlert,
   MessageCircle,
   ContactRound,
+  BookOpen,
+  Plug,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -37,6 +39,8 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/leads": Users,
   "/customers": ContactRound,
   "/whatsapp": MessageCircle,
+  "/catalogues": BookOpen,
+  "/integrations": Plug,
   "/visits": CalendarClock,
   "/follow-ups": BellRing,
   "/documents": FileText,

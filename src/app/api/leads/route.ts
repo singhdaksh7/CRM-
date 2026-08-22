@@ -21,10 +21,6 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams;
     const where: Record<string, unknown> = { organizationId: getOrganizationId(session.user) };
 
-    if (session.user.role === "FIELD_EXECUTIVE") {
-      where.assignedToId = session.user.id;
-    }
-
     const q = sp.get("q");
     if (q) {
       where.OR = [{ clientName: { contains: q } }, { phone: { contains: q } }, { leadCode: { contains: q } }];
@@ -37,6 +33,19 @@ export async function GET(req: NextRequest) {
     if (priority) where.priority = priority;
     const assignedToId = sp.get("assignedToId");
     if (assignedToId) where.assignedToId = assignedToId === "unassigned" ? null : assignedToId;
+
+    // FIELD_EXECUTIVE scoping is enforced LAST and always wins over the
+    // assignedToId query param above - a field executive may only ever see
+    // (a) leads assigned to themself, or (b) org-wide unassigned leads (the
+    // "My Assigned" / "Unassigned" tabs, spec item 12). Previously the query
+    // param was applied after this check and could overwrite it, letting a
+    // field executive pass ?assignedToId=<anotherUserId> to view a colleague's
+    // assigned leads - fixed by applying the restriction last and clamping,
+    // never trusting the client-supplied assignedToId for this role.
+    if (session.user.role === "FIELD_EXECUTIVE") {
+      where.assignedToId = assignedToId === "unassigned" ? null : session.user.id;
+    }
+
     const location = sp.get("location");
     if (location) where.preferredLocation = location;
     const requirementType = sp.get("requirementType");

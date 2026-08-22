@@ -20,7 +20,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const page = parsePage(sp.page);
 
   const where: Prisma.LeadWhereInput = { organizationId };
-  if (session!.user.role === "FIELD_EXECUTIVE") where.assignedToId = session!.user.id;
   if (sp.q) where.OR = [{ clientName: { contains: sp.q } }, { phone: { contains: sp.q } }, { leadCode: { contains: sp.q } }];
   if (sp.source) where.source = sp.source as never;
   if (sp.status) where.status = sp.status as never;
@@ -29,6 +28,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   if (sp.requirementType) where.requirementType = sp.requirementType as never;
   if (sp.assetClass) where.assetClass = sp.assetClass as never;
   if (sp.transactionType) where.transactionType = sp.transactionType as never;
+
+  // FIELD_EXECUTIVE scoping applied LAST so it always wins over the
+  // assignedToId query param (spec item 12): "My Assigned" shows only their
+  // own leads, "Unassigned" shows org-wide unassigned leads, and no query
+  // string can be crafted to view a colleague's assigned leads.
+  const isFieldExecutive = session!.user.role === "FIELD_EXECUTIVE";
+  if (isFieldExecutive) {
+    where.assignedToId = sp.assignedToId === "unassigned" ? null : session!.user.id;
+  }
 
   const [leads, totalCount, employees, unassignedCount] = await withTiming("leadsPageQuery", "/leads", () =>
     Promise.all([
@@ -61,6 +69,25 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           )}
         </div>
       </div>
+
+      {isFieldExecutive && (
+        <div className="flex gap-2 border-b border-[#E7ECF2]">
+          <LinkButton
+            href="/leads"
+            className={sp.assignedToId !== "unassigned" ? "border-b-2 border-[#3366FF] text-[#3366FF]" : "text-[#596579]"}
+            variant="ghost"
+          >
+            My Assigned Leads
+          </LinkButton>
+          <LinkButton
+            href="/leads?assignedToId=unassigned"
+            className={sp.assignedToId === "unassigned" ? "border-b-2 border-[#3366FF] text-[#3366FF]" : "text-[#596579]"}
+            variant="ghost"
+          >
+            Unassigned Leads
+          </LinkButton>
+        </div>
+      )}
 
       <LeadFilters employees={employees} />
       <SavedViewsBar entityType="LEAD" />

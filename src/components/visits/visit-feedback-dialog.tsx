@@ -17,6 +17,15 @@ const ISSUE_FLAGS: { key: "budgetIssue" | "areaIssue" | "parkingIssue" | "family
   { key: "negotiationRequired", label: "Negotiation required" },
 ];
 
+/**
+ * simplified-role-workflow (targeted fix pass, Correctness issue E) - a
+ * star-rating control briefly lived here, backed by VisitFeedback.rating.
+ * Removed: it duplicated the same 1-5 "how did the client feel" measurement
+ * already captured per-property (VisitProperty.reactionRating) and overall
+ * (Visit.overallRating) by the field executive's on-site workflow, with no
+ * distinct business purpose of its own. See the VisitFeedback model comment
+ * in schema.prisma for the full reasoning.
+ */
 export function VisitFeedbackDialog({ visitId, open, onClose }: { visitId: string; open: boolean; onClose: () => void }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
