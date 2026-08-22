@@ -33,7 +33,7 @@ vi.mock("./api-auth", () => {
   return { ApiError: MockApiError };
 });
 
-import { assertLeadAccessible, isLeadAccessibleToUser } from "./lead-access";
+import { assertLeadAccessible, isLeadAccessibleToUser, fieldExecutiveLeadReadWhere } from "./lead-access";
 import type { ApiError } from "./api-auth";
 import type { Role } from "@prisma/client";
 
@@ -99,5 +99,15 @@ describe("assertLeadAccessible", () => {
   it("FIELD_EXECUTIVE is forbidden from a lead assigned to a different employee", async () => {
     leadFindFirst.mockResolvedValue({ id: "lead_1", assignedToId: "other_user" });
     await expect(assertLeadAccessible(session("FIELD_EXECUTIVE", "user_1"), "lead_1")).rejects.toMatchObject({ status: 403 } as Partial<ApiError>);
+  });
+});
+
+describe("fieldExecutiveLeadReadWhere", () => {
+  it("includes assigned and unassigned leads, matching isLeadAccessibleToUser", () => {
+    const where = fieldExecutiveLeadReadWhere("user_1");
+    expect(where).toEqual({ OR: [{ assignedToId: "user_1" }, { assignedToId: null }] });
+    expect(isLeadAccessibleToUser({ assignedToId: "user_1" }, { id: "user_1", role: "FIELD_EXECUTIVE" })).toBe(true);
+    expect(isLeadAccessibleToUser({ assignedToId: null }, { id: "user_1", role: "FIELD_EXECUTIVE" })).toBe(true);
+    expect(isLeadAccessibleToUser({ assignedToId: "other" }, { id: "user_1", role: "FIELD_EXECUTIVE" })).toBe(false);
   });
 });

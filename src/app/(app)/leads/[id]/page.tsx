@@ -11,6 +11,7 @@ import { Mail, MapPin, Wallet } from "lucide-react";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
 import { assignedToSelect } from "@/lib/user-select";
 import { getOrganizationId } from "@/lib/organization";
+import { getLeadPropertyPreferences, getCataloguePreferenceSummary } from "@/lib/catalogue-property-preferences";
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -68,6 +69,15 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     ])
   );
 
+  const [clientPreferences, catalogueSummaries] = await Promise.all([
+    getLeadPropertyPreferences(lead.id, organizationId).catch(() => ({ liked: [], notInterested: [], likedCount: 0, notInterestedCount: 0, leadId: lead.id })),
+    Promise.all(
+      lead.catalogueShares.map((c) =>
+        getCataloguePreferenceSummary(c.id, organizationId).catch(() => null)
+      )
+    ).then((rows) => rows.filter((r): r is NonNullable<typeof r> => r !== null)),
+  ]);
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
@@ -97,7 +107,17 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         {lead.additionalRequirements && <p className="mt-3 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] p-3 text-sm text-[#596579]">{lead.additionalRequirements}</p>}
       </div>
 
-      <LeadWorkspace lead={lead} employees={employees} role={session!.user.role} health={health} suggestions={suggestions} visitSuggestions={visitSuggestions} providerSendConfigured={getWhatsAppConfigStatus().metaReady} />
+      <LeadWorkspace
+        lead={lead}
+        employees={employees}
+        role={session!.user.role}
+        health={health}
+        suggestions={suggestions}
+        visitSuggestions={visitSuggestions}
+        providerSendConfigured={getWhatsAppConfigStatus().metaReady}
+        clientPreferences={{ liked: clientPreferences.liked, notInterested: clientPreferences.notInterested }}
+        catalogueSummaries={catalogueSummaries}
+      />
     </div>
   );
 }

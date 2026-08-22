@@ -19,6 +19,8 @@ import type { HealthScoreResult, Suggestion } from "@/lib/rules";
 import { computeLeadTimelineSummary } from "@/lib/timeline-summary";
 import { NewMatchesPanel } from "./new-matches-panel";
 import { LeadPhonePicker, type PhoneOption } from "./lead-phone-picker";
+import { ClientPreferencesPanel, type PreferenceCard, type CatalogueResponseSummary } from "./client-preferences-panel";
+import { VisitScheduleWithCandidates } from "./visit-schedule-with-candidates";
 import { HUMAN_FOLLOWUP_TYPES, DEFAULT_FOLLOWUP_TYPE } from "@/lib/follow-up-types";
 
 /** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
@@ -81,6 +83,8 @@ export function LeadWorkspace({
   suggestions,
   visitSuggestions,
   providerSendConfigured,
+  clientPreferences,
+  catalogueSummaries,
 }: {
   lead: LeadWithRelations;
   employees: UserSummary[];
@@ -89,6 +93,8 @@ export function LeadWorkspace({
   suggestions: Suggestion[];
   visitSuggestions: Record<string, Suggestion[]>;
   providerSendConfigured: boolean;
+  clientPreferences?: { liked: PreferenceCard[]; notInterested: PreferenceCard[] };
+  catalogueSummaries?: CatalogueResponseSummary[];
 }) {
   const [tab, setTab] = useState<LeadTab>("overview");
   const canManage = role === "ADMIN" || role === "DATA_MANAGER";
@@ -111,9 +117,30 @@ export function LeadWorkspace({
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab lead={lead} employees={employees} canManage={canManage} health={health} suggestions={suggestions} providerSendConfigured={providerSendConfigured} onTabAction={(t) => setTab(t as LeadTab)} />}
+      {tab === "overview" && (
+        <OverviewTab
+          lead={lead}
+          employees={employees}
+          canManage={canManage}
+          health={health}
+          suggestions={suggestions}
+          providerSendConfigured={providerSendConfigured}
+          onTabAction={(t) => setTab(t as LeadTab)}
+          clientPreferences={clientPreferences}
+          catalogueSummaries={catalogueSummaries}
+        />
+      )}
       {tab === "whatsapp" && <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} clientName={lead.clientName} />}
-      {tab === "catalogues" && <CataloguesTab leadId={lead.id} canManage={canManage} canSend={true} />}
+      {tab === "catalogues" && (
+        <CataloguesTab
+          leadId={lead.id}
+          canManage={canManage}
+          canSend={true}
+          clientName={lead.clientName}
+          primaryPhone={lead.phone}
+          phones={lead.phones}
+        />
+      )}
       {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
       {tab === "activity" && <ActivityTab activities={lead.activities} createdAt={lead.createdAt} followUps={lead.followUps} />}
       {tab === "followups" && <FollowUpsTab leadId={lead.id} followUps={lead.followUps} employees={employees} />}
@@ -125,7 +152,6 @@ export function LeadWorkspace({
           visitSuggestions={visitSuggestions}
           onTabAction={(t) => setTab(t as LeadTab)}
           employees={employees}
-          candidateProperties={lead.matchRecommendations.map((r) => r.property)}
         />
       )}
       {tab === "shared" && <SharedTab shares={lead.sharedProperties} />}
@@ -197,6 +223,8 @@ function OverviewTab({
   suggestions,
   providerSendConfigured,
   onTabAction,
+  clientPreferences,
+  catalogueSummaries,
 }: {
   lead: LeadWithRelations;
   employees: UserSummary[];
@@ -205,6 +233,8 @@ function OverviewTab({
   suggestions: Suggestion[];
   providerSendConfigured: boolean;
   onTabAction: (target: string) => void;
+  clientPreferences?: { liked: PreferenceCard[]; notInterested: PreferenceCard[] };
+  catalogueSummaries?: CatalogueResponseSummary[];
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(lead.status);
@@ -300,6 +330,13 @@ function OverviewTab({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
         <NewMatchesPanel leadId={lead.id} recommendations={lead.matchRecommendations} catalogues={lead.catalogueShares} canManage={canManage} providerSendConfigured={providerSendConfigured} />
+        {(clientPreferences || catalogueSummaries) && (
+          <ClientPreferencesPanel
+            liked={clientPreferences?.liked ?? []}
+            notInterested={clientPreferences?.notInterested ?? []}
+            catalogueSummaries={catalogueSummaries ?? []}
+          />
+        )}
         <ScorePanel lead={lead} onRecalculate={recalculateScore} saving={saving} />
         {health && <HealthCard title="Lead Health" health={health} />}
         <SuggestionList suggestions={suggestions} onTabAction={onTabAction} />
@@ -559,7 +596,6 @@ function VisitsTab({
   visitSuggestions,
   onTabAction,
   employees,
-  candidateProperties,
 }: {
   leadId: string;
   visits: LeadWithRelations["visits"];
@@ -567,17 +603,10 @@ function VisitsTab({
   visitSuggestions: Record<string, Suggestion[]>;
   onTabAction: (target: string) => void;
   employees: UserSummary[];
-  candidateProperties: { id: string; title: string; area: string }[];
+  candidateProperties?: { id: string; title: string; area: string }[];
 }) {
   const router = useRouter();
   const [showScheduleForm, setShowScheduleForm] = useState(false);
-  const [propertyId, setPropertyId] = useState("");
-  const [assignedToId, setAssignedToId] = useState("");
-  const [visitDate, setVisitDate] = useState("");
-  const [visitTime, setVisitTime] = useState("");
-  const [meetingLocation, setMeetingLocation] = useState("");
-  const [employeeNotes, setEmployeeNotes] = useState("");
-  const [scheduling, setScheduling] = useState(false);
 
   async function updateVisit(id: string, data: Record<string, unknown>) {
     const res = await fetch(`/api/visits/${id}`, {
@@ -585,27 +614,10 @@ function VisitsTab({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (res.ok) { toast.success("Visit updated"); router.refresh(); } else toast.error("Update failed");
-  }
-
-  async function scheduleVisit() {
-    if (!propertyId || !visitDate || !visitTime) return toast.error("Property, date, and time are required");
-    setScheduling(true);
-    const res = await fetch("/api/visits", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leadId, propertyId, assignedToId: assignedToId || null, visitDate, visitTime, meetingLocation: meetingLocation || null, employeeNotes: employeeNotes || null }),
-    });
-    setScheduling(false);
     if (res.ok) {
-      toast.success("Visit scheduled");
-      setShowScheduleForm(false);
-      setPropertyId(""); setAssignedToId(""); setVisitDate(""); setVisitTime(""); setMeetingLocation(""); setEmployeeNotes("");
+      toast.success("Visit updated");
       router.refresh();
-    } else {
-      const body = await res.json().catch(() => ({}));
-      toast.error(body.error ?? "Failed to schedule visit");
-    }
+    } else toast.error("Update failed");
   }
 
   return (
@@ -618,44 +630,21 @@ function VisitsTab({
               <CalendarPlus className="h-3.5 w-3.5" /> {showScheduleForm ? "Cancel" : "Schedule Visit"}
             </button>
           )}
-          <Link href="/visits" className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">Visits module &rarr;</Link>
+          <Link href="/visits" className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+            Visits module &rarr;
+          </Link>
         </div>
       </div>
 
       {canManage && showScheduleForm && (
-        <div className="mb-4 space-y-3 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Property">
-              <Select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
-                <option value="">Select a property...</option>
-                {candidateProperties.map((p) => (<option key={p.id} value={p.id}>{p.title} &middot; {p.area}</option>))}
-              </Select>
-            </Field>
-            <Field label="Assign to field executive">
-              <Select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}>
-                <option value="">Unassigned</option>
-                {employees.map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
-              </Select>
-            </Field>
-            <Field label="Date">
-              <Input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
-            </Field>
-            <Field label="Time">
-              <Input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} />
-            </Field>
-          </div>
-          <Field label="Meeting location (optional)">
-            <Input value={meetingLocation} onChange={(e) => setMeetingLocation(e.target.value)} placeholder="e.g. Property gate, sector 12" />
-          </Field>
-          <Textarea rows={2} placeholder="Notes for the field executive (optional)" value={employeeNotes} onChange={(e) => setEmployeeNotes(e.target.value)} />
-          <div className="flex justify-end">
-            <Button size="sm" onClick={scheduleVisit} loading={scheduling}>Schedule Visit</Button>
-          </div>
-          {candidateProperties.length === 0 && <p className="text-xs text-[#8A94A6]">No matched properties yet - share a catalogue or run matching to get property options here.</p>}
+        <div className="mb-4">
+          <VisitScheduleWithCandidates leadId={leadId} employees={employees} />
         </div>
       )}
 
-      {visits.length === 0 && <p className="text-sm text-[#8A94A6]">No visits scheduled yet.</p>}
+      {visits.length === 0 && !showScheduleForm && <p className="text-sm text-[#8A94A6]">No visits scheduled yet.</p>}
+
+      <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#8A94A6]">Previous visits</div>
       <div className="space-y-3">
         {visits.map((v) => (
           <div key={v.id} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
@@ -664,19 +653,37 @@ function VisitsTab({
                 <p className="flex items-center gap-2 text-sm font-bold text-[#1B2430]">
                   <Building2 className="h-4 w-4 text-[#3366FF]" /> {v.property.title}
                 </p>
-                <p className="text-xs text-[#8A94A6] mt-0.5">{formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"}</p>
+                <p className="mt-0.5 text-xs text-[#8A94A6]">
+                  {formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"}
+                  {v.outcome ? ` · ${enumToLabel(v.outcome)}` : ""}
+                </p>
               </div>
-              <Badge tone={VISIT_STATUS_TONE[v.status]}>{enumToLabel(v.status)}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge tone={VISIT_STATUS_TONE[v.status]}>{enumToLabel(v.status)}</Badge>
+                <Link href={`/visits/${v.id}`} className="text-xs font-semibold text-[#3366FF]">
+                  View
+                </Link>
+              </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Select className="w-auto text-xs font-semibold" defaultValue={v.status} onChange={(e) => updateVisit(v.id, { status: e.target.value })}>
-                {VISIT_STATUSES.map((s) => (<option key={s} value={s}>{enumToLabel(s)}</option>))}
-              </Select>
-              <Select className="w-auto text-xs font-semibold" defaultValue={v.outcome ?? ""} onChange={(e) => updateVisit(v.id, { outcome: e.target.value })}>
-                <option value="">Outcome...</option>
-                {OUTCOMES.map((o) => (<option key={o} value={o}>{enumToLabel(o)}</option>))}
-              </Select>
-            </div>
+            {canManage && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Select className="w-auto text-xs font-semibold" defaultValue={v.status} onChange={(e) => updateVisit(v.id, { status: e.target.value })}>
+                  {VISIT_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {enumToLabel(s)}
+                    </option>
+                  ))}
+                </Select>
+                <Select className="w-auto text-xs font-semibold" defaultValue={v.outcome ?? ""} onChange={(e) => updateVisit(v.id, { outcome: e.target.value })}>
+                  <option value="">Outcome...</option>
+                  {OUTCOMES.map((o) => (
+                    <option key={o} value={o}>
+                      {enumToLabel(o)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
             {v.employeeNotes && <p className="mt-2 text-xs text-[#596579]">{v.employeeNotes}</p>}
             {(visitSuggestions[v.id]?.length ?? 0) > 0 && (
               <div className="mt-3">
@@ -702,8 +709,10 @@ function SharedTab({ shares }: { shares: LeadWithRelations["sharedProperties"] }
           const ids: string[] = JSON.parse(s.propertyIds);
           return (
             <div key={s.id} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
-              <p className="text-sm font-bold text-[#1B2430]">{ids.length} propert{ids.length > 1 ? "ies" : "y"} shared</p>
-              <p className="text-xs text-[#8A94A6] mt-0.5">{formatDateTime(s.createdAt)}</p>
+              <p className="text-sm font-bold text-[#1B2430]">
+                {ids.length} propert{ids.length > 1 ? "ies" : "y"} shared
+              </p>
+              <p className="mt-0.5 text-xs text-[#8A94A6]">{formatDateTime(s.createdAt)}</p>
               <a href={s.whatsappLink} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#25D366] hover:underline">
                 <Send className="h-3.5 w-3.5" /> Reopen WhatsApp message
               </a>

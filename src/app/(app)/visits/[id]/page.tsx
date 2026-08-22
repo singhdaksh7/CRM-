@@ -12,7 +12,9 @@ import { formatDate, formatDateTime, enumToLabel } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { RATING_DESCRIPTIONS } from "@/lib/visits";
 import { listCataloguesForLead } from "@/lib/catalogues";
-import { ArrowLeft, Star, Eye } from "lucide-react";
+import { getLeadPropertyPreferences } from "@/lib/catalogue-property-preferences";
+import { getCoverImageUrls } from "@/lib/property-images";
+import { ArrowLeft, Star, Eye, Heart, ExternalLink } from "lucide-react";
 
 /**
  * Visit Detail. One page, two audiences:
@@ -46,6 +48,18 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
   // loadVisitForActor above; reuses the same listCataloguesForLead the lead
   // workspace's Catalogues tab calls - no second history table.
   const sharedCatalogues = await listCataloguesForLead(dto.client.leadId);
+  const likedPreferences = await getLeadPropertyPreferences(dto.client.leadId, getOrganizationId(session.user)).catch(() => ({
+    liked: [] as Awaited<ReturnType<typeof getLeadPropertyPreferences>>["liked"],
+    notInterested: [],
+    likedCount: 0,
+    notInterestedCount: 0,
+    leadId: dto.client.leadId,
+  }));
+  const plannedCoverUrls = await getCoverImageUrls(
+    dto.properties.map((p) => p.propertyId),
+    getOrganizationId(session.user)
+  );
+  const likedIds = new Set(likedPreferences.liked.map((p) => p.propertyId));
 
   // Executives available for reassignment - only loaded for managers.
   const employees = dto.can.manage
@@ -160,15 +174,51 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
         </div>
       )}
 
-      {/* PROPERTIES */}
+      {/* CLIENT LIKED */}
+      {likedPreferences.liked.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Client Liked</h2>
+          <div className="space-y-2">
+            {likedPreferences.liked.map((item) => (
+              <div key={item.propertyId} className="flex gap-3 rounded-xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+                <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F5F7FA]">
+                  {item.property.thumbnailUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.property.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1 text-sm font-semibold text-[#1B2430]">
+                    <Heart className="h-3.5 w-3.5 text-[#E5484D]" /> {item.property.title}
+                  </p>
+                  <p className="text-xs text-[#596579]">
+                    {item.property.area} · {item.property.bhk} BHK
+                    {!item.available && " · Unavailable"}
+                  </p>
+                  <p className="text-[11px] text-[#8A94A6]">From: {item.catalogueTitle}</p>
+                </div>
+                <Link href={`/properties/${item.propertyId}`} className="inline-flex items-center gap-1 self-center text-xs font-semibold text-[#3366FF]">
+                  <ExternalLink className="h-3.5 w-3.5" /> Open
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TODAY'S PLANNED PROPERTIES */}
       <div>
-        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Properties to visit</h2>
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Today&apos;s Planned Properties</h2>
         {dto.can.runFieldWorkflow ? (
-          <VisitPropertyWorkflow visit={dto} />
+          <VisitPropertyWorkflow visit={dto} likedPropertyIds={[...likedIds]} coverUrls={plannedCoverUrls} />
         ) : (
           <div className="space-y-2">
             {dto.properties.map((p) => (
               <div key={p.visitPropertyId} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+                {plannedCoverUrls[p.propertyId] && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={plannedCoverUrls[p.propertyId]} alt="" className="mb-3 h-36 w-full rounded-xl object-cover bg-[#F5F7FA]" />
+                )}
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-[#1B2430]">
@@ -181,6 +231,12 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
                     </p>
                     <p className="mt-0.5 text-xs text-[#8A94A6]">{p.address}</p>
                     <p className="mt-1 text-sm font-semibold text-[#1B2430]">{p.price ?? "Price on request"}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#8A94A6]">
+                      {likedIds.has(p.propertyId) ? "❤️ Liked by Client" : dto.catalogue ? "Shared in Catalogue" : "Added Manually"}
+                    </p>
+                    <Link href={`/properties/${p.propertyId}`} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF]">
+                      <ExternalLink className="h-3.5 w-3.5" /> Open Property
+                    </Link>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <Badge tone={VISIT_PROPERTY_STATUS_TONE[p.status] ?? "slate"}>{enumToLabel(p.status)}</Badge>

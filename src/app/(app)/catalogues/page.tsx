@@ -2,23 +2,20 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationId } from "@/lib/organization";
+import { fieldExecutiveLeadReadWhere } from "@/lib/lead-access";
 import { EmptyState } from "@/components/ui/states";
 import { Eye } from "lucide-react";
 
 const TAKE = 50;
 
 /**
- * Promoted "Catalogues" landing page (simplified-role-workflow, spec item 9):
- * surfaces catalogue-share history org-wide (ADMIN/DATA_MANAGER) or scoped to
- * the field executive's own assigned leads, mirroring /api/catalogues.
- * Read-only here - sending/managing a catalogue still happens from inside a
- * lead's workspace (the CataloguesTab), this page is a discoverable index
- * into that history plus a mobile-friendly card list.
+ * Catalogues landing page. FE history follows shared lead-read policy
+ * (assigned + unassigned), matching assertLeadAccessible / lead list.
  */
 export default async function CataloguesPage() {
   const session = await auth();
   const organizationId = getOrganizationId(session!.user);
-  const leadWhere = session!.user.role === "FIELD_EXECUTIVE" ? { assignedToId: session!.user.id } : {};
+  const leadWhere = session!.user.role === "FIELD_EXECUTIVE" ? fieldExecutiveLeadReadWhere(session!.user.id) : {};
 
   const shares = await prisma.catalogueShare.findMany({
     where: { organizationId, lead: leadWhere },
