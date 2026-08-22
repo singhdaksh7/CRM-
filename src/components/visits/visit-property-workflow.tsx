@@ -11,7 +11,9 @@ import { enumToLabel } from "@/lib/utils";
 // Pure helpers only - importing from @/lib/visits here would pull Prisma and
 // the notification/auth stack into the client bundle.
 import { RATING_DESCRIPTIONS } from "@/lib/visit-progress";
+import { HUMAN_FOLLOWUP_TYPES } from "@/lib/follow-up-types";
 import type { VisitDetailDTO, VisitDetailProperty } from "@/lib/visit-detail-dto";
+import type { FollowUpType } from "@prisma/client";
 
 /**
  * The Field Executive's on-site workflow, in one client component.
@@ -530,7 +532,7 @@ function CompleteVisitForm({ visit, busy, onCancel }: { visit: VisitDetailDTO; b
 function NextActionAfterComplete({ leadId, clientPhone, clientName }: { leadId: string; clientPhone: string | null; clientName: string }) {
   const router = useRouter();
   const [addingFollowUp, setAddingFollowUp] = useState(false);
-  const [followUpType, setFollowUpType] = useState<"PHONE_CALL" | "WHATSAPP" | "VISIT_EXPECTED" | "GENERAL_FOLLOW_UP">("GENERAL_FOLLOW_UP");
+  const [followUpType, setFollowUpType] = useState<FollowUpType>("GENERAL_FOLLOW_UP");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [note, setNote] = useState("");
@@ -584,11 +586,8 @@ function NextActionAfterComplete({ leadId, clientPhone, clientName }: { leadId: 
         </div>
       ) : (
         <div className="space-y-2">
-          <select value={followUpType} onChange={(e) => setFollowUpType(e.target.value as typeof followUpType)} className="min-h-[44px] w-full rounded-xl border border-[#E7ECF2] bg-white px-3 text-sm">
-            <option value="PHONE_CALL">Call</option>
-            <option value="WHATSAPP">WhatsApp</option>
-            <option value="VISIT_EXPECTED">Customer Expected / Coming</option>
-            <option value="GENERAL_FOLLOW_UP">General Follow-up</option>
+          <select value={followUpType} onChange={(e) => setFollowUpType(e.target.value as FollowUpType)} className="min-h-[44px] w-full rounded-xl border border-[#E7ECF2] bg-white px-3 text-sm">
+            {HUMAN_FOLLOWUP_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
           </select>
           <div className="flex gap-2">
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="min-h-[44px] flex-1 rounded-xl border border-[#E7ECF2] bg-white px-3 text-sm" />

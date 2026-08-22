@@ -19,6 +19,7 @@ import type { HealthScoreResult, Suggestion } from "@/lib/rules";
 import { computeLeadTimelineSummary } from "@/lib/timeline-summary";
 import { NewMatchesPanel } from "./new-matches-panel";
 import { LeadPhonePicker, type PhoneOption } from "./lead-phone-picker";
+import { HUMAN_FOLLOWUP_TYPES, DEFAULT_FOLLOWUP_TYPE } from "@/lib/follow-up-types";
 
 /** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
 type UserSummary = Pick<User, "id" | "name">;
@@ -30,7 +31,6 @@ interface ScoreFactor {
 }
 
 const STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"];
-const FOLLOWUP_TYPES: FollowUpType[] = ["PHONE_CALL", "WHATSAPP", "PROPERTY_SHARING", "VISIT_CONFIRMATION", "NEGOTIATION", "DOCUMENTATION", "PAYMENT_REMINDER"];
 const VISIT_STATUSES: VisitStatus[] = ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"];
 const OUTCOMES = ["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION"];
 
@@ -463,15 +463,25 @@ function ActivityTab({ activities, createdAt, followUps }: { activities: LeadWit
 
 function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; followUps: LeadWithRelations["followUps"]; employees: UserSummary[] }) {
   const router = useRouter();
-  const [type, setType] = useState<FollowUpType>("PHONE_CALL");
-  const [dueDate, setDueDate] = useState("");
+  // simplified-role-workflow (targeted fix pass, Blocker D) - this is the
+  // main [Add Follow-up] flow (PrimaryActionsBar jumps straight to this
+  // tab). Type is now exactly the 4 human-facing options from
+  // src/lib/follow-up-types.ts - Call/WhatsApp/PHONE_CALL/WHATSAPP/
+  // "Customer Expected / Coming"=VISIT_EXPECTED/"General Follow-up"=
+  // GENERAL_FOLLOW_UP - no raw enum string shown. Date/Time are separate
+  // fields (Date required, Time optional), matching the same pattern used
+  // by the visit-completion "Next Action?" follow-up form.
+  const [type, setType] = useState<FollowUpType>(DEFAULT_FOLLOWUP_TYPE);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [ownerId, setOwnerId] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function create() {
-    if (!dueDate) return toast.error("Due date is required");
+    if (!date) return toast.error("Date is required");
     setSaving(true);
+    const dueDate = time ? `${date}T${time}` : date;
     const res = await fetch("/api/follow-ups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -480,9 +490,12 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
     setSaving(false);
     if (res.ok) {
       toast.success("Follow-up scheduled");
-      setDueDate(""); setNotes("");
+      setDate(""); setTime(""); setNotes("");
       router.refresh();
-    } else toast.error("Failed to schedule follow-up");
+    } else {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to schedule follow-up");
+    }
   }
 
   async function complete(id: string) {
@@ -497,19 +510,20 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Schedule Follow-up</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Add Follow-up</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Select value={type} onChange={(e) => setType(e.target.value as FollowUpType)}>
-            {FOLLOWUP_TYPES.map((t) => (<option key={t} value={t}>{enumToLabel(t)}</option>))}
+            {HUMAN_FOLLOWUP_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
           </Select>
-          <Input type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input type="time" placeholder="Time (optional)" value={time} onChange={(e) => setTime(e.target.value)} />
           <Select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
             <option value="">Assign to...</option>
             {employees.map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
           </Select>
           <Button onClick={create} loading={saving}><Plus className="h-4 w-4" /> Schedule</Button>
         </div>
-        <Textarea rows={2} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <Textarea rows={2} placeholder="Note (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
       <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
