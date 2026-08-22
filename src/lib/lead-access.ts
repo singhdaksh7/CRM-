@@ -17,7 +17,13 @@ type SessionLike = { user: { id: string; role: Role; organizationId: string } };
 export async function assertLeadAccessible(session: SessionLike, leadId: string) {
   const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: getOrganizationId(session.user) } });
   if (!lead) throw new ApiError(404, "Lead not found");
-  if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
+  // simplified-role-workflow (spec item 12): a field executive may access a
+  // lead assigned to them, OR an org-wide unassigned lead (assignedToId is
+  // null) - the "Unassigned Leads" tab needs to open into the same lead
+  // workspace. They may never access a lead assigned to a different
+  // employee; this is the deliberately restrictive default the audit called
+  // for, since no broader unassigned-lead exposure policy existed before.
+  if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== null && lead.assignedToId !== session.user.id) {
     throw new ApiError(403, "Forbidden - this lead is not assigned to you");
   }
   return lead;

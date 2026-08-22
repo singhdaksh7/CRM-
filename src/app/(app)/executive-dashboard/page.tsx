@@ -16,7 +16,7 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
     <div className="space-y-8 pb-6">
       <div className="border-b border-[#E7ECF2] pb-5">
         <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">
-          {targetUserId === session.user.id ? "My Dashboard" : "Executive Dashboard"}
+          {targetUserId === session.user.id ? "Today's Work" : "Executive Dashboard"}
         </h1>
         <p className="mt-1 text-sm text-[#596579]">Today&apos;s field work, at a glance.</p>
       </div>
