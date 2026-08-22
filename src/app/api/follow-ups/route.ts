@@ -29,9 +29,19 @@ export async function GET(req: NextRequest) {
     const status = sp.get("status");
     if (status) where.status = status;
 
+    // simplified-role-workflow (targeted fix pass, Blocker A) - this
+    // previously did `include: { lead: true }`, loading the ENTIRE Lead row
+    // (score, notes, assignment reasoning, everything) for every follow-up in
+    // the response, when the only consumer that reads follow-up.lead
+    // (src/components/followups/followup-row.tsx) only ever renders
+    // clientName. Narrowed to exactly what's rendered, plus leadId/phone for
+    // parity with the same narrow shape src/lib/todays-work.ts already uses.
     const followUps = await prisma.followUp.findMany({
       where,
-      include: { lead: true, owner: { select: assignedToSelect } },
+      include: {
+        lead: { select: { id: true, clientName: true, phone: true } },
+        owner: { select: assignedToSelect },
+      },
       orderBy: { dueDate: "asc" },
     });
     return NextResponse.json({ followUps });
