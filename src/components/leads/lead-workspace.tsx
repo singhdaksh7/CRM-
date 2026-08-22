@@ -9,7 +9,7 @@ import { Badge, FOLLOWUP_STATUS_TONE, VISIT_STATUS_TONE } from "@/components/ui/
 import { Select, Input, Textarea, Field } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDateTime, enumToLabel, timeAgo } from "@/lib/utils";
-import { ArrowRightLeft, Send, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText, Phone, CalendarPlus } from "lucide-react";
+import { ArrowRightLeft, Send, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText, CalendarPlus } from "lucide-react";
 import { ConversationPanel } from "@/components/whatsapp/conversation-panel";
 import { CataloguesTab } from "@/components/catalogues/catalogues-tab";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
@@ -18,6 +18,7 @@ import { SuggestionList } from "@/components/rules/suggestion-list";
 import type { HealthScoreResult, Suggestion } from "@/lib/rules";
 import { computeLeadTimelineSummary } from "@/lib/timeline-summary";
 import { NewMatchesPanel } from "./new-matches-panel";
+import { LeadPhonePicker, type PhoneOption } from "./lead-phone-picker";
 
 /** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
 type UserSummary = Pick<User, "id" | "name">;
@@ -38,6 +39,7 @@ type LeadWithRelations = {
   leadCode: string;
   clientName: string;
   phone: string;
+  phones: { id: string; phone: string; label: string | null; type: string }[];
   createdAt: Date;
   status: string;
   priority: string;
@@ -93,7 +95,7 @@ export function LeadWorkspace({
 
   return (
     <div>
-      <PrimaryActionsBar leadId={lead.id} phone={lead.phone} onNavigate={setTab} />
+      <PrimaryActionsBar leadId={lead.id} phone={lead.phone} phones={lead.phones} onNavigate={setTab} />
 
       <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1.5 text-sm shadow-xs">
         {TABS.map((t) => (
@@ -141,21 +143,36 @@ export function LeadWorkspace({
  * button just jumps to the tab that already has the real form, so there is
  * no duplicated business logic here.
  */
-function PrimaryActionsBar({ leadId, phone, onNavigate }: { leadId: string; phone: string; onNavigate: (tab: LeadTab) => void }) {
-  function logCall() {
+function PrimaryActionsBar({
+  leadId,
+  phone,
+  phones,
+  onNavigate,
+}: {
+  leadId: string;
+  phone: string;
+  phones: { phone: string; label: string | null; type: string }[];
+  onNavigate: (tab: LeadTab) => void;
+}) {
+  // simplified-role-workflow (spec item 6/7) - Call/WhatsApp become a small
+  // picker once there's more than one number; a single number still acts
+  // immediately (unchanged behavior). See lead-phone-picker.tsx for the
+  // WhatsApp gap this deliberately does NOT try to paper over.
+  const phoneOptions: PhoneOption[] = [
+    { label: "Primary", number: phone, isPrimary: true },
+    ...phones.map((p) => ({ label: p.label ?? (p.type === "PRIMARY" ? "Primary" : "Other"), number: p.phone, isPrimary: false })),
+  ];
+
+  function logCall(number: string) {
     // Fire-and-forget, same as visit-field-actions.tsx - never blocks the
     // phone dialer opening, and never triggers any WhatsApp send.
-    fetch(`/api/leads/${leadId}/call-initiated`, { method: "POST" }).catch(() => {});
+    fetch(`/api/leads/${leadId}/call-initiated`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: number }) }).catch(() => {});
   }
 
   return (
     <div className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
-      <a href={`tel:${phone}`} onClick={logCall} className="inline-flex items-center gap-1.5 rounded-xl bg-[#1FA971] px-3.5 py-2 text-sm font-semibold text-white shadow-xs hover:bg-[#188457] transition-colors">
-        <Phone className="h-4 w-4" /> Call
-      </a>
-      <Button size="sm" variant="whatsapp" onClick={() => onNavigate("whatsapp")}>
-        <MessageSquare className="h-4 w-4" /> WhatsApp
-      </Button>
+      <LeadPhonePicker phones={phoneOptions} action="call" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("whatsapp")} />
+      <LeadPhonePicker phones={phoneOptions} action="whatsapp" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("whatsapp")} />
       <Button size="sm" variant="secondary" onClick={() => onNavigate("catalogues")}>
         <Send className="h-4 w-4" /> Send Catalogue
       </Button>

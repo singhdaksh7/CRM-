@@ -183,7 +183,10 @@ export async function getCatalogueById(catalogueId: string, organizationId: stri
 export async function listCataloguesForLead(leadId: string) {
   return prisma.catalogueShare.findMany({
     where: { leadId },
-    include: { properties: { include: { property: true } } },
+    // simplified-role-workflow (spec item 8): "Shared With This Customer"
+    // in the lead workspace shows who sent each catalogue - createdBy was
+    // already a field on CatalogueShare, just never selected here.
+    include: { properties: { include: { property: true } }, createdBy: { select: { id: true, name: true } } },
     orderBy: { createdAt: "desc" },
   });
 }

@@ -4,8 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { Badge, LEAD_STATUS_TONE, LEAD_PRIORITY_TONE } from "@/components/ui/badge";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { LeadWorkspace } from "@/components/leads/lead-workspace";
+import { LeadPhonesPanel } from "@/components/leads/lead-phones-panel";
 import { getLeadHealth, getLeadSuggestions, computeVisitSuggestions } from "@/lib/rules";
-import { Phone, Mail, MapPin, Wallet } from "lucide-react";
+import { Mail, MapPin, Wallet } from "lucide-react";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
 import { assignedToSelect } from "@/lib/user-select";
 import { getOrganizationId } from "@/lib/organization";
@@ -73,11 +74,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <Badge tone={LEAD_PRIORITY_TONE[lead.priority]}>{lead.priority}</Badge>
             </div>
             <h1 className="text-xl font-semibold text-[#1B2430]">{lead.clientName}</h1>
+            <LeadPhonesPanel leadId={lead.id} primaryPhone={lead.phone} phones={lead.phones} />
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#596579]">
-              <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {lead.phone} <span className="text-[10px] font-semibold uppercase text-[#8A94A6]">(primary)</span></span>
-              {lead.phones.map((p) => (
-                <span key={p.id} className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {p.phone}{p.label ? ` (${p.label})` : ""}</span>
-              ))}
               {lead.email && <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {lead.email}</span>}
               <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {lead.preferredLocation}</span>
               <span className="flex items-center gap-1"><Wallet className="h-3.5 w-3.5" /> {formatINR(lead.minBudget, { compact: true })} - {formatINR(lead.maxBudget, { compact: true })}</span>

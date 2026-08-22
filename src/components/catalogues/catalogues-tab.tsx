@@ -9,7 +9,7 @@ import { formatDate, formatDateTime } from "@/lib/utils";
 import { Plus, Copy, Send, Ban, Eye, ExternalLink } from "lucide-react";
 import type { CatalogueShare, CatalogueShareProperty, CatalogueStatus, Property } from "@prisma/client";
 
-type CatalogueWithProperties = CatalogueShare & { properties: (CatalogueShareProperty & { property: Property })[] };
+type CatalogueWithProperties = CatalogueShare & { properties: (CatalogueShareProperty & { property: Property })[]; createdBy: { id: string; name: string } | null };
 
 const STATUS_TONE: Record<CatalogueStatus, "green" | "slate" | "red"> = {
   ACTIVE: "green",
@@ -97,6 +97,7 @@ export function CataloguesTab({ leadId, canManage, canSend }: { leadId: string; 
                   </p>
                   <p className="text-xs text-slate-400">
                     {c.properties.length} propert{c.properties.length === 1 ? "y" : "ies"} &middot; created {formatDate(c.createdAt)}
+                    {c.createdBy && ` by ${c.createdBy.name}`}
                     {c.expiresAt && ` · expires ${formatDate(c.expiresAt)}`}
                   </p>
                   <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
