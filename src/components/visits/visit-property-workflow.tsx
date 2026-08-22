@@ -24,7 +24,15 @@ import type { FollowUpType } from "@prisma/client";
  * card + rounded-2xl + #3366FF accent conventions the rest of the app
  * already uses rather than introducing a new visual language.
  */
-export function VisitPropertyWorkflow({ visit }: { visit: VisitDetailDTO }) {
+export function VisitPropertyWorkflow({
+  visit,
+  likedPropertyIds = [],
+  coverUrls = {},
+}: {
+  visit: VisitDetailDTO;
+  likedPropertyIds?: string[];
+  coverUrls?: Record<string, string>;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   // Which property currently has its reaction form open. Opening happens
@@ -114,6 +122,9 @@ export function VisitPropertyWorkflow({ visit }: { visit: VisitDetailDTO }) {
             onCloseReaction={() => setReactionFor(null)}
             onMarkVisited={() => markVisited(p)}
             call={call}
+            liked={likedPropertyIds.includes(p.propertyId)}
+            coverUrl={coverUrls[p.propertyId]}
+            fromCatalogue={Boolean(visit.catalogue)}
           />
         ))}
       </div>
@@ -154,6 +165,9 @@ function PropertyCard({
   onCloseReaction,
   onMarkVisited,
   call,
+  liked,
+  coverUrl,
+  fromCatalogue,
 }: {
   visitId: string;
   property: VisitDetailProperty;
@@ -164,6 +178,9 @@ function PropertyCard({
   onCloseReaction: () => void;
   onMarkVisited: () => void;
   call: CallFn;
+  liked?: boolean;
+  coverUrl?: string;
+  fromCatalogue?: boolean;
 }) {
   const [skipping, setSkipping] = useState(false);
   const [skipReason, setSkipReason] = useState("");
@@ -171,6 +188,10 @@ function PropertyCard({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
+      {coverUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={coverUrl} alt="" className="h-40 w-full object-cover bg-[#F5F7FA]" />
+      )}
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -185,6 +206,12 @@ function PropertyCard({
             </p>
             <p className="mt-0.5 text-xs text-[#8A94A6]">{property.address}</p>
             <p className="mt-1 text-sm font-semibold text-[#1B2430]">{property.price ?? "Price on request"}</p>
+            <p className="mt-1 text-[11px] font-semibold text-[#8A94A6]">
+              {liked ? "❤️ Liked by Client" : fromCatalogue ? "Shared in Catalogue" : "Added Manually"}
+            </p>
+            <a href={`/properties/${property.propertyId}`} className="mt-1 inline-block text-xs font-semibold text-[#3366FF]">
+              Open Property
+            </a>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Badge tone={VISIT_PROPERTY_STATUS_TONE[property.status] ?? "slate"}>{enumToLabel(property.status)}</Badge>
               <Badge tone={property.isAvailable ? "green" : "red"}>{enumToLabel(property.availabilityStatus)}</Badge>

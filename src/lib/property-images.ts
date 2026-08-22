@@ -250,17 +250,28 @@ export async function updatePropertyImage(params: {
   const existing = await prisma.propertyImage.findFirst({ where: { id: params.imageId, organizationId } });
   if (!existing) throw new ApiError(404, "Property image not found");
   if (existing.status === "DELETED") throw new ApiError(409, "Cannot edit a deleted image");
-
-  if (params.isCover) {
-    await prisma.propertyImage.updateMany({ where: { propertyId: existing.propertyId, status: "ACTIVE", isCover: true }, data: { isCover: false } });
+  // Floor plans / availability evidence can never become the catalogue thumbnail.
+  if (params.isCover && existing.purpose !== "IMAGE") {
+    throw new ApiError(400, "Only listing images can be set as the property thumbnail");
   }
 
-  const image = await prisma.propertyImage.update({
-    where: { id: params.imageId },
-    data: {
-      ...(params.caption !== undefined ? { caption: params.caption } : {}),
-      ...(params.isCover !== undefined ? { isCover: params.isCover } : {}),
-    },
+  // Clearing+setting cover must be atomic so two concurrent "set cover"
+  // requests cannot leave a property with zero or two ACTIVE covers.
+  const image = await prisma.$transaction(async (tx) => {
+    if (params.isCover) {
+      await tx.propertyImage.updateMany({
+        where: { propertyId: existing.propertyId, status: "ACTIVE", isCover: true },
+        data: { isCover: false },
+      });
+    }
+
+    return tx.propertyImage.update({
+      where: { id: params.imageId },
+      data: {
+        ...(params.caption !== undefined ? { caption: params.caption } : {}),
+        ...(params.isCover !== undefined ? { isCover: params.isCover } : {}),
+      },
+    });
   });
 
   await recordAudit({

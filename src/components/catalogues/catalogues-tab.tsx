@@ -6,7 +6,7 @@ import { LinkButton, Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState, EmptyState } from "@/components/ui/states";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { Plus, Copy, Send, Ban, Eye, ExternalLink } from "lucide-react";
+import { Plus, Copy, Send, Ban, Eye, ExternalLink, MessageCircle } from "lucide-react";
 import type { CatalogueShare, CatalogueShareProperty, CatalogueStatus, Property } from "@prisma/client";
 
 type CatalogueWithProperties = CatalogueShare & { properties: (CatalogueShareProperty & { property: Property })[]; createdBy: { id: string; name: string } | null };
@@ -17,9 +17,35 @@ const STATUS_TONE: Record<CatalogueStatus, "green" | "slate" | "red"> = {
   REVOKED: "red",
 };
 
-export function CataloguesTab({ leadId, canManage, canSend }: { leadId: string; canManage: boolean; canSend: boolean }) {
+/**
+ * Catalogues tab with Cloud API send coexistence + manual wa.me fallback.
+ * Recipient number comes from LeadPhone / primary phone (explicit selection).
+ * Never auto-sends; human presses Send in WhatsApp.
+ */
+export function CataloguesTab({
+  leadId,
+  canManage,
+  canSend,
+  clientName,
+  primaryPhone,
+  phones,
+}: {
+  leadId: string;
+  canManage: boolean;
+  canSend: boolean;
+  clientName?: string;
+  primaryPhone?: string;
+  phones?: { phone: string; label: string | null; type: string }[];
+}) {
   const [catalogues, setCatalogues] = useState<CatalogueWithProperties[] | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [fallbackBusyId, setFallbackBusyId] = useState<string | null>(null);
+  const [phoneForCatalogue, setPhoneForCatalogue] = useState<Record<string, string>>({});
+
+  const phoneOptions = [
+    ...(primaryPhone ? [{ label: "Primary", number: primaryPhone }] : []),
+    ...(phones ?? []).map((p) => ({ label: p.label ?? p.type, number: p.phone })),
+  ];
 
   async function load() {
     const res = await fetch(`/api/leads/${leadId}/catalogues`);
@@ -62,6 +88,29 @@ export function CataloguesTab({ leadId, canManage, canSend }: { leadId: string; 
       const err = await res.json();
       toast.error(err.error ?? "Failed to send catalogue");
     }
+  }
+
+  async function openWhatsAppFallback(catalogue: CatalogueWithProperties) {
+    const recipientPhone = phoneForCatalogue[catalogue.id] || primaryPhone || phoneOptions[0]?.number;
+    if (!recipientPhone) return toast.error("No phone number available for this lead");
+    setFallbackBusyId(catalogue.id);
+    const res = await fetch("/api/catalogues/whatsapp-fallback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipientPhone,
+        clientFirstName: (clientName ?? "there").split(" ")[0],
+        cataloguePublicUrl: publicUrl(catalogue.token),
+      }),
+    });
+    setFallbackBusyId(null);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return toast.error(err.error ?? "Could not prepare WhatsApp link");
+    }
+    const data = await res.json();
+    window.open(data.waMeUrl, "_blank", "noopener,noreferrer");
+    toast.success("WhatsApp opened — press Send yourself. Delivery is not marked automatically.");
   }
 
   async function revoke(catalogueId: string) {
@@ -118,8 +167,29 @@ export function CataloguesTab({ leadId, canManage, canSend }: { leadId: string; 
                 </Button>
                 {canSend && c.status === "ACTIVE" && (
                   <Button size="sm" onClick={() => send(c.id)} loading={sendingId === c.id}>
-                    <Send className="h-3.5 w-3.5" /> Send
+                    <Send className="h-3.5 w-3.5" /> Send via Cloud API
                   </Button>
+                )}
+                {canSend && c.status === "ACTIVE" && (
+                  <>
+                    {phoneOptions.length > 1 && (
+                      <select
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                        value={phoneForCatalogue[c.id] ?? primaryPhone ?? ""}
+                        onChange={(e) => setPhoneForCatalogue((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                        aria-label="WhatsApp recipient number"
+                      >
+                        {phoneOptions.map((p) => (
+                          <option key={p.number} value={p.number}>
+                            {p.label}: {p.number}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <Button size="sm" variant="secondary" onClick={() => openWhatsAppFallback(c)} loading={fallbackBusyId === c.id}>
+                      <MessageCircle className="h-3.5 w-3.5" /> Open WhatsApp &amp; Send
+                    </Button>
+                  </>
                 )}
                 {canManage && c.status === "ACTIVE" && (
                   <Button size="sm" variant="danger" onClick={() => revoke(c.id)}>

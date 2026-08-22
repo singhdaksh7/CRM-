@@ -62,8 +62,8 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
         <option value="SEMI_FURNISHED">Semi-Furnished</option>
         <option value="UNFURNISHED">Unfurnished</option>
       </Select>
-      <Select defaultValue={sp.get("status") ?? ""} onChange={(e) => update("status", e.target.value)} className="w-auto text-xs font-semibold">
-        <option value="">All Status</option>
+      <Select defaultValue={sp.get("status") ?? "AVAILABLE"} onChange={(e) => update("status", e.target.value)} className="w-auto text-xs font-semibold">
+        <option value="ALL">All Status</option>
         <option value="AVAILABLE">Available</option>
         <option value="RESERVED">Reserved</option>
         <option value="RENTED">Rented</option>

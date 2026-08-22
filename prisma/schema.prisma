@@ -777,6 +777,7 @@ model Organization {
   whatsappMessages            WhatsAppMessage[]
   catalogueShares             CatalogueShare[]
   catalogueInteractions       CatalogueInteraction[]
+  cataloguePropertyPreferences CataloguePropertyPreference[]
   webhookEvents               IntegrationWebhookEvent[]
   owners                      Owner[]
   deals                       Deal[]
@@ -1171,6 +1172,7 @@ model Property {
   visitProperties          VisitProperty[]
   catalogueShareProperties CatalogueShareProperty[]
   catalogueInteractions    CatalogueInteraction[]
+  cataloguePropertyPreferences CataloguePropertyPreference[]
   deals                    Deal[]
   documents                Document[]
   propertyImages           PropertyImage[]
@@ -1288,6 +1290,7 @@ model Lead {
   scoreHistory            LeadScoreHistory[]
   whatsappConversations   WhatsAppConversation[]
   catalogueShares         CatalogueShare[]
+  cataloguePropertyPreferences CataloguePropertyPreference[]
   deals                   Deal[]
   documents               Document[]
   assignmentHistory       LeadAssignmentHistory[]
@@ -1871,6 +1874,7 @@ model CatalogueShare {
 
   properties    CatalogueShareProperty[]
   interactions  CatalogueInteraction[]
+  propertyPreferences CataloguePropertyPreference[]
   versionEvents CatalogueVersionEvent[]
   visits        Visit[]
 
@@ -1959,6 +1963,47 @@ model CatalogueInteraction {
   @@index([catalogueShareId, type])
   @@index([organizationId, type, scheduledVisitId])
   @@map("catalogue_interactions")
+}
+
+/**
+ * Mutable client preference for one property inside one catalogue share.
+ *
+ * CatalogueInteraction remains the append-only event log (views, questions,
+ * visit requests, historical INTERESTED/NOT_INTERESTED clicks). This table
+ * is the authoritative current state for visit planning and preference
+ * summaries: UNDECIDED / LIKED / NOT_INTERESTED, updatable by the client.
+ *
+ * organizationId and leadId are always derived server-side from the
+ * CatalogueShare resolved via opaque token - never accepted from the
+ * public request body.
+ */
+enum CataloguePropertyPreferenceStatus {
+  UNDECIDED
+  LIKED
+  NOT_INTERESTED
+}
+
+model CataloguePropertyPreference {
+  id               String                             @id @default(cuid())
+  organizationId   String                             @default("org_default")
+  organization     Organization                       @relation(fields: [organizationId], references: [id])
+  catalogueShareId String
+  catalogueShare   CatalogueShare                     @relation(fields: [catalogueShareId], references: [id], onDelete: Cascade)
+  propertyId       String
+  property         Property                           @relation(fields: [propertyId], references: [id])
+  leadId           String
+  lead             Lead                               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  status           CataloguePropertyPreferenceStatus  @default(UNDECIDED)
+  note             String?
+  respondedAt      DateTime?
+  createdAt        DateTime                           @default(now())
+  updatedAt        DateTime                           @updatedAt
+
+  @@unique([catalogueShareId, propertyId])
+  @@index([organizationId, leadId, status])
+  @@index([leadId, status])
+  @@index([organizationId, catalogueShareId])
+  @@map("catalogue_property_preferences")
 }
 
 // ---------------------------------------------------------------------------

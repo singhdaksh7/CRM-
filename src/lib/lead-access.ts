@@ -36,6 +36,15 @@ export function isLeadAccessibleToUser(lead: LeadAssignmentLike, user: UserLike)
 }
 
 /**
+ * Prisma `lead:` filter for FIELD_EXECUTIVE list/history routes.
+ * Matches isLeadAccessibleToUser: own assigned leads OR unassigned leads.
+ * ADMIN/DATA_MANAGER callers should pass `{}` (org-wide) instead.
+ */
+export function fieldExecutiveLeadReadWhere(userId: string): { OR: Array<{ assignedToId: string | null }> } {
+  return { OR: [{ assignedToId: userId }, { assignedToId: null }] };
+}
+
+/**
  * Single source of truth for "can this session touch this lead". Reused by
  * every Phase 2B WhatsApp/catalogue route so field-executive scoping is
  * enforced identically everywhere, not re-implemented ad hoc per route.

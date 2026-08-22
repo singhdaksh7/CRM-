@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-auth";
 import { getOrganizationId } from "@/lib/organization";
+import { getCoverImageUrls } from "@/lib/property-images";
 import type { Prisma } from "@prisma/client";
 
 const RESULT_CAP = 20;
@@ -12,6 +13,7 @@ const RESULT_CAP = 20;
  * beyond a free-text query plus optional rent/BHK bounds) and capped at
  * RESULT_CAP results so it stays fast enough for debounced as-you-type
  * search. Not a replacement for the full /api/properties list endpoint.
+ * Cover thumbnails resolved in one batched query (no N+1).
  */
 export async function GET(req: NextRequest) {
   try {
@@ -61,7 +63,16 @@ export async function GET(req: NextRequest) {
       take: RESULT_CAP,
     });
 
-    return NextResponse.json({ properties });
+    const coverUrls = await getCoverImageUrls(
+      properties.map((p) => p.id),
+      organizationId
+    );
+    const withThumbs = properties.map((p) => ({
+      ...p,
+      coverImage: coverUrls[p.id] ?? p.coverImage,
+    }));
+
+    return NextResponse.json({ properties: withThumbs });
   } catch (err) {
     return handleApiError(err);
   }

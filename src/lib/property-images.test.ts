@@ -198,12 +198,26 @@ describe("replacePropertyImage", () => {
 
 describe("updatePropertyImage", () => {
   it("Data Manager can set a caption and cover flag", async () => {
-    propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "ACTIVE", caption: null, isCover: false });
+    propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "ACTIVE", purpose: "IMAGE", caption: null, isCover: false });
     propertyImageUpdate.mockResolvedValue({ id: "img1", caption: "Living room", isCover: true });
 
     const image = await updatePropertyImage({ imageId: "img1", actorId: "dm1", organizationId: "org_default", role: "DATA_MANAGER", caption: "Living room", isCover: true });
     expect(image.caption).toBe("Living room");
+    expect(transactionMock).toHaveBeenCalled();
     expect(propertyImageUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ propertyId: "prop1", isCover: true }) }));
+  });
+
+  it("Admin can set cover transactionally", async () => {
+    propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "ACTIVE", purpose: "IMAGE", caption: null, isCover: false });
+    propertyImageUpdate.mockResolvedValue({ id: "img1", isCover: true });
+    await updatePropertyImage({ imageId: "img1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", isCover: true });
+    expect(transactionMock).toHaveBeenCalled();
+  });
+
+  it("rejects floor plans as thumbnails", async () => {
+    propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "ACTIVE", purpose: "FLOOR_PLAN", caption: null, isCover: false });
+    await expect(updatePropertyImage({ imageId: "img1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", isCover: true })).rejects.toThrow(ApiError);
+    expect(transactionMock).not.toHaveBeenCalled();
   });
 
   it("Field Executive is denied editing captions/cover", async () => {
@@ -212,7 +226,7 @@ describe("updatePropertyImage", () => {
   });
 
   it("refuses to edit a deleted image", async () => {
-    propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "DELETED" });
+    propertyImageFindFirst.mockResolvedValue({ id: "img1", propertyId: "prop1", status: "DELETED", purpose: "IMAGE" });
     await expect(updatePropertyImage({ imageId: "img1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", caption: "x" })).rejects.toThrow(ApiError);
   });
 });

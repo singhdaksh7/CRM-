@@ -65,14 +65,20 @@ describe("zero-auto-send", () => {
       "lib/todays-work.ts",
       "lib/dm-dashboard-data.ts",
       "lib/lead-phones.ts",
+      "lib/catalogue-whatsapp-fallback.ts",
+      "lib/catalogue-property-preferences.ts",
+      "lib/visit-property-candidates.ts",
       "components/dashboard/todays-priorities-list.tsx",
       "components/dashboard/new-leads-panel.tsx",
       "components/dashboard/data-manager-dashboard.tsx",
       "components/visits/visit-property-workflow.tsx",
       "components/leads/lead-phone-picker.tsx",
       "components/leads/lead-phones-panel.tsx",
+      "components/leads/client-preferences-panel.tsx",
+      "components/leads/visit-schedule-with-candidates.tsx",
       "app/api/follow-ups/route.ts",
       "app/api/follow-ups/[id]/route.ts",
+      "app/api/catalogues/whatsapp-fallback/route.ts",
     ];
     for (const rel of newFiles) {
       const content = readFileSync(join(SRC_ROOT, rel), "utf-8");

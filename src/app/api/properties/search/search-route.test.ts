@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const propertyFindMany = vi.fn();
+const getCoverImageUrls = vi.fn(async () => ({}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -9,6 +10,10 @@ vi.mock("@/lib/prisma", () => ({
       findMany: (...a: unknown[]) => propertyFindMany(...a),
     },
   },
+}));
+
+vi.mock("@/lib/property-images", () => ({
+  getCoverImageUrls: (...a: unknown[]) => (getCoverImageUrls as (...args: unknown[]) => unknown)(...a),
 }));
 
 vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org_default" }));

@@ -49,6 +49,10 @@ export function CataloguePropertyCard({ catalogueId, property }: { catalogueId: 
 
   return (
     <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
+      {property.coverImage && (
+        // eslint-disable-next-line @next/next/no-img-element -- signed/legacy cover URLs
+        <img src={property.coverImage} alt="" className="h-36 w-full rounded-xl object-cover bg-[#F5F7FA]" />
+      )}
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-semibold text-[#1B2430]">{property.title}</p>
