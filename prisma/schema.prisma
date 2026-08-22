@@ -2838,15 +2838,21 @@ model VisitFeedback {
   willVisitAgain      Boolean @default(false)
   negotiationRequired Boolean @default(false)
   additionalNotes     String?
-  // simplified-role-workflow (spec item 11): the one confirmed schema gap
-  // from the audit - a numeric 1-5 customer rating captured by the field
-  // executive after a visit. Nullable/additive so every existing
-  // VisitFeedback row remains valid; range (1-5) enforced in application
-  // code (src/lib/validators.ts), same approach as every other unconstrained
-  // Int field in this schema (Postgres CHECK constraints aren't managed by
-  // this Prisma setup elsewhere either).
-  rating              Int?
-
+  // simplified-role-workflow: a `rating Int?` field briefly lived here
+  // (spec item 11) before a later review found it duplicated two other,
+  // already-shipped 1-5 rating concepts on the SAME visit -
+  // VisitProperty.reactionRating (per-property customer reaction, captured
+  // by the field executive on-site) and Visit.overallRating (overall client
+  // interest, captured by the field executive on [Complete Visit]). Both of
+  // those already fully cover "how did the client feel" for the field
+  // executive's workflow; this dialog's rating would only ever be entered
+  // by ADMIN/DATA_MANAGER reviewing the SAME visit after the fact via
+  // VisitFeedbackDialog - the same measurement, a different (later, review-
+  // only) actor, not a genuinely distinct business concept. Removed rather
+  // than kept as a third source of truth that could silently disagree with
+  // the other two. Never applied to any database, so removed at the
+  // migration source (prisma/migrations/20260822120000_simplified_role_workflow_additive)
+  // rather than via a second add/drop pair.
   submittedById String
   submittedBy   User     @relation("VisitFeedbackSubmittedBy", fields: [submittedById], references: [id])
   createdAt     DateTime @default(now())

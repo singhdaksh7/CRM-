@@ -40,12 +40,11 @@
 --    versions - each ALTER TYPE ... ADD VALUE below is its own statement,
 --    matching what `prisma migrate diff` itself generates.
 --
--- 3. visit_feedback.rating (nullable Int) - the one confirmed schema gap
---    from the audit: a numeric 1-5 customer rating captured by the field
---    executive after a visit (spec item 11). Nullable so every existing row
---    stays valid; the 1-5 range is enforced in application code
---    (src/lib/validators.ts) rather than a CHECK constraint, consistent with
---    how every other bounded Int field in this schema is handled.
+-- (A visit_feedback.rating column briefly lived in this migration - removed
+-- before ever being applied anywhere, after a later review found it
+-- duplicated two already-shipped 1-5 rating concepts on the same visit,
+-- VisitProperty.reactionRating and Visit.overallRating. See the comment on
+-- the VisitFeedback model in schema.prisma for the full reasoning.)
 
 -- CreateEnum
 CREATE TYPE "LeadPhoneType" AS ENUM ('PRIMARY', 'ALTERNATE');
@@ -60,9 +59,6 @@ CREATE TYPE "LeadPhoneType" AS ENUM ('PRIMARY', 'ALTERNATE');
 
 ALTER TYPE "FollowUpType" ADD VALUE 'VISIT_EXPECTED';
 ALTER TYPE "FollowUpType" ADD VALUE 'GENERAL_FOLLOW_UP';
-
--- AlterTable
-ALTER TABLE "visit_feedback" ADD COLUMN     "rating" INTEGER;
 
 -- CreateTable
 CREATE TABLE "lead_phones" (
