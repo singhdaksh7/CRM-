@@ -53,6 +53,7 @@ export interface TodaysWorkItem {
   followUpType?: FollowUpType;
   visitTime?: string;
   propertyCount?: number;
+  meetingLocation?: string | null;
 }
 
 export interface TodaysWorkSummary {
@@ -114,6 +115,7 @@ export async function getTodaysWork(organizationId: string, actor: { id: string;
         id: true,
         visitDate: true,
         visitTime: true,
+        meetingLocation: true,
         assignedToId: true,
         assignedTo: { select: { id: true, name: true } },
         leadId: true,
@@ -179,6 +181,7 @@ export async function getTodaysWork(organizationId: string, actor: { id: string;
       note: null,
       visitTime: v.visitTime,
       propertyCount: v.properties.length,
+      meetingLocation: v.meetingLocation,
     });
   }
 

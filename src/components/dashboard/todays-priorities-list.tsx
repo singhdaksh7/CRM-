@@ -107,6 +107,7 @@ export function TodaysPrioritiesList({ items }: { items: TodaysWorkItem[] }) {
                 <p className="text-xs text-[#8A94A6]">
                   {isVisit ? item.visitTime : formatDateTime(item.dueAt)}
                   {item.ownerName ? ` · ${item.ownerName}` : ""}
+                  {isVisit && item.meetingLocation ? ` · ${item.meetingLocation}` : ""}
                   {item.note ? ` · ${item.note}` : ""}
                 </p>
               </div>
