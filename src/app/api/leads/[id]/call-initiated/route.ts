@@ -10,14 +10,20 @@ import { getOrganizationId } from "@/lib/organization";
  * CALL_MADE), but this is the honest signal available from a browser.
  * Fire-and-forget from the client - never blocks the phone dialer opening.
  */
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
     const { id: leadId } = await params;
     const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: getOrganizationId(session.user) }, select: { id: true } });
     if (!lead) throw new ApiError(404, "Lead not found");
 
-    await logActivity({ leadId, type: "CALL_INITIATED", description: "Call initiated from the field", actorId: session.user.id });
+    // simplified-role-workflow (spec item 6) - optional, best-effort: which
+    // number (primary or alternate) the call was placed to, when the caller
+    // sends one. Never required - the pre-existing no-body POST keeps working.
+    const body = await req.json().catch(() => ({}) as { phone?: unknown });
+    const phone = typeof body.phone === "string" && body.phone.trim() ? body.phone.trim() : null;
+
+    await logActivity({ leadId, type: "CALL_INITIATED", description: phone ? `Call initiated to ${phone}` : "Call initiated from the field", actorId: session.user.id });
 
     return NextResponse.json({ success: true });
   } catch (err) {

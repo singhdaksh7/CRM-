@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
+import { requireSession, handleApiError } from "@/lib/api-auth";
 import { matchPropertiesToLead, sectionizeMatches } from "@/lib/matching";
 import { getOrganizationId } from "@/lib/organization";
 import { getLocalityCentroid } from "@/lib/locality";
 import { haversineDistanceMeters } from "@/lib/geo";
+import { assertLeadAccessible } from "@/lib/lead-access";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
     const { id } = await params;
     const organizationId = getOrganizationId(session.user);
-    const lead = await prisma.lead.findFirst({ where: { id, organizationId } });
-    if (!lead) throw new ApiError(404, "Lead not found");
-    if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
-      throw new ApiError(403, "Forbidden");
-    }
+    const lead = await assertLeadAccessible(session, id);
 
     const tolerance = Number(req.nextUrl.searchParams.get("tolerance") ?? "0.2");
     // Optional additional widening beyond the matching engine's own

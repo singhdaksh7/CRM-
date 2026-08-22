@@ -10,6 +10,7 @@ import { notifyRoles } from "@/lib/notifications";
 import { getOrganizationId } from "@/lib/organization";
 import { logger } from "@/lib/logger";
 import { assignedToSelect } from "@/lib/user-select";
+import { isLeadAccessibleToUser } from "@/lib/lead-access";
 
 const REQUIREMENT_FIELDS = ["preferredLocation", "minBudget", "maxBudget", "preferredBhk", "requirementType", "moveInDate"] as const;
 
@@ -29,7 +30,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       } as never,
     });
     if (!lead) throw new ApiError(404, "Lead not found");
-    if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
+    // simplified-role-workflow (targeted fix pass, Blocker B) - was the same
+    // stale check as the lead detail page (no unassigned-lead carve-out),
+    // now shares isLeadAccessibleToUser instead of a second copy of the rule.
+    if (!isLeadAccessibleToUser(lead, session.user)) {
       throw new ApiError(403, "Forbidden");
     }
     return NextResponse.json({ lead });

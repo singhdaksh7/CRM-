@@ -269,6 +269,17 @@ enum FollowUpType {
   NEGOTIATION
   DOCUMENTATION
   PAYMENT_REMINDER
+  // simplified-role-workflow (spec item 6): the simple "Add Follow-up" form
+  // in the redesigned lead workspace offers CALL/WHATSAPP/VISIT_EXPECTED/
+  // GENERAL_FOLLOW_UP. CALL and WHATSAPP already map onto PHONE_CALL and
+  // WHATSAPP above (reused, not duplicated) - these two values are added
+  // additively for the two spec types with no existing equivalent:
+  // VISIT_EXPECTED ("a visit is expected/being arranged", distinct from
+  // VISIT_CONFIRMATION which existing flows use once a visit is actually
+  // booked) and GENERAL_FOLLOW_UP (a catch-all that doesn't fit any of the
+  // more specific existing values). Existing rows/enum values are untouched.
+  VISIT_EXPECTED
+  GENERAL_FOLLOW_UP
 }
 
 enum FollowUpStatus {
@@ -276,6 +287,16 @@ enum FollowUpStatus {
   COMPLETED
   RESCHEDULED
   OVERDUE
+  // simplified-role-workflow (continuation pass) - a distinct terminal state
+  // for the "Cancel" action on the Add Follow-up UX (spec item 4), so a
+  // cancelled follow-up stops appearing in Today's Work without being
+  // conflated with COMPLETED (which means the work was actually done).
+  // Additive; every existing query that scopes active work whitelists
+  // `{ in: ["PENDING", "OVERDUE"] }` rather than blacklisting COMPLETED (see
+  // src/lib/notifications.ts, src/lib/dashboard-data.ts, src/lib/todays-work.ts
+  // etc.), so CANCELLED rows are automatically excluded from all of them
+  // without needing to touch each call site.
+  CANCELLED
 }
 
 enum ActivityType {
@@ -737,6 +758,7 @@ model Organization {
   users                       User[]
   properties                  Property[]
   leads                       Lead[]
+  leadPhones                  LeadPhone[]
   propertyPortalConnections   PropertyPortalConnection[]
   portalListings              PortalListing[]
   portalOperations            PortalOperation[]
@@ -872,6 +894,7 @@ model User {
   propertyReportsSubmitted        PropertyReport[]             @relation("PropertyReportedBy")
   propertyReportsResolved         PropertyReport[]             @relation("PropertyReportResolvedBy")
   visitFeedbackSubmitted          VisitFeedback[]              @relation("VisitFeedbackSubmittedBy")
+  leadPhonesCreated               LeadPhone[]                  @relation("LeadPhoneCreatedBy")
   leadAssignmentHistoryTo         LeadAssignmentHistory[]      @relation("AssignmentHistoryTo")
   catalogueExecutiveStatusUpdates CatalogueShareProperty[]     @relation("CatalogueExecutiveStatusUpdatedBy")
   catalogueVersionEventsActed     CatalogueVersionEvent[]      @relation("CatalogueVersionEventActor")
@@ -1275,6 +1298,10 @@ model Lead {
   matchRecommendations    MatchRecommendation[]
   externalLeadEvents      ExternalLeadEvent[]
   propertyRecommendations PropertyRecommendation[] @relation("PropertyRecommendationLead")
+  // simplified-role-workflow: additional phone numbers beyond the single
+  // `phone` field above (which stays the primary/legacy number so every
+  // existing query/index against it keeps working unchanged). See LeadPhone.
+  phones                  LeadPhone[]
 
   @@index([organizationId, customerContactId])
   @@index([organizationId, phone])
@@ -1314,6 +1341,64 @@ model Lead {
   // above and the composites here already serve them. The unprefixed
   // indexes are dropped as redundant write-amplification.
   @@map("leads")
+}
+
+enum LeadPhoneType {
+  PRIMARY
+  ALTERNATE
+}
+
+/**
+ * simplified-role-workflow (spec item 5): additional phone numbers for a
+ * Lead. Lead.phone remains untouched as the legacy/primary number so every
+ * existing query, index, and integration keeps working; this table only adds
+ * capability, it never replaces the existing column. One row per number,
+ * normalized to the same E.164-ish Indian format normalizeIndianPhone()
+ * produces (see src/integrations/whatsapp.ts), org-scoped like every other
+ * child table, unique per (organizationId, leadId, phone) to prevent the
+ * same number being added twice to one lead (@@unique below - Prisma-schema
+ * expressible, so declared normally), and at most one PRIMARY row per lead.
+ *
+ * The PRIMARY invariant is NOT expressed here - Prisma's schema DSL has no
+ * way to declare a partial (WHERE-qualified) unique index in this Prisma
+ * version, so `@@unique([organizationId, leadId])` would incorrectly also
+ * forbid a lead ever having more than one ALTERNATE number. The actual
+ * DB-level constraint - a partial unique index on (organizationId, leadId)
+ * WHERE type = 'PRIMARY' - is hand-written directly into
+ * prisma/migrations/20260822120000_simplified_role_workflow_additive/migration.sql
+ * (see that file's comments for the full reasoning and the pre-flight
+ * check). src/lib/lead-phones.ts's $transaction-based demote-then-create
+ * reduces the *frequency* of a race but is not itself sufficient under
+ * READ COMMITTED - the partial unique index is the real backstop, and
+ * addLeadPhone() turns a P2002 against it into a clean 409.
+ *
+ * Deliberately NOT a dedicated Customer/CustomerContact merge: adding a
+ * number to a Lead never merges it with another Lead that already has that
+ * number (see dedupe check in src/lib/lead-phones.ts) - multiple Leads may
+ * legitimately share a phone number (e.g. a family enquiring separately),
+ * matching the same "warn, don't auto-merge" policy already used for
+ * Lead.phone duplicate detection in POST /api/leads.
+ */
+model LeadPhone {
+  id             String        @id @default(cuid())
+  organizationId String        @default("org_default")
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  leadId         String
+  lead           Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  phone          String
+  type           LeadPhoneType @default(ALTERNATE)
+  label          String? // e.g. "Spouse", "Office" - free text, optional
+  createdById    String?
+  createdBy      User?         @relation("LeadPhoneCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([organizationId, leadId, phone])
+  @@index([organizationId, leadId])
+  // Backs inbound-WhatsApp number matching (checking all of a lead's known
+  // numbers, not just the primary) without a table scan.
+  @@index([organizationId, phone])
+  @@map("lead_phones")
 }
 
 /// Provider configuration never stores raw credentials. `credentialReference`
@@ -2808,7 +2893,21 @@ model VisitFeedback {
   willVisitAgain      Boolean @default(false)
   negotiationRequired Boolean @default(false)
   additionalNotes     String?
-
+  // simplified-role-workflow: a `rating Int?` field briefly lived here
+  // (spec item 11) before a later review found it duplicated two other,
+  // already-shipped 1-5 rating concepts on the SAME visit -
+  // VisitProperty.reactionRating (per-property customer reaction, captured
+  // by the field executive on-site) and Visit.overallRating (overall client
+  // interest, captured by the field executive on [Complete Visit]). Both of
+  // those already fully cover "how did the client feel" for the field
+  // executive's workflow; this dialog's rating would only ever be entered
+  // by ADMIN/DATA_MANAGER reviewing the SAME visit after the fact via
+  // VisitFeedbackDialog - the same measurement, a different (later, review-
+  // only) actor, not a genuinely distinct business concept. Removed rather
+  // than kept as a third source of truth that could silently disagree with
+  // the other two. Never applied to any database, so removed at the
+  // migration source (prisma/migrations/20260822120000_simplified_role_workflow_additive)
+  // rather than via a second add/drop pair.
   submittedById String
   submittedBy   User     @relation("VisitFeedbackSubmittedBy", fields: [submittedById], references: [id])
   createdAt     DateTime @default(now())

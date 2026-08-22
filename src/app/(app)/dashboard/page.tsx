@@ -20,12 +20,24 @@ import { FieldOpsSummaryPanel } from "@/components/dashboard/field-ops-summary-p
 import { getManagerVisitBoard } from "@/lib/visit-analytics-data";
 import { ManagerVisitBoard } from "@/components/dashboard/manager-visit-board";
 import { DemandAnalyticsPanel, DemandPoolDashboardCards } from "@/components/customers/demand-dashboard-cards";
+import { DataManagerDashboard } from "@/components/dashboard/data-manager-dashboard";
+import { getDataManagerDashboardData } from "@/lib/dm-dashboard-data";
+import { getOrganizationId } from "@/lib/organization";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session) return null;
-  const data = await getDashboardCriticalData(session.user.role, session.user.id);
   const firstName = session.user.name.split(" ")[0];
+
+  // simplified-role-workflow (spec item 1/3): DATA_MANAGER gets an
+  // operational "Today's Work" dashboard instead of the founder-oriented
+  // KPI/analytics one below - ADMIN's dashboard is completely unchanged.
+  if (session.user.role === "DATA_MANAGER") {
+    const dmData = await getDataManagerDashboardData(getOrganizationId(session.user), session.user);
+    return <DataManagerDashboard data={dmData} firstName={firstName} />;
+  }
+
+  const data = await getDashboardCriticalData(session.user.role, session.user.id);
   const demoDataLoaded = session.user.role === "ADMIN" ? await isDemoDataLoaded() : false;
 
   return (
@@ -86,14 +98,14 @@ export default async function DashboardPage() {
 
       {/* Manager view of today's field work: Visits Today / Upcoming /
           In Progress / Completed Today, with a per-visit progress summary. */}
-      {(session.user.role === "ADMIN" || session.user.role === "DATA_MANAGER") && (
+      {/* Only ADMIN reaches this point now - DATA_MANAGER returns early above with its own operational dashboard. */ session.user.role === "ADMIN" && (
         <Suspense fallback={<PanelSkeleton />}>
           <ManagerVisitBoardSection userId={session.user.id} />
         </Suspense>
       )}
 
       {/* Objective 12 - Manager Dashboard field-ops widgets */}
-      {(session.user.role === "ADMIN" || session.user.role === "DATA_MANAGER") && (
+      {/* Only ADMIN reaches this point now - DATA_MANAGER returns early above with its own operational dashboard. */ session.user.role === "ADMIN" && (
         <Suspense fallback={<PanelSkeleton />}>
           <FieldOpsSummarySection userId={session.user.id} />
         </Suspense>

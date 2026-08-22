@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PropertyMatchingWorkspace } from "@/components/leads/property-matching-workspace";
 import { getOrganizationId } from "@/lib/organization";
+import { isLeadAccessibleToUser } from "@/lib/lead-access";
 
 /**
  * Canonical entry point for the unified Property Matching Workspace - browse
@@ -17,7 +18,10 @@ export default async function LeadMatchPage({ params }: { params: Promise<{ id: 
 
   const lead = await prisma.lead.findFirst({ where: { id, organizationId: getOrganizationId(session!.user) } });
   if (!lead) notFound();
-  if (session!.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session!.user.id) notFound();
+  // simplified-role-workflow (Blocker 1 follow-up pass) - was a stale inline
+  // check with no unassigned-lead carve-out; now shares the same predicate
+  // as leads/[id]/page.tsx and the rest of the read-access surface.
+  if (!isLeadAccessibleToUser(lead, session!.user)) notFound();
 
   return (
     <div className="space-y-4">

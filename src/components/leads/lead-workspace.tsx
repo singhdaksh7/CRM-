@@ -7,9 +7,9 @@ import Link from "next/link";
 import type { User, FollowUpType, VisitStatus } from "@prisma/client";
 import { Badge, FOLLOWUP_STATUS_TONE, VISIT_STATUS_TONE } from "@/components/ui/badge";
 import { Select, Input, Textarea, Field } from "@/components/ui/form";
-import { Button, LinkButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { formatDate, formatDateTime, enumToLabel, timeAgo } from "@/lib/utils";
-import { ArrowRightLeft, Send, Sparkles, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText } from "lucide-react";
+import { ArrowRightLeft, Send, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText, CalendarPlus } from "lucide-react";
 import { ConversationPanel } from "@/components/whatsapp/conversation-panel";
 import { CataloguesTab } from "@/components/catalogues/catalogues-tab";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
@@ -18,6 +18,8 @@ import { SuggestionList } from "@/components/rules/suggestion-list";
 import type { HealthScoreResult, Suggestion } from "@/lib/rules";
 import { computeLeadTimelineSummary } from "@/lib/timeline-summary";
 import { NewMatchesPanel } from "./new-matches-panel";
+import { LeadPhonePicker, type PhoneOption } from "./lead-phone-picker";
+import { HUMAN_FOLLOWUP_TYPES, DEFAULT_FOLLOWUP_TYPE } from "@/lib/follow-up-types";
 
 /** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
 type UserSummary = Pick<User, "id" | "name">;
@@ -29,7 +31,6 @@ interface ScoreFactor {
 }
 
 const STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"];
-const FOLLOWUP_TYPES: FollowUpType[] = ["PHONE_CALL", "WHATSAPP", "PROPERTY_SHARING", "VISIT_CONFIRMATION", "NEGOTIATION", "DOCUMENTATION", "PAYMENT_REMINDER"];
 const VISIT_STATUSES: VisitStatus[] = ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"];
 const OUTCOMES = ["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION"];
 
@@ -37,6 +38,8 @@ type LeadWithRelations = {
   id: string;
   leadCode: string;
   clientName: string;
+  phone: string;
+  phones: { id: string; phone: string; label: string | null; type: string }[];
   createdAt: Date;
   status: string;
   priority: string;
@@ -92,6 +95,8 @@ export function LeadWorkspace({
 
   return (
     <div>
+      <PrimaryActionsBar leadId={lead.id} phone={lead.phone} phones={lead.phones} onNavigate={setTab} />
+
       <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1.5 text-sm shadow-xs">
         {TABS.map((t) => (
           <button
@@ -112,8 +117,74 @@ export function LeadWorkspace({
       {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
       {tab === "activity" && <ActivityTab activities={lead.activities} createdAt={lead.createdAt} followUps={lead.followUps} />}
       {tab === "followups" && <FollowUpsTab leadId={lead.id} followUps={lead.followUps} employees={employees} />}
-      {tab === "visits" && <VisitsTab leadId={lead.id} visits={lead.visits} canManage={canManage} visitSuggestions={visitSuggestions} onTabAction={(t) => setTab(t as LeadTab)} />}
+      {tab === "visits" && (
+        <VisitsTab
+          leadId={lead.id}
+          visits={lead.visits}
+          canManage={canManage}
+          visitSuggestions={visitSuggestions}
+          onTabAction={(t) => setTab(t as LeadTab)}
+          employees={employees}
+          candidateProperties={lead.matchRecommendations.map((r) => r.property)}
+        />
+      )}
       {tab === "shared" && <SharedTab shares={lead.sharedProperties} />}
+    </div>
+  );
+}
+
+/**
+ * simplified-role-workflow (spec item 4) - always-visible primary actions so
+ * the day-to-day flow (Call -> WhatsApp -> Note -> Send Catalogue ->
+ * Follow-up -> Schedule Visit) never requires hunting through tabs first.
+ * "Call" is the only action that leaves the page (tel: link, same pattern as
+ * src/components/visits/visit-field-actions.tsx) - it also fires the
+ * existing CALL_INITIATED activity log, never a WhatsApp send. Every other
+ * button just jumps to the tab that already has the real form, so there is
+ * no duplicated business logic here.
+ */
+function PrimaryActionsBar({
+  leadId,
+  phone,
+  phones,
+  onNavigate,
+}: {
+  leadId: string;
+  phone: string;
+  phones: { phone: string; label: string | null; type: string }[];
+  onNavigate: (tab: LeadTab) => void;
+}) {
+  // simplified-role-workflow (spec item 6/7) - Call/WhatsApp become a small
+  // picker once there's more than one number; a single number still acts
+  // immediately (unchanged behavior). See lead-phone-picker.tsx for the
+  // WhatsApp gap this deliberately does NOT try to paper over.
+  const phoneOptions: PhoneOption[] = [
+    { label: "Primary", number: phone, isPrimary: true },
+    ...phones.map((p) => ({ label: p.label ?? (p.type === "PRIMARY" ? "Primary" : "Other"), number: p.phone, isPrimary: false })),
+  ];
+
+  function logCall(number: string) {
+    // Fire-and-forget, same as visit-field-actions.tsx - never blocks the
+    // phone dialer opening, and never triggers any WhatsApp send.
+    fetch(`/api/leads/${leadId}/call-initiated`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: number }) }).catch(() => {});
+  }
+
+  return (
+    <div className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+      <LeadPhonePicker phones={phoneOptions} action="call" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("whatsapp")} />
+      <LeadPhonePicker phones={phoneOptions} action="whatsapp" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("whatsapp")} />
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("catalogues")}>
+        <Send className="h-4 w-4" /> Send Catalogue
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("followups")}>
+        <Plus className="h-4 w-4" /> Add Follow-up
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("overview")}>
+        <FileText className="h-4 w-4" /> Add Note
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("visits")}>
+        <CalendarPlus className="h-4 w-4" /> Schedule Visit
+      </Button>
     </div>
   );
 }
@@ -392,15 +463,25 @@ function ActivityTab({ activities, createdAt, followUps }: { activities: LeadWit
 
 function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; followUps: LeadWithRelations["followUps"]; employees: UserSummary[] }) {
   const router = useRouter();
-  const [type, setType] = useState<FollowUpType>("PHONE_CALL");
-  const [dueDate, setDueDate] = useState("");
+  // simplified-role-workflow (targeted fix pass, Blocker D) - this is the
+  // main [Add Follow-up] flow (PrimaryActionsBar jumps straight to this
+  // tab). Type is now exactly the 4 human-facing options from
+  // src/lib/follow-up-types.ts - Call/WhatsApp/PHONE_CALL/WHATSAPP/
+  // "Customer Expected / Coming"=VISIT_EXPECTED/"General Follow-up"=
+  // GENERAL_FOLLOW_UP - no raw enum string shown. Date/Time are separate
+  // fields (Date required, Time optional), matching the same pattern used
+  // by the visit-completion "Next Action?" follow-up form.
+  const [type, setType] = useState<FollowUpType>(DEFAULT_FOLLOWUP_TYPE);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [ownerId, setOwnerId] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function create() {
-    if (!dueDate) return toast.error("Due date is required");
+    if (!date) return toast.error("Date is required");
     setSaving(true);
+    const dueDate = time ? `${date}T${time}` : date;
     const res = await fetch("/api/follow-ups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -409,9 +490,12 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
     setSaving(false);
     if (res.ok) {
       toast.success("Follow-up scheduled");
-      setDueDate(""); setNotes("");
+      setDate(""); setTime(""); setNotes("");
       router.refresh();
-    } else toast.error("Failed to schedule follow-up");
+    } else {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to schedule follow-up");
+    }
   }
 
   async function complete(id: string) {
@@ -426,19 +510,20 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Schedule Follow-up</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Add Follow-up</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Select value={type} onChange={(e) => setType(e.target.value as FollowUpType)}>
-            {FOLLOWUP_TYPES.map((t) => (<option key={t} value={t}>{enumToLabel(t)}</option>))}
+            {HUMAN_FOLLOWUP_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
           </Select>
-          <Input type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input type="time" placeholder="Time (optional)" value={time} onChange={(e) => setTime(e.target.value)} />
           <Select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
             <option value="">Assign to...</option>
             {employees.map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
           </Select>
           <Button onClick={create} loading={saving}><Plus className="h-4 w-4" /> Schedule</Button>
         </div>
-        <Textarea rows={2} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <Textarea rows={2} placeholder="Note (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
       <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
@@ -468,17 +553,31 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
 }
 
 function VisitsTab({
+  leadId,
   visits,
+  canManage,
   visitSuggestions,
   onTabAction,
+  employees,
+  candidateProperties,
 }: {
   leadId: string;
   visits: LeadWithRelations["visits"];
   canManage: boolean;
   visitSuggestions: Record<string, Suggestion[]>;
   onTabAction: (target: string) => void;
+  employees: UserSummary[];
+  candidateProperties: { id: string; title: string; area: string }[];
 }) {
   const router = useRouter();
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [propertyId, setPropertyId] = useState("");
+  const [assignedToId, setAssignedToId] = useState("");
+  const [visitDate, setVisitDate] = useState("");
+  const [visitTime, setVisitTime] = useState("");
+  const [meetingLocation, setMeetingLocation] = useState("");
+  const [employeeNotes, setEmployeeNotes] = useState("");
+  const [scheduling, setScheduling] = useState(false);
 
   async function updateVisit(id: string, data: Record<string, unknown>) {
     const res = await fetch(`/api/visits/${id}`, {
@@ -489,12 +588,73 @@ function VisitsTab({
     if (res.ok) { toast.success("Visit updated"); router.refresh(); } else toast.error("Update failed");
   }
 
+  async function scheduleVisit() {
+    if (!propertyId || !visitDate || !visitTime) return toast.error("Property, date, and time are required");
+    setScheduling(true);
+    const res = await fetch("/api/visits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadId, propertyId, assignedToId: assignedToId || null, visitDate, visitTime, meetingLocation: meetingLocation || null, employeeNotes: employeeNotes || null }),
+    });
+    setScheduling(false);
+    if (res.ok) {
+      toast.success("Visit scheduled");
+      setShowScheduleForm(false);
+      setPropertyId(""); setAssignedToId(""); setVisitDate(""); setVisitTime(""); setMeetingLocation(""); setEmployeeNotes("");
+      router.refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to schedule visit");
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Site Visits</h3>
-        <Link href="/visits" className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">Visits module &rarr;</Link>
+        <div className="flex items-center gap-3">
+          {canManage && (
+            <button onClick={() => setShowScheduleForm((v) => !v)} className="inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+              <CalendarPlus className="h-3.5 w-3.5" /> {showScheduleForm ? "Cancel" : "Schedule Visit"}
+            </button>
+          )}
+          <Link href="/visits" className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">Visits module &rarr;</Link>
+        </div>
       </div>
+
+      {canManage && showScheduleForm && (
+        <div className="mb-4 space-y-3 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Property">
+              <Select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
+                <option value="">Select a property...</option>
+                {candidateProperties.map((p) => (<option key={p.id} value={p.id}>{p.title} &middot; {p.area}</option>))}
+              </Select>
+            </Field>
+            <Field label="Assign to field executive">
+              <Select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}>
+                <option value="">Unassigned</option>
+                {employees.map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
+              </Select>
+            </Field>
+            <Field label="Date">
+              <Input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
+            </Field>
+            <Field label="Time">
+              <Input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Meeting location (optional)">
+            <Input value={meetingLocation} onChange={(e) => setMeetingLocation(e.target.value)} placeholder="e.g. Property gate, sector 12" />
+          </Field>
+          <Textarea rows={2} placeholder="Notes for the field executive (optional)" value={employeeNotes} onChange={(e) => setEmployeeNotes(e.target.value)} />
+          <div className="flex justify-end">
+            <Button size="sm" onClick={scheduleVisit} loading={scheduling}>Schedule Visit</Button>
+          </div>
+          {candidateProperties.length === 0 && <p className="text-xs text-[#8A94A6]">No matched properties yet - share a catalogue or run matching to get property options here.</p>}
+        </div>
+      )}
+
       {visits.length === 0 && <p className="text-sm text-[#8A94A6]">No visits scheduled yet.</p>}
       <div className="space-y-3">
         {visits.map((v) => (

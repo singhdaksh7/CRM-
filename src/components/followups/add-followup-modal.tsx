@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { Plus, X } from "lucide-react";
 import type { Lead } from "@prisma/client";
-
-const TYPES = ["PHONE_CALL", "WHATSAPP", "PROPERTY_SHARING", "VISIT_CONFIRMATION", "NEGOTIATION", "DOCUMENTATION", "PAYMENT_REMINDER"];
+import { HUMAN_FOLLOWUP_TYPES, DEFAULT_FOLLOWUP_TYPE } from "@/lib/follow-up-types";
 
 // Only id/name are ever rendered here - see src/lib/user-select.ts for why
 // the server component that provides `employees` deliberately excludes
@@ -19,7 +18,7 @@ export function AddFollowUpModal({ leads, employees }: { leads: Lead[]; employee
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ leadId: "", type: "PHONE_CALL", dueDate: "", ownerId: "", notes: "" });
+  const [form, setForm] = useState({ leadId: "", type: DEFAULT_FOLLOWUP_TYPE as string, dueDate: "", ownerId: "", notes: "" });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,7 +56,7 @@ export function AddFollowUpModal({ leads, employees }: { leads: Lead[]; employee
               </Field>
               <Field label="Type" required>
                 <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                  {TYPES.map((t) => (<option key={t} value={t}>{t.replace(/_/g, " ")}</option>))}
+                  {HUMAN_FOLLOWUP_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
                 </Select>
               </Field>
               <Field label="Due Date & Time" required>
