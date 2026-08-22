@@ -11,6 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { CheckCircle2, XCircle, Download } from "lucide-react";
 import type { User } from "@prisma/client";
+import { HUMAN_FOLLOWUP_TYPES } from "@/lib/follow-up-types";
 
 interface LeadRow {
   id: string;
@@ -30,7 +31,6 @@ interface LeadRow {
 }
 
 const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"];
-const FOLLOWUP_TYPES = ["PHONE_CALL", "WHATSAPP", "PROPERTY_SHARING", "VISIT_CONFIRMATION", "NEGOTIATION", "DOCUMENTATION", "PAYMENT_REMINDER"];
 
 type BulkAction = "" | "ASSIGN" | "STATUS" | "FOLLOW_UP" | "CATALOGUE";
 
@@ -53,7 +53,7 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
   const [action, setAction] = useState<BulkAction>("");
   const [assignedToId, setAssignedToId] = useState("");
   const [status, setStatus] = useState(LEAD_STATUSES[0]);
-  const [followUpType, setFollowUpType] = useState(FOLLOWUP_TYPES[0]);
+  const [followUpType, setFollowUpType] = useState(HUMAN_FOLLOWUP_TYPES[0].value as string);
   const [dueDate, setDueDate] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
@@ -149,8 +149,8 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
           {action === "FOLLOW_UP" && (
             <>
               <Select value={followUpType} onChange={(e) => setFollowUpType(e.target.value)} className="w-auto text-xs font-semibold">
-                {FOLLOWUP_TYPES.map((t) => (
-                  <option key={t} value={t}>{enumToLabel(t)}</option>
+                {HUMAN_FOLLOWUP_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </Select>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-auto text-xs" />
