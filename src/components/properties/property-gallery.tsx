@@ -59,10 +59,10 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
     const res = await fetch(`/api/property-images/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isCover: true }) });
     setBusyId(null);
     if (res.ok) {
-      toast.success("Cover image updated");
+      toast.success("Thumbnail updated");
       load();
     } else {
-      toast.error("Could not update cover image");
+      toast.error("Could not update thumbnail");
     }
   }
 
@@ -167,14 +167,14 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
                 <Image src={img.url} alt={img.caption ?? `${propertyTitle} photo ${idx + 1}`} fill sizes="80px" className="object-cover" unoptimized />
               </button>
               {img.isCover && (
-                <span className="absolute left-0.5 top-0.5 rounded bg-[#3366FF] px-1 text-[9px] font-bold text-white">Cover</span>
+                <span className="absolute left-0.5 top-0.5 rounded bg-[#3366FF] px-1 text-[9px] font-bold text-white">★ Thumbnail</span>
               )}
               {canManage && (
                 <div className="absolute inset-x-0 bottom-0 hidden items-center justify-center gap-0.5 bg-black/70 py-0.5 group-hover:flex group-focus-within:flex">
                   <IconBtn label="Move left" onClick={() => move(img.id, -1)} disabled={busyId === img.id || idx === 0}>
                     <ArrowUp className="h-3 w-3 -rotate-90" />
                   </IconBtn>
-                  <IconBtn label="Set as cover" onClick={() => setCover(img.id)} disabled={busyId === img.id}>
+                  <IconBtn label={img.isCover ? "Thumbnail" : "Set as Thumbnail"} onClick={() => setCover(img.id)} disabled={busyId === img.id || img.isCover}>
                     <Star className="h-3 w-3" fill={img.isCover ? "currentColor" : "none"} />
                   </IconBtn>
                   <IconBtn label="Remove image" onClick={() => removeImage(img.id)} disabled={busyId === img.id}>

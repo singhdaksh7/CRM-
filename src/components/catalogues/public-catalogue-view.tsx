@@ -223,6 +223,35 @@ function PropertyCard({
   const [preferredWindow, setPreferredWindow] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [preference, setPreference] = useState<"LIKED" | "NOT_INTERESTED" | "UNDECIDED">("UNDECIDED");
+
+  useEffect(() => {
+    fetch(`/api/catalogues/${token}/preferences`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const row = data?.preferences?.find((p: { propertyId: string }) => p.propertyId === property.id);
+        if (row?.status === "LIKED" || row?.status === "NOT_INTERESTED") setPreference(row.status);
+      })
+      .catch(() => {});
+  }, [token, property.id]);
+
+  async function setPropertyPreference(status: "LIKED" | "NOT_INTERESTED", note?: string) {
+    setSubmitting(true);
+    const res = await fetch(`/api/catalogues/${token}/preferences`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyId: property.id, status, note }),
+    });
+    setSubmitting(false);
+    if (res.ok) {
+      setPreference(status);
+      setExpanded(null);
+      setMessage("");
+      toast.success(status === "LIKED" ? "Marked as interested." : "Marked as not interested.");
+    } else {
+      toast.error("Something went wrong - please try again.");
+    }
+  }
 
   async function interact(type: string, extra: Record<string, string | undefined> = {}) {
     setSubmitting(true);
@@ -312,10 +341,23 @@ function PropertyCard({
                   <Navigation className="h-3.5 w-3.5" /> {property.locationDisclosure === "APPROXIMATE" ? "Open Approximate Area" : "Open in Maps"}
                 </a>
               )}
-              <ActionButton icon={ThumbsUp} label="Interested" done={done.has("INTERESTED")} onClick={() => interact("INTERESTED")} loading={submitting} tone="green" />
-              <ActionButton icon={ThumbsDown} label="Not Interested" done={done.has("NOT_INTERESTED")} onClick={() => setExpanded(expanded === "not-interested" ? null : "not-interested")} tone="slate" />
-              <ActionButton icon={CalendarPlus} label="Request Visit" done={done.has("VISIT_REQUESTED") || bulkRequested} onClick={() => setExpanded(expanded === "visit" ? null : "visit")} tone="indigo" />
-              <ActionButton icon={HelpCircle} label="Ask a Question" done={done.has("QUESTION_ASKED")} onClick={() => setExpanded(expanded === "question" ? null : "question")} tone="amber" />
+              <ActionButton
+                icon={ThumbsUp}
+                label="Interested"
+                done={preference === "LIKED"}
+                onClick={() => setPropertyPreference("LIKED")}
+                loading={submitting}
+                tone="green"
+              />
+              <ActionButton
+                icon={ThumbsDown}
+                label="Not Interested"
+                done={preference === "NOT_INTERESTED"}
+                onClick={() => setExpanded(expanded === "not-interested" ? null : "not-interested")}
+                tone="slate"
+              />
+              <ActionButton icon={CalendarPlus} label="Request Visit" done={done.has("VISIT_REQUESTED") || bulkRequested} onClick={() => setExpanded(expanded === "visit" ? null : "visit")} tone="indigo" lockWhenDone />
+              <ActionButton icon={HelpCircle} label="Ask a Question" done={done.has("QUESTION_ASKED")} onClick={() => setExpanded(expanded === "question" ? null : "question")} tone="amber" lockWhenDone />
             </div>
 
             {expanded === "not-interested" && (
@@ -323,7 +365,7 @@ function PropertyCard({
                 placeholder="Optional: tell us why (e.g. too far, over budget)"
                 message={message}
                 setMessage={setMessage}
-                onSubmit={() => interact("NOT_INTERESTED", { message })}
+                onSubmit={() => setPropertyPreference("NOT_INTERESTED", message)}
                 submitting={submitting}
               />
             )}
@@ -373,6 +415,7 @@ function ActionButton({
   loading,
   done,
   tone,
+  lockWhenDone = false,
 }: {
   icon: typeof ThumbsUp;
   label: string;
@@ -380,6 +423,7 @@ function ActionButton({
   loading?: boolean;
   done: boolean;
   tone: "green" | "slate" | "indigo" | "amber";
+  lockWhenDone?: boolean;
 }) {
   const toneClasses: Record<string, string> = {
     green: "text-[#1FA971] border-[#B8F3D1] bg-[#E6F9EE]",
@@ -390,10 +434,11 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      disabled={loading || done}
-      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold border disabled:opacity-60 ${toneClasses[tone]}`}
+      disabled={loading || (lockWhenDone && done)}
+      aria-pressed={done}
+      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold border disabled:opacity-60 ${toneClasses[tone]} ${done ? "ring-1 ring-offset-1 ring-current" : ""}`}
     >
-      <Icon className="h-3.5 w-3.5" /> {done ? "Recorded" : label}
+      <Icon className="h-3.5 w-3.5" /> {lockWhenDone && done ? "Recorded" : label}
     </button>
   );
 }

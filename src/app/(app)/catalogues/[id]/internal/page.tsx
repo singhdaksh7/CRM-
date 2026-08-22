@@ -4,6 +4,8 @@ import { getCatalogueById } from "@/lib/catalogues";
 import { toExecutiveCatalogueDTO } from "@/lib/catalogue-dto";
 import { assertLeadAccessible } from "@/lib/lead-access";
 import { getOrganizationId } from "@/lib/organization";
+import { getCataloguePreferenceSummary } from "@/lib/catalogue-property-preferences";
+import { getCoverImageUrls } from "@/lib/property-images";
 import { Badge } from "@/components/ui/badge";
 import { CataloguePropertyCard } from "@/components/executive-dashboard/catalogue-property-card";
 
@@ -12,15 +14,21 @@ export default async function ExecutiveCatalogueViewPage({ params }: { params: P
   const session = await auth();
   if (!session?.user) notFound();
 
+  const organizationId = getOrganizationId(session.user);
   let catalogue;
   try {
-    catalogue = await getCatalogueById(id, getOrganizationId(session.user));
+    catalogue = await getCatalogueById(id, organizationId);
     await assertLeadAccessible({ user: session.user }, catalogue.leadId);
   } catch {
     notFound();
   }
 
   const dto = toExecutiveCatalogueDTO(catalogue);
+  const preferenceSummary = await getCataloguePreferenceSummary(id, organizationId).catch(() => null);
+  const coverUrls = await getCoverImageUrls(
+    dto.properties.map((p) => p.id),
+    organizationId
+  );
 
   return (
     <div className="space-y-6">
@@ -30,6 +38,11 @@ export default async function ExecutiveCatalogueViewPage({ params }: { params: P
           <Badge tone="blue">v{dto.version}</Badge>
         </div>
         <p className="mt-1 text-sm text-[#596579]">For {dto.clientName} - internal view (owner/partner details, navigation, and notes visible here only)</p>
+        {preferenceSummary && (
+          <p className="mt-2 text-sm font-medium text-[#596579]">
+            {preferenceSummary.totalProperties} properties · {preferenceSummary.likedCount} liked · {preferenceSummary.notInterestedCount} not interested · {preferenceSummary.noResponseCount} no response
+          </p>
+        )}
       </div>
 
       {dto.properties.length === 0 ? (
@@ -37,7 +50,11 @@ export default async function ExecutiveCatalogueViewPage({ params }: { params: P
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {dto.properties.map((p) => (
-            <CataloguePropertyCard key={p.id} catalogueId={dto.id} property={p} />
+            <CataloguePropertyCard
+              key={p.id}
+              catalogueId={dto.id}
+              property={{ ...p, coverImage: coverUrls[p.id] ?? p.coverImage }}
+            />
           ))}
         </div>
       )}
