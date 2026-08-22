@@ -7,9 +7,9 @@ import Link from "next/link";
 import type { User, FollowUpType, VisitStatus } from "@prisma/client";
 import { Badge, FOLLOWUP_STATUS_TONE, VISIT_STATUS_TONE } from "@/components/ui/badge";
 import { Select, Input, Textarea, Field } from "@/components/ui/form";
-import { Button, LinkButton } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { formatDate, formatDateTime, enumToLabel, timeAgo } from "@/lib/utils";
-import { ArrowRightLeft, Send, Sparkles, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText } from "lucide-react";
+import { ArrowRightLeft, Send, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText, Phone, CalendarPlus } from "lucide-react";
 import { ConversationPanel } from "@/components/whatsapp/conversation-panel";
 import { CataloguesTab } from "@/components/catalogues/catalogues-tab";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
@@ -37,6 +37,7 @@ type LeadWithRelations = {
   id: string;
   leadCode: string;
   clientName: string;
+  phone: string;
   createdAt: Date;
   status: string;
   priority: string;
@@ -92,6 +93,8 @@ export function LeadWorkspace({
 
   return (
     <div>
+      <PrimaryActionsBar leadId={lead.id} phone={lead.phone} onNavigate={setTab} />
+
       <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1.5 text-sm shadow-xs">
         {TABS.map((t) => (
           <button
@@ -112,8 +115,59 @@ export function LeadWorkspace({
       {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
       {tab === "activity" && <ActivityTab activities={lead.activities} createdAt={lead.createdAt} followUps={lead.followUps} />}
       {tab === "followups" && <FollowUpsTab leadId={lead.id} followUps={lead.followUps} employees={employees} />}
-      {tab === "visits" && <VisitsTab leadId={lead.id} visits={lead.visits} canManage={canManage} visitSuggestions={visitSuggestions} onTabAction={(t) => setTab(t as LeadTab)} />}
+      {tab === "visits" && (
+        <VisitsTab
+          leadId={lead.id}
+          visits={lead.visits}
+          canManage={canManage}
+          visitSuggestions={visitSuggestions}
+          onTabAction={(t) => setTab(t as LeadTab)}
+          employees={employees}
+          candidateProperties={lead.matchRecommendations.map((r) => r.property)}
+        />
+      )}
       {tab === "shared" && <SharedTab shares={lead.sharedProperties} />}
+    </div>
+  );
+}
+
+/**
+ * simplified-role-workflow (spec item 4) - always-visible primary actions so
+ * the day-to-day flow (Call -> WhatsApp -> Note -> Send Catalogue ->
+ * Follow-up -> Schedule Visit) never requires hunting through tabs first.
+ * "Call" is the only action that leaves the page (tel: link, same pattern as
+ * src/components/visits/visit-field-actions.tsx) - it also fires the
+ * existing CALL_INITIATED activity log, never a WhatsApp send. Every other
+ * button just jumps to the tab that already has the real form, so there is
+ * no duplicated business logic here.
+ */
+function PrimaryActionsBar({ leadId, phone, onNavigate }: { leadId: string; phone: string; onNavigate: (tab: LeadTab) => void }) {
+  function logCall() {
+    // Fire-and-forget, same as visit-field-actions.tsx - never blocks the
+    // phone dialer opening, and never triggers any WhatsApp send.
+    fetch(`/api/leads/${leadId}/call-initiated`, { method: "POST" }).catch(() => {});
+  }
+
+  return (
+    <div className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+      <a href={`tel:${phone}`} onClick={logCall} className="inline-flex items-center gap-1.5 rounded-xl bg-[#1FA971] px-3.5 py-2 text-sm font-semibold text-white shadow-xs hover:bg-[#188457] transition-colors">
+        <Phone className="h-4 w-4" /> Call
+      </a>
+      <Button size="sm" variant="whatsapp" onClick={() => onNavigate("whatsapp")}>
+        <MessageSquare className="h-4 w-4" /> WhatsApp
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("catalogues")}>
+        <Send className="h-4 w-4" /> Send Catalogue
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("followups")}>
+        <Plus className="h-4 w-4" /> Add Follow-up
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("overview")}>
+        <FileText className="h-4 w-4" /> Add Note
+      </Button>
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("visits")}>
+        <CalendarPlus className="h-4 w-4" /> Schedule Visit
+      </Button>
     </div>
   );
 }
@@ -468,17 +522,31 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
 }
 
 function VisitsTab({
+  leadId,
   visits,
+  canManage,
   visitSuggestions,
   onTabAction,
+  employees,
+  candidateProperties,
 }: {
   leadId: string;
   visits: LeadWithRelations["visits"];
   canManage: boolean;
   visitSuggestions: Record<string, Suggestion[]>;
   onTabAction: (target: string) => void;
+  employees: UserSummary[];
+  candidateProperties: { id: string; title: string; area: string }[];
 }) {
   const router = useRouter();
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [propertyId, setPropertyId] = useState("");
+  const [assignedToId, setAssignedToId] = useState("");
+  const [visitDate, setVisitDate] = useState("");
+  const [visitTime, setVisitTime] = useState("");
+  const [meetingLocation, setMeetingLocation] = useState("");
+  const [employeeNotes, setEmployeeNotes] = useState("");
+  const [scheduling, setScheduling] = useState(false);
 
   async function updateVisit(id: string, data: Record<string, unknown>) {
     const res = await fetch(`/api/visits/${id}`, {
@@ -489,12 +557,73 @@ function VisitsTab({
     if (res.ok) { toast.success("Visit updated"); router.refresh(); } else toast.error("Update failed");
   }
 
+  async function scheduleVisit() {
+    if (!propertyId || !visitDate || !visitTime) return toast.error("Property, date, and time are required");
+    setScheduling(true);
+    const res = await fetch("/api/visits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadId, propertyId, assignedToId: assignedToId || null, visitDate, visitTime, meetingLocation: meetingLocation || null, employeeNotes: employeeNotes || null }),
+    });
+    setScheduling(false);
+    if (res.ok) {
+      toast.success("Visit scheduled");
+      setShowScheduleForm(false);
+      setPropertyId(""); setAssignedToId(""); setVisitDate(""); setVisitTime(""); setMeetingLocation(""); setEmployeeNotes("");
+      router.refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to schedule visit");
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Site Visits</h3>
-        <Link href="/visits" className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">Visits module &rarr;</Link>
+        <div className="flex items-center gap-3">
+          {canManage && (
+            <button onClick={() => setShowScheduleForm((v) => !v)} className="inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+              <CalendarPlus className="h-3.5 w-3.5" /> {showScheduleForm ? "Cancel" : "Schedule Visit"}
+            </button>
+          )}
+          <Link href="/visits" className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">Visits module &rarr;</Link>
+        </div>
       </div>
+
+      {canManage && showScheduleForm && (
+        <div className="mb-4 space-y-3 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Property">
+              <Select value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
+                <option value="">Select a property...</option>
+                {candidateProperties.map((p) => (<option key={p.id} value={p.id}>{p.title} &middot; {p.area}</option>))}
+              </Select>
+            </Field>
+            <Field label="Assign to field executive">
+              <Select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}>
+                <option value="">Unassigned</option>
+                {employees.map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
+              </Select>
+            </Field>
+            <Field label="Date">
+              <Input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
+            </Field>
+            <Field label="Time">
+              <Input type="time" value={visitTime} onChange={(e) => setVisitTime(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Meeting location (optional)">
+            <Input value={meetingLocation} onChange={(e) => setMeetingLocation(e.target.value)} placeholder="e.g. Property gate, sector 12" />
+          </Field>
+          <Textarea rows={2} placeholder="Notes for the field executive (optional)" value={employeeNotes} onChange={(e) => setEmployeeNotes(e.target.value)} />
+          <div className="flex justify-end">
+            <Button size="sm" onClick={scheduleVisit} loading={scheduling}>Schedule Visit</Button>
+          </div>
+          {candidateProperties.length === 0 && <p className="text-xs text-[#8A94A6]">No matched properties yet - share a catalogue or run matching to get property options here.</p>}
+        </div>
+      )}
+
       {visits.length === 0 && <p className="text-sm text-[#8A94A6]">No visits scheduled yet.</p>}
       <div className="space-y-3">
         {visits.map((v) => (
