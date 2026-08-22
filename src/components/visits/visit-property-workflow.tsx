@@ -124,7 +124,7 @@ export function VisitPropertyWorkflow({ visit }: { visit: VisitDetailDTO }) {
               {visit.progress.remaining} propert{visit.progress.remaining === 1 ? "y" : "ies"} still pending. Mark each one visited or skipped to finish the visit.
             </p>
           ) : completing ? (
-            <CompleteVisitForm visit={visit} busy={busy} onCancel={() => setCompleting(false)} call={call} />
+            <CompleteVisitForm visit={visit} busy={busy} onCancel={() => setCompleting(false)} />
           ) : (
             <button
               onClick={() => setCompleting(true)}
@@ -419,12 +419,43 @@ function ReactionForm({
   );
 }
 
-/** Overall interest + optional summary + preferred-property shortlist. */
-function CompleteVisitForm({ visit, busy, onCancel, call }: { visit: VisitDetailDTO; busy: boolean; onCancel: () => void; call: CallFn }) {
+/**
+ * Overall interest + optional summary + preferred-property shortlist, then
+ * (spec item 11) a "Next Action?" step before the page refreshes into the
+ * COMPLETED state - None / Call / WhatsApp / Add Follow-up / Schedule
+ * another visit. A follow-up created here goes through the SAME
+ * POST /api/follow-ups route the lead workspace uses, so it surfaces in
+ * Today's Work exactly like any other follow-up (spec item 12) - this is
+ * pure CRM state, no WhatsApp/call is ever sent automatically.
+ */
+function CompleteVisitForm({ visit, busy, onCancel }: { visit: VisitDetailDTO; busy: boolean; onCancel: () => void }) {
   const [rating, setRating] = useState<number | null>(null);
   const [summary, setSummary] = useState("");
   const [preferred, setPreferred] = useState<string[]>(visit.properties.filter((p) => p.isPreferred).map((p) => p.propertyId));
   const visited = visit.properties.filter((p) => p.status === "VISITED");
+  const [justCompleted, setJustCompleted] = useState(false);
+
+  async function confirmComplete() {
+    const res = await fetch(`/api/visits/${visit.id}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ overallRating: rating, summary: summary.trim() || null, preferredPropertyIds: preferred }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to complete visit");
+      return;
+    }
+    toast.success("Visit completed");
+    // Deliberately does NOT router.refresh() yet - "Next Action?" is shown
+    // first so the field executive isn't dropped straight into the
+    // now-locked COMPLETED view without a chance to act on it.
+    setJustCompleted(true);
+  }
+
+  if (justCompleted) {
+    return <NextActionAfterComplete leadId={visit.client.leadId} clientPhone={visit.client.phone} clientName={visit.client.name} />;
+  }
 
   return (
     <div className="space-y-3">
@@ -479,20 +510,105 @@ function CompleteVisitForm({ visit, busy, onCancel, call }: { visit: VisitDetail
         <button onClick={onCancel} className="min-h-[52px] flex-1 rounded-xl border border-[#E7ECF2] bg-white px-3 text-sm font-semibold text-[#596579]">
           Back
         </button>
-        <Button
-          onClick={() =>
-            call(
-              `/api/visits/${visit.id}/complete`,
-              { method: "POST", body: JSON.stringify({ overallRating: rating, summary: summary.trim() || null, preferredPropertyIds: preferred }) },
-              "Visit completed"
-            )
-          }
-          loading={busy}
-          className="min-h-[52px] flex-1"
-        >
+        <Button onClick={confirmComplete} loading={busy} className="min-h-[52px] flex-1">
           Confirm Complete
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * spec item 11 - "Next Action?" after [Complete Visit]: None / Call /
+ * WhatsApp / Add Follow-up / Schedule another visit. Follow-up creation
+ * posts to the existing POST /api/follow-ups (same route/validation the
+ * lead workspace uses) so it appears in Today's Work like any other
+ * follow-up. Call/WhatsApp are real links, never an automatic send.
+ * "Schedule another visit" and "Done" both hand off to the lead workspace,
+ * which already has the full Schedule Visit form - not duplicated here.
+ */
+function NextActionAfterComplete({ leadId, clientPhone, clientName }: { leadId: string; clientPhone: string | null; clientName: string }) {
+  const router = useRouter();
+  const [addingFollowUp, setAddingFollowUp] = useState(false);
+  const [followUpType, setFollowUpType] = useState<"PHONE_CALL" | "WHATSAPP" | "VISIT_EXPECTED" | "GENERAL_FOLLOW_UP">("GENERAL_FOLLOW_UP");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function done() {
+    router.refresh();
+  }
+
+  async function saveFollowUp() {
+    if (!date) return toast.error("Pick a date");
+    setSaving(true);
+    const dueDate = time ? `${date}T${time}` : date;
+    const res = await fetch("/api/follow-ups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadId, type: followUpType, dueDate, notes: note.trim() || null }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      toast.success("Follow-up created");
+      done();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to create follow-up");
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-[#CCE0FF] bg-[#F5F8FF] p-3">
+      <p className="text-sm font-bold text-[#1B2430]">Visit completed. What&apos;s next for {clientName}?</p>
+
+      {!addingFollowUp ? (
+        <div className="grid grid-cols-2 gap-2">
+          {clientPhone && (
+            <a href={`tel:${clientPhone}`} className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-[#E7ECF2] bg-white text-sm font-semibold text-[#1FA971]">
+              Call Client
+            </a>
+          )}
+          {clientPhone && (
+            <a href={`https://wa.me/${clientPhone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-[#E7ECF2] bg-white text-sm font-semibold text-[#25D366]">
+              WhatsApp Client
+            </a>
+          )}
+          <button onClick={() => setAddingFollowUp(true)} className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-[#E7ECF2] bg-white text-sm font-semibold text-[#3366FF]">
+            Add Follow-up
+          </button>
+          <a href={`/leads/${leadId}`} className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-[#E7ECF2] bg-white text-sm font-semibold text-[#596579]">
+            Schedule Another Visit
+          </a>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <select value={followUpType} onChange={(e) => setFollowUpType(e.target.value as typeof followUpType)} className="min-h-[44px] w-full rounded-xl border border-[#E7ECF2] bg-white px-3 text-sm">
+            <option value="PHONE_CALL">Call</option>
+            <option value="WHATSAPP">WhatsApp</option>
+            <option value="VISIT_EXPECTED">Customer Expected / Coming</option>
+            <option value="GENERAL_FOLLOW_UP">General Follow-up</option>
+          </select>
+          <div className="flex gap-2">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="min-h-[44px] flex-1 rounded-xl border border-[#E7ECF2] bg-white px-3 text-sm" />
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="min-h-[44px] flex-1 rounded-xl border border-[#E7ECF2] bg-white px-3 text-sm" />
+          </div>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Note (optional)" className="w-full rounded-xl border border-[#E7ECF2] bg-white p-2.5 text-sm" />
+          <div className="flex gap-2">
+            <button onClick={() => setAddingFollowUp(false)} className="min-h-[44px] flex-1 rounded-xl border border-[#E7ECF2] bg-white text-sm font-semibold text-[#596579]">
+              Back
+            </button>
+            <Button onClick={saveFollowUp} loading={saving} className="min-h-[44px] flex-1">
+              Save Follow-up
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <button onClick={done} className="w-full text-center text-xs font-semibold text-[#8A94A6] hover:text-[#596579]">
+        None - Done
+      </button>
     </div>
   );
 }
