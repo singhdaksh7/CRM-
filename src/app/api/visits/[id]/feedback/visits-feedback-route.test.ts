@@ -89,4 +89,34 @@ describe("POST /api/visits/[id]/feedback", () => {
     const res = await POST(req(VALID_BODY), params());
     expect(res.status).toBe(200);
   });
+
+  // simplified-role-workflow (spec item 11) - numeric 1-5 customer rating.
+  describe("rating (spec item 11)", () => {
+    it("accepts a valid 1-5 rating and persists it on create", async () => {
+      const res = await POST(req({ ...VALID_BODY, rating: 4 }), params());
+      expect(res.status).toBe(200);
+      expect(visitFeedbackUpsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ rating: 4 }) }));
+    });
+
+    it("persists the rating on update too", async () => {
+      await POST(req({ ...VALID_BODY, rating: 2 }), params());
+      expect(visitFeedbackUpsert).toHaveBeenCalledWith(expect.objectContaining({ update: expect.objectContaining({ rating: 2 }) }));
+    });
+
+    it("defaults to null when no rating is sent", async () => {
+      await POST(req(VALID_BODY), params());
+      expect(visitFeedbackUpsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ rating: null }) }));
+    });
+
+    it("rejects a rating outside the 1-5 range", async () => {
+      const res = await POST(req({ ...VALID_BODY, rating: 6 }), params());
+      expect(res.status).toBe(400);
+      expect(visitFeedbackUpsert).not.toHaveBeenCalled();
+    });
+
+    it("rejects a non-integer rating", async () => {
+      const res = await POST(req({ ...VALID_BODY, rating: 3.5 }), params());
+      expect(res.status).toBe(400);
+    });
+  });
 });

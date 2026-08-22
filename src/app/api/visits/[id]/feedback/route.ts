@@ -36,6 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         willVisitAgain: data.willVisitAgain,
         negotiationRequired: data.negotiationRequired,
         additionalNotes: data.additionalNotes,
+        rating: data.rating ?? null,
         submittedById: session.user.id,
       },
       update: {
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         willVisitAgain: data.willVisitAgain,
         negotiationRequired: data.negotiationRequired,
         additionalNotes: data.additionalNotes,
+        rating: data.rating ?? null,
       },
     });
 

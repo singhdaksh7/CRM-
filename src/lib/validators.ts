@@ -524,6 +524,10 @@ export const visitFeedbackSchema = z.object({
   willVisitAgain: z.boolean().default(false),
   negotiationRequired: z.boolean().default(false),
   additionalNotes: z.string().optional().nullable(),
+  // simplified-role-workflow (spec item 11) - numeric 1-5 customer rating
+  // captured by the field executive after a visit. Range enforced here
+  // rather than a DB constraint - see VisitFeedback.rating in schema.prisma.
+  rating: z.number().int().min(1).max(5).optional().nullable(),
 });
 
 export const availabilityReportSchema = z.object({
