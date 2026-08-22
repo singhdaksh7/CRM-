@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { logActivity } from "@/lib/activity";
-import { getOrganizationId } from "@/lib/organization";
+import { assertLeadAccessible } from "@/lib/lead-access";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,12 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { note } = await req.json();
     if (!note?.trim()) throw new ApiError(400, "note is required");
 
-    const organizationId = getOrganizationId(session.user);
-    const lead = await prisma.lead.findFirst({ where: { id, organizationId } });
-    if (!lead) throw new ApiError(404, "Lead not found");
-    if (session.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session.user.id) {
-      throw new ApiError(403, "Forbidden");
-    }
+    const lead = await assertLeadAccessible(session, id);
 
     const combined = lead.notes ? `${lead.notes}\n\n[${new Date().toLocaleString("en-IN")} - ${session.user.name}]: ${note}` : `[${new Date().toLocaleString("en-IN")} - ${session.user.name}]: ${note}`;
     const updated = await prisma.lead.update({ where: { id }, data: { notes: combined } });
