@@ -62,4 +62,3 @@ firebase-service-account*.json
 
 # graphify generated knowledge graph (local-only)
 graphify-out/
-
