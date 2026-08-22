@@ -5,6 +5,7 @@ import { Badge, LEAD_STATUS_TONE, LEAD_PRIORITY_TONE } from "@/components/ui/bad
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { LeadWorkspace } from "@/components/leads/lead-workspace";
 import { LeadPhonesPanel } from "@/components/leads/lead-phones-panel";
+import { isLeadAccessibleToUser } from "@/lib/lead-access";
 import { getLeadHealth, getLeadSuggestions, computeVisitSuggestions } from "@/lib/rules";
 import { Mail, MapPin, Wallet } from "lucide-react";
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
@@ -32,7 +33,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     },
   });
   if (!lead) notFound();
-  if (session!.user.role === "FIELD_EXECUTIVE" && lead.assignedToId !== session!.user.id) notFound();
+  // simplified-role-workflow (targeted fix pass, Blocker B) - was a stale
+  // inline check with no unassigned-lead carve-out, which 404'd a field
+  // executive clicking into their own "Unassigned Leads" tab. Now shares the
+  // exact same predicate assertLeadAccessible uses.
+  if (!isLeadAccessibleToUser(lead, session!.user)) notFound();
 
   // Only id/name are ever rendered from this list (assignment dropdowns) - see
   // src/lib/user-select.ts for why this excludes passwordHash and other

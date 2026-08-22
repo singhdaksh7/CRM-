@@ -33,14 +33,41 @@ vi.mock("./api-auth", () => {
   return { ApiError: MockApiError };
 });
 
-import { assertLeadAccessible } from "./lead-access";
+import { assertLeadAccessible, isLeadAccessibleToUser } from "./lead-access";
 import type { ApiError } from "./api-auth";
+import type { Role } from "@prisma/client";
 
 const ORG = "org_1";
 
 function session(role: "ADMIN" | "DATA_MANAGER" | "FIELD_EXECUTIVE", id = "user_1") {
   return { user: { id, role, organizationId: ORG } };
 }
+
+// simplified-role-workflow (targeted fix pass, Blocker B) - the pure
+// predicate itself, tested in isolation from any Prisma call, so every
+// caller (the lead detail page, GET /api/leads/[id], assertLeadAccessible,
+// and any future one) shares exactly this behavior rather than each
+// re-deriving its own slightly-different copy.
+describe("isLeadAccessibleToUser", () => {
+  const fe = { id: "fe_1", role: "FIELD_EXECUTIVE" as Role };
+
+  it("FE assigned to self -> true", () => {
+    expect(isLeadAccessibleToUser({ assignedToId: "fe_1" }, fe)).toBe(true);
+  });
+
+  it("FE, currently-unassigned lead -> true", () => {
+    expect(isLeadAccessibleToUser({ assignedToId: null }, fe)).toBe(true);
+  });
+
+  it("FE, another FE's assigned lead -> false", () => {
+    expect(isLeadAccessibleToUser({ assignedToId: "other_fe" }, fe)).toBe(false);
+  });
+
+  it.each(["ADMIN", "DATA_MANAGER"] as Role[])("%s can access any lead regardless of assignment", (role) => {
+    expect(isLeadAccessibleToUser({ assignedToId: "someone_else" }, { id: "mgr_1", role })).toBe(true);
+    expect(isLeadAccessibleToUser({ assignedToId: null }, { id: "mgr_1", role })).toBe(true);
+  });
+});
 
 describe("assertLeadAccessible", () => {
   beforeEach(() => {
