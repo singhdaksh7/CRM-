@@ -135,6 +135,17 @@ export function buildPropertyData(
     propertyCode: demoCode("PROP", i),
     title: titleFor(rng, label, area),
     propertyType: type,
+    // Explicit, not left to Prisma.assetClass's schema @default(RESIDENTIAL) -
+    // matchPropertyToLead()'s FIRST hard gate is `property.assetClass !==
+    // lead.assetClass`. Leaving this unset meant every commercial demo
+    // property silently persisted as RESIDENTIAL (defaulting identically to
+    // however leads defaulted too), which is exactly the class of bug that
+    // broke lead-property match parity between the in-memory dry-run
+    // projection (fields simply absent/undefined on both sides, so the gate
+    // spuriously "matched") and the real seeded data (Prisma fills in the
+    // column default on every write, whether or not it's correct) - see
+    // leads.ts's buildLeadData/pickBudgetForMatchRange for the matching fix.
+    assetClass: isCommercial ? "COMMERCIAL" : "RESIDENTIAL",
     listingType: isRent ? "RENT" : "SALE",
     status,
     description: descriptionFor(rng, label, area, isRent ? "RENT" : "SALE"),
@@ -157,6 +168,18 @@ export function buildPropertyData(
     carpetAreaSqft: Math.round(builtUp * 0.85),
     facing: rng.pick(FACINGS),
     parkingAvailable: rng.bool(0.6),
+    // Explicit, not left to Prisma's schema @default(false) - matchPropertyToLead()
+    // hard-gates on this for COMMERCIAL leads (`lead.liftRequired &&
+    // !property.liftAvailable`). Currently unreachable in practice (every
+    // demo lead is assetClass=RESIDENTIAL, so that branch never runs for
+    // this dataset), but the field-completeness contract test
+    // (match-field-contract.test.ts) checks every schema-defaulted field
+    // matching.ts reads, not just the ones a specific dataset happens to
+    // exercise today. Derived from already-computed, already-hoisted
+    // variables (isCommercial/bhk) rather than a new rng.bool() draw - a
+    // new draw here would shift every subsequent Rng call's position and
+    // require re-validating the whole calibrated match distribution.
+    liftAvailable: isCommercial || bhk >= 3,
     tenantPreference: isRent && !isCommercial ? rng.pick(TENANT_PREFS) : null,
     availableFrom: isRent ? rng.daysFromNow(rng.int(-10, 60)) : null,
     amenities: JSON.stringify(rng.pickMany(AMENITIES_POOL, rng.int(2, 6))),

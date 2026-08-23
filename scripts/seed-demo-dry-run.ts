@@ -329,6 +329,16 @@ export async function runDryRun(
   console.log(`Projected total lead-property match pairs: ${dataset.totalMatchPairs} (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches})`);
   const { min, max } = DEMO_SEED_PLAN.leadPropertyMatchRange;
   console.log(`Leads outside ${min}-${max} match range: ${dataset.outsideRange.length === 0 ? "none" : JSON.stringify(dataset.outsideRange)}`);
+  // Reports the FINAL modeled state (post-scenario-mutation, e.g.
+  // property-issues.ts's approved-availability-report flip to RENTED - see
+  // validate.ts) since dataset comes from buildAndValidateProjectedDataset(),
+  // not a pre-mutation snapshot - the same numbers seed:demo's own
+  // pre-write check and post-write recomputation will show.
+  const matchCounts = dataset.perLead.map((l) => l.matches);
+  const inRangeCount = dataset.perLead.length - dataset.outsideRange.length;
+  console.log(
+    `${inRangeCount}/${dataset.perLead.length} leads within ${min}-${max} matches | min=${Math.min(...matchCounts)} max=${Math.max(...matchCounts)} | total pairs=${dataset.totalMatchPairs}`
+  );
 
   record("Total match pairs >= minimum", dataset.totalMatchPairs >= DEMO_SEED_PLAN.minLeadPropertyMatches, `${dataset.totalMatchPairs} >= ${DEMO_SEED_PLAN.minLeadPropertyMatches}`);
   record(
