@@ -11,7 +11,7 @@ import { PrismaClient } from "@prisma/client";
 import { DEMO_ORGANIZATION_ID, DEMO_ID_PREFIX } from "../src/lib/demo-data/constants";
 import { DEMO_SEED_PLAN } from "../src/lib/demo-data/plan";
 import { previewTeardownCounts } from "../src/lib/demo-data/teardown";
-import { matchPropertiesToLead } from "../src/lib/matching";
+import { getActualPrimaryLeadMatchStats } from "../src/lib/demo-data/match-verification";
 import { toPublicCatalogueDTO } from "../src/lib/catalogue-dto";
 
 /**
@@ -43,7 +43,45 @@ function resolveHost(): string {
   }
 }
 
-async function main() {
+/**
+ * Pure - no I/O. Builds the [label, actual, target] triples checked
+ * against the plan, given already-fetched row counts (same shape
+ * previewTeardownCounts() returns). Extracted so the document/brochure
+ * accounting specifically (and any other row-count target) can be unit
+ * tested without a database - see seed-demo-verify.test.ts.
+ */
+export function buildRowCountExpectations(counts: Record<string, number>): [string, number, number][] {
+  return [
+    ["user", counts.user, DEMO_SEED_PLAN.employees],
+    ["owner", counts.owner, DEMO_SEED_PLAN.owners],
+    ["inventoryPartner", counts.inventoryPartner, DEMO_SEED_PLAN.inventoryPartners],
+    // Residential generators + the additive commercial/portal rows (see plan.ts).
+    ["property", counts.property, DEMO_SEED_PLAN.properties + DEMO_SEED_PLAN.portalCommercialProperties],
+    ["lead", counts.lead, DEMO_SEED_PLAN.leads + DEMO_SEED_PLAN.portalLeads],
+    // Randomized bucket visits + the three hand-built workflow visits.
+    ["visit", counts.visit, DEMO_SEED_PLAN.visits + DEMO_SEED_PLAN.workflowVisits],
+    ["followUp", counts.followUp, DEMO_SEED_PLAN.followUps],
+    // createDemoDocuments()'s own batch + the one brochure row a separate
+    // creator (createDemoPropertyMedia) adds to the same Document table -
+    // see plan.ts's propertyMediaBrochures doc comment.
+    ["document", counts.document, DEMO_SEED_PLAN.documents + DEMO_SEED_PLAN.propertyMediaBrochures],
+    ["catalogueShare", counts.catalogueShare, DEMO_SEED_PLAN.catalogues],
+    ["deal", counts.deal, DEMO_SEED_PLAN.deals],
+    // --- Phase 4 workflow demo scenarios (release-readiness closure pass) ---
+    ["visitFeedback", counts.visitFeedback, DEMO_SEED_PLAN.visitFeedback],
+    ["propertyAvailabilityReport", counts.propertyAvailabilityReport, DEMO_SEED_PLAN.availabilityReports],
+    ["propertyReport", counts.propertyReport, DEMO_SEED_PLAN.propertyReports],
+    ["propertyFavorite", counts.propertyFavorite, DEMO_SEED_PLAN.propertyFavorites],
+    ["propertyViewLog", counts.propertyViewLog, DEMO_SEED_PLAN.propertyViewLogs],
+    // --- Property-portal scenarios (MOCK-only) ---
+    ["propertyPortalConnection", counts.propertyPortalConnection, DEMO_SEED_PLAN.portalConnections],
+    ["externalLeadEvent", counts.externalLeadEvent, DEMO_SEED_PLAN.portalExternalLeadEvents],
+    ["portalListing", counts.portalListing, DEMO_SEED_PLAN.portalListings],
+    ["portalOperation", counts.portalOperation, DEMO_SEED_PLAN.portalOperations],
+  ];
+}
+
+export async function main() {
   console.log("========================================");
   console.log(" KP Properties Demo Seed - VERIFY");
   console.log(" (read-only, zero database writes)");
@@ -81,31 +119,7 @@ async function main() {
   } else {
     console.log(`\nTotal demo rows present: ${totalDemoRows}`);
 
-    const expectations: [string, number, number][] = [
-      ["user", counts.user, DEMO_SEED_PLAN.employees],
-      ["owner", counts.owner, DEMO_SEED_PLAN.owners],
-      ["inventoryPartner", counts.inventoryPartner, DEMO_SEED_PLAN.inventoryPartners],
-      // Residential generators + the additive commercial/portal rows (see plan.ts).
-      ["property", counts.property, DEMO_SEED_PLAN.properties + DEMO_SEED_PLAN.portalCommercialProperties],
-      ["lead", counts.lead, DEMO_SEED_PLAN.leads + DEMO_SEED_PLAN.portalLeads],
-      // Randomized bucket visits + the three hand-built workflow visits.
-      ["visit", counts.visit, DEMO_SEED_PLAN.visits + DEMO_SEED_PLAN.workflowVisits],
-      ["followUp", counts.followUp, DEMO_SEED_PLAN.followUps],
-      ["document", counts.document, DEMO_SEED_PLAN.documents],
-      ["catalogueShare", counts.catalogueShare, DEMO_SEED_PLAN.catalogues],
-      ["deal", counts.deal, DEMO_SEED_PLAN.deals],
-      // --- Phase 4 workflow demo scenarios (release-readiness closure pass) ---
-      ["visitFeedback", counts.visitFeedback, DEMO_SEED_PLAN.visitFeedback],
-      ["propertyAvailabilityReport", counts.propertyAvailabilityReport, DEMO_SEED_PLAN.availabilityReports],
-      ["propertyReport", counts.propertyReport, DEMO_SEED_PLAN.propertyReports],
-      ["propertyFavorite", counts.propertyFavorite, DEMO_SEED_PLAN.propertyFavorites],
-      ["propertyViewLog", counts.propertyViewLog, DEMO_SEED_PLAN.propertyViewLogs],
-      // --- Property-portal scenarios (MOCK-only) ---
-      ["propertyPortalConnection", counts.propertyPortalConnection, DEMO_SEED_PLAN.portalConnections],
-      ["externalLeadEvent", counts.externalLeadEvent, DEMO_SEED_PLAN.portalExternalLeadEvents],
-      ["portalListing", counts.portalListing, DEMO_SEED_PLAN.portalListings],
-      ["portalOperation", counts.portalOperation, DEMO_SEED_PLAN.portalOperations],
-    ];
+    const expectations = buildRowCountExpectations(counts);
     console.log("\n--- Against plan ---");
     for (const [label, actual, target] of expectations) {
       const ok = actual === target;
@@ -188,22 +202,28 @@ async function main() {
       console.log("  Public catalogue DTO leak-guard: skipped (no demo catalogue found)");
     }
 
-    // --- Lead-property matching, against the REAL current data (read-only query + pure function, no writes) ---
-    console.log("\n--- Lead-property matching (current data) ---");
-    const [demoLeads, availableDemoProperties] = await Promise.all([
-      prisma.lead.findMany({ where: { organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: `${DEMO_ID_PREFIX}lead-` } } }),
-      prisma.property.findMany({
-        where: { organizationId: DEMO_ORGANIZATION_ID, id: { startsWith: `${DEMO_ID_PREFIX}prop-` }, status: "AVAILABLE" },
-        include: { owner: true },
-      }),
-    ]);
-    let totalMatchPairs = 0;
-    for (const lead of demoLeads) {
-      totalMatchPairs += matchPropertiesToLead(availableDemoProperties, lead, 0.2).length;
+    // --- Lead-property matching, against the REAL current data (read-only
+    // query + pure function, no writes). Uses the same shared helper
+    // scripts/seed-demo.ts's post-write check uses (see match-verification.ts) -
+    // scoped to exactly the 20 PRIMARY demo leads, not every "kp-demo-lead-"
+    // row (which would also sweep in the 5 portal-ingestion leads and
+    // silently inflate this total against a different population than the
+    // 3-8-matches-per-lead guarantee actually applies to). ---
+    console.log("\n--- Lead-property matching (current data, 20 primary demo leads) ---");
+    const { min: matchMin, max: matchMax } = DEMO_SEED_PLAN.leadPropertyMatchRange;
+    const matchStats = await getActualPrimaryLeadMatchStats();
+    for (const l of matchStats.perLead) console.log(`  ${l.leadCode}: ${l.matches}`);
+    console.log(
+      `Total lead-property match pairs: ${matchStats.totalMatchPairs} (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches}) | min=${matchStats.min} max=${matchStats.max} | ${matchStats.perLead.length - matchStats.outsideRange.length}/${matchStats.perLead.length} within ${matchMin}-${matchMax}`
+    );
+    if (matchStats.totalMatchPairs < DEMO_SEED_PLAN.minLeadPropertyMatches) {
+      issues.push(`Only ${matchStats.totalMatchPairs} lead-property match pairs (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches}).`);
     }
-    console.log(`Total lead-property match pairs: ${totalMatchPairs} (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches})`);
-    if (totalMatchPairs < DEMO_SEED_PLAN.minLeadPropertyMatches) {
-      issues.push(`Only ${totalMatchPairs} lead-property match pairs (target >= ${DEMO_SEED_PLAN.minLeadPropertyMatches}).`);
+    // Hard per-lead requirement - previously only the aggregate total was
+    // checked here, which could pass even if an individual lead had 0 or 20
+    // matches as long as the sum cleared the minimum. Never weaken this.
+    if (matchStats.outsideRange.length > 0) {
+      issues.push(`${matchStats.outsideRange.length} lead(s) outside ${matchMin}-${matchMax} match range: ${matchStats.outsideRange.map((l) => `${l.leadCode}=${l.matches}`).join(", ")}.`);
     }
   }
 
@@ -217,11 +237,13 @@ async function main() {
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

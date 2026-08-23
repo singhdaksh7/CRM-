@@ -24,7 +24,23 @@ export const DEMO_SEED_PLAN = {
   workflowVisits: 3,
   followUps: 20,
   notifications: 40,
+  /** createDemoDocuments()'s own batch only (lease agreements, Aadhaar, PAN, property papers, Owner KYC) - see propertyMediaBrochures below for the one additional Document row a different creator adds to the same table. */
   documents: 10,
+  /**
+   * One additional Document row (category PROPERTY_BROCHURE, id
+   * "kp-demo-brochure-00001") created by createDemoPropertyMedia()
+   * (property-media.ts) - a completely separate creator from
+   * createDemoDocuments() above, but both write to the same Document
+   * table. Kept as its own named constant (same pattern as
+   * visits/workflowVisits above) so any verifier counting ALL Document
+   * rows in demo scope - regardless of which creator made them, e.g.
+   * previewTeardownCounts()'s relation-based count - has an unambiguous
+   * combined target: `documents + propertyMediaBrochures` (11), not just
+   * `documents` (10). A verifier that previously compared the combined
+   * actual count against `documents` alone reported a false "document
+   * count is 11, expected 10" MISMATCH even on a correctly-seeded dataset.
+   */
+  propertyMediaBrochures: 1,
   catalogues: 10,
   /** Not one of the Phase 2 spec's explicit counts - exists only so Payment Pending / dashboard revenue have real data. */
   deals: 10,

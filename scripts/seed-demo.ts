@@ -49,7 +49,7 @@ import { createDemoPropertyMedia } from "../src/lib/demo-data/property-media";
 import { createDemoDemandPool } from "../src/lib/demo-data/demand-pool";
 import { runVerification } from "../src/lib/demo-data/verify";
 import { recalculateLeadScore } from "../src/lib/scoring";
-import { matchPropertiesToLead } from "../src/lib/matching";
+import { getActualPrimaryLeadMatchStats } from "../src/lib/demo-data/match-verification";
 
 const prisma = new PrismaClient();
 
@@ -180,18 +180,13 @@ export async function main() {
   console.log("[seed-demo] Creating deterministic demand-pool scenarios (contacts, requirements, two-way matching, WhatsApp-ready recommendations) - zero WhatsApp sends...");
   const demandPool = await createDemoDemandPool(properties.all, employees.admin);
 
-  console.log("[seed-demo] Re-computing lead-property matches against what was actually written (should be identical to the pre-write projection above)...");
-  const availableProperties = properties.all.filter((p) => p.status === "AVAILABLE");
-  let totalMatchPairs = 0;
-  const perLeadMatchCounts: { leadCode: string; matches: number }[] = [];
-  for (const lead of leads.all) {
-    const matches = matchPropertiesToLead(availableProperties, lead, 0.2);
-    totalMatchPairs += matches.length;
-    perLeadMatchCounts.push({ leadCode: lead.leadCode, matches: matches.length });
-  }
+  console.log("[seed-demo] Re-computing lead-property matches against what was actually written (fresh DB read, not the in-memory arrays above - property-issues.ts's status mutation only exists in the database at this point, see match-verification.ts)...");
+  const actualStats = await getActualPrimaryLeadMatchStats();
+  const totalMatchPairs = actualStats.totalMatchPairs;
+  const perLeadMatchCounts = actualStats.perLead;
   console.log("All 20 lead match counts (actual):");
   for (const l of perLeadMatchCounts) console.log(`  ${l.leadCode}: ${l.matches}`);
-  const leadsOutsideTargetRange = perLeadMatchCounts.filter((l) => l.matches < minMatch || l.matches > maxMatch);
+  const leadsOutsideTargetRange = actualStats.outsideRange;
 
   console.log("[seed-demo] Running verification (matching, dashboard, reports, smart actions, search, health, exports)...");
   const verification = await runVerification({
