@@ -1,6 +1,6 @@
 import { prisma } from "../prisma";
-import { getDashboardData } from "../dashboard-data";
-import { runGlobalSearch } from "../search/entity-search";
+import { getDemoVerificationMetrics } from "./dashboard-verify";
+import { countDemoSearchResults } from "./search-verify";
 import { getLeadHealth, getLeadHealthOverview } from "../rules/lead-health";
 import { getPropertyHealth, getPropertyHealthOverview } from "../rules/property-health";
 import { matchPropertiesToLead } from "../matching";
@@ -35,6 +35,7 @@ export interface VerificationReport {
   smartActions: { checked: number; created: number };
   notifications: { total: number; distinctTypes: number };
   savedViews: { count: number; names: string[] };
+  /** LEAD + PROPERTY entity results only (via countDemoSearchResults) - see search-verify.ts's doc comment for why NOTIFICATION-entity results aren't included. */
   globalSearch: Record<string, number>;
   commandPalette: { resultCount: number };
   healthScores: { leadLabels: string[]; propertyLabels: string[]; leadOverview: unknown; propertyOverview: unknown };
@@ -79,12 +80,18 @@ export async function runVerification(params: {
   }
 
   // --- Dashboard ---
+  // See dashboard-verify.ts for why this calls a seed-safe standalone
+  // helper instead of the real getDashboardData() - that function pulls in
+  // src/lib/organization.ts's `import "server-only"`, which crashes a
+  // plain `tsx` process.
   let dashboard: VerificationReport["dashboard"] = { criticalKeysPresent: false, totalLeads: 0, totalProperties: 0 };
   try {
-    const data = await getDashboardData(params.adminRole, params.adminId);
-    const totalLeads = await prisma.lead.count({ where: { organizationId: orgId } });
-    const totalProperties = await prisma.property.count({ where: { organizationId: orgId } });
-    dashboard = { criticalKeysPresent: Boolean(data && typeof data === "object"), totalLeads, totalProperties };
+    const metrics = await getDemoVerificationMetrics(orgId);
+    dashboard = {
+      criticalKeysPresent: Number.isInteger(metrics.totalProperties) && Number.isInteger(metrics.totalLeads),
+      totalLeads: metrics.totalLeads,
+      totalProperties: metrics.totalProperties,
+    };
   } catch (e) {
     errors.push(`dashboard: ${(e as Error).message}`);
   }
@@ -141,20 +148,21 @@ export async function runVerification(params: {
     errors.push(`savedViews: ${(e as Error).message}`);
   }
 
-  // --- Global search / command palette (same underlying engine) ---
+  // --- Global search / command palette (LEAD + PROPERTY entities - see
+  // search-verify.ts for why NOTIFICATION-entity search is out of scope
+  // here) ---
   const globalSearch: VerificationReport["globalSearch"] = {};
   try {
     for (const q of ["Karol Bagh", "DEMO-PROP", "DEMO-LEAD"]) {
-      const res = await runGlobalSearch(q, { organizationId: orgId, role: params.adminRole, userId: params.adminId });
-      globalSearch[q] = res.results.length;
+      globalSearch[q] = await countDemoSearchResults(q, { organizationId: orgId, role: params.adminRole, userId: params.adminId });
     }
   } catch (e) {
     errors.push(`globalSearch: ${(e as Error).message}`);
   }
   let commandPalette: VerificationReport["commandPalette"] = { resultCount: 0 };
   try {
-    const res = await runGlobalSearch("DEMO", { organizationId: orgId, role: params.adminRole, userId: params.adminId });
-    commandPalette = { resultCount: res.results.length };
+    const resultCount = await countDemoSearchResults("DEMO", { organizationId: orgId, role: params.adminRole, userId: params.adminId });
+    commandPalette = { resultCount };
   } catch (e) {
     errors.push(`commandPalette: ${(e as Error).message}`);
   }
