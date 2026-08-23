@@ -53,7 +53,15 @@ import { matchPropertiesToLead } from "../src/lib/matching";
 
 const prisma = new PrismaClient();
 
-async function main() {
+/**
+ * Exported (and guarded below by `require.main === module`) so this module
+ * can be imported - e.g. by scripts/seed-demo.import-safety.test.ts, which
+ * spawns real tsx against this file to prove the whole import graph loads
+ * without the `server-only` regression - without main() auto-executing
+ * (and therefore without ever touching a database) as a side effect of
+ * merely importing the file.
+ */
+export async function main() {
   const startedAt = Date.now();
 
   // --- Safety gate + preflight banner - BEFORE any database write ---
@@ -305,11 +313,13 @@ async function main() {
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
