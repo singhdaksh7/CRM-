@@ -79,7 +79,7 @@ export async function createDemoDemandPool(properties: Property[], actor: User):
 
   // --- Scenario: no match - budget far beyond even the stretch tolerance; must never surface a recommendation row ---
   const noMatchContact = await upsertContact(21, { name: "Deepak Chaudhary", phone: demoPhone(21, 11), source: "MANUAL", status: "ACTIVE", doNotContact: false, whatsAppOptOut: false, createdById: actor.id });
-  await upsertRequirement(21, {
+  const noMatchRequirement = await upsertRequirement(21, {
     customerContactId: noMatchContact.id, assetClass: "RESIDENTIAL", transactionType: "RENT",
     preferredLocalities: [residentialRent.area], minBudget: 1000, maxBudget: Math.round(residentialRent.monthlyRent! / 3),
     bhk: residentialRent.bhk, lastConfirmedAt: days(-3),
@@ -87,11 +87,11 @@ export async function createDemoDemandPool(properties: Property[], actor: User):
 
   // --- Scenario: DNC contact - never a match candidate regardless of fit ---
   const dncContact = await upsertContact(22, { name: "Harish Yadav", phone: demoPhone(22, 11), source: "MANUAL", status: "DO_NOT_CONTACT", doNotContact: true, whatsAppOptOut: false, createdById: actor.id });
-  await upsertRequirement(22, { customerContactId: dncContact.id, assetClass: "RESIDENTIAL", transactionType: "RENT", preferredLocalities: [residentialRent.area], minBudget: 1, maxBudget: residentialRent.monthlyRent!, bhk: residentialRent.bhk, lastConfirmedAt: days(-1) });
+  const dncRequirement = await upsertRequirement(22, { customerContactId: dncContact.id, assetClass: "RESIDENTIAL", transactionType: "RENT", preferredLocalities: [residentialRent.area], minBudget: 1, maxBudget: residentialRent.monthlyRent!, bhk: residentialRent.bhk, lastConfirmedAt: days(-1) });
 
   // --- Scenario: WhatsApp opt-out contact - eligible in principle but never a send candidate ---
   const optOutContact = await upsertContact(23, { name: "Poonam Rekha", phone: demoPhone(23, 11), source: "MANUAL", status: "ACTIVE", doNotContact: false, whatsAppOptOut: true, createdById: actor.id });
-  await upsertRequirement(23, { customerContactId: optOutContact.id, assetClass: "RESIDENTIAL", transactionType: "RENT", preferredLocalities: [residentialRent.area], minBudget: 1, maxBudget: residentialRent.monthlyRent!, bhk: residentialRent.bhk, lastConfirmedAt: days(-1) });
+  const optOutRequirement = await upsertRequirement(23, { customerContactId: optOutContact.id, assetClass: "RESIDENTIAL", transactionType: "RENT", preferredLocalities: [residentialRent.area], minBudget: 1, maxBudget: residentialRent.monthlyRent!, bhk: residentialRent.bhk, lastConfirmedAt: days(-1) });
 
   // --- Scenario: multi-requirement contact - one RENT need, one separate SALE need (rule 3 core example) ---
   const multiContact = await upsertContact(24, { name: "Rahul Sharma", phone: demoPhone(24, 11), source: "MANUAL", status: "ACTIVE", doNotContact: false, whatsAppOptOut: false, createdById: actor.id });
@@ -100,7 +100,7 @@ export async function createDemoDemandPool(properties: Property[], actor: User):
 
   // --- Scenario: stale requirement - unconfirmed well past requirementStaleAfterDays (default 180); must never appear in automatic matching until re-confirmed ---
   const staleContact = await upsertContact(26, { name: "Yogesh Mahesh", phone: demoPhone(26, 11), source: "MANUAL", status: "ACTIVE", doNotContact: false, whatsAppOptOut: false, createdById: actor.id });
-  await upsertRequirement(26, { customerContactId: staleContact.id, assetClass: "RESIDENTIAL", transactionType: "RENT", preferredLocalities: [residentialRent.area], minBudget: 1, maxBudget: residentialRent.monthlyRent!, bhk: residentialRent.bhk, lastConfirmedAt: days(-400) });
+  const staleRequirement = await upsertRequirement(26, { customerContactId: staleContact.id, assetClass: "RESIDENTIAL", transactionType: "RENT", preferredLocalities: [residentialRent.area], minBudget: 1, maxBudget: residentialRent.monthlyRent!, bhk: residentialRent.bhk, lastConfirmedAt: days(-400) });
 
   // --- Scenario: contact already converted to a Lead (rule 4) - requirement + contact preserved, never duplicated ---
   const convertedContact = await upsertContact(27, { name: "Sandeep Dutta", phone: demoPhone(27, 11), source: "MANUAL", status: "ACTIVE", doNotContact: false, whatsAppOptOut: false, createdById: actor.id });
@@ -137,15 +137,24 @@ export async function createDemoDemandPool(properties: Property[], actor: User):
   contactIds.push(
     { id: exactContact.id, requirementIds: [exactRequirement.id] },
     { id: stretchContact.id, requirementIds: [stretchRequirement.id] },
-    { id: noMatchContact.id, requirementIds: [] },
-    { id: dncContact.id, requirementIds: [] },
-    { id: optOutContact.id, requirementIds: [] },
+    { id: noMatchContact.id, requirementIds: [noMatchRequirement.id] },
+    { id: dncContact.id, requirementIds: [dncRequirement.id] },
+    { id: optOutContact.id, requirementIds: [optOutRequirement.id] },
     { id: multiContact.id, requirementIds: [multiRentRequirement.id, multiSaleRequirement.id] },
-    { id: staleContact.id, requirementIds: [] },
+    { id: staleContact.id, requirementIds: [staleRequirement.id] },
     { id: convertedContact.id, requirementIds: [convertedRequirement.id] },
     { id: rejectedContact.id, requirementIds: [rejectedRequirement.id] }
   );
-  requirementIds.push(exactRequirement.id, stretchRequirement.id, multiRentRequirement.id, multiSaleRequirement.id, convertedRequirement.id, rejectedRequirement.id);
+  // Every upsertRequirement() call above must have its id collected here -
+  // 4 of these (noMatch/dnc/optOut/stale) were previously created in the
+  // database but never pushed into `requirements`, so this function
+  // under-reported 24 when 28 rows (DEMO_SEED_PLAN.demandPoolRequirements)
+  // genuinely existed - a self-verification bug, not a creation bug (see
+  // scripts/seed-demo.ts's demandPoolExpectations check).
+  requirementIds.push(
+    exactRequirement.id, stretchRequirement.id, noMatchRequirement.id, dncRequirement.id, optOutRequirement.id,
+    multiRentRequirement.id, multiSaleRequirement.id, staleRequirement.id, convertedRequirement.id, rejectedRequirement.id
+  );
   recommendationIds.push(alreadySentRec.id, preparedRec.id, interestedRec.id, rejectedRec.id, ...(exactPendingRec ? [exactPendingRec.id] : []));
 
   return { contacts: contactIds, requirements: requirementIds, recommendations: recommendationIds };

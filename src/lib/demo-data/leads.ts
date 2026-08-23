@@ -47,20 +47,36 @@ const TARGET_MIN_MATCHES = 3;
 const TARGET_MAX_MATCHES = 8;
 
 /**
- * matchPropertyToLead's only HARD filters are requirementType/listingType,
- * property.status === "AVAILABLE", and price <= maxBudget * (1 +
- * tolerance) - there is no lower-price cutoff, and location/BHK/furnishing
- * only affect score, never inclusion (see src/lib/matching.ts). So match
- * COUNT for a lead is driven almost entirely by maxBudget against the
- * available-property price distribution, not by locality or BHK - a wide
- * "generous" budget band (an earlier version of this file) silently
+ * matchPropertyToLead's HARD filters are: property.assetClass ===
+ * lead.assetClass, requirementType/transactionType-derived RENT-vs-SALE
+ * matching listingType, property.status === "AVAILABLE", and price <=
+ * maxBudget * (1 + tolerance) - there is no lower-price cutoff, and
+ * location/BHK/furnishing only affect score, never inclusion (see
+ * src/lib/matching.ts). So match COUNT for a lead is driven almost
+ * entirely by maxBudget against the available-property price distribution
+ * within the same assetClass/transaction type, not by locality or BHK - a
+ * wide "generous" budget band (an earlier version of this file) silently
  * matched most or all of the inventory (10-18 matches, seen in
  * seed:demo:dry-run), not 3-8. This searches candidate maxBudget values
  * against the REAL matching engine (the actual oracle for what counts as a
  * match) rather than guessing a band width analytically.
+ *
+ * The stub lead below MUST set assetClass/transactionType explicitly, and
+ * `sameType` MUST filter by assetClass too - both to stay consistent with
+ * what buildLeadData actually persists (see below) and to match what
+ * buildPropertyData persists for `availableProperties`. Omitting either
+ * one previously left them `undefined` in this in-memory search while
+ * Prisma silently applied its schema @default() (RESIDENTIAL/RENT) to the
+ * real persisted rows - the calibration search matched everything against
+ * nothing (assetClass mismatch on every candidate), fell through to its
+ * "closest-diff" fallback, and picked a near-degenerate budget pinned to
+ * the single cheapest same-listingType property - which is exactly why
+ * every RENT lead in production ended up with the identical 4500-9000
+ * budget (2 matches) and every BUY lead ended up matching almost the
+ * entire RENT inventory once transactionType silently defaulted to RENT.
  */
 function pickBudgetForMatchRange(rng: Rng, isRent: boolean, availableProperties: Property[]): { minBudget: number; maxBudget: number } {
-  const sameType = availableProperties.filter((p) => p.listingType === (isRent ? "RENT" : "SALE"));
+  const sameType = availableProperties.filter((p) => p.listingType === (isRent ? "RENT" : "SALE") && p.assetClass === "RESIDENTIAL");
   const prices = [...new Set(sameType.map((p) => (isRent ? p.monthlyRent : p.salePrice)).filter((p): p is number => typeof p === "number"))].sort(
     (a, b) => a - b
   );
@@ -71,22 +87,37 @@ function pickBudgetForMatchRange(rng: Rng, isRent: boolean, availableProperties:
   const targetCount = rng.int(TARGET_MIN_MATCHES, TARGET_MAX_MATCHES);
   const stubLead = {
     requirementType: isRent ? "RENT" : "BUY",
+    transactionType: isRent ? "RENT" : "SALE",
+    assetClass: "RESIDENTIAL",
     preferredLocation: "",
     preferredBhk: null,
     furnishingPref: null,
     moveInDate: null,
   } as unknown as Lead;
 
-  let best: { minBudget: number; maxBudget: number; diff: number } | null = null;
+  // Scans every candidate and keeps the one closest to this lead's random
+  // targetCount, rather than returning the first in-range hit - the
+  // earlier "return on first hit" behavior meant every lead of a given
+  // isRent type converged on the exact same (lowest-price, edge-of-range)
+  // budget, since the scan order and available-property set are identical
+  // for every lead of that type. That's fragile (every lead sitting
+  // exactly at the range boundary) and gives no demo variety despite
+  // targetCount being drawn per-lead. Now the closest-in-range candidate
+  // wins ties in scan order (stable for determinism), and an in-range
+  // exact-target match short-circuits immediately.
+  let best: { minBudget: number; maxBudget: number; diff: number; inRange: boolean } | null = null;
   for (const candidateMax of prices) {
     const candidateMin = Math.max(1000, Math.round(candidateMax * 0.5));
     const testLead = { ...stubLead, minBudget: candidateMin, maxBudget: candidateMax } as Lead;
     const matchCount = matchPropertiesToLead(availableProperties, testLead, 0.2).length;
-    if (matchCount >= TARGET_MIN_MATCHES && matchCount <= TARGET_MAX_MATCHES) {
+    const inRange = matchCount >= TARGET_MIN_MATCHES && matchCount <= TARGET_MAX_MATCHES;
+    if (inRange && matchCount === targetCount) {
       return { minBudget: candidateMin, maxBudget: candidateMax };
     }
     const diff = Math.abs(matchCount - targetCount);
-    if (!best || diff < best.diff) best = { minBudget: candidateMin, maxBudget: candidateMax, diff };
+    if (!best || (inRange && !best.inRange) || (inRange === best.inRange && diff < best.diff)) {
+      best = { minBudget: candidateMin, maxBudget: candidateMax, diff, inRange };
+    }
   }
   return best ?? fallback;
 }
@@ -153,6 +184,15 @@ export function buildLeadData(
     email: rng.bool(0.8) ? `${clientName.toLowerCase().replace(/\s+/g, ".")}.${i}@example.com` : null,
     source: source.value,
     requirementType: isRent ? "RENT" : "BUY",
+    // Explicit - see pickBudgetForMatchRange's doc comment above for why
+    // leaving these unset (letting Prisma's schema @default(RESIDENTIAL) /
+    // @default(RENT) silently apply) broke lead-property match parity in
+    // production. Demo leads are always residential-style (no
+    // commercialPropertyType/minAreaSqft/etc are ever set here), so
+    // assetClass is always RESIDENTIAL; transactionType mirrors the same
+    // RENT/SALE choice requirementType already encodes.
+    assetClass: "RESIDENTIAL",
+    transactionType: isRent ? "RENT" : "SALE",
     preferredLocation,
     minBudget,
     maxBudget,

@@ -32,8 +32,17 @@ export const DEMO_SEED_PLAN = {
   leadPropertyMatchRange: { min: 3, max: 8 },
 
   // --- Phase 4 workflow demo scenarios (release-readiness closure pass) ---
-  /** One feedback record per COMPLETED demo visit - see visits.ts's bucket split (35% of `visits` above). */
-  visitFeedback: 5,
+  /**
+   * One feedback record per COMPLETED demo visit with an assignee (see
+   * visits.ts's status bucket split, ~35% of `visits` above lands
+   * COMPLETED) - the exact count is otherwise an emergent property of the
+   * deterministic Rng(DEMO_SEED) stream, not something set directly here.
+   * 5 was an analytical estimate (35% of 15 ~= 5.25); the actual
+   * deterministic result for this seed/plan is 6 - verified by both the
+   * real seed run and src/lib/demo-data/validate.test.ts's fixed-seed
+   * assertion, not re-estimated.
+   */
+  visitFeedback: 6,
   /** One PENDING + one APPROVED PropertyAvailabilityReport, each with a required evidence photo. */
   availabilityReports: 2,
   /** One PENDING + one RESOLVED general PropertyReport. */

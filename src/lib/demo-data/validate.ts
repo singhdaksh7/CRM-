@@ -8,6 +8,7 @@ import { buildPropertyData } from "./properties";
 import { buildLeadData } from "./leads";
 import { matchPropertiesToLead } from "../matching";
 import { ensureDemoPropertyAssets } from "./assets";
+import { PROPERTY_ISSUE_SCENARIO_INDEX } from "./property-issues";
 
 export interface LeadMatchCount {
   leadCode: string;
@@ -66,6 +67,26 @@ export function buildAndValidateProjectedDataset(): DatasetValidationResult {
   for (let i = 1; i <= DEMO_SEED_PLAN.properties; i++) {
     properties.push(buildPropertyData(rng, i, owners, employees, assetsByType, partners) as unknown as Property);
   }
+
+  // Single source of truth for the ONE post-calibration Property mutation
+  // scripts/seed-demo.ts's real pipeline performs before lead-property
+  // matching is ever checked: src/lib/demo-data/property-issues.ts's
+  // "approved availability report" scenario unconditionally flips this
+  // property to RENTED (pure index arithmetic, not an rng draw, so this
+  // stays byte-identical to what the real seed will do). Applied here,
+  // BEFORE `availableProperties` is computed and BEFORE lead budgets are
+  // calibrated against it, so the calibration - and therefore the dry-run
+  // and the real seed - are both working from the true FINAL property
+  // state, not a pre-mutation snapshot that later silently goes stale.
+  // Every other demo-data module was audited (grep for
+  // prisma.property.update/prisma.lead.update across src/lib/demo-data/)
+  // and performs no other field mutation relevant to matching.
+  const approvedAvailabilityIndex = PROPERTY_ISSUE_SCENARIO_INDEX.approvedAvailability;
+  properties[approvedAvailabilityIndex - 1] = {
+    ...properties[approvedAvailabilityIndex - 1],
+    status: "RENTED",
+  };
+
   const availableProperties = properties.filter((p) => p.status === "AVAILABLE");
 
   const leads: Lead[] = [];
