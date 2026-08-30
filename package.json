@@ -15,7 +15,12 @@
     "seed:demo:verify": "tsx scripts/seed-demo-verify.ts",
     "seed:remove": "tsx scripts/remove-demo.ts",
     "bootstrap:production": "tsx scripts/bootstrap-admin.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e:seed": "tsx tests/e2e/setup/seed-qa.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report test-results/html-report"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -47,6 +52,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20",
