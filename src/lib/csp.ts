@@ -121,6 +121,18 @@ export function buildContentSecurityPolicy(
   const imgSources = ["'self'", "data:", "blob:", "https://images.unsplash.com", ...storageOrigins];
   const connectSources = ["'self'", ...storageOrigins];
 
+  // `next dev`'s React Fast Refresh runtime (@next/react-refresh-utils)
+  // unconditionally eval()s module updates as part of how HMR works - this
+  // is unrelated to and not fixable via the webpack `devtool`/source-map
+  // setting. That eval is blocked by a strict script-src, silently breaking
+  // client-side interactivity (e.g. the login form's signIn() call never
+  // completing) under `next dev`. Gated strictly on NODE_ENV === "development"
+  // (never "production", and Vitest's default NODE_ENV of "test" also keeps
+  // the strict policy) so the CSP actually served by `next build`/`next start`
+  // - the only thing a real client ever receives - is byte-for-byte
+  // unchanged; this only relaxes the policy for the local `next dev` server.
+  const scriptSrc = env.NODE_ENV === "development" ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" : "script-src 'self' 'unsafe-inline'";
+
   // Phase 3J - production security headers. CSP note: `script-src` includes
   // 'unsafe-inline' because Next.js App Router injects a small inline
   // bootstrap/hydration script on every page; tightening to a nonce-based
@@ -129,7 +141,7 @@ export function buildContentSecurityPolicy(
     "default-src 'self'",
     `img-src ${imgSources.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline'",
+    scriptSrc,
     "font-src 'self' data:",
     `connect-src ${connectSources.join(" ")}`,
     "frame-ancestors 'self'",
