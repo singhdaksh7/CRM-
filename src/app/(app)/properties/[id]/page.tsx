@@ -22,6 +22,9 @@ import { portalPayloadPreview } from "@/integrations/property-portals/listing-li
 import { DistributionPanel, type ProviderRow } from "@/components/property-portals/distribution-panel";
 import { MatchedCustomersPanel } from "@/components/customers/matched-customers-panel";
 import { PropertyRecommendationHistory } from "@/components/customers/property-recommendation-history";
+import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
+import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
+import { CaptureLocationButton } from "@/components/properties/capture-location-button";
 
 // Change 15 - Inventory Freshness label tone, distinct from the numeric Property Health score.
 const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
@@ -46,6 +49,15 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const property = await prisma.property.findFirst({ where: { id, organizationId }, include: { partner: true } });
   if (!property) notFound();
   const canEditDistribution = ["ADMIN", "DATA_MANAGER"].includes(session!.user.role);
+
+  // A FIELD_EXECUTIVE viewing this page directly (not through their visit
+  // detail screen) must see the same redaction visit-detail-dto.ts already
+  // applies: exact address/GPS/owner-or-partner contact only when they have
+  // a legitimate assigned-visit or assigned-lead-catalogue reason to need
+  // it, and commercial notes never at all.
+  const isFieldExecutive = session!.user.role === "FIELD_EXECUTIVE";
+  const hasFieldAccess = isFieldExecutive ? await fieldExecutiveHasPropertyAccess(property.id, session!.user.id, organizationId) : true;
+  const displayProperty = isFieldExecutive ? toFieldExecutivePropertyDTO(property, hasFieldAccess) : property;
 
   const [health, suggestions, timelineEvents, freshness, connections, listings, operations] = await Promise.all([
     getPropertyHealth(property.id, organizationId),
@@ -89,8 +101,10 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">{property.title}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-[#596579]">
-            <MapPin className="h-4 w-4 text-[#3366FF] shrink-0" /> {property.address}, {property.area}, Delhi
-            {property.landmark && ` · ${property.landmark}`}
+            <MapPin className="h-4 w-4 text-[#3366FF] shrink-0" />
+            {displayProperty.address ? `${displayProperty.address}, ` : ""}
+            {property.area}, Delhi
+            {displayProperty.landmark && ` · ${displayProperty.landmark}`}
           </p>
         </div>
         <PropertyActions propertyId={property.id} status={property.status} />
@@ -113,20 +127,30 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           )}
           <PropertyRecommendationHistory propertyId={property.id} />
 
-          {/* Location & Map */}
-          <PropertyMapPanel
-            propertyId={property.id}
-            address={property.address}
-            area={property.area}
-            landmark={property.landmark}
-            pincode={property.pincode}
-            latitude={property.latitude}
-            longitude={property.longitude}
-            formattedAddress={property.formattedAddress}
-            geocodeStatus={property.geocodeStatus}
-            locationPrecision={property.locationPrecision}
-            publicLocationMode={property.publicLocationMode}
-          />
+          {/* Location & Map - a FIELD_EXECUTIVE without a legitimate assigned
+              reason (visit or lead catalogue) sees no exact-location panel
+              at all, matching the address redaction above. */}
+          {(!isFieldExecutive || hasFieldAccess) && (
+            <PropertyMapPanel
+              propertyId={property.id}
+              address={property.address}
+              area={property.area}
+              landmark={property.landmark}
+              pincode={property.pincode}
+              latitude={property.latitude}
+              longitude={property.longitude}
+              formattedAddress={property.formattedAddress}
+              geocodeStatus={property.geocodeStatus}
+              locationPrecision={property.locationPrecision}
+              publicLocationMode={property.publicLocationMode}
+            />
+          )}
+
+          {/* A7 - Field GPS capture. FIELD_EXECUTIVE only (ADMIN/DATA_MANAGER
+              already have manual location editing in the map panel above);
+              shown only alongside the map panel, i.e. only when this
+              executive has a legitimate assigned reason to be here. */}
+          {isFieldExecutive && hasFieldAccess && <CaptureLocationButton propertyId={property.id} />}
 
           {/* Description */}
           <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
@@ -219,8 +243,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             </div>
           </div>
 
-          {/* Objective 2 - Direct shows Owner Details, Indirect shows Inventory Partner Details */}
-          {property.inventorySource === "DIRECT" ? (
+          {/* Objective 2 - Direct shows Owner Details, Indirect shows Inventory
+              Partner Details. A FIELD_EXECUTIVE without a legitimate assigned
+              reason sees neither - contact detail is exactly as sensitive as
+              the exact address above. */}
+          {(!isFieldExecutive || hasFieldAccess) && (property.inventorySource === "DIRECT" ? (
             <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
                 <Phone className="h-4 w-4 text-[#3366FF]" /> Owner Information
@@ -228,8 +255,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               <div className="space-y-2 text-sm text-[#596579]">
                 <Row label="Name" value={property.ownerName} />
                 <Row label="Phone" value={property.ownerPhone} />
-                {property.ownerAlternatePhone && <Row label="Alternate" value={property.ownerAlternatePhone} />}
-                {property.ownerNotes && <Row label="Notes" value={property.ownerNotes} />}
+                {!isFieldExecutive && property.ownerAlternatePhone && <Row label="Alternate" value={property.ownerAlternatePhone} />}
+                {!isFieldExecutive && property.ownerNotes && <Row label="Notes" value={property.ownerNotes} />}
               </div>
               <p className="mt-3 text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
             </div>
@@ -243,14 +270,14 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                   <Row label="Name" value={property.partner.name} />
                   {property.partner.company && <Row label="Company" value={property.partner.company} />}
                   <Row label="Phone" value={property.partner.phone} />
-                  <Link href={`/inventory-partners/${property.partner.id}`} className="mt-2 inline-block text-xs font-semibold text-[#3366FF] hover:underline">View partner profile →</Link>
+                  {!isFieldExecutive && <Link href={`/inventory-partners/${property.partner.id}`} className="mt-2 inline-block text-xs font-semibold text-[#3366FF] hover:underline">View partner profile →</Link>}
                 </div>
               ) : (
                 <p className="text-sm text-[#596579]">No inventory partner linked - edit this property to link one.</p>
               )}
               <p className="mt-3 text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
             </div>
-          )}
+          ))}
 
           {/* Objectives 7 & 10 - executive-facing issue/unavailability reporting */}
           <PropertyReportPanel propertyId={property.id} />

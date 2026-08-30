@@ -29,12 +29,16 @@ vi.mock("./audit", () => ({ recordAudit: (...a: unknown[]) => recordAudit(...a) 
 const geocodeAddressCached = vi.fn();
 vi.mock("./geocoding", () => ({ geocodeAddressCached: (...a: unknown[]) => geocodeAddressCached(...a) }));
 
+const fieldExecutiveHasPropertyAccess = vi.fn();
+vi.mock("./property-access", () => ({ fieldExecutiveHasPropertyAccess: (...a: unknown[]) => fieldExecutiveHasPropertyAccess(...a) }));
+
 const {
   geocodeProperty,
   setManualPropertyLocation,
   markPropertyLocationApproximate,
   setPublicLocationMode,
   clearPropertyLocation,
+  captureFieldLocation,
 } = await import("./property-location");
 const { ApiError } = await import("./api-auth");
 const { MapsConfigError } = await import("@/integrations/maps");
@@ -148,5 +152,82 @@ describe("clearPropertyLocation", () => {
     const result = await clearPropertyLocation({ propertyId: "prop1", actorId: "admin1", organizationId: "org_default", role: "ADMIN" });
     expect(result.latitude).toBeNull();
     expect(recordAudit).toHaveBeenCalledWith(expect.objectContaining({ newValues: expect.objectContaining({ event: "property_location_cleared" }) }));
+  });
+});
+
+describe("captureFieldLocation (A7)", () => {
+  const coords = { latitude: 28.612, longitude: 77.229, accuracy: 12.5 };
+
+  it("an ASSIGNED FIELD_EXECUTIVE can capture", async () => {
+    fieldExecutiveHasPropertyAccess.mockResolvedValue(true);
+    propertyFindFirst.mockResolvedValue(baseProperty());
+    propertyUpdate.mockResolvedValue({ id: "prop1", latitude: coords.latitude, longitude: coords.longitude, locationPrecision: "EXACT", locationAccuracy: coords.accuracy });
+
+    const result = await captureFieldLocation({ propertyId: "prop1", actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", ...coords });
+
+    expect(result.locationPrecision).toBe("EXACT");
+    expect(propertyUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          locationPrecision: "EXACT",
+          locationAccuracy: coords.accuracy,
+          locationCapturedById: "fe1",
+        }),
+      })
+    );
+    expect(propertyUpdate.mock.calls[0][0].data.locationCapturedAt).toBeInstanceOf(Date);
+  });
+
+  it("an UNASSIGNED FIELD_EXECUTIVE is denied with 403, before any write", async () => {
+    fieldExecutiveHasPropertyAccess.mockResolvedValue(false);
+    await expect(captureFieldLocation({ propertyId: "prop1", actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", ...coords })).rejects.toThrow(ApiError);
+    expect(propertyUpdate).not.toHaveBeenCalled();
+  });
+
+  it("ADMIN can capture without an assigned-visit check", async () => {
+    propertyFindFirst.mockResolvedValue(baseProperty());
+    propertyUpdate.mockResolvedValue({ id: "prop1" });
+    await captureFieldLocation({ propertyId: "prop1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", ...coords });
+    expect(fieldExecutiveHasPropertyAccess).not.toHaveBeenCalled();
+    expect(propertyUpdate).toHaveBeenCalled();
+  });
+
+  it("DATA_MANAGER can capture without an assigned-visit check", async () => {
+    propertyFindFirst.mockResolvedValue(baseProperty());
+    propertyUpdate.mockResolvedValue({ id: "prop1" });
+    await captureFieldLocation({ propertyId: "prop1", actorId: "dm1", organizationId: "org_default", role: "DATA_MANAGER", ...coords });
+    expect(fieldExecutiveHasPropertyAccess).not.toHaveBeenCalled();
+    expect(propertyUpdate).toHaveBeenCalled();
+  });
+
+  it("rejects invalid coordinates without writing", async () => {
+    await expect(captureFieldLocation({ propertyId: "prop1", actorId: "admin1", organizationId: "org_default", role: "ADMIN", latitude: 999, longitude: 999 })).rejects.toThrow(ApiError);
+    expect(propertyUpdate).not.toHaveBeenCalled();
+  });
+
+  it("never changes publicLocationMode - an internal capture must not widen public exposure", async () => {
+    fieldExecutiveHasPropertyAccess.mockResolvedValue(true);
+    propertyFindFirst.mockResolvedValue(baseProperty({ publicLocationMode: "LOCALITY_ONLY" }));
+    propertyUpdate.mockResolvedValue({ id: "prop1" });
+    await captureFieldLocation({ propertyId: "prop1", actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", ...coords });
+    expect(propertyUpdate.mock.calls[0][0].data).not.toHaveProperty("publicLocationMode");
+  });
+
+  it("scopes the assigned-access check to the acting organization", async () => {
+    fieldExecutiveHasPropertyAccess.mockResolvedValue(true);
+    propertyFindFirst.mockResolvedValue(baseProperty());
+    propertyUpdate.mockResolvedValue({ id: "prop1" });
+    await captureFieldLocation({ propertyId: "prop1", actorId: "fe1", organizationId: "org_other", role: "FIELD_EXECUTIVE", ...coords });
+    expect(fieldExecutiveHasPropertyAccess).toHaveBeenCalledWith("prop1", "fe1", "org_other");
+  });
+
+  it("audits the capture with actor and accuracy", async () => {
+    fieldExecutiveHasPropertyAccess.mockResolvedValue(true);
+    propertyFindFirst.mockResolvedValue(baseProperty());
+    propertyUpdate.mockResolvedValue({ id: "prop1" });
+    await captureFieldLocation({ propertyId: "prop1", actorId: "fe1", organizationId: "org_default", role: "FIELD_EXECUTIVE", ...coords });
+    expect(recordAudit).toHaveBeenCalledWith(expect.objectContaining({ userId: "fe1", newValues: expect.objectContaining({ event: "property_location_captured_on_site", accuracyMeters: coords.accuracy }) }));
   });
 });

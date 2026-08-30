@@ -3,15 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { getOrganizationId } from "@/lib/organization";
 import { logger } from "@/lib/logger";
-
-/** A field executive may only view the internal details of a property they have an assigned visit for, or that appears in a catalogue for one of their assigned leads. */
-async function fieldExecutiveHasAccess(propertyId: string, userId: string): Promise<boolean> {
-  const [visit, catalogueMatch] = await Promise.all([
-    prisma.visit.findFirst({ where: { propertyId, assignedToId: userId }, select: { id: true } }),
-    prisma.catalogueShareProperty.findFirst({ where: { propertyId, catalogueShare: { lead: { assignedToId: userId } } }, select: { id: true } }),
-  ]);
-  return Boolean(visit || catalogueMatch);
-}
+import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
 
 /**
  * Objective 3 - Internal Property View. These fields must NEVER appear in
@@ -32,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (!property) throw new ApiError(404, "Property not found");
 
     if (session.user.role === "FIELD_EXECUTIVE") {
-      const hasAccess = await fieldExecutiveHasAccess(id, session.user.id);
+      const hasAccess = await fieldExecutiveHasPropertyAccess(id, session.user.id, organizationId);
       if (!hasAccess) throw new ApiError(403, "You don't have an assigned visit or lead catalogue involving this property");
     }
 
