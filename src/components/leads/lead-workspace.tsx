@@ -81,6 +81,10 @@ interface NextAction {
 }
 
 export function getNextAction(lead: LeadWithRelations, likedCount: number): NextAction | null {
+  if (["CLOSED_WON", "CLOSED_LOST", "INVALID", "NOT_INTERESTED"].includes(lead.status)) {
+    return null;
+  }
+
   if (lead.status === "NEW") {
     return {
       label: "Complete Requirement",
