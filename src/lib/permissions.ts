@@ -30,7 +30,15 @@ export const NAV_ITEMS = [
   { href: "/catalogues", label: "Catalogues", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/whatsapp", label: "WhatsApp", roles: ["ADMIN"] as Role[] },
   { href: "/visits", label: "Visits", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
-  { href: "/follow-ups", label: "Follow-ups", roles: ["ADMIN"] as Role[] },
+  // DATA_MANAGER: matches sidebar.tsx's own DATA_MANAGER.main config (which
+  // already lists this link) and the "Follow-up" step in this file's own
+  // documented work-tool flow above - ADMIN-only here silently dropped the
+  // sidebar link and denied direct navigation for the role whose core
+  // workflow explicitly includes it. FIELD_EXECUTIVE intentionally excluded:
+  // sidebar.tsx's FIELD_EXECUTIVE.main never lists a Follow-ups link (their
+  // flow reaches a follow-up from a completed visit outcome, not a
+  // standalone nav item), so no matching UI gap exists for that role.
+  { href: "/follow-ups", label: "Follow-ups", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },
   { href: "/documents", label: "Documents", roles: ["ADMIN"] as Role[] },
   { href: "/notifications", label: "Notifications", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/admin/property-issues", label: "Property Issues", roles: ["ADMIN"] as Role[] },
