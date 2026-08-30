@@ -36,6 +36,10 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("server-only", () => ({}));
 
+const autoAssignLead = vi.fn();
+vi.mock("@/lib/assignment", () => ({ autoAssignLead: (...a: unknown[]) => autoAssignLead(...a) }));
+vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+
 const { ingestPortalLead } = await import("./ingestion");
 
 const residentialRentEnquiry = {
@@ -75,6 +79,7 @@ beforeEach(() => {
   leadFindMany.mockResolvedValue([]);
   leadCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "lead-new", ...data }));
   customerContactFindUnique.mockResolvedValue(null);
+  autoAssignLead.mockResolvedValue({ assigned: true, employeeId: "emp1", strategy: "LOWEST_WORKLOAD", reason: "ok" });
 });
 
 describe("new portal lead", () => {
@@ -280,5 +285,53 @@ describe("Demand Pool CustomerContact identity check", () => {
   it("does not look up a CustomerContact when the portal enquiry carries no phone", async () => {
     await ingestPortalLead("org_default", "HOUSING", { ...residentialRentEnquiry, phone: undefined }, { raw: 24 });
     expect(customerContactFindUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("A6 - consistent lead assignment", () => {
+  it("runs the SAME assignment engine (autoAssignLead) as a manually-created lead for a Housing portal lead", async () => {
+    await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 25 });
+    expect(autoAssignLead).toHaveBeenCalledWith("lead-new", "org_default");
+  });
+
+  it("also auto-assigns a 99acres portal lead", async () => {
+    await ingestPortalLead("org_default", "NINETY_NINE_ACRES", residentialRentEnquiry, { raw: 26 });
+    expect(autoAssignLead).toHaveBeenCalledWith("lead-new", "org_default");
+  });
+
+  it("also auto-assigns a MagicBricks portal lead", async () => {
+    await ingestPortalLead("org_default", "MAGICBRICKS", residentialRentEnquiry, { raw: 27 });
+    expect(autoAssignLead).toHaveBeenCalledWith("lead-new", "org_default");
+  });
+
+  it("does not attempt assignment for a lead that matched an existing person (no new Lead row)", async () => {
+    leadFindMany.mockResolvedValue([{ id: "lead-existing", clientName: "Portal Client" }]);
+    const result = await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 28 });
+    expect(result.status).toBe("MATCHED_EXISTING");
+    expect(autoAssignLead).not.toHaveBeenCalled();
+  });
+
+  it("does not attempt assignment for an ambiguous or duplicate event", async () => {
+    leadFindMany.mockResolvedValue([{ id: "lead-a", clientName: "X" }, { id: "lead-b", clientName: "X" }]);
+    await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 29 });
+    expect(autoAssignLead).not.toHaveBeenCalled();
+
+    autoAssignLead.mockClear();
+    leadFindMany.mockResolvedValue([]);
+    eventFindUnique.mockResolvedValue({ id: "evt-existing", ingestionStatus: "RECEIVED" });
+    await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 30 });
+    expect(autoAssignLead).not.toHaveBeenCalled();
+  });
+
+  it("still returns the created lead even if auto-assignment throws (best-effort, never fails ingestion)", async () => {
+    autoAssignLead.mockRejectedValue(new Error("no eligible employees"));
+    const result = await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 31 });
+    expect(result.status).toBe("NEW");
+    expect(result.lead?.id).toBe("lead-new");
+  });
+
+  it("scopes assignment to the ingesting lead's own organization", async () => {
+    await ingestPortalLead("org_other", "HOUSING", residentialRentEnquiry, { raw: 32 });
+    expect(autoAssignLead).toHaveBeenCalledWith("lead-new", "org_other");
   });
 });
