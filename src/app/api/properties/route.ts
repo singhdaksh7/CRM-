@@ -7,6 +7,7 @@ import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
 import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
 import { readTake, readSkip } from "@/lib/pagination";
+import { resolveOrCreatePropertyLocality } from "@/lib/property-locality";
 
 export async function GET(req: NextRequest) {
   try {
@@ -78,10 +79,17 @@ export async function POST(req: NextRequest) {
     const organizationId = getOrganizationId(session.user);
     const count = await prisma.property.count({ where: { organizationId } });
 
+    // A8 - the reusable locality list builds itself from whatever staff
+    // already type into `area` - no separate step, no UI change. `area`
+    // itself is untouched and remains what every existing reader
+    // (matching, reporting, public/catalogue DTOs) uses.
+    const localityId = await resolveOrCreatePropertyLocality(organizationId, data.area, session.user.id);
+
     const property = await prisma.property.create({
       data: {
         ...data,
         organizationId,
+        localityId,
         propertyCode: generateCode("PROP", count + 1),
         amenities: JSON.stringify(data.amenities),
         suitableForTags: JSON.stringify(data.suitableForTags),

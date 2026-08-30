@@ -757,6 +757,7 @@ model Organization {
 
   users                       User[]
   properties                  Property[]
+  propertyLocalities          PropertyLocality[]
   leads                       Lead[]
   leadPhones                  LeadPhone[]
   propertyPortalConnections   PropertyPortalConnection[]
@@ -888,6 +889,8 @@ model User {
   // Phase 4 - Field Operations
   inventoryPartnersCreated        InventoryPartner[]           @relation("InventoryPartnerCreatedBy")
   propertiesLastVerified          Property[]                   @relation("PropertyLastVerifiedBy")
+  propertiesLocationCaptured      Property[]                   @relation("PropertyLocationCapturedBy")
+  propertyLocalitiesCreated       PropertyLocality[]            @relation("PropertyLocalityCreatedBy")
   propertyTimelineEventsActed     PropertyTimelineEvent[]      @relation("PropertyTimelineEventActor")
   availabilityReportsSubmitted    PropertyAvailabilityReport[] @relation("AvailabilityReportedBy")
   availabilityReportsReviewed     PropertyAvailabilityReport[] @relation("AvailabilityReportReviewedBy")
@@ -1046,6 +1049,17 @@ model Property {
   latitude  Float?
   longitude Float?
 
+  // Phase A / A8 - reusable, organization-scoped locality. Additive and
+  // backward-compatible: `area` (above) remains the field every existing
+  // reader (matching, reporting, the public/catalogue DTOs) uses and
+  // continues to work unchanged during and after this rollout. `localityId`
+  // is populated automatically alongside `area` on create/edit (see
+  // resolveOrCreatePropertyLocality in property-locality.ts) so the
+  // reusable list builds itself from what staff already type - no separate
+  // "manage localities" step required.
+  localityId String?
+  locality   PropertyLocality? @relation(fields: [localityId], references: [id])
+
   // Maps & Localities phase - additive location metadata. None of this is
   // populated automatically; geocoding only ever runs on an explicit user
   // action (address search / "Re-geocode"), never silently in the background.
@@ -1162,6 +1176,18 @@ model Property {
   lastVerifiedById String?
   lastVerifiedBy   User?     @relation("PropertyLastVerifiedBy", fields: [lastVerifiedById], references: [id])
 
+  // Phase A / A7 - Field GPS capture. Reuses the existing latitude/longitude
+  // columns (never a duplicate coordinate pair) - these three fields are
+  // only the AUDIT metadata for an explicit, human-triggered on-site
+  // capture, distinct from geocodeStatus/placeId (maps-provider geocode) and
+  // from a desk-entered manual pin (setManualPropertyLocation). Internal
+  // only - never read by the public property page, the public catalogue
+  // DTO, or any WhatsApp template.
+  locationCapturedAt   DateTime?
+  locationCapturedById String?
+  locationCapturedBy   User?     @relation("PropertyLocationCapturedBy", fields: [locationCapturedById], references: [id])
+  locationAccuracy     Float? // meters, straight from GeolocationCoordinates.accuracy
+
   createdById String?
   createdBy   User?    @relation("PropertyCreatedBy", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
@@ -1204,7 +1230,33 @@ model Property {
   // organizationId-scoped for the same reason.
   @@index([organizationId, area])
   @@index([organizationId, bhk])
+  @@index([localityId])
   @@map("properties")
+}
+
+/**
+ * Phase A / A8 - a reusable, organization-scoped locality (e.g. "Mansarovar
+ * Garden", "Kirti Nagar", "Basai Darapur"). These are DATA an organization
+ * accumulates from what its own staff type into Property.area, never a
+ * hardcoded product-wide city list - see property-locality.ts. Duplicate
+ * protection is per-organization on the normalized name, so two tenants (or
+ * two differently-spelled entries within one tenant) never collide.
+ */
+model PropertyLocality {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  normalizedName String
+  createdById    String?
+  createdBy      User?        @relation("PropertyLocalityCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  properties Property[]
+
+  @@unique([organizationId, normalizedName])
+  @@index([organizationId, name])
+  @@map("property_localities")
 }
 
 enum InventorySource {
