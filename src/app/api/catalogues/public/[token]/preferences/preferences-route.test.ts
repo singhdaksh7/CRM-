@@ -40,7 +40,7 @@ vi.mock("@/lib/api-auth", async () => {
 const { POST, GET } = await import("./route");
 
 function post(body: unknown, token = "tok") {
-  return POST(new NextRequest(new Request("https://x.test/api/catalogues/tok/preferences", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } })), {
+  return POST(new NextRequest(new Request("https://x.test/api/catalogues/public/tok/preferences", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } })), {
     params: Promise.resolve({ token }),
   });
 }
@@ -52,7 +52,7 @@ beforeEach(() => {
   getByToken.mockResolvedValue({ catalogueShareId: "cat1", preferences: [] });
 });
 
-describe("POST /api/catalogues/[token]/preferences security", () => {
+describe("POST /api/catalogues/public/[token]/preferences security", () => {
   it("rejects organizationId from the browser", async () => {
     const res = await post({ propertyId: "p1", status: "LIKED", organizationId: "evil-org" });
     expect(res.status).toBe(400);
@@ -77,7 +77,7 @@ describe("POST /api/catalogues/[token]/preferences security", () => {
   });
 
   it("GET returns preferences for a token", async () => {
-    const res = await GET(new NextRequest(new Request("https://x.test/api/catalogues/tok/preferences")), { params: Promise.resolve({ token: "tok" }) });
+    const res = await GET(new NextRequest(new Request("https://x.test/api/catalogues/public/tok/preferences")), { params: Promise.resolve({ token: "tok" }) });
     expect(res.status).toBe(200);
     expect(getByToken).toHaveBeenCalledWith("tok");
   });

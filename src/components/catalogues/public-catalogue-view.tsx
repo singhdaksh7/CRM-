@@ -23,7 +23,7 @@ import { catalogueSpecChips } from "@/lib/catalogue-specs";
 
 function recordPageInteraction(token: string, type: "CALL_REQUESTED" | "WHATSAPP_REQUESTED") {
   const body = JSON.stringify({ type });
-  const url = `/api/catalogues/${token}/interactions`;
+  const url = `/api/catalogues/public/${token}/interactions`;
   if (typeof navigator !== "undefined" && navigator.sendBeacon) {
     const sent = navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
     if (sent) return;
@@ -51,7 +51,7 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
 
   useEffect(() => {
     if (catalogue.status !== "ACTIVE") return;
-    fetch(`/api/catalogues/${token}/view`, { method: "POST" });
+    fetch(`/api/catalogues/public/${token}/view`, { method: "POST" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -154,7 +154,7 @@ function BulkVisitBar({
     const ids = Array.from(selectedIds);
     const results = await Promise.all(
       ids.map((propertyId) =>
-        fetch(`/api/catalogues/${token}/interactions`, {
+        fetch(`/api/catalogues/public/${token}/interactions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: "VISIT_REQUESTED", propertyId, preferredDate, preferredWindow, message }),
@@ -236,7 +236,7 @@ function PropertyCard({
   const [preference, setPreference] = useState<"LIKED" | "NOT_INTERESTED" | "UNDECIDED">("UNDECIDED");
 
   useEffect(() => {
-    fetch(`/api/catalogues/${token}/preferences`)
+    fetch(`/api/catalogues/public/${token}/preferences`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         const row = data?.preferences?.find((p: { propertyId: string }) => p.propertyId === property.id);
@@ -247,7 +247,7 @@ function PropertyCard({
 
   async function setPropertyPreference(status: "LIKED" | "NOT_INTERESTED", note?: string) {
     setSubmitting(true);
-    const res = await fetch(`/api/catalogues/${token}/preferences`, {
+    const res = await fetch(`/api/catalogues/public/${token}/preferences`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ propertyId: property.id, status, note }),
@@ -265,7 +265,7 @@ function PropertyCard({
 
   async function interact(type: string, extra: Record<string, string | undefined> = {}) {
     setSubmitting(true);
-    const res = await fetch(`/api/catalogues/${token}/interactions`, {
+    const res = await fetch(`/api/catalogues/public/${token}/interactions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type, propertyId: property.id, ...extra }),

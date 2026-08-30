@@ -11,9 +11,9 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org_default" }));
+vi.mock("@/lib/organization", () => ({ getOrganizationId: (u: { organizationId: string }) => u.organizationId }));
 
-let sessionUser: { id: string; role: string } = { id: "fe1", role: "FIELD_EXECUTIVE" };
+let sessionUser: { id: string; role: string; organizationId: string } | null = { id: "fe1", role: "FIELD_EXECUTIVE", organizationId: "org_default" };
 
 const { MockApiError } = vi.hoisted(() => {
   class MockApiError extends Error {
@@ -31,6 +31,7 @@ vi.mock("@/lib/api-auth", async () => {
   return {
     ApiError: MockApiError,
     requireSession: async (allowedRoles?: string[]) => {
+      if (!sessionUser) throw new MockApiError(401, "Unauthorized");
       if (allowedRoles && !allowedRoles.includes(sessionUser.role)) throw new MockApiError(403, "Forbidden");
       return { user: sessionUser };
     },
@@ -55,8 +56,13 @@ const CATALOGUE = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  sessionUser = { id: "fe1", role: "FIELD_EXECUTIVE" };
-  catalogueShareFindUnique.mockResolvedValue(CATALOGUE);
+  sessionUser = { id: "fe1", role: "FIELD_EXECUTIVE", organizationId: "org_default" };
+  // getCatalogueById is findFirst({ where: { id, organizationId } }) - a
+  // cross-org id must resolve to null exactly like a real Prisma query
+  // scoped by organizationId would, not just echo the fixture back.
+  catalogueShareFindUnique.mockImplementation(async ({ where }: { where: { id: string; organizationId: string } }) =>
+    where.organizationId === CATALOGUE.organizationId ? CATALOGUE : null
+  );
 });
 
 describe("GET /api/catalogues/[id]/internal", () => {
@@ -77,10 +83,25 @@ describe("GET /api/catalogues/[id]/internal", () => {
   });
 
   it("allows ADMIN regardless of assignment", async () => {
-    sessionUser = { id: "admin1", role: "ADMIN" };
+    sessionUser = { id: "admin1", role: "ADMIN", organizationId: "org_default" };
     leadFindFirst.mockResolvedValue({ id: "lead1", assignedToId: "someone-else" });
     const { GET } = await import("./route");
     const res = await GET(new NextRequest(new Request("https://x.test/api/catalogues/cat1/internal")), { params: Promise.resolve({ id: "cat1" }) });
     expect(res.status).toBe(200);
+  });
+
+  it("denies an anonymous (unauthenticated) request", async () => {
+    sessionUser = null;
+    const { GET } = await import("./route");
+    const res = await GET(new NextRequest(new Request("https://x.test/api/catalogues/cat1/internal")), { params: Promise.resolve({ id: "cat1" }) });
+    expect(res.status).toBe(401);
+  });
+
+  it("404s a catalogue id belonging to a different organization", async () => {
+    sessionUser = { id: "admin2", role: "ADMIN", organizationId: "org_other" };
+    const { GET } = await import("./route");
+    const res = await GET(new NextRequest(new Request("https://x.test/api/catalogues/cat1/internal")), { params: Promise.resolve({ id: "cat1" }) });
+    expect(res.status).toBe(404);
+    expect(leadFindFirst).not.toHaveBeenCalled();
   });
 });
