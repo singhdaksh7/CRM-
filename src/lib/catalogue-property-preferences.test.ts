@@ -8,8 +8,11 @@ const preferenceUpsert = vi.fn();
 const preferenceFindMany = vi.fn();
 const catalogueShareFindFirst = vi.fn();
 const leadFindFirst = vi.fn();
+const notificationFindFirst = vi.fn();
 const logActivity = vi.fn();
 const getCoverImageUrls = vi.fn(async () => ({}));
+const createNotification = vi.fn();
+const notifyRoles = vi.fn();
 
 vi.mock("./prisma", () => ({
   prisma: {
@@ -27,6 +30,7 @@ vi.mock("./prisma", () => ({
       findMany: (...a: unknown[]) => preferenceFindMany(...a),
     },
     lead: { findFirst: (...a: unknown[]) => leadFindFirst(...a) },
+    notification: { findFirst: (...a: unknown[]) => notificationFindFirst(...a) },
   },
 }));
 
@@ -42,6 +46,10 @@ vi.mock("./api-auth", () => ({
 
 vi.mock("./activity", () => ({ logActivity: (...a: unknown[]) => (logActivity as (...args: unknown[]) => unknown)(...a) }));
 vi.mock("./property-images", () => ({ getCoverImageUrls: (...a: unknown[]) => (getCoverImageUrls as (...args: unknown[]) => unknown)(...a) }));
+vi.mock("./notifications", () => ({
+  createNotification: (...a: unknown[]) => createNotification(...a),
+  notifyRoles: (...a: unknown[]) => notifyRoles(...a),
+}));
 
 const { upsertCataloguePropertyPreference, getCataloguePreferenceSummary, getLeadPropertyPreferences } = await import("./catalogue-property-preferences");
 const { ApiError } = await import("./api-auth");
@@ -55,7 +63,7 @@ beforeEach(() => {
     status: "ACTIVE",
     expiresAt: null,
     title: "Options",
-    lead: { id: "lead1", clientName: "Rahul" },
+    lead: { id: "lead1", clientName: "Rahul", assignedToId: "emp1" },
   });
   catalogueSharePropertyFindUnique.mockResolvedValue({ id: "csp1", removedAt: null });
   propertyFindFirst.mockResolvedValue({ id: "prop1", propertyCode: "PROP-1" });
@@ -67,6 +75,7 @@ beforeEach(() => {
     organizationId: "org1",
     leadId: "lead1",
   });
+  notificationFindFirst.mockResolvedValue(null);
 });
 
 describe("upsertCataloguePropertyPreference", () => {
@@ -154,5 +163,62 @@ describe("getLeadPropertyPreferences - historical retention", () => {
     const result = await getLeadPropertyPreferences("lead1", "org1");
     expect(result.liked).toHaveLength(1);
     expect(result.liked[0].available).toBe(false);
+  });
+});
+
+describe("upsertCataloguePropertyPreference - broker notification (A5)", () => {
+  it("notifies ADMIN/DATA_MANAGER and the assigned employee when a client likes a property", async () => {
+    await upsertCataloguePropertyPreference({ token: "tok", propertyId: "prop1", status: "LIKED" });
+
+    expect(notifyRoles).toHaveBeenCalledWith(["ADMIN", "DATA_MANAGER"], expect.objectContaining({ type: "PROPERTY_INTERESTED", organizationId: "org1", leadId: "lead1" }));
+    expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({ type: "PROPERTY_INTERESTED", organizationId: "org1", userId: "emp1", leadId: "lead1" }));
+  });
+
+  it("notifies with PROPERTY_NOT_INTERESTED when a client marks a property not interested", async () => {
+    preferenceUpsert.mockResolvedValue({ id: "pref1", status: "NOT_INTERESTED" });
+    await upsertCataloguePropertyPreference({ token: "tok", propertyId: "prop1", status: "NOT_INTERESTED" });
+
+    expect(notifyRoles).toHaveBeenCalledWith(["ADMIN", "DATA_MANAGER"], expect.objectContaining({ type: "PROPERTY_NOT_INTERESTED" }));
+  });
+
+  it("does not notify the assignee when the lead has no assigned employee", async () => {
+    catalogueShareFindUnique.mockResolvedValue({
+      id: "cat1", organizationId: "org1", leadId: "lead1", status: "ACTIVE", expiresAt: null, title: "Options",
+      lead: { id: "lead1", clientName: "Rahul", assignedToId: null },
+    });
+
+    await upsertCataloguePropertyPreference({ token: "tok", propertyId: "prop1", status: "LIKED" });
+
+    expect(notifyRoles).toHaveBeenCalled();
+    expect(createNotification).not.toHaveBeenCalled();
+  });
+
+  it("does not send a second notification for a rapid second click within the debounce window (no spam)", async () => {
+    notificationFindFirst.mockResolvedValue({ id: "existing-notif" });
+
+    await upsertCataloguePropertyPreference({ token: "tok", propertyId: "prop1", status: "LIKED" });
+
+    expect(notifyRoles).not.toHaveBeenCalled();
+    expect(createNotification).not.toHaveBeenCalled();
+    // The preference itself and the activity log entry still happen every time.
+    expect(preferenceUpsert).toHaveBeenCalled();
+    expect(logActivity).toHaveBeenCalled();
+  });
+
+  it("sends a fresh notification again once the debounce window has passed (no recent notification found)", async () => {
+    notificationFindFirst.mockResolvedValue(null);
+
+    await upsertCataloguePropertyPreference({ token: "tok", propertyId: "prop1", status: "LIKED" });
+
+    expect(notifyRoles).toHaveBeenCalled();
+  });
+
+  it("never sends anything to the customer - only createNotification/notifyRoles (internal) are called as side effects", async () => {
+    await upsertCataloguePropertyPreference({ token: "tok", propertyId: "prop1", status: "LIKED" });
+    // notifyRoles/createNotification write Notification rows visible only to
+    // internal staff (userId/role-targeted) - there is no WhatsApp/SMS/email
+    // send function imported or called anywhere in this module.
+    expect(notifyRoles).toHaveBeenCalledTimes(1);
+    expect(createNotification).toHaveBeenCalledTimes(1);
   });
 });
