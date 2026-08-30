@@ -56,24 +56,128 @@ type LeadWithRelations = {
   notes: string | null;
   activities: { id: string; type: string; description: string; createdAt: Date; actor: UserSummary | null }[];
   followUps: { id: string; type: string; dueDate: Date; status: string; notes: string | null; owner: UserSummary | null }[];
-  visits: { id: string; visitDate: Date; visitTime: string; status: string; outcome: string | null; property: { id: string; title: string }; assignedTo: UserSummary | null; employeeNotes: string | null }[];
+  visits: { id: string; visitDate: Date; visitTime: string; status: string; outcome: string | null; property: { id: string; title: string } | null; properties?: { property: { id: string; title: string } }[]; assignedTo: UserSummary | null; employeeNotes: string | null }[];
   sharedProperties: { id: string; propertyIds: string; createdAt: Date; whatsappLink: string }[];
   matchRecommendations: React.ComponentProps<typeof NewMatchesPanel>["recommendations"];
   catalogueShares: React.ComponentProps<typeof NewMatchesPanel>["catalogues"];
 };
 
-const TABS = ["overview", "whatsapp", "catalogues", "documents", "activity", "followups", "visits", "shared"] as const;
+const TABS = ["overview", "matches", "response", "followups", "visits", "more"] as const;
 type LeadTab = (typeof TABS)[number];
 const TAB_LABELS: Record<LeadTab, string> = {
   overview: "Overview",
-  whatsapp: "WhatsApp",
-  catalogues: "Catalogues",
-  documents: "Documents",
-  activity: "Activity",
-  followups: "Follow-ups",
-  visits: "Visits",
-  shared: "Shared",
+  matches: "Matches",
+  response: "Client Response",
+  followups: "Follow-up",
+  visits: "Visit",
+  more: "More",
 };
+
+interface NextAction {
+  label: string;
+  description: string;
+  buttonText: string;
+  tab: LeadTab;
+}
+
+function getNextAction(lead: LeadWithRelations, likedCount: number): NextAction | null {
+  if (lead.status === "NEW") {
+    return {
+      label: "Complete Requirement",
+      description: "Review and fill out the detailed property requirements for this client.",
+      buttonText: "Update Requirements",
+      tab: "overview",
+    };
+  }
+
+  if (lead.matchRecommendations.length === 0) {
+    return {
+      label: "Review Matches",
+      description: "Search the inventory and match candidate properties for this client.",
+      buttonText: "Find Matches",
+      tab: "matches",
+    };
+  }
+
+  if (lead.sharedProperties.length === 0) {
+    return {
+      label: "Share Properties",
+      description: "Send matched properties to the client via WhatsApp.",
+      buttonText: "Go to Matches",
+      tab: "matches",
+    };
+  }
+
+  const pendingOutcomeVisit = lead.visits.find(
+    (v) => ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "RESCHEDULED"].includes(v.status) && !v.outcome
+  );
+  if (pendingOutcomeVisit) {
+    return {
+      label: "Record Outcome",
+      description: `Record the client feedback and outcome for the visit on ${formatDate(pendingOutcomeVisit.visitDate)}.`,
+      buttonText: "Record Outcome",
+      tab: "visits",
+    };
+  }
+
+  const futureVisit = lead.visits.find((v) => !["COMPLETED", "CANCELLED"].includes(v.status) && new Date(v.visitDate) >= new Date());
+  if (likedCount > 0 && !futureVisit) {
+    return {
+      label: "Schedule Visit",
+      description: "The client liked one or more properties. Schedule a site visit.",
+      buttonText: "Schedule Visit",
+      tab: "visits",
+    };
+  }
+
+  const hasUpcomingFollowUp = lead.followUps.some((f) => f.status === "PENDING" && new Date(f.dueDate) >= new Date());
+  if (!hasUpcomingFollowUp) {
+    return {
+      label: "Follow Up",
+      description: "No upcoming follow-up scheduled. Set a reminder to contact the client.",
+      buttonText: "Schedule Follow-up",
+      tab: "followups",
+    };
+  }
+
+  return null;
+}
+
+function ProgressTracker({
+  matchesCount,
+  sharedCount,
+  interestedCount,
+  visitsCount,
+}: {
+  matchesCount: number;
+  sharedCount: number;
+  interestedCount: number;
+  visitsCount: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Customer Journey Progress</h3>
+      <div className="grid grid-cols-4 gap-4 text-center divide-x divide-slate-100">
+        <div>
+          <p className="text-xl sm:text-2xl font-bold text-slate-800">{matchesCount}</p>
+          <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Matches</p>
+        </div>
+        <div className="pl-2">
+          <p className="text-xl sm:text-2xl font-bold text-slate-800">{sharedCount}</p>
+          <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Shared</p>
+        </div>
+        <div className="pl-2">
+          <p className="text-xl sm:text-2xl font-bold text-green-600">{interestedCount}</p>
+          <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Liked</p>
+        </div>
+        <div className="pl-2">
+          <p className="text-xl sm:text-2xl font-bold text-blue-600">{visitsCount}</p>
+          <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Visits</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function LeadWorkspace({
   lead,
@@ -85,6 +189,8 @@ export function LeadWorkspace({
   providerSendConfigured,
   clientPreferences,
   catalogueSummaries,
+  preselectedPropertyId,
+  outcomeOverrideVisitId,
 }: {
   lead: LeadWithRelations;
   employees: UserSummary[];
@@ -95,15 +201,19 @@ export function LeadWorkspace({
   providerSendConfigured: boolean;
   clientPreferences?: { liked: PreferenceCard[]; notInterested: PreferenceCard[] };
   catalogueSummaries?: CatalogueResponseSummary[];
+  preselectedPropertyId?: string | null;
+  outcomeOverrideVisitId?: string | null;
 }) {
-  const [tab, setTab] = useState<LeadTab>("overview");
+  const [tab, setTab] = useState<LeadTab>(
+    preselectedPropertyId || outcomeOverrideVisitId ? "visits" : "overview"
+  );
   const canManage = role === "ADMIN" || role === "DATA_MANAGER";
 
   return (
-    <div>
+    <div className="space-y-6">
       <PrimaryActionsBar leadId={lead.id} phone={lead.phone} phones={lead.phones} onNavigate={setTab} />
 
-      <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1.5 text-sm shadow-xs">
+      <div className="flex gap-1.5 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1.5 text-sm shadow-xs">
         {TABS.map((t) => (
           <button
             key={t}
@@ -124,25 +234,34 @@ export function LeadWorkspace({
           canManage={canManage}
           health={health}
           suggestions={suggestions}
-          providerSendConfigured={providerSendConfigured}
           onTabAction={(t) => setTab(t as LeadTab)}
           clientPreferences={clientPreferences}
           catalogueSummaries={catalogueSummaries}
         />
       )}
-      {tab === "whatsapp" && <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} clientName={lead.clientName} />}
-      {tab === "catalogues" && (
-        <CataloguesTab
-          leadId={lead.id}
-          canManage={canManage}
-          canSend={true}
-          clientName={lead.clientName}
-          primaryPhone={lead.phone}
-          phones={lead.phones}
-        />
+      {tab === "matches" && (
+        <div className="space-y-6">
+          <NewMatchesPanel
+            leadId={lead.id}
+            recommendations={lead.matchRecommendations}
+            catalogues={lead.catalogueShares}
+            canManage={canManage}
+            providerSendConfigured={providerSendConfigured}
+          />
+        </div>
       )}
-      {tab === "documents" && <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />}
-      {tab === "activity" && <ActivityTab activities={lead.activities} createdAt={lead.createdAt} followUps={lead.followUps} />}
+      {tab === "response" && (
+        <div className="space-y-6">
+          {(clientPreferences || catalogueSummaries) && (
+            <ClientPreferencesPanel
+              liked={clientPreferences?.liked ?? []}
+              notInterested={clientPreferences?.notInterested ?? []}
+              catalogueSummaries={catalogueSummaries ?? []}
+            />
+          )}
+          <SharedTab shares={lead.sharedProperties} />
+        </div>
+      )}
       {tab === "followups" && <FollowUpsTab leadId={lead.id} followUps={lead.followUps} employees={employees} />}
       {tab === "visits" && (
         <VisitsTab
@@ -152,23 +271,76 @@ export function LeadWorkspace({
           visitSuggestions={visitSuggestions}
           onTabAction={(t) => setTab(t as LeadTab)}
           employees={employees}
+          preselectedPropertyId={preselectedPropertyId}
+          outcomeOverrideVisitId={outcomeOverrideVisitId}
         />
       )}
-      {tab === "shared" && <SharedTab shares={lead.sharedProperties} />}
+      {tab === "more" && (
+        <MoreTab
+          lead={lead}
+          role={role}
+          canManage={canManage}
+        />
+      )}
     </div>
   );
 }
 
-/**
- * simplified-role-workflow (spec item 4) - always-visible primary actions so
- * the day-to-day flow (Call -> WhatsApp -> Note -> Send Catalogue ->
- * Follow-up -> Schedule Visit) never requires hunting through tabs first.
- * "Call" is the only action that leaves the page (tel: link, same pattern as
- * src/components/visits/visit-field-actions.tsx) - it also fires the
- * existing CALL_INITIATED activity log, never a WhatsApp send. Every other
- * button just jumps to the tab that already has the real form, so there is
- * no duplicated business logic here.
- */
+function MoreTab({
+  lead,
+  role,
+  canManage,
+}: {
+  lead: LeadWithRelations;
+  role: string;
+  canManage: boolean;
+}) {
+  const [subTab, setSubTab] = useState<"whatsapp" | "documents" | "activity">("whatsapp");
+
+  return (
+    <div className="space-y-6 bg-white border border-[#E7ECF2] p-5 rounded-2xl shadow-xs">
+      <div className="flex gap-2 border-b border-[#E7ECF2] pb-3">
+        <button
+          onClick={() => setSubTab("whatsapp")}
+          className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+            subTab === "whatsapp" ? "bg-[#3366FF] text-white" : "text-[#596579] hover:bg-[#F3F6FA] hover:text-[#1B2430]"
+          }`}
+        >
+          WhatsApp Chat
+        </button>
+        <button
+          onClick={() => setSubTab("documents")}
+          className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+            subTab === "documents" ? "bg-[#3366FF] text-white" : "text-[#596579] hover:bg-[#F3F6FA] hover:text-[#1B2430]"
+          }`}
+        >
+          Documents
+        </button>
+        <button
+          onClick={() => setSubTab("activity")}
+          className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+            subTab === "activity" ? "bg-[#3366FF] text-white" : "text-[#596579] hover:bg-[#F3F6FA] hover:text-[#1B2430]"
+          }`}
+        >
+          Activity Timeline
+        </button>
+      </div>
+
+      <div>
+        {subTab === "whatsapp" && (
+          <ConversationPanel leadId={lead.id} canManage={canManage || role === "FIELD_EXECUTIVE"} clientName={lead.clientName} />
+        )}
+        {subTab === "documents" && (
+          <EntityDocumentPanel entityType="LEAD" entityId={lead.id} title="Lead Documents" />
+        )}
+        {subTab === "activity" && (
+          <ActivityTab activities={lead.activities} createdAt={lead.createdAt} followUps={lead.followUps} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PrimaryActionsBar({
   leadId,
   phone,
@@ -180,26 +352,20 @@ function PrimaryActionsBar({
   phones: { phone: string; label: string | null; type: string }[];
   onNavigate: (tab: LeadTab) => void;
 }) {
-  // simplified-role-workflow (spec item 6/7) - Call/WhatsApp become a small
-  // picker once there's more than one number; a single number still acts
-  // immediately (unchanged behavior). See lead-phone-picker.tsx for the
-  // WhatsApp gap this deliberately does NOT try to paper over.
   const phoneOptions: PhoneOption[] = [
     { label: "Primary", number: phone, isPrimary: true },
     ...phones.map((p) => ({ label: p.label ?? (p.type === "PRIMARY" ? "Primary" : "Other"), number: p.phone, isPrimary: false })),
   ];
 
   function logCall(number: string) {
-    // Fire-and-forget, same as visit-field-actions.tsx - never blocks the
-    // phone dialer opening, and never triggers any WhatsApp send.
     fetch(`/api/leads/${leadId}/call-initiated`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: number }) }).catch(() => {});
   }
 
   return (
     <div className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
-      <LeadPhonePicker phones={phoneOptions} action="call" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("whatsapp")} />
-      <LeadPhonePicker phones={phoneOptions} action="whatsapp" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("whatsapp")} />
-      <Button size="sm" variant="secondary" onClick={() => onNavigate("catalogues")}>
+      <LeadPhonePicker phones={phoneOptions} action="call" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("more")} />
+      <LeadPhonePicker phones={phoneOptions} action="whatsapp" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("more")} />
+      <Button size="sm" variant="secondary" onClick={() => onNavigate("matches")}>
         <Send className="h-4 w-4" /> Send Catalogue
       </Button>
       <Button size="sm" variant="secondary" onClick={() => onNavigate("followups")}>
@@ -221,7 +387,6 @@ function OverviewTab({
   canManage,
   health,
   suggestions,
-  providerSendConfigured,
   onTabAction,
   clientPreferences,
   catalogueSummaries,
@@ -231,7 +396,6 @@ function OverviewTab({
   canManage: boolean;
   health: HealthScoreResult | null;
   suggestions: Suggestion[];
-  providerSendConfigured: boolean;
   onTabAction: (target: string) => void;
   clientPreferences?: { liked: PreferenceCard[]; notInterested: PreferenceCard[] };
   catalogueSummaries?: CatalogueResponseSummary[];
@@ -326,99 +490,153 @@ function OverviewTab({
     } else toast.error("Transfer failed");
   }
 
+  const likedCount = clientPreferences?.liked.length ?? 0;
+  const nextAction = getNextAction(lead, likedCount);
+  const nextFollowUp = lead.followUps.find((f) => f.status === "PENDING" || f.status === "OVERDUE");
+  const nextVisit = lead.visits.find((v) => !["COMPLETED", "CANCELLED"].includes(v.status) && new Date(v.visitDate) >= new Date());
+
+  const matchesCount = lead.matchRecommendations.length;
+  const sharedCount = catalogueSummaries ? catalogueSummaries.reduce((sum, s) => sum + s.totalProperties, 0) : lead.sharedProperties.length;
+  const interestedCount = likedCount;
+  const visitsCount = lead.visits.length;
+
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="space-y-6 lg:col-span-2">
-        <NewMatchesPanel leadId={lead.id} recommendations={lead.matchRecommendations} catalogues={lead.catalogueShares} canManage={canManage} providerSendConfigured={providerSendConfigured} />
-        {(clientPreferences || catalogueSummaries) && (
-          <ClientPreferencesPanel
-            liked={clientPreferences?.liked ?? []}
-            notInterested={clientPreferences?.notInterested ?? []}
-            catalogueSummaries={catalogueSummaries ?? []}
-          />
-        )}
-        <ScorePanel lead={lead} onRecalculate={recalculateScore} saving={saving} />
-        {health && <HealthCard title="Lead Health" health={health} />}
-        <SuggestionList suggestions={suggestions} onTabAction={onTabAction} />
-
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-3">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Add Internal Note</h3>
-          <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Type private lead notes..." />
-          <div className="flex justify-end">
-            <Button size="sm" onClick={addNote} loading={saving} disabled={!note.trim()}>
-              Save Note
-            </Button>
+    <div className="space-y-6">
+      {nextAction ? (
+        <div className="rounded-2xl border-2 border-[#3366FF] bg-[#EFF4FF]/30 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#3366FF] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white mb-2">Next Action Recommended</span>
+            <h4 className="text-base font-bold text-[#1B2430]">{nextAction.label}</h4>
+            <p className="text-sm text-[#596579] mt-0.5">{nextAction.description}</p>
           </div>
+          <Button onClick={() => onTabAction(nextAction.tab)} className="shrink-0 bg-[#3366FF] hover:bg-[#2952CC] text-white font-bold">
+            {nextAction.buttonText}
+          </Button>
         </div>
-
-        {lead.notes && (
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-            <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Existing Notes</h3>
-            <p className="whitespace-pre-wrap text-sm text-[#596579] bg-[#FAFBFC] p-3 rounded-xl border border-[#E7ECF2]">{lead.notes}</p>
+      ) : (
+        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-bold text-[#1B2430]">All caught up!</h4>
+            <p className="text-xs text-slate-500 mt-0.5">No urgent recommendations pending.</p>
           </div>
-        )}
-      </div>
-
-      <div className="space-y-6">
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Lead Controls</h3>
-          <Field label="Status">
-            <Select value={status} onChange={(e) => { setStatus(e.target.value); updateField("status", e.target.value); }} disabled={saving}>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>{enumToLabel(s)}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Priority">
-            <Select value={priority} onChange={(e) => { setPriority(e.target.value); updateField("priority", e.target.value); }} disabled={saving}>
-              <option value="HOT">Hot</option>
-              <option value="WARM">Warm</option>
-              <option value="COLD">Cold</option>
-            </Select>
-          </Field>
+          <Button variant="secondary" size="sm" onClick={() => onTabAction("followups")}>Schedule Follow-up</Button>
         </div>
+      )}
 
-        {canManage && (
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-              <UserIcon className="h-4 w-4 text-[#3366FF]" /> Assignment Details
-            </h3>
-            <p className="text-sm text-[#596579]">Currently: <span className="font-bold text-[#1B2430]">{lead.assignedTo?.name ?? "Unassigned"}</span></p>
-            {lead.assignmentReason && (
-              <p className="rounded-xl bg-[#FAFBFC] p-3 text-xs text-[#596579] border border-[#E7ECF2]">
-                {lead.assignmentStrategy && <Badge tone="indigo" className="mr-1.5 mb-1">{enumToLabel(lead.assignmentStrategy)}</Badge>}
-                {lead.assignmentReason}
-                {lead.autoAssignedAt && <span className="mt-1 block text-[#8A94A6]">{formatDateTime(lead.autoAssignedAt)}</span>}
-              </p>
-            )}
-            {!lead.assignedToId && (
-              <Button size="sm" variant="secondary" className="w-full justify-center" onClick={runAutoAssign} loading={saving}>
-                <Zap className="h-3.5 w-3.5" /> Run Auto Assignment
+      <ProgressTracker matchesCount={matchesCount} sharedCount={sharedCount} interestedCount={interestedCount} visitsCount={visitsCount} />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Next Follow-up</h3>
+              {nextFollowUp ? (
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold text-slate-800">{enumToLabel(nextFollowUp.type)} &middot; {formatDate(nextFollowUp.dueDate)}</p>
+                  <button onClick={() => onTabAction("followups")} className="text-xs text-[#3366FF] font-semibold hover:underline">Manage Follow-ups &rarr;</button>
+                </div>
+              ) : (
+                <button onClick={() => onTabAction("followups")} className="text-xs text-[#3366FF] font-semibold hover:underline">+ Schedule Follow-up</button>
+              )}
+            </div>
+            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Next Site Visit</h3>
+              {nextVisit ? (
+                <div className="space-y-1.5">
+                  <p className="text-sm font-semibold text-slate-800">{nextVisit.visitTime} &middot; {formatDate(nextVisit.visitDate)}</p>
+                  <button onClick={() => onTabAction("visits")} className="text-xs text-[#3366FF] font-semibold hover:underline">Manage Visits &rarr;</button>
+                </div>
+              ) : (
+                <button onClick={() => onTabAction("visits")} className="text-xs text-[#3366FF] font-semibold hover:underline">+ Schedule Visit</button>
+              )}
+            </div>
+          </div>
+
+          <ScorePanel lead={lead} onRecalculate={recalculateScore} saving={saving} />
+          {health && <HealthCard title="Lead Health" health={health} />}
+          <SuggestionList suggestions={suggestions} onTabAction={onTabAction} />
+
+          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Add Internal Note</h3>
+            <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Type private lead notes..." />
+            <div className="flex justify-end">
+              <Button size="sm" onClick={addNote} loading={saving} disabled={!note.trim()}>
+                Save Note
               </Button>
-            )}
-            <Field label="Assign directly to">
-              <Select defaultValue="" onChange={(e) => e.target.value && assign(e.target.value)} disabled={saving}>
-                <option value="">Select executive...</option>
-                {employees.map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
+            </div>
+          </div>
+
+          {lead.notes && (
+            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+              <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Existing Notes</h3>
+              <p className="whitespace-pre-wrap text-sm text-[#596579] bg-[#FAFBFC] p-3 rounded-xl border border-[#E7ECF2]">{lead.notes}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Lead Controls</h3>
+            <Field label="Status">
+              <Select value={status} onChange={(e) => { setStatus(e.target.value); updateField("status", e.target.value); }} disabled={saving}>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>{enumToLabel(s)}</option>
+                ))}
               </Select>
             </Field>
-            {lead.assignedToId && (
-              <div className="border-t border-[#EFF4FF] pt-3">
-                <Field label="Transfer to executive">
-                  <div className="flex gap-2">
-                    <Select value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
-                      <option value="">Select executive...</option>
-                      {employees.filter((e) => e.id !== lead.assignedToId).map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
-                    </Select>
-                    <Button size="sm" variant="secondary" onClick={transfer} loading={saving}>
-                      <ArrowRightLeft className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </Field>
-              </div>
-            )}
+            <Field label="Priority">
+              <Select value={priority} onChange={(e) => { setPriority(e.target.value); updateField("priority", e.target.value); }} disabled={saving}>
+                <option value="HOT">Hot</option>
+                <option value="WARM">Warm</option>
+                <option value="COLD">Cold</option>
+              </Select>
+            </Field>
           </div>
-        )}
+
+          {canManage && (
+            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
+              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
+                <UserIcon className="h-4 w-4 text-[#3366FF]" /> Assignment Details
+              </h3>
+              <p className="text-sm text-[#596579]">Currently: <span className="font-bold text-[#1B2430]">{lead.assignedTo?.name ?? "Unassigned"}</span></p>
+              {lead.assignmentReason && (
+                <p className="rounded-xl bg-[#FAFBFC] p-3 text-xs text-[#596579] border border-[#E7ECF2]">
+                  {lead.assignmentStrategy && <Badge tone="indigo" className="mr-1.5 mb-1">{enumToLabel(lead.assignmentStrategy)}</Badge>}
+                  {lead.assignmentReason}
+                  {lead.autoAssignedAt && <span className="mt-1 block text-[#8A94A6]">{formatDateTime(lead.autoAssignedAt)}</span>}
+                </p>
+              )}
+              {!lead.assignedToId && (
+                <Button size="sm" variant="secondary" className="w-full justify-center" onClick={runAutoAssign} loading={saving}>
+                  <Zap className="h-3.5 w-3.5" /> Run Auto Assignment
+                </Button>
+              )}
+              <Field label="Assign directly to">
+                <Select defaultValue="" onChange={(e) => e.target.value && assign(e.target.value)} disabled={saving}>
+                  <option value="">Select executive...</option>
+                  {employees.map((e) => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </Select>
+              </Field>
+              {lead.assignedToId && (
+                <div className="border-t border-[#EFF4FF] pt-3">
+                  <Field label="Transfer to executive">
+                    <div className="flex gap-2">
+                      <Select value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
+                        <option value="">Select executive...</option>
+                        {employees.filter((e) => e.id !== lead.assignedToId).map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
+                      </Select>
+                      <Button size="sm" variant="secondary" onClick={transfer} loading={saving}>
+                        <ArrowRightLeft className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </Field>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -596,6 +814,8 @@ function VisitsTab({
   visitSuggestions,
   onTabAction,
   employees,
+  preselectedPropertyId,
+  outcomeOverrideVisitId,
 }: {
   leadId: string;
   visits: LeadWithRelations["visits"];
@@ -603,10 +823,11 @@ function VisitsTab({
   visitSuggestions: Record<string, Suggestion[]>;
   onTabAction: (target: string) => void;
   employees: UserSummary[];
-  candidateProperties?: { id: string; title: string; area: string }[];
+  preselectedPropertyId?: string | null;
+  outcomeOverrideVisitId?: string | null;
 }) {
   const router = useRouter();
-  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [showScheduleForm, setShowScheduleForm] = useState(!!preselectedPropertyId);
 
   async function updateVisit(id: string, data: Record<string, unknown>) {
     const res = await fetch(`/api/visits/${id}`, {
@@ -621,8 +842,8 @@ function VisitsTab({
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
+      <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Site Visits</h3>
         <div className="flex items-center gap-3">
           {canManage && (
@@ -638,60 +859,64 @@ function VisitsTab({
 
       {canManage && showScheduleForm && (
         <div className="mb-4">
-          <VisitScheduleWithCandidates leadId={leadId} employees={employees} />
+          <VisitScheduleWithCandidates leadId={leadId} employees={employees} preselectedPropertyId={preselectedPropertyId} />
         </div>
       )}
 
       {visits.length === 0 && !showScheduleForm && <p className="text-sm text-[#8A94A6]">No visits scheduled yet.</p>}
 
-      <div className="mb-3 text-xs font-bold uppercase tracking-wide text-[#8A94A6]">Previous visits</div>
       <div className="space-y-3">
-        {visits.map((v) => (
-          <div key={v.id} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="flex items-center gap-2 text-sm font-bold text-[#1B2430]">
-                  <Building2 className="h-4 w-4 text-[#3366FF]" /> {v.property.title}
-                </p>
-                <p className="mt-0.5 text-xs text-[#8A94A6]">
-                  {formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"}
-                  {v.outcome ? ` · ${enumToLabel(v.outcome)}` : ""}
-                </p>
+        {visits.map((v) => {
+          const isHighlighted = v.id === outcomeOverrideVisitId;
+          return (
+            <div
+              key={v.id}
+              className={`rounded-xl border p-4 transition-colors ${
+                isHighlighted ? "border-[#3366FF] bg-[#EFF4FF]/20 ring-1 ring-[#3366FF]" : "border-[#E7ECF2] bg-[#FAFBFC]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="flex items-start gap-2 text-sm font-bold text-[#1B2430]">
+                    <Building2 className="h-4 w-4 text-[#3366FF] mt-0.5 shrink-0" />
+                    <span>
+                      {v.properties && v.properties.length > 0
+                        ? v.properties.map((p) => p.property.title).join(", ")
+                        : v.property?.title ?? "No property selected"}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-[#8A94A6]">
+                    {formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"}
+                    {v.outcome ? ` · ${enumToLabel(v.outcome)}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge tone={VISIT_STATUS_TONE[v.status]}>{enumToLabel(v.status)}</Badge>
+                  <Link href={`/visits/${v.id}`} className="text-xs font-semibold text-[#3366FF] hover:underline">
+                    View
+                  </Link>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge tone={VISIT_STATUS_TONE[v.status]}>{enumToLabel(v.status)}</Badge>
-                <Link href={`/visits/${v.id}`} className="text-xs font-semibold text-[#3366FF]">
-                  View
-                </Link>
-              </div>
+              {canManage && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Select className="w-auto text-xs font-semibold" defaultValue={v.status} onChange={(e) => updateVisit(v.id, { status: e.target.value })}>
+                    {VISIT_STATUSES.map((s) => <option key={s} value={s}>{enumToLabel(s)}</option>)}
+                  </Select>
+                  <Select className="w-auto text-xs font-semibold" defaultValue={v.outcome ?? ""} onChange={(e) => updateVisit(v.id, { outcome: e.target.value })}>
+                    <option value="">Outcome...</option>
+                    {OUTCOMES.map((o) => <option key={o} value={o}>{enumToLabel(o)}</option>)}
+                  </Select>
+                </div>
+              )}
+              {v.employeeNotes && <p className="mt-2 text-xs text-[#596579]">{v.employeeNotes}</p>}
+              {(visitSuggestions[v.id]?.length ?? 0) > 0 && (
+                <div className="mt-3">
+                  <SuggestionList title="Smart suggestion" suggestions={visitSuggestions[v.id]} onTabAction={onTabAction} />
+                </div>
+              )}
             </div>
-            {canManage && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Select className="w-auto text-xs font-semibold" defaultValue={v.status} onChange={(e) => updateVisit(v.id, { status: e.target.value })}>
-                  {VISIT_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {enumToLabel(s)}
-                    </option>
-                  ))}
-                </Select>
-                <Select className="w-auto text-xs font-semibold" defaultValue={v.outcome ?? ""} onChange={(e) => updateVisit(v.id, { outcome: e.target.value })}>
-                  <option value="">Outcome...</option>
-                  {OUTCOMES.map((o) => (
-                    <option key={o} value={o}>
-                      {enumToLabel(o)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            )}
-            {v.employeeNotes && <p className="mt-2 text-xs text-[#596579]">{v.employeeNotes}</p>}
-            {(visitSuggestions[v.id]?.length ?? 0) > 0 && (
-              <div className="mt-3">
-                <SuggestionList title="Smart suggestion" suggestions={visitSuggestions[v.id]} onTabAction={onTabAction} />
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

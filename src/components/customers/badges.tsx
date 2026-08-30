@@ -27,9 +27,11 @@ export function RequirementLifecycleBadge({ status }: { status: RequirementLifec
 }
 
 export function AssetClassBadge({ assetClass }: { assetClass: "RESIDENTIAL" | "COMMERCIAL" }) {
-  return <Badge tone={assetClass === "RESIDENTIAL" ? "blue" : "purple"}>{assetClass}</Badge>;
+  const label = assetClass === "RESIDENTIAL" ? "Residential" : "Commercial";
+  return <Badge tone={assetClass === "RESIDENTIAL" ? "blue" : "purple"}>{label}</Badge>;
 }
 
 export function TransactionBadge({ transactionType }: { transactionType: "RENT" | "SALE" }) {
-  return <Badge tone={transactionType === "RENT" ? "indigo" : "orange"}>{transactionType}</Badge>;
+  const label = transactionType === "RENT" ? "Rent" : "Sale";
+  return <Badge tone={transactionType === "RENT" ? "indigo" : "orange"}>{label}</Badge>;
 }

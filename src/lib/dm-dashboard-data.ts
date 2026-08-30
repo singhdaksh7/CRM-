@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { getTodaysWork, type TodaysWorkSummary } from "./todays-work";
 import type { Role } from "@prisma/client";
+import { getLeadsAwaitingShortlist, type LeadsAwaitingShortlistResult } from "./dashboard-data";
 
 const NEW_LEADS_LIMIT = 20;
 
@@ -18,6 +19,7 @@ export interface DataManagerDashboardData {
   todaysWork: TodaysWorkSummary;
   newLeads: NewLeadRow[];
   newLeadsCount: number;
+  awaitingShortlist: LeadsAwaitingShortlistResult;
 }
 
 /**
@@ -30,7 +32,7 @@ export interface DataManagerDashboardData {
  * src/app/api/leads/route.ts having no DATA_MANAGER scoping restriction).
  */
 export async function getDataManagerDashboardData(organizationId: string, actor: { id: string; role: Role }): Promise<DataManagerDashboardData> {
-  const [todaysWork, newLeads, newLeadsCount] = await Promise.all([
+  const [todaysWork, newLeads, newLeadsCount, awaitingShortlist] = await Promise.all([
     getTodaysWork(organizationId, actor),
     prisma.lead.findMany({
       where: { organizationId, OR: [{ status: "NEW" }, { assignedToId: null }] },
@@ -39,7 +41,8 @@ export async function getDataManagerDashboardData(organizationId: string, actor:
       take: NEW_LEADS_LIMIT,
     }),
     prisma.lead.count({ where: { organizationId, OR: [{ status: "NEW" }, { assignedToId: null }] } }),
+    getLeadsAwaitingShortlist(organizationId),
   ]);
 
-  return { todaysWork, newLeads, newLeadsCount };
+  return { todaysWork, newLeads, newLeadsCount, awaitingShortlist };
 }
