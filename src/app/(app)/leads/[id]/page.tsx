@@ -13,8 +13,15 @@ import { assignedToSelect } from "@/lib/user-select";
 import { getOrganizationId } from "@/lib/organization";
 import { getLeadPropertyPreferences, getCataloguePreferenceSummary } from "@/lib/catalogue-property-preferences";
 
-export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LeadDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ preselectedPropertyId?: string; outcomeOverrideVisitId?: string }>;
+}) {
   const { id } = await params;
+  const { preselectedPropertyId, outcomeOverrideVisitId } = await searchParams;
   const session = await auth();
   const organizationId = getOrganizationId(session!.user);
 
@@ -24,7 +31,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       assignedTo: { select: assignedToSelect },
       activities: { orderBy: { createdAt: "desc" }, include: { actor: { select: assignedToSelect } } },
       followUps: { orderBy: { dueDate: "asc" }, include: { owner: { select: assignedToSelect } } },
-      visits: { orderBy: { visitDate: "desc" }, include: { property: true, assignedTo: { select: assignedToSelect } } },
+      visits: { orderBy: { visitDate: "desc" }, include: { property: true, assignedTo: { select: assignedToSelect }, properties: { include: { property: true } } } },
       sharedProperties: { orderBy: { createdAt: "desc" } },
       matchRecommendations: { where: { status: "PENDING" }, orderBy: { score: "desc" }, include: { property: { select: { id: true, propertyCode: true, title: true, area: true, bhk: true, monthlyRent: true, salePrice: true, listingType: true, inventorySource: true, status: true, coverImage: true, lastVerifiedAt: true, pendingVerification: true } } } },
       catalogueShares: { where: { status: "ACTIVE" }, select: { id: true, title: true, version: true }, orderBy: { updatedAt: "desc" } },
@@ -117,6 +124,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         providerSendConfigured={getWhatsAppConfigStatus().metaReady}
         clientPreferences={{ liked: clientPreferences.liked, notInterested: clientPreferences.notInterested }}
         catalogueSummaries={catalogueSummaries}
+        preselectedPropertyId={preselectedPropertyId}
+        outcomeOverrideVisitId={outcomeOverrideVisitId}
       />
     </div>
   );

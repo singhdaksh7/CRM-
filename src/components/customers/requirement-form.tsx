@@ -85,9 +85,9 @@ export function RequirementForm({
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Asset class" required>
+        <Field label="Property Category" required>
           <Select
-            aria-label="Asset class"
+            aria-label="Property Category"
             value={value.assetClass}
             onChange={(e) => set("assetClass", e.target.value as CustomerRequirementInput["assetClass"])}
           >
@@ -95,9 +95,9 @@ export function RequirementForm({
             <option value="COMMERCIAL">Commercial</option>
           </Select>
         </Field>
-        <Field label="Transaction" required>
+        <Field label="Rent / Sale" required>
           <Select
-            aria-label="Transaction"
+            aria-label="Rent / Sale"
             value={value.transactionType}
             onChange={(e) => set("transactionType", e.target.value as CustomerRequirementInput["transactionType"])}
           >

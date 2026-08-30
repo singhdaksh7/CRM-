@@ -29,12 +29,12 @@ export function CustomerFilters() {
         />
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <Select aria-label="Asset class" defaultValue={sp.get("assetClass") ?? ""} onChange={(e) => update("assetClass", e.target.value)} className="w-auto text-xs font-semibold">
-          <option value="">All asset classes</option>
+        <Select aria-label="Property Category" defaultValue={sp.get("assetClass") ?? ""} onChange={(e) => update("assetClass", e.target.value)} className="w-auto text-xs font-semibold">
+          <option value="">All Categories</option>
           <option value="RESIDENTIAL">Residential</option>
           <option value="COMMERCIAL">Commercial</option>
         </Select>
-        <Select aria-label="Transaction" defaultValue={sp.get("transactionType") ?? ""} onChange={(e) => update("transactionType", e.target.value)} className="w-auto text-xs font-semibold">
+        <Select aria-label="Rent / Sale" defaultValue={sp.get("transactionType") ?? ""} onChange={(e) => update("transactionType", e.target.value)} className="w-auto text-xs font-semibold">
           <option value="">Rent / Sale</option>
           <option value="RENT">Rent</option>
           <option value="SALE">Sale</option>

@@ -261,6 +261,8 @@ function PropertyCard({
               <Phone className="h-4 w-4" /> Call
             </a>
           )}
+          {/* Phase A GPS capture integration point placeholder:
+              A "Capture Location" button can go here when the visit is in progress. */}
         </div>
 
         {!locked && (
