@@ -158,7 +158,7 @@ const CATALOGUE_SENDER_INCLUDE = {
   properties: { include: { property: { include: { owner: true, partner: true } }, addedByUser: { select: { id: true, name: true } }, executiveStatusUpdatedBy: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" as const } },
   lead: { include: { assignedTo: { select: { id: true, name: true } } } },
   createdBy: { select: { id: true, name: true } },
-  organization: { select: { id: true, name: true } },
+  organization: { select: { id: true, name: true, phone: true, logoUrl: true } },
 };
 
 /**

@@ -32,8 +32,10 @@ function recordPageInteraction(token: string, type: "CALL_REQUESTED" | "WHATSAPP
 }
 
 export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCatalogueDTO; token: string }) {
-  const brokerPhone = catalogue.brokerageContactPhone.replace(/\D/g, "");
-  const whatsappHref = `https://wa.me/${brokerPhone}?text=${encodeURIComponent(`Hi, I'm ${catalogue.clientFirstName}, following up on the "${catalogue.title}" catalogue.`)}`;
+  const brokerPhone = catalogue.brokerageContactPhone?.replace(/\D/g, "") || null;
+  const whatsappHref = brokerPhone
+    ? `https://wa.me/${brokerPhone}?text=${encodeURIComponent(`Hi, I'm ${catalogue.clientFirstName}, following up on the "${catalogue.title}" catalogue.`)}`
+    : null;
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDone, setBulkDone] = useState<Set<string>>(new Set());
@@ -60,9 +62,11 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
           This catalogue is {catalogue.status === "EXPIRED" ? "no longer available" : "no longer active"}.
         </p>
         <p className="mt-2 text-sm text-[#596579]">Please contact your broker for updated options.</p>
-        <a href={`tel:${catalogue.brokerageContactPhone}`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#3366FF] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-[#2952CC]">
-          <Phone className="h-4 w-4" /> Call {catalogue.brokerageName}
-        </a>
+        {catalogue.brokerageContactPhone && (
+          <a href={`tel:${catalogue.brokerageContactPhone}`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#3366FF] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-[#2952CC]">
+            <Phone className="h-4 w-4" /> Call {catalogue.brokerageName}
+          </a>
+        )}
       </main>
     );
   }
@@ -92,27 +96,33 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
         </div>
       )}
 
-      <div className="mt-6 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-        <p className="mb-3 text-sm font-bold text-[#1B2430]">Have questions or ready to move forward?</p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <a
-            href={`tel:${catalogue.brokerageContactPhone}`}
-            onClick={() => recordPageInteraction(token, "CALL_REQUESTED")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white border border-[#E7ECF2] px-4 py-2.5 text-sm font-semibold text-[#1B2430] hover:bg-[#F3F6FA]"
-          >
-            <Phone className="h-4 w-4" /> Call Broker
-          </a>
-          <a
-            href={whatsappHref}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => recordPageInteraction(token, "WHATSAPP_REQUESTED")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#20bd5a]"
-          >
-            <MessageCircle className="h-4 w-4" /> WhatsApp Broker
-          </a>
+      {(catalogue.brokerageContactPhone || whatsappHref) && (
+        <div className="mt-6 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+          <p className="mb-3 text-sm font-bold text-[#1B2430]">Have questions or ready to move forward?</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {catalogue.brokerageContactPhone && (
+              <a
+                href={`tel:${catalogue.brokerageContactPhone}`}
+                onClick={() => recordPageInteraction(token, "CALL_REQUESTED")}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white border border-[#E7ECF2] px-4 py-2.5 text-sm font-semibold text-[#1B2430] hover:bg-[#F3F6FA]"
+              >
+                <Phone className="h-4 w-4" /> Call Broker
+              </a>
+            )}
+            {whatsappHref && (
+              <a
+                href={whatsappHref}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => recordPageInteraction(token, "WHATSAPP_REQUESTED")}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#20bd5a]"
+              >
+                <MessageCircle className="h-4 w-4" /> WhatsApp Broker
+              </a>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {selectedIds.size > 0 && (
         <BulkVisitBar

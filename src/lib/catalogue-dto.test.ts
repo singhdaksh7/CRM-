@@ -125,6 +125,7 @@ function fakeCatalogue(overrides: Partial<Record<string, unknown>> = {}) {
         property: property(),
       },
     ],
+    organization: { id: "org_default", name: "Sharma Estates", phone: "+919812345678", logoUrl: null },
     ...overrides,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
@@ -372,5 +373,36 @@ describe("toExecutiveCatalogueDTO", () => {
     const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
     expect(dto.properties[0].executiveStatus).toBe("CUSTOMER_LIKED");
     expect(dto.properties[0].executiveStatusNote).toBe("Loved the balcony view");
+  });
+});
+
+describe("toPublicCatalogueDTO - multi-tenant branding (A3)", () => {
+  it("derives brand name/phone/logo from the OWNING organization, never a hardcoded value", () => {
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ organization: { id: "orgA", name: "Sharma Estates", phone: "+919812345678", logoUrl: "https://cdn.example.com/sharma.png" } }));
+    expect(dto.brokerageName).toBe("Sharma Estates");
+    expect(dto.brokerageContactPhone).toBe("+919812345678");
+    expect(dto.brokerageLogoUrl).toBe("https://cdn.example.com/sharma.png");
+  });
+
+  it("organization A and organization B never see each other's branding on their own catalogues", () => {
+    const dtoA = toPublicCatalogueDTO(fakeCatalogue({ organization: { id: "orgA", name: "Sharma Estates", phone: "+919812345678", logoUrl: null } }));
+    const dtoB = toPublicCatalogueDTO(fakeCatalogue({ organization: { id: "orgB", name: "Verma Properties", phone: "+919887654321", logoUrl: null } }));
+    expect(dtoA.brokerageName).not.toBe(dtoB.brokerageName);
+    expect(dtoA.brokerageContactPhone).not.toBe(dtoB.brokerageContactPhone);
+    expect(dtoA.brokerageName).toBe("Sharma Estates");
+    expect(dtoB.brokerageName).toBe("Verma Properties");
+  });
+
+  it("falls back to a generic name and null phone/logo when the organization has no phone/logo set, never a hardcoded brand", () => {
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ organization: { id: "orgC", name: "New Broker Co", phone: null, logoUrl: null } }));
+    expect(dto.brokerageName).toBe("New Broker Co");
+    expect(dto.brokerageContactPhone).toBeNull();
+    expect(dto.brokerageLogoUrl).toBeNull();
+  });
+
+  it("never falls back to the legacy hardcoded Delhi Broker CRM / +919811100001 values", () => {
+    const dto = toPublicCatalogueDTO(fakeCatalogue({ organization: { id: "orgD", name: "Independent Realty", phone: "+919800000000", logoUrl: null } }));
+    expect(dto.brokerageName).not.toBe("Delhi Broker CRM");
+    expect(dto.brokerageContactPhone).not.toBe("+919811100001");
   });
 });

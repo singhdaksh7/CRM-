@@ -28,7 +28,7 @@ const DEMO_VERIFY_CATALOGUE_INCLUDE = {
   },
   lead: { include: { assignedTo: { select: { id: true, name: true } } } },
   createdBy: { select: { id: true, name: true } },
-  organization: { select: { id: true, name: true } },
+  organization: { select: { id: true, name: true, phone: true, logoUrl: true } },
 };
 
 const prisma = new PrismaClient();

@@ -124,7 +124,8 @@ export interface PublicCatalogueDTO {
   status: CatalogueStatus;
   expiresAt: string | null;
   brokerageName: string;
-  brokerageContactPhone: string;
+  brokerageContactPhone: string | null;
+  brokerageLogoUrl: string | null;
   clientFirstName: string;
   requirementSummary: string;
   properties: PublicCatalogueProperty[];
@@ -143,8 +144,14 @@ export function toPublicCatalogueDTO(catalogue: CatalogueForDTO): PublicCatalogu
     introMessage: catalogue.introMessage,
     status: catalogue.status,
     expiresAt: catalogue.expiresAt?.toISOString() ?? null,
-    brokerageName: "Delhi Broker CRM",
-    brokerageContactPhone: "+919811100001",
+    // Multi-tenant branding (Phase A / A3) - always the OWNING
+    // organization's own name/phone/logo, never a different tenant's.
+    // catalogue.organization is always present (organizationId is
+    // required on CatalogueShare); name is a required field on
+    // Organization, phone/logoUrl are optional and simply omitted when unset.
+    brokerageName: catalogue.organization?.name || "Property Listing",
+    brokerageContactPhone: catalogue.organization?.phone ?? null,
+    brokerageLogoUrl: catalogue.organization?.logoUrl ?? null,
     clientFirstName: catalogue.lead.clientName.split(" ")[0],
     requirementSummary: budgetSummary(catalogue.lead),
     // Phase 4 - versioning: a soft-removed property (cp.removedAt set) must
