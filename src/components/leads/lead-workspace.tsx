@@ -80,7 +80,7 @@ interface NextAction {
   tab: LeadTab;
 }
 
-function getNextAction(lead: LeadWithRelations, likedCount: number): NextAction | null {
+export function getNextAction(lead: LeadWithRelations, likedCount: number): NextAction | null {
   if (lead.status === "NEW") {
     return {
       label: "Complete Requirement",
@@ -90,11 +90,29 @@ function getNextAction(lead: LeadWithRelations, likedCount: number): NextAction 
     };
   }
 
+  // An unresolved, past visit needs an outcome before the broker is guided
+  // toward another share or routine follow-up. This is presentation priority
+  // only; it does not alter the visit workflow or its status semantics.
+  const pendingOutcomeVisit = lead.visits.find(
+    (v) =>
+      new Date(v.visitDate) < new Date() &&
+      ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "RESCHEDULED"].includes(v.status) &&
+      !v.outcome
+  );
+  if (pendingOutcomeVisit) {
+    return {
+      label: "Record Outcome",
+      description: `Record the client feedback and outcome for the visit on ${formatDate(pendingOutcomeVisit.visitDate)}.`,
+      buttonText: "Record Outcome",
+      tab: "visits",
+    };
+  }
+
   if (lead.matchRecommendations.length === 0) {
     return {
-      label: "Review Matches",
-      description: "Search the inventory and match candidate properties for this client.",
-      buttonText: "Find Matches",
+      label: "No Matches Yet",
+      description: "There are no pending property matches for this client. Update the requirement or add a matching property.",
+      buttonText: "View Matches",
       tab: "matches",
     };
   }
@@ -105,18 +123,6 @@ function getNextAction(lead: LeadWithRelations, likedCount: number): NextAction 
       description: "Send matched properties to the client via WhatsApp.",
       buttonText: "Go to Matches",
       tab: "matches",
-    };
-  }
-
-  const pendingOutcomeVisit = lead.visits.find(
-    (v) => ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "RESCHEDULED"].includes(v.status) && !v.outcome
-  );
-  if (pendingOutcomeVisit) {
-    return {
-      label: "Record Outcome",
-      description: `Record the client feedback and outcome for the visit on ${formatDate(pendingOutcomeVisit.visitDate)}.`,
-      buttonText: "Record Outcome",
-      tab: "visits",
     };
   }
 

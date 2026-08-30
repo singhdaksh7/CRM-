@@ -74,7 +74,7 @@ export function CaptureLocationButton({ propertyId }: { propertyId: string }) {
     <div className="flex flex-col items-start gap-2">
       <Button type="button" variant="secondary" onClick={handleCapture} disabled={status === "capturing"}>
         {status === "capturing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crosshair className="h-4 w-4" />}
-        Capture Location
+        {status === "capturing" ? "Capturing..." : status === "success" ? "Location Captured" : status === "error" ? "Try Again" : "Capture Location"}
       </Button>
       {message && (
         <p className={`text-xs ${status === "error" ? "text-red-600" : "text-emerald-600"}`} role="status">
