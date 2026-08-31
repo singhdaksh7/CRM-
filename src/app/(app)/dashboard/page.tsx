@@ -9,7 +9,6 @@ import { Building2, Home, Landmark, Users, UserX, BellRing, CalendarClock, Troph
 import type { Role } from "@prisma/client";
 import Link from "next/link";
 import { getActionCenterItems, getLeadHealthOverview, getPropertyHealthOverview } from "@/lib/rules";
-import { resolveOrganizationIdForUser } from "@/lib/organization";
 import { ActionCenterList } from "@/components/dashboard/action-center-list";
 import { HealthOverviewCard } from "@/components/dashboard/health-overview-card";
 import { DemoDataBanner } from "@/components/dashboard/demo-data-banner";
@@ -98,14 +97,14 @@ export default async function DashboardPage() {
           In Progress / Completed Today, with a per-visit progress summary. */}
       {/* Only ADMIN reaches this point now - DATA_MANAGER returns early above with its own operational dashboard. */ session.user.role === "ADMIN" && (
         <Suspense fallback={<PanelSkeleton />}>
-          <ManagerVisitBoardSection userId={session.user.id} />
+          <ManagerVisitBoardSection organizationId={getOrganizationId(session.user)} />
         </Suspense>
       )}
 
       {/* Objective 12 - Manager Dashboard field-ops widgets */}
       {/* Only ADMIN reaches this point now - DATA_MANAGER returns early above with its own operational dashboard. */ session.user.role === "ADMIN" && (
         <Suspense fallback={<PanelSkeleton />}>
-          <FieldOpsSummarySection userId={session.user.id} />
+          <FieldOpsSummarySection organizationId={getOrganizationId(session.user)} />
         </Suspense>
       )}
 
@@ -116,7 +115,7 @@ export default async function DashboardPage() {
 
       {/* Lead & Property Health Overview */}
       <Suspense fallback={<div className="grid grid-cols-1 gap-4 lg:grid-cols-2"><PanelSkeleton /><PanelSkeleton /></div>}>
-        <HealthOverviewSection role={session.user.role} userId={session.user.id} />
+        <HealthOverviewSection role={session.user.role} userId={session.user.id} organizationId={getOrganizationId(session.user)} />
       </Suspense>
 
       {/* Leads Streamed Panel */}
@@ -168,13 +167,12 @@ async function DashboardSecondary({ role, userId }: { role: Role; userId: string
   );
 }
 
-async function ManagerVisitBoardSection({ userId }: { userId: string }) {
-  const board = await getManagerVisitBoard(await resolveOrganizationIdForUser(userId));
+async function ManagerVisitBoardSection({ organizationId }: { organizationId: string }) {
+  const board = await getManagerVisitBoard(organizationId);
   return <ManagerVisitBoard board={board} />;
 }
 
-async function FieldOpsSummarySection({ userId }: { userId: string }) {
-  const organizationId = await resolveOrganizationIdForUser(userId);
+async function FieldOpsSummarySection({ organizationId }: { organizationId: string }) {
   const summary = await getFieldOpsSummary(organizationId);
   return <FieldOpsSummaryPanel summary={summary} />;
 }
@@ -184,8 +182,7 @@ async function SmartActionCenter({ role, userId }: { role: Role; userId: string 
   return <ActionCenterList items={JSON.parse(JSON.stringify(items))} />;
 }
 
-async function HealthOverviewSection({ role, userId }: { role: Role; userId: string }) {
-  const organizationId = await resolveOrganizationIdForUser(userId);
+async function HealthOverviewSection({ role, userId, organizationId }: { role: Role; userId: string; organizationId: string }) {
   const [leadDistribution, propertyDistribution] = await Promise.all([
     getLeadHealthOverview(organizationId, role === "FIELD_EXECUTIVE" ? userId : undefined),
     getPropertyHealthOverview(organizationId),
