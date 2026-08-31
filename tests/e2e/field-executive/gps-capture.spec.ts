@@ -3,6 +3,31 @@ import { getQaPropertyId, QA_PROPERTY_TITLES } from "../fixtures/qa-data";
 
 const FAKE_COORDS = { latitude: 28.6304, longitude: 77.0821 }; // deterministic synthetic Rohini-area coordinates
 
+/**
+ * Deterministic setup only - resets Property A's capture-audit fields to
+ * their pre-capture state before every test in this file, so "starts idle"
+ * holds regardless of what an earlier run (against this same persistent
+ * local DB) left behind. This is never a shortcut around the capture
+ * workflow itself - every test still exercises the real click ->
+ * getCurrentPosition -> POST /api/properties/[id]/capture-location path;
+ * this only ensures the button's *starting* state is the one being tested.
+ */
+test.beforeEach(async () => {
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient();
+  try {
+    const propertyId = await prisma.property
+      .findFirstOrThrow({ where: { title: QA_PROPERTY_TITLES.A } })
+      .then((p) => p.id);
+    await prisma.property.update({
+      where: { id: propertyId },
+      data: { latitude: null, longitude: null, locationAccuracy: null, locationCapturedAt: null, locationCapturedById: null },
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+});
+
 test.describe("GPS explicit capture - assigned FE", () => {
   test.use({ permissions: ["geolocation"], geolocation: FAKE_COORDS });
 

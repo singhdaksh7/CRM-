@@ -13,6 +13,24 @@ test.describe("Visit Outcome", () => {
     const leadId = await getQaLeadId(QA_LEAD_NAMES.visitOutcome);
     const visitId = await getQaVisitId(QA_LEAD_NAMES.visitOutcome);
 
+    // Deterministic setup only - resets this visit/lead back to their
+    // pre-outcome seeded state before every run, so "Record Outcome" is
+    // guaranteed to be the starting Next Action regardless of what an
+    // earlier run (against this same persistent local DB) already
+    // recorded. The recording steps below still exercise the real UI ->
+    // PATCH /api/visits/[id] path end to end - this only resets the
+    // starting point being tested from.
+    {
+      const { PrismaClient } = await import("@prisma/client");
+      const prisma = new PrismaClient();
+      try {
+        await prisma.visit.update({ where: { id: visitId }, data: { status: "SCHEDULED", outcome: null } });
+        await prisma.lead.update({ where: { id: leadId }, data: { status: "VISIT_SCHEDULED" } });
+      } finally {
+        await prisma.$disconnect();
+      }
+    }
+
     // Before: the lead's Next Action is "Record Outcome" (past visit, no outcome).
     await page.goto(`/leads/${leadId}`);
     await expect(page.getByRole("heading", { name: "Record Outcome", level: 4 })).toBeVisible();
