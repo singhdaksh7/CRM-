@@ -27,6 +27,11 @@ export async function getQaVisitId(leadClientName: string): Promise<string> {
   return visit.id;
 }
 
+export async function getQaDealId(leadClientName: string): Promise<string> {
+  const deal = await prisma.deal.findFirstOrThrow({ where: { lead: { clientName: leadClientName } } });
+  return deal.id;
+}
+
 export const QA_LEAD_NAMES = {
   new: "QA Lead - New Requirement",
   pendingOutcome: "QA Lead - Pending Visit Outcome",
@@ -36,6 +41,8 @@ export const QA_LEAD_NAMES = {
   closedWon: "QA Lead - Closed Won",
   multiVisit: "QA Lead - Multi-Property Visit",
   publicCatalogue: "QA Lead - Public Catalogue Source",
+  visitOutcome: "QA Lead - Visit Outcome Workflow",
+  dealWorkflow: "QA Lead - Deal Workflow",
 } as const;
 
 export const QA_PROPERTY_TITLES = {
@@ -43,4 +50,5 @@ export const QA_PROPERTY_TITLES = {
   B: "QA Property B - Dwarka 3BHK",
   C: "QA Property C - Rohini 2BHK",
   D: "QA Property D - Pitampura 1BHK (Public)",
+  E: "QA Property E - Deal Target",
 } as const;

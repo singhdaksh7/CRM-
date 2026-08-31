@@ -33,7 +33,7 @@ test.describe("GPS explicit capture - assigned FE", () => {
     await expect(page.getByRole("status").getByText(/Location captured/)).toBeVisible();
   });
 
-  test("persisted latitude/longitude/accuracy/capturedAt/capturedById after capture, and publicLocationMode is unchanged", async ({ page }) => {
+  test("persisted latitude/longitude/accuracy/capturedAt/capturedById after capture, and publicLocationMode is unchanged", async ({ page, networkGuard }) => {
     const propertyId = await getQaPropertyId(QA_PROPERTY_TITLES.A);
     await page.goto(`/properties/${propertyId}`);
     const button = page.getByRole("button", { name: /Capture Location|Location Captured|Try Again/ });
@@ -74,6 +74,8 @@ test.describe("GPS explicit capture - assigned FE", () => {
     } finally {
       await prisma.$disconnect();
     }
+
+    expect(networkGuard.unexpectedSendCalls, "no automatic customer communication during GPS capture").toEqual([]);
   });
 });
 
