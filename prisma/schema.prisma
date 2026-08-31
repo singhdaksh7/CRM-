@@ -1773,6 +1773,11 @@ model FollowUp {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Every follow-ups query (Today page, Follow-ups list, dashboard KPI
+  // counts) filters by organizationId + a dueDate range and sorts by
+  // dueDate - this model previously had zero indexes, so all of those
+  // were full table scans.
+  @@index([organizationId, dueDate])
   @@map("follow_ups")
 }
 

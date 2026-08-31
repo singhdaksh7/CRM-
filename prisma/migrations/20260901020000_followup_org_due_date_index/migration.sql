@@ -1,0 +1,23 @@
+-- Additive only (index creation - no table/column changes, no data
+-- migration). Written by hand (not via `prisma migrate dev`) to avoid
+-- connecting to any live database during this performance pass; the SQL
+-- matches exactly what Prisma would generate for the schema's new
+-- `@@index([organizationId, dueDate])` on FollowUp.
+--
+-- follow_ups had zero indexes of any kind before this migration, despite
+-- being the primary table behind the Today dashboard's follow-up KPI count,
+-- the Follow-ups list page (overdue/today/upcoming bucket counts +
+-- paginated list), and dashboard-data.ts's follow-up aggregates - every one
+-- of those queries filters by organizationId and either filters or sorts on
+-- dueDate. Confirmed no existing index on this table via
+-- prisma/schema.prisma before this change.
+--
+-- Consider CREATE INDEX CONCURRENTLY instead if follow_ups is large in
+-- production at apply time (a plain CREATE INDEX takes a write lock on the
+-- table for the duration of the build); left as a plain CREATE INDEX here
+-- since production is a single-brokerage pilot with a modest row count
+-- (see DEPLOYMENT.md) and the existing 27 migrations in this history use
+-- plain CREATE INDEX for the same reason.
+
+-- CreateIndex
+CREATE INDEX "follow_ups_organizationId_dueDate_idx" ON "follow_ups"("organizationId", "dueDate");
