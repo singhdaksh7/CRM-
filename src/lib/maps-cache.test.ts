@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const store = new Map<string, { value: string; expiresAt: number }>();
+let lastConstructorOptions: Record<string, unknown> | undefined;
 
 vi.mock("ioredis", () => {
   class FakeRedis {
+    constructor(_url: string, options: Record<string, unknown>) {
+      lastConstructorOptions = options;
+    }
     on() {}
     async get(key: string) {
       const entry = store.get(key);
@@ -36,6 +40,18 @@ afterEach(() => {
 });
 
 describe("withMapsCache", () => {
+  it("configures a bounded connect and command timeout so a slow/unreachable Redis fails fast on cold serverless instances", async () => {
+    const { withMapsCache, _resetMapsCacheClientForTests } = await import("./maps-cache");
+    _resetMapsCacheClientForTests();
+    await withMapsCache("probe-connection-config", 60, async () => "value");
+    expect(lastConstructorOptions?.connectTimeout).toBeTypeOf("number");
+    expect(lastConstructorOptions?.connectTimeout as number).toBeGreaterThan(0);
+    expect(lastConstructorOptions?.connectTimeout as number).toBeLessThanOrEqual(2000);
+    expect(lastConstructorOptions?.commandTimeout).toBeTypeOf("number");
+    expect(lastConstructorOptions?.commandTimeout as number).toBeGreaterThan(0);
+    expect(lastConstructorOptions?.commandTimeout as number).toBeLessThanOrEqual(2000);
+  });
+
   it("calls compute() on a cache miss and caches the result", async () => {
     const { withMapsCache, _resetMapsCacheClientForTests } = await import("./maps-cache");
     _resetMapsCacheClientForTests();
