@@ -13,7 +13,7 @@ vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "synthetic-org" 
 vi.mock("@/lib/performance-diagnostics", () => ({ performanceDiagnosticsEnabled: () => true }));
 vi.mock("@/lib/preview-performance-admin", () => ({ isSyntheticPerformanceAdmin }));
 vi.mock("@/lib/performance-diagnostic-context", () => ({
-  collectPerformanceMetrics: async (work: () => Promise<void>) => { await work(); return { metrics: {} }; },
+  collectPerformanceMetrics: async (work: () => Promise<void>) => { await work(); return { metrics: {}, queries: [] }; },
   measurePerformanceMetric: async <T>(_name: string, work: () => Promise<T>) => work(),
 }));
 vi.mock("@/lib/performance-benchmarks", () => ({ benchmarkDashboard, benchmarkLeads, benchmarkProperties, benchmarkVisits, benchmarkFollowUps }));

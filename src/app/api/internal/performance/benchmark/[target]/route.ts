@@ -29,11 +29,12 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ta
         if (target === "visits") return benchmarkVisits(organizationId);
         return benchmarkFollowUps(organizationId);
       });
-    });
+    }, { bypassCache: target === "dashboard" });
     const metrics = Object.fromEntries(Object.entries(collected.metrics).map(([name, metric]) => [name, { duration: rounded(metric.duration), calls: metric.calls, parallel: metric.parallel }]));
     const total = rounded(performance.now() - started);
     const timing = Object.entries(metrics).map(([name, value]) => `${name};dur=${value.duration}`).concat(`total;dur=${total}`).join(", ");
-    return NextResponse.json({ total, metrics, experiment: "current-only", note: "Route-handler benchmark. Proxy and RSC request scopes are separate and are not combined." }, { headers: { "Server-Timing": timing, "Cache-Control": "no-store" } });
+    const queries = collected.queries.map((query) => ({ ...query, duration: rounded(query.duration) }));
+    return NextResponse.json({ total, metrics, queries, experiment: "current-only", note: "Cold dashboard-loader benchmark. Proxy and RSC request scopes are separate and are not combined." }, { headers: { "Server-Timing": timing, "Cache-Control": "no-store" } });
   } catch {
     return notFound();
   }

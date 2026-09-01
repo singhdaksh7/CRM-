@@ -1,5 +1,6 @@
 import Redis from "ioredis";
 import { logger } from "./logger";
+import { shouldBypassDiagnosticCache } from "./performance-diagnostic-context";
 
 /**
  * Short-lived read-through cache for safe-to-serve-slightly-stale data
@@ -35,6 +36,10 @@ function getClient(): Redis | null {
 }
 
 export async function cached<T>(key: string, ttlSeconds: number, compute: () => Promise<T>): Promise<T> {
+  // Preview diagnostics must expose the loader's actual database work. This
+  // request-scoped flag is set only by an authenticated benchmark handler;
+  // it neither reads nor writes Redis and cannot affect normal requests.
+  if (shouldBypassDiagnosticCache()) return compute();
   const redis = getClient();
   if (!redis) return compute();
 
