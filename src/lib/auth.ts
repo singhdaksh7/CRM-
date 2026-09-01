@@ -4,6 +4,7 @@ import { checkRateLimit, clientIp } from "./rate-limit";
 import { verifyCredentials } from "./credential-auth";
 import { getSessionAuthState, isSessionStillValid } from "./session-guard";
 import { withSynchronousTiming, withTiming } from "./perf";
+import { measurePerformanceMetric } from "./performance-diagnostic-context";
 import type { Role } from "@prisma/client";
 
 declare module "next-auth" {
@@ -75,10 +76,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.organizationId = (user as { organizationId: string }).organizationId;
         return token;
       }
-      return withTiming("auth.jwt", "auth", async () => {
+      return withTiming("auth.jwt", "auth", async () => measurePerformanceMetric("jwtCallback", async () => {
         const userId = token.id;
         if (typeof userId !== "string") return null;
-        const state = await withTiming("auth.jwt.db", "auth", () => getSessionAuthState(userId));
+        const state = await withTiming("auth.jwt.db", "auth", () => measurePerformanceMetric("userValidation", () => getSessionAuthState(userId)));
         if (!isSessionStillValid(state, token.authVersion)) return null;
         // Role AND organization changes made by an admin take effect on the
         // next request too - this is the same per-request DB check that
@@ -87,7 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = state!.role;
         token.organizationId = state!.organizationId;
         return token;
-      });
+      }));
     },
     session({ session, token }) {
       return withSynchronousTiming("auth.session", "auth", () => {

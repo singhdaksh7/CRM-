@@ -2,7 +2,11 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
 /** TEMPORARY PERFORMANCE DIAGNOSTIC — remove before a production merge. */
-const SYNTHETIC_ADMIN_EMAIL = "perf.admin@staging.invalid";
+export const SYNTHETIC_ADMIN_EMAIL = "perf.admin@staging.invalid";
+
+export function isSyntheticPerformanceAdmin(user: { email?: string | null }): boolean {
+  return user.email?.toLowerCase() === SYNTHETIC_ADMIN_EMAIL;
+}
 const BCRYPT_ROUNDS = 10;
 
 export type PreviewAdminSyncResult = "skipped" | "missing" | "already-current" | "synchronized";

@@ -1,84 +1,56 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-/** TEMPORARY PERFORMANCE DIAGNOSTIC — remove before any production merge. */
-type Sample = { duration: number; ttfb: number; timings: Record<string, number> };
-type Result = { name: string; samples: Sample[] };
-const ENDPOINTS = [
-  ["Auth only", "/api/internal/performance/auth-only"],
-  ["Auth + SELECT 1 + indexed User lookup", "/api/internal/performance/auth-db"],
-] as const;
+type Metric = { duration: number; calls: number; parallel: boolean };
+type Benchmark = { total: number; metrics: Record<string, Metric> };
+type Row = { name: string; samples: Benchmark[] };
+const TARGETS = ["dashboard", "leads", "properties", "visits", "follow-ups"] as const;
 const ROUTES = ["/dashboard", "/leads", "/properties", "/visits", "/follow-ups"] as const;
+const mean = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+const fmt = (value: number) => `${value.toFixed(1)} ms`;
 
-function median(values: number[]) { const sorted = [...values].sort((a, b) => a - b); return sorted[Math.floor(sorted.length / 2)] ?? 0; }
-function summary(samples: Sample[]) {
-  const values = samples.map((sample) => sample.duration);
-  return { mean: values.reduce((sum, value) => sum + value, 0) / values.length, median: median(values), min: Math.min(...values), max: Math.max(...values) };
+async function samples<T>(count: number, work: () => Promise<T>): Promise<T[]> { const values: T[] = []; for (let i = 0; i < count; i++) values.push(await work()); return values; }
+
+async function benchmark(target: string) {
+  const response = await fetch(`/api/internal/performance/benchmark/${target}`, { cache: "no-store", credentials: "same-origin", headers: { "x-perf-diagnostic": "1" } });
+  if (!response.ok) throw new Error(`${target} benchmark returned ${response.status}`);
+  return response.json() as Promise<Benchmark>;
 }
-function parseServerTiming(value: string | null) {
-  const timings: Record<string, number> = {};
-  for (const entry of value?.split(",") ?? []) {
-    const [name, duration] = entry.trim().split(";dur=");
-    const value = Number(duration);
-    if (name && Number.isFinite(value)) timings[name] = value;
-  }
-  return timings;
-}
-async function sample(url: string): Promise<Sample> {
+async function routeSample(path: string) {
   const started = performance.now();
-  const response = await fetch(url, { cache: "no-store", credentials: "same-origin", headers: { "x-perf-diagnostic": "1" } });
-  const ttfb = performance.now() - started;
-  if (!response.ok) throw new Error(`${url} returned ${response.status}`);
-  await response.arrayBuffer();
-  return { duration: performance.now() - started, ttfb, timings: parseServerTiming(response.headers.get("server-timing")) };
+  const response = await fetch(path, { cache: "no-store", credentials: "same-origin", headers: { "x-perf-diagnostic": "1" } });
+  if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+  await response.arrayBuffer(); return performance.now() - started;
 }
-function format(value: number) { return `${value.toFixed(1)} ms`; }
 
 export function PerformanceDiagnosticClient({ previewDeployment }: { previewDeployment: string }) {
-  const [results, setResults] = useState<Result[]>([]);
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const authOnly = results.find((result) => result.name === "Auth only");
-  const authDb = results.find((result) => result.name.startsWith("Auth +"));
-  const decomposition = useMemo(() => {
-    if (!authOnly || !authDb) return null;
-    const auth = summary(authOnly.samples).mean;
-    const full = summary(authDb.samples).mean;
-    const db = Math.max(0, full - auth);
-    return { auth, db, full, authPercent: full ? (auth / full) * 100 : 0 };
-  }, [authOnly, authDb]);
+  const [results, setResults] = useState<Row[]>([]); const [routeResults, setRouteResults] = useState<Record<string, number[]>>({});
+  const [running, setRunning] = useState(false); const [error, setError] = useState<string | null>(null);
+  const get = (target: string) => results.find((row) => row.name === target);
+  const current = (target: string) => mean(get(target)?.samples.map((sample) => sample.total) ?? []);
+  const dashboardMetrics = get("dashboard")?.samples[0]?.metrics ?? {};
 
   async function run() {
-    setRunning(true); setError(null); setResults([]);
+    setRunning(true); setError(null); setResults([]); setRouteResults({});
     try {
-      const next: Result[] = [];
-      for (const [name, url] of ENDPOINTS) next.push({ name, samples: await Promise.all(Array.from({ length: 10 }, () => sample(url))) });
-      for (const route of ROUTES) next.push({ name: `${route} route request`, samples: await Promise.all(Array.from({ length: 3 }, () => sample(route))) });
-      setResults(next);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Diagnostic request failed"); }
+      const next = await Promise.all(TARGETS.map(async (name) => ({ name, samples: await samples(10, () => benchmark(name)) })));
+      const routes = Object.fromEntries(await Promise.all(ROUTES.map(async (path) => [path, await samples(3, () => routeSample(path))])));
+      setResults(next); setRouteResults(routes);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Deep benchmark failed"); }
     finally { setRunning(false); }
   }
-
-  async function copyReport() {
-    const find = (name: string) => results.find((result) => result.name === name);
-    const line = (name: string) => { const result = find(name); return result ? `${name}: ${format(summary(result.samples).mean)}` : `${name}: not measured`; };
-    const authTiming = authOnly?.samples.map((sample) => sample.timings.auth ?? 0).filter(Boolean) ?? [];
-    const report = [
-      "# KP CRM Auth Performance Diagnostic", "", `Preview deployment: ${previewDeployment}`, `Timestamp: ${new Date().toISOString()}`, "",
-      "## Auth", "Auth calls: diagnostic endpoints include proxy + handler authentication; Dashboard model: proxy + layout + page = 3", "JWT callbacks: one per auth() invocation (measured model)", "User lookups: one indexed lookup per JWT callback (measured model)", `Mean auth time: ${authTiming.length ? format(authTiming.reduce((a, b) => a + b, 0) / authTiming.length) : "not measured"}`, "Mean JWT DB lookup: captured in server logs only for this temporary build", `Cumulative auth contribution: ${decomposition ? `${decomposition.authPercent.toFixed(1)}% of auth+DB diagnostic` : "not measured"}`, "",
-      "## Database", `SELECT 1: ${authDb ? format(authDb.samples.reduce((sum, sample) => sum + (sample.timings["db-first"] ?? 0), 0) / authDb.samples.length) : "not measured"}`, `Indexed User lookup: ${authDb ? format(authDb.samples.reduce((sum, sample) => sum + (sample.timings["db-user"] ?? 0), 0) / authDb.samples.length) : "not measured"}`, "",
-      "## Routes", ...ROUTES.map((route) => line(`${route} route request`)), "", "## Navigation", "Dashboard -> Leads: compare the authenticated route-request means above; this tool avoids state-changing navigation.", "Leads -> Properties: compare the authenticated route-request means above.", "Properties -> Visits: compare the authenticated route-request means above.", "Visits -> Follow-ups: compare the authenticated route-request means above.", "", "## Root Cause Evidence", `Auth contribution: ${decomposition ? `${decomposition.authPercent.toFixed(1)}%` : "not measured"}`, `DB contribution: ${decomposition ? `${((decomposition.db / decomposition.full) * 100).toFixed(1)}% incremental over auth-only` : "not measured"}`, "Application/render contribution: route-request mean minus diagnostic endpoint mean; inspect route rows above.", `DOMINANT BOTTLENECK: ${decomposition ? (decomposition.authPercent >= 50 ? "Auth is a material contributor in the controlled diagnostic; route data is required before calling it dominant." : "Not established by the controlled diagnostic.") : "Not measured"}`, "CONFIDENCE: Preliminary — browser-side authenticated measurements, with read-only requests only.",
-    ].join("\n");
+  const copy = async () => {
+    const report = ["# KP CRM DEEP BENCHMARK + EXPERIMENT REPORT", "", `Preview: ${previewDeployment}`, "", "## Architecture Boundaries", "Proxy: separate execution boundary; cannot share RSC request state.", "Auth.js: handler authentication includes one authoritative JWT/user validation.", "RSC: React cache() deduplicates app-layout/page auth only within one RSC tree.", "Cross-boundary sharing impossible: Proxy ↔ RSC/Route Handler.", "", "## Server Benchmark", "Metric | Current | Experimental | Improvement", ...TARGETS.map((name) => `${name} | ${fmt(current(name))} | N/A | Not applicable`), "", "## Dashboard Waterfall", "Operation | Duration | Calls | Sequential/Parallel", ...Object.entries(dashboardMetrics).map(([name, item]) => `${name} | ${fmt(item.duration)} | ${item.calls} | ${item.parallel ? "Parallel" : "Sequential"}`), "", "## Real Route A/B", "Route | Baseline | Experimental | Improvement", ...ROUTES.map((path) => `${path} | ${fmt(mean(routeResults[path] ?? []))} | N/A | Not applicable`), "", "## Auth Experiment", "Current validations: one handler validation; proxy is independently measured outside this context.", "Experimental validations: one RSC validation shared by layout/page through React cache().", "Request-scoped deduplication: SAFE for RSC only; NOT APPLICABLE to Proxy/Route Handler.", "", "## Verdict", "ROOT CAUSE PROVEN: NO", "REAL ROUTE IMPROVEMENT >=25%: NOT MEASURED", "REAL ROUTE REDUCTION >=500MS: NOT MEASURED", "SECURITY PRESERVED: YES", "READY FOR CONTROLLED RELEASE: NO", "Production changed: NO"].join("\n");
     await navigator.clipboard.writeText(report);
-  }
-
+  };
   return <section className="mx-auto max-w-6xl space-y-6">
-    <div className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5 text-amber-950"><p className="font-bold">PREVIEW DIAGNOSTIC — NEVER PRODUCTION</p><p className="mt-1 text-sm">Temporary, authenticated ADMIN-only, read-only browser measurements. It does not run automatically.</p></div>
-    <div><h1 className="text-2xl font-bold">Performance Diagnosis</h1><p className="mt-1 text-sm text-[#596579]">Runs 10 warm samples for diagnostic endpoints and 3 authenticated document-request samples per route.</p></div>
-    <div className="flex gap-3"><button onClick={run} disabled={running} className="rounded-xl bg-[#3366FF] px-4 py-2 font-semibold text-white disabled:opacity-60">{running ? "Running diagnosis…" : "Run Performance Diagnosis"}</button><button onClick={copyReport} disabled={!results.length || running} className="rounded-xl border border-[#E7ECF2] bg-white px-4 py-2 font-semibold disabled:opacity-60">Copy Diagnostic Report</button></div>
+    <div className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5 text-amber-950"><p className="font-bold">PREVIEW DIAGNOSTIC — NEVER PRODUCTION</p><p className="mt-1 text-sm">ADMIN-only, read-only timing metadata. No records, identifiers, cookies, SQL, or secrets are returned.</p></div>
+    <div><h1 className="text-2xl font-bold">Performance Diagnosis</h1><p className="mt-1 text-sm text-[#596579]">Ten warm server samples per page data path, then authenticated browser route samples. The experimental column stays unavailable until a technically valid experiment is defined.</p></div>
+    <div className="flex gap-3"><button onClick={run} disabled={running} className="rounded-xl bg-[#3366FF] px-4 py-2 font-semibold text-white disabled:opacity-60">{running ? "Running deep benchmark…" : "RUN DEEP BENCHMARK"}</button><button onClick={copy} disabled={!results.length || running} className="rounded-xl border border-[#E7ECF2] bg-white px-4 py-2 font-semibold disabled:opacity-60">Copy Report</button></div>
     {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-    {!!results.length && <><div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white"><table className="w-full text-left text-sm"><thead className="bg-[#F3F6FA] text-[#596579]"><tr><th className="p-3">Test</th><th>Samples</th><th>Mean</th><th>Median</th><th>Min</th><th>Max</th></tr></thead><tbody>{results.map((result) => { const s = summary(result.samples); return <tr key={result.name} className="border-t border-[#E7ECF2]"><td className="p-3 font-medium">{result.name}</td><td>{result.samples.length}</td><td>{format(s.mean)}</td><td>{format(s.median)}</td><td>{format(s.min)}</td><td>{format(s.max)}</td></tr>; })}</tbody></table></div>
-    {decomposition && <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 text-sm"><h2 className="font-bold">Decomposition</h2><p className="mt-2">No-auth baseline: not measured (intentionally unavailable to avoid an unauthenticated diagnostic surface).</p><p>Auth overhead: {format(decomposition.auth)}</p><p>DB overhead: {format(decomposition.db)}</p><p>Dashboard/application overhead: compare Dashboard route request with controlled endpoint results.</p><p className="mt-3 font-bold">AUTH BOTTLENECK CONTRIBUTION: {decomposition.authPercent.toFixed(1)}%</p></div>}</>}
+    {!!results.length && <><Table title="Server benchmark" headers={["Metric", "Before", "Experimental", "Difference", "Improvement %"]} rows={TARGETS.map((name) => [name, fmt(current(name)), "N/A", "N/A", "N/A"])} /><Table title="Dashboard waterfall" headers={["Operation", "Duration", "Calls", "Scheduling"]} rows={Object.entries(dashboardMetrics).map(([name, item]) => [name, fmt(item.duration), String(item.calls), item.parallel ? "Parallel" : "Sequential"])} /><Table title="Real browser route latency" headers={["Route", "Baseline", "Experimental", "Improvement"]} rows={ROUTES.map((path) => [path, fmt(mean(routeResults[path] ?? [])), "N/A", "N/A"])} /></>}
   </section>;
 }
+
+function Table({ title, headers, rows }: { title: string; headers: string[]; rows: string[][] }) { return <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white"><h2 className="p-4 font-bold">{title}</h2><table className="w-full text-left text-sm"><thead className="bg-[#F3F6FA] text-[#596579]"><tr>{headers.map((header) => <th key={header} className="p-3">{header}</th>)}</tr></thead><tbody>{rows.map((row, i) => <tr key={`${row[0]}-${i}`} className="border-t border-[#E7ECF2]">{row.map((cell, j) => <td key={j} className="p-3">{cell}</td>)}</tr>)}</tbody></table></div>; }

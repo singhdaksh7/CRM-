@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { getRscSession } from "@/lib/request-auth";
 import { prisma } from "@/lib/prisma";
 import { ScheduleVisitModal } from "@/components/visits/schedule-visit-modal";
 import { SuggestedRoutePanel } from "@/components/visits/suggested-route-panel";
@@ -29,7 +29,7 @@ const TABS = [
 const SAFETY_CAP = 300;
 
 export default async function VisitsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const session = await auth();
+  const session = await getRscSession();
   const sp = await searchParams;
   const tab = sp.tab ?? "today";
   const page = parsePage(sp.page);

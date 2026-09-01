@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { auth } from "@/lib/auth";
+import { getRscSession } from "@/lib/request-auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNavigation } from "@/components/layout/mobile-navigation";
@@ -12,7 +12,7 @@ import { logger } from "@/lib/logger";
 const LAZY_SWEEP_THROTTLE_SECONDS = 600; // at most once every 10 minutes
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await withTiming("auth.layout", "(app)/layout", () => auth());
+  const session = await withTiming("auth.layout", "(app)/layout", () => getRscSession());
   if (!session) redirect("/login");
 
   const { role } = session.user;
