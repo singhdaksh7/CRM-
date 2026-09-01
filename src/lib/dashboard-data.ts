@@ -183,13 +183,13 @@ async function computeCriticalData(role: Role, userId: string): Promise<Dashboar
     async () => {
       followUpsDueToday = await safe("followUpsDueToday", 0, () =>
         prisma.followUp.count({
-          where: { ...scopedFollowUp, status: { in: ["PENDING", "OVERDUE"] }, dueDate: { gte: startOfToday, lte: endOfToday } },
+          where: { organizationId, ...scopedFollowUp, status: { in: ["PENDING", "OVERDUE"] }, dueDate: { gte: startOfToday, lte: endOfToday } },
         })
       );
     },
     async () => {
       visitsToday = await safe("visitsToday", 0, () =>
-        prisma.visit.count({ where: { ...scopedVisit, visitDate: { gte: startOfToday, lte: endOfToday } } })
+        prisma.visit.count({ where: { organizationId, ...scopedVisit, visitDate: { gte: startOfToday, lte: endOfToday } } })
       );
     },
     async () => {

@@ -35,7 +35,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ta
     const total = rounded(performance.now() - started);
     const timing = Object.entries(metrics).map(([name, value]) => `${name};dur=${value.duration}`).concat(`total;dur=${total}`).join(", ");
     const queries = collected.queries.map((query) => ({ ...query, duration: rounded(query.duration) }));
-    return NextResponse.json({ total, metrics, queries, experiment: "single-deployment", note: target === "dashboard" ? "Cold dashboard-loader benchmark. Proxy and RSC request scopes are separate and are not combined." : "Read-only benchmark. Proxy and RSC request scopes are separate and are not combined." }, { headers: { "Server-Timing": timing, "Cache-Control": "no-store" } });
+    return NextResponse.json({ total, metrics, queries, queryStats: collected.queryStats, experiment: "single-deployment", note: target === "dashboard" ? "Cold dashboard-loader benchmark. Prisma duration is application-observed submit-to-complete time and can include pool wait; DB execution is measured separately with Preview EXPLAIN." : "Read-only benchmark. Proxy and RSC request scopes are separate and are not combined." }, { headers: { "Server-Timing": timing, "Cache-Control": "no-store" } });
   } catch {
     return notFound();
   }

@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { recordPrismaOperation } from "./performance-diagnostic-context";
+import { beginPrismaOperation, recordPrismaOperation } from "./performance-diagnostic-context";
 
 /**
  * Prisma 6 removed the legacy `$use` middleware API. A client extension is
@@ -12,6 +12,7 @@ function createPrismaClient() {
     query: {
       async $allOperations({ model, operation, args, query }) {
         const started = performance.now();
+        const finish = beginPrismaOperation();
         try {
           const result = await query(args);
           recordPrismaOperation(model, operation, performance.now() - started, result, args);
@@ -21,6 +22,8 @@ function createPrismaClient() {
           // but retain no error text or arguments in diagnostic output.
           recordPrismaOperation(model, operation, performance.now() - started, null, args);
           throw error;
+        } finally {
+          finish();
         }
       },
     },

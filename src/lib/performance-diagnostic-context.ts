@@ -12,7 +12,9 @@ export type DiagnosticQuery = {
   filterFields: string;
   indexed: "UNKNOWN";
 };
-type Store = { metrics: Map<string, DiagnosticMetric>; queries: Map<string, DiagnosticQuery>; bypassCache: boolean; scopes: string[] };
+export type DiagnosticQueryStats = { total: number; maxConcurrent: number; byScope: Record<string, number> };
+type QueryConcurrency = { active: number; maxConcurrent: number; total: number; byScope: Map<string, number> };
+type Store = { metrics: Map<string, DiagnosticMetric>; queries: Map<string, DiagnosticQuery>; queryConcurrency: QueryConcurrency; bypassCache: boolean; scopes: string[] };
 
 const storage = new AsyncLocalStorage<Store>();
 
@@ -21,9 +23,27 @@ const storage = new AsyncLocalStorage<Store>();
  * local: it is never a cache and it never carries identities or query values.
  */
 export async function collectPerformanceMetrics<T>(work: () => Promise<T>, options: { bypassCache?: boolean } = {}) {
-  const store: Store = { metrics: new Map(), queries: new Map(), bypassCache: options.bypassCache === true, scopes: [] };
+  const store: Store = {
+    metrics: new Map(),
+    queries: new Map(),
+    // This object is intentionally shared when a nested timing scope extends
+    // AsyncLocalStorage. It measures requests submitted to Prisma, so its
+    // duration includes any client-side pool wait before DB execution.
+    queryConcurrency: { active: 0, maxConcurrent: 0, total: 0, byScope: new Map() },
+    bypassCache: options.bypassCache === true,
+    scopes: [],
+  };
   const value = await storage.run(store, work);
-  return { value, metrics: Object.fromEntries(store.metrics), queries: [...store.queries.values()] };
+  return {
+    value,
+    metrics: Object.fromEntries(store.metrics),
+    queries: [...store.queries.values()],
+    queryStats: {
+      total: store.queryConcurrency.total,
+      maxConcurrent: store.queryConcurrency.maxConcurrent,
+      byScope: Object.fromEntries(store.queryConcurrency.byScope),
+    } satisfies DiagnosticQueryStats,
+  };
 }
 
 /** True only while a Preview benchmark explicitly measures a cold loader path. */
@@ -71,6 +91,28 @@ function queryFieldNames(args: unknown): string {
     else collectWhere(value);
   }
   return [...fields].sort().join(",") || "none";
+}
+
+/**
+ * Marks the application-observed bounds of a Prisma operation. Prisma does
+ * not expose a portable "connection checkout completed" hook, so this
+ * intentionally measures submit-to-complete time (including any pool wait).
+ */
+export function beginPrismaOperation(): () => void {
+  const store = storage.getStore();
+  if (!store) return () => {};
+  const scope = store.scopes.join(" > ") || "unscoped";
+  const concurrency = store.queryConcurrency;
+  concurrency.active += 1;
+  concurrency.total += 1;
+  concurrency.maxConcurrent = Math.max(concurrency.maxConcurrent, concurrency.active);
+  concurrency.byScope.set(scope, (concurrency.byScope.get(scope) ?? 0) + 1);
+  let finished = false;
+  return () => {
+    if (finished) return;
+    finished = true;
+    concurrency.active -= 1;
+  };
 }
 
 /** Called by the Prisma client extension; retains metadata only, never query arguments or returned records. */

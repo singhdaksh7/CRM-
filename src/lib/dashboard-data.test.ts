@@ -167,6 +167,13 @@ describe("getDashboardCriticalData - catalogue & shortlist KPIs", () => {
     expect(data.leadsAwaitingShortlistCount).toBe(12);
   });
 
+  it("scopes today follow-up and visit KPIs to the requesting organization", async () => {
+    await getDashboardCriticalData("ADMIN", "user1");
+
+    expect(followUpCount.mock.calls[0][0].where).toMatchObject({ organizationId: "org_default" });
+    expect(visitCount.mock.calls[0][0].where).toMatchObject({ organizationId: "org_default" });
+  });
+
   it("falls back to 0 for any panel whose query throws, without failing the whole call", async () => {
     whatsAppMessageCount.mockRejectedValue(new Error("boom"));
     catalogueInteractionFindMany.mockRejectedValue(new Error("boom"));
