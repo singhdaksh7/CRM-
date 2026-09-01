@@ -43,6 +43,20 @@ export async function benchmarkDashboard(input: { role: Role; userId: string; or
   ]);
 }
 
+/**
+ * Read-only database baseline used to distinguish database round-trip latency
+ * from Auth.js work. Each operation is deliberately sequential: the second
+ * user lookup measures an immediate repeat on the same warm function.
+ */
+export async function benchmarkDatabaseBaseline(input: { userId: string; organizationId: string }) {
+  const { userId, organizationId } = input;
+  await measurePerformanceMetric("databaseSelect1", () => prisma.$queryRaw`SELECT 1`);
+  await measurePerformanceMetric("databaseUserLookup1", () => prisma.user.findUnique({ where: { id: userId }, select: { id: true } }));
+  await measurePerformanceMetric("databaseUserLookup2", () => prisma.user.findUnique({ where: { id: userId }, select: { id: true } }));
+  await measurePerformanceMetric("databaseOrganizationLookup", () => prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } }));
+  await measurePerformanceMetric("databaseLeadCount", () => prisma.lead.count({ where: { organizationId } }));
+}
+
 export async function benchmarkLeads(organizationId: string) {
   // Same default /leads page query group (unfiltered, first page).
   await Promise.all([

@@ -3,7 +3,7 @@ import { requireSession } from "@/lib/api-auth";
 import { getOrganizationId } from "@/lib/organization";
 import { performanceDiagnosticsEnabled } from "@/lib/performance-diagnostics";
 import { collectPerformanceMetrics, measurePerformanceMetric } from "@/lib/performance-diagnostic-context";
-import { benchmarkDashboard, benchmarkFollowUps, benchmarkLeads, benchmarkProperties, benchmarkVisits } from "@/lib/performance-benchmarks";
+import { benchmarkDashboard, benchmarkDatabaseBaseline, benchmarkFollowUps, benchmarkLeads, benchmarkProperties, benchmarkVisits } from "@/lib/performance-benchmarks";
 import { isSyntheticPerformanceAdmin } from "@/lib/preview-performance-admin";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ function rounded(value: number) { return Math.round(value * 10) / 10; }
 export async function GET(_request: NextRequest, context: { params: Promise<{ target: string }> }) {
   if (!performanceDiagnosticsEnabled()) return notFound();
   const { target } = await context.params;
-  if (!["dashboard", "leads", "properties", "visits", "follow-ups"].includes(target)) return notFound();
+  if (!["dashboard", "database", "leads", "properties", "visits", "follow-ups"].includes(target)) return notFound();
   try {
     const started = performance.now();
     const collected = await collectPerformanceMetrics(async () => {
@@ -23,6 +23,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ta
       if (!isSyntheticPerformanceAdmin(session.user)) throw new Error("Synthetic diagnostic account required");
       const organizationId = await measurePerformanceMetric("organization", async () => getOrganizationId(session.user));
       await measurePerformanceMetric("pageDataLoader", async () => {
+        if (target === "database") return benchmarkDatabaseBaseline({ userId: session.user.id, organizationId });
         if (target === "dashboard") return benchmarkDashboard({ role: session.user.role, userId: session.user.id, organizationId });
         if (target === "leads") return benchmarkLeads(organizationId);
         if (target === "properties") return benchmarkProperties(organizationId);
@@ -34,7 +35,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ ta
     const total = rounded(performance.now() - started);
     const timing = Object.entries(metrics).map(([name, value]) => `${name};dur=${value.duration}`).concat(`total;dur=${total}`).join(", ");
     const queries = collected.queries.map((query) => ({ ...query, duration: rounded(query.duration) }));
-    return NextResponse.json({ total, metrics, queries, experiment: "current-only", note: "Cold dashboard-loader benchmark. Proxy and RSC request scopes are separate and are not combined." }, { headers: { "Server-Timing": timing, "Cache-Control": "no-store" } });
+    return NextResponse.json({ total, metrics, queries, experiment: "single-deployment", note: target === "dashboard" ? "Cold dashboard-loader benchmark. Proxy and RSC request scopes are separate and are not combined." : "Read-only benchmark. Proxy and RSC request scopes are separate and are not combined." }, { headers: { "Server-Timing": timing, "Cache-Control": "no-store" } });
   } catch {
     return notFound();
   }
