@@ -48,50 +48,75 @@ async function computeEmployeePerformance(organizationId: string, period: Leader
 
   const employees = await prisma.user.findMany({
     where: { organizationId, role: "FIELD_EXECUTIVE" },
-    select: {
-      id: true,
-      name: true,
-      assignedLeads: {
-        where: { createdAt: { gte: since } },
-        select: { id: true, status: true, lastContactedAt: true, createdAt: true },
-      },
-    },
+    select: { id: true, name: true },
   });
+  if (employees.length === 0) return [];
 
-  const rows = await Promise.all(
-    employees.map(async (e) => {
-      const leadIds = e.assignedLeads.map((l) => l.id);
-      const [followUps, visits, brokerage] = await Promise.all([
-        prisma.followUp.count({ where: { organizationId, ownerId: e.id, createdAt: { gte: since } } }),
-        prisma.visit.count({ where: { organizationId, assignedToId: e.id, createdAt: { gte: since } } }),
-        prisma.brokerageCalculation.aggregate({ where: { organizationId, employeeId: e.id, createdAt: { gte: since } }, _sum: { employeeIncentiveAmount: true } }),
-      ]);
+  const employeeIds = employees.map((employee) => employee.id);
+  // This used to issue three aggregate queries for every field executive.
+  // The dashboard only needs per-executive totals, so the same values can be
+  // derived from fixed, organization-scoped grouped reads instead. This is
+  // both tenant-scoped and semantically identical for employees with zero
+  // activity (the maps below fall back to zero).
+  const [assignedLeads, followUpGroups, visitGroups, brokerageGroups] = await Promise.all([
+    prisma.lead.findMany({
+      where: { organizationId, assignedToId: { in: employeeIds }, createdAt: { gte: since } },
+      select: { assignedToId: true, status: true, lastContactedAt: true, createdAt: true },
+    }),
+    prisma.followUp.groupBy({
+      by: ["ownerId"],
+      where: { organizationId, ownerId: { in: employeeIds }, createdAt: { gte: since } },
+      _count: { _all: true },
+    }),
+    prisma.visit.groupBy({
+      by: ["assignedToId"],
+      where: { organizationId, assignedToId: { in: employeeIds }, createdAt: { gte: since } },
+      _count: { _all: true },
+    }),
+    prisma.brokerageCalculation.groupBy({
+      by: ["employeeId"],
+      where: { organizationId, employeeId: { in: employeeIds }, createdAt: { gte: since } },
+      _sum: { employeeIncentiveAmount: true },
+    }),
+  ]);
 
-      const contacted = e.assignedLeads.filter((l) => l.lastContactedAt !== null).length;
-      const dealsClosed = e.assignedLeads.filter((l) => l.status === "CLOSED_WON").length;
-      const responseTimes = e.assignedLeads
+  const leadsByEmployee = new Map<string, typeof assignedLeads>();
+  for (const lead of assignedLeads) {
+    if (!lead.assignedToId) continue;
+    const current = leadsByEmployee.get(lead.assignedToId) ?? [];
+    current.push(lead);
+    leadsByEmployee.set(lead.assignedToId, current);
+  }
+  const followUpsByEmployee = new Map(followUpGroups.map((group) => [group.ownerId, group._count._all]));
+  const visitsByEmployee = new Map(visitGroups.flatMap((group) => group.assignedToId ? [[group.assignedToId, group._count._all] as const] : []));
+  const brokerageByEmployee = new Map(brokerageGroups.map((group) => [group.employeeId, group._sum.employeeIncentiveAmount ?? 0]));
+
+  const rows = employees.map((employee) => {
+      const employeeLeads = leadsByEmployee.get(employee.id) ?? [];
+      const contacted = employeeLeads.filter((lead) => lead.lastContactedAt !== null).length;
+      const dealsClosed = employeeLeads.filter((lead) => lead.status === "CLOSED_WON").length;
+      const responseTimes = employeeLeads
         .filter((l) => l.lastContactedAt)
         .map((l) => (l.lastContactedAt!.getTime() - l.createdAt.getTime()) / 36e5);
       const avgResponseTimeHours = responseTimes.length > 0 ? Math.round((responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) * 10) / 10 : null;
-      const openLeadAges = e.assignedLeads
+      const openLeadAges = employeeLeads
         .filter((l) => !["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"].includes(l.status))
         .map((l) => (now.getTime() - l.createdAt.getTime()) / 864e5);
       const avgLeadAgeDays = openLeadAges.length > 0 ? Math.round((openLeadAges.reduce((a, b) => a + b, 0) / openLeadAges.length) * 10) / 10 : 0;
 
       return {
-        id: e.id,
-        name: e.name,
-        assignedLeads: leadIds.length,
+        id: employee.id,
+        name: employee.name,
+        assignedLeads: employeeLeads.length,
         contacted,
-        followUps,
-        visits,
+        followUps: followUpsByEmployee.get(employee.id) ?? 0,
+        visits: visitsByEmployee.get(employee.id) ?? 0,
         dealsClosed,
-        brokerageGenerated: brokerage._sum.employeeIncentiveAmount ?? 0,
+        brokerageGenerated: brokerageByEmployee.get(employee.id) ?? 0,
         avgResponseTimeHours,
         avgLeadAgeDays,
       };
-    })
-  );
+    });
 
   return rankEmployees(rows);
 }
