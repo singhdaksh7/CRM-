@@ -43,8 +43,12 @@ export function PerformanceDiagnosticClient({ previewDeployment, variant = "expe
   async function run() {
     setRunning(true); setError(null); setResults([]); setRouteResults({});
     try {
-      const next = await Promise.all(TARGETS.map(async (name) => ({ name, samples: await samples(10, () => benchmark(name)) })));
-      const routes = Object.fromEntries(await Promise.all(ROUTES.map(async (path) => [path, await samples(3, () => routeSample(path))])));
+      // Keep measurement groups serial: concurrent dashboard loaders would
+      // otherwise distort the database baseline and route timings.
+      const next: Row[] = [];
+      for (const name of TARGETS) next.push({ name, samples: await samples(10, () => benchmark(name)) });
+      const routes: Record<string, number[]> = {};
+      for (const path of ROUTES) routes[path] = await samples(3, () => routeSample(path));
       setResults(next); setRouteResults(routes);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Deep benchmark failed"); }
     finally { setRunning(false); }
