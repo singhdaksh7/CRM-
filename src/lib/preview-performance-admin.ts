@@ -1,4 +1,3 @@
-import "server-only";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
