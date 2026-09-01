@@ -8,13 +8,27 @@ import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
 import { shouldRematchProperty } from "@/lib/property-rematch";
 import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
+import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
+import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
+import { resolveOrCreatePropertyLocality } from "@/lib/property-locality";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
     const { id } = await params;
-    const property = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user) } });
+    const organizationId = getOrganizationId(session.user);
+    const property = await prisma.property.findFirst({ where: { id, organizationId }, include: { partner: true } });
     if (!property) throw new ApiError(404, "Property not found");
+
+    // A FIELD_EXECUTIVE never receives the raw row: internal notes, exact
+    // address, GPS, and owner/partner contact are redacted unless they have
+    // a legitimate assigned-visit or assigned-lead-catalogue reason to see
+    // them. ADMIN/DATA_MANAGER keep full access, unchanged.
+    if (session.user.role === "FIELD_EXECUTIVE") {
+      const hasFieldAccess = await fieldExecutiveHasPropertyAccess(id, session.user.id, organizationId);
+      return NextResponse.json({ property: toFieldExecutivePropertyDTO(property, hasFieldAccess) });
+    }
+
     return NextResponse.json({ property });
   } catch (err) {
     return handleApiError(err);
@@ -27,12 +41,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
     const { amenities, images, availableFrom, ...data } = propertySchema.partial().parse(body);
-    const existing = await prisma.property.findFirst({ where: { id, organizationId: getOrganizationId(session.user) } });
+    const patchOrganizationId = getOrganizationId(session.user);
+    const existing = await prisma.property.findFirst({ where: { id, organizationId: patchOrganizationId } });
     if (!existing) throw new ApiError(404, "Property not found");
+
+    // A8 - keep the reusable locality list in sync when the area text
+    // actually changes; unchanged otherwise (avoids a needless lookup on
+    // every unrelated edit).
+    const localityId = data.area !== undefined && data.area !== existing.area ? await resolveOrCreatePropertyLocality(patchOrganizationId, data.area, session.user.id) : undefined;
+
     const property = await prisma.property.update({
       where: { id },
       data: {
         ...data,
+        ...(localityId !== undefined ? { localityId } : {}),
         ...(amenities ? { amenities: JSON.stringify(amenities) } : {}),
         ...(images ? { images: JSON.stringify(images) } : {}),
         // Phase 4 - photo-freshness signal for property health, distinct from

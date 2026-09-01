@@ -31,9 +31,11 @@ type Employee = { id: string; name: string };
 export function VisitScheduleWithCandidates({
   leadId,
   employees,
+  preselectedPropertyId,
 }: {
   leadId: string;
   employees: Employee[];
+  preselectedPropertyId?: string | null;
 }) {
   const router = useRouter();
   const [liked, setLiked] = useState<Candidate[]>([]);
@@ -58,11 +60,15 @@ export function VisitScheduleWithCandidates({
         setShared(data.shared ?? []);
         setManual(data.manual ?? []);
         // Available liked properties are suggested but not forced.
-        setSelected((data.liked ?? []).filter((c: Candidate) => c.available).map((c: Candidate) => c.propertyId));
+        let defaultSelected = (data.liked ?? []).filter((c: Candidate) => c.available).map((c: Candidate) => c.propertyId);
+        if (preselectedPropertyId && !defaultSelected.includes(preselectedPropertyId)) {
+          defaultSelected = [...defaultSelected, preselectedPropertyId];
+        }
+        setSelected(defaultSelected);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, [leadId]);
+  }, [leadId, preselectedPropertyId]);
 
   function toggle(id: string, available: boolean) {
     if (!available) return;

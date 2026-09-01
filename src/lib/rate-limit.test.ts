@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const counters = new Map<string, number>();
+let lastConstructorOptions: Record<string, unknown> | undefined;
 
 vi.mock("ioredis", () => {
   class FakeRedis {
+    constructor(_url: string, options: Record<string, unknown>) {
+      lastConstructorOptions = options;
+    }
     on() {}
     async incr(key: string) {
       const next = (counters.get(key) ?? 0) + 1;
@@ -31,6 +35,19 @@ beforeEach(() => {
 afterEach(() => {
   if (savedRedisUrl === undefined) delete process.env.REDIS_URL;
   else process.env.REDIS_URL = savedRedisUrl;
+});
+
+describe("Redis client bounded latency", () => {
+  it("configures a bounded connect and command timeout so a slow/unreachable Redis fails fast on cold serverless instances", async () => {
+    const { checkRateLimit } = await import("./rate-limit");
+    await checkRateLimit("login", "probe-connection-config");
+    expect(lastConstructorOptions?.connectTimeout).toBeTypeOf("number");
+    expect(lastConstructorOptions?.connectTimeout as number).toBeGreaterThan(0);
+    expect(lastConstructorOptions?.connectTimeout as number).toBeLessThanOrEqual(2000);
+    expect(lastConstructorOptions?.commandTimeout).toBeTypeOf("number");
+    expect(lastConstructorOptions?.commandTimeout as number).toBeGreaterThan(0);
+    expect(lastConstructorOptions?.commandTimeout as number).toBeLessThanOrEqual(2000);
+  });
 });
 
 describe("checkMapsQuota", () => {

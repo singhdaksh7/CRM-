@@ -175,6 +175,23 @@ describe("buildContentSecurityPolicy", () => {
     expect(csp.split("; ").every((d) => d.length > 0 && !d.includes("undefined"))).toBe(true);
   });
 
+  it("never relaxes script-src when NODE_ENV is production, even alongside other env noise", () => {
+    const csp = buildContentSecurityPolicy({ ...PROD_ENV, NODE_ENV: "production" });
+    expect(csp).toContain("script-src 'self' 'unsafe-inline'");
+    expect(csp).not.toContain("unsafe-eval");
+  });
+
+  it("keeps the strict policy for any NODE_ENV other than exactly 'development' (undefined, 'test', 'staging', ...)", () => {
+    expect(buildContentSecurityPolicy({})).not.toContain("unsafe-eval");
+    expect(buildContentSecurityPolicy({ NODE_ENV: "test" })).not.toContain("unsafe-eval");
+    expect(buildContentSecurityPolicy({ NODE_ENV: "staging" })).not.toContain("unsafe-eval");
+  });
+
+  it("adds 'unsafe-eval' to script-src only under NODE_ENV=development, for next dev's Fast Refresh eval()", () => {
+    const csp = buildContentSecurityPolicy({ NODE_ENV: "development" });
+    expect(csp).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval'");
+  });
+
   it("does not emit a broken directive when endpoint is malicious", () => {
     const csp = buildContentSecurityPolicy({
       STORAGE_PROVIDER: "R2",

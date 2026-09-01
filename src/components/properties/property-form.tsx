@@ -290,8 +290,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
               ))}
             </Select>
           </Field>
-          <Field label="Asset Class" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
-          <Field label="Listing Type" required>
+          <Field label="Property Category" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
+          <Field label="Available For" required>
             <Select {...register("listingType")}>
               <option value="RENT">Rent</option>
               <option value="SALE">Sale</option>

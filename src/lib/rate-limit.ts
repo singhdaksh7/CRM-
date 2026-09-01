@@ -22,7 +22,18 @@ function getClient(): Redis | null {
     client = null;
     return null;
   }
-  client = new Redis(url, { maxRetriesPerRequest: 1, lazyConnect: false, enableOfflineQueue: true });
+  // Bounded connect/command timeouts so a slow or unreachable Redis fails
+  // fast on a cold serverless instance instead of stalling the request for
+  // ioredis's 10s default connectTimeout - checkRateLimit's catch below
+  // fails open on any of these errors, so the route is never blocked on
+  // Redis, only briefly slowed.
+  client = new Redis(url, {
+    maxRetriesPerRequest: 1,
+    lazyConnect: false,
+    enableOfflineQueue: true,
+    connectTimeout: 1500,
+    commandTimeout: 750,
+  });
   client.on("error", (err) => console.error(JSON.stringify({ level: "error", event: "redis_error", message: err.message })));
   return client;
 }

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { getOrganizationId } from "@/lib/organization";
 import { recordAudit } from "@/lib/audit";
+import { autoAssignLead } from "@/lib/assignment";
+import { logger } from "@/lib/logger";
 
 // POST /api/customers/requirements/[id]/convert-to-lead - [Create Lead from
 // Requirement] (rule 4). Copies the requirement into a new Lead, links both
@@ -61,6 +63,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     await recordAudit({ userId: session.user.id, action: "CREATE", entityType: "Lead", entityId: lead.id, newValues: { fromRequirementId: requirement.id, customerContactId: contact.id } });
+
+    // A6 - consistent assignment: a Demand Pool conversion is a genuinely
+    // new Lead, so it enters the SAME assignment orchestration a manually
+    // created lead does (POST /api/leads) rather than being left unassigned
+    // by omission. Best-effort - the lead is already created and committed;
+    // an assignment failure must not fail this request.
+    try {
+      await autoAssignLead(lead.id, organizationId);
+    } catch (err) {
+      logger.error("demand_pool_lead_auto_assign_failed", { leadId: lead.id, message: err instanceof Error ? err.message : String(err) });
+    }
+
     return NextResponse.json({ lead, alreadyConverted: false }, { status: 201 });
   } catch (err) {
     return handleApiError(err);

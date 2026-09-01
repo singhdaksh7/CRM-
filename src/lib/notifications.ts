@@ -557,7 +557,10 @@ function getSweepLockClient(): Redis | null {
     sweepLockClient = null;
     return null;
   }
-  sweepLockClient = new Redis(url, { maxRetriesPerRequest: 1 });
+  // See src/lib/rate-limit.ts for why connectTimeout/commandTimeout are
+  // bounded - same root cause, applies here too even though the sweep runs
+  // via after() and doesn't block the response.
+  sweepLockClient = new Redis(url, { maxRetriesPerRequest: 1, connectTimeout: 1500, commandTimeout: 750 });
   sweepLockClient.on("error", (err) => logger.error("redis_sweep_lock_error", { message: err.message }));
   return sweepLockClient;
 }

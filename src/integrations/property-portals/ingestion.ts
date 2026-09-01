@@ -2,6 +2,8 @@ import "server-only";
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
+import { autoAssignLead } from "@/lib/assignment";
+import { logger } from "@/lib/logger";
 import type { PropertyPortalProviderId } from "./registry";
 
 export type CanonicalPortalLead = { externalLeadId?: string; externalEventId?: string; externalListingId?: string; name: string; phone?: string; email?: string; locality: string; minBudget: number; maxBudget: number; assetClass: "RESIDENTIAL" | "COMMERCIAL"; transactionType: "RENT" | "SALE"; bhk?: number; commercialPropertyType?: string; message?: string; minAreaSqft?: number; maxAreaSqft?: number };
@@ -44,5 +46,19 @@ export async function ingestPortalLead(organizationId: string, provider: Propert
   if (resolution !== "NEW") return { status: resolution, event, candidates: deduped };
   const lead = await prisma.lead.create({ data: { organizationId, leadCode: `LEAD-PORTAL-${Date.now()}`, clientName: input.name, phone: phone ?? "UNVERIFIED-PORTAL", email: input.email ?? null, source: leadSource(provider), externalLeadId: input.externalLeadId ?? null, externalListingId: input.externalListingId ?? null, portalProvider: provider, rawPayloadHash, receivedAt: new Date(), requirementType: input.transactionType === "RENT" ? "RENT" : "BUY", transactionType: input.transactionType, assetClass: input.assetClass, preferredLocation: input.locality, minBudget: input.minBudget, maxBudget: input.maxBudget, preferredBhk: input.assetClass === "RESIDENTIAL" ? input.bhk ?? null : null, commercialPropertyType: input.assetClass === "COMMERCIAL" ? input.commercialPropertyType as never : null, minAreaSqft: input.minAreaSqft ?? null, maxAreaSqft: input.maxAreaSqft ?? null, customerContactId: existingContact?.id ?? null } });
   await prisma.externalLeadEvent.update({ where: { id: event.id }, data: { leadId: lead.id, ingestionStatus: "RECEIVED" } });
+
+  // A6 - consistent assignment: every genuinely NEW lead enters the SAME
+  // assignment orchestration as a manually-created one (POST /api/leads),
+  // not a second algorithm. Best-effort: a webhook delivery must still
+  // succeed (and not be retried/dead-lettered) even if assignment fails -
+  // a lead that fails to auto-assign is simply left unassigned, exactly
+  // like any other lead with no eligible/available field executive, and
+  // is discoverable through the existing "unassigned leads" views.
+  try {
+    await autoAssignLead(lead.id, organizationId);
+  } catch (err) {
+    logger.error("portal_lead_auto_assign_failed", { leadId: lead.id, provider, message: err instanceof Error ? err.message : String(err) });
+  }
+
   return { status: "NEW" as const, lead, event: { ...event, leadId: lead.id, ingestionStatus: "RECEIVED" } };
 }

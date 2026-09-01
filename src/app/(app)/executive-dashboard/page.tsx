@@ -6,6 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { TodaysPrioritiesList } from "@/components/dashboard/todays-priorities-list";
 import { PhoneCall, CalendarClock, BellRing } from "lucide-react";
 import type { Role } from "@prisma/client";
+import { startOfIstDay } from "@/lib/ist-date";
+import { formatDate, enumToLabel } from "@/lib/utils";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 
 /**
  * simplified-role-workflow (continuation pass, spec item 2/3) - "Today's
@@ -44,7 +48,43 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
     viewingOther = true;
   }
 
-  const todaysWork = await getTodaysWork(organizationId, { id: targetUserId, role: targetRole });
+  const todayStart = startOfIstDay(new Date());
+
+  const [todaysWork, upcomingVisits, recentlyCompletedVisits] = await Promise.all([
+    getTodaysWork(organizationId, { id: targetUserId, role: targetRole }),
+    prisma.visit.findMany({
+      where: {
+        organizationId,
+        assignedToId: targetUserId,
+        status: { in: ["SCHEDULED", "CONFIRMED", "IN_PROGRESS", "CLIENT_REACHED", "EMPLOYEE_REACHED"] },
+        visitDate: { gte: todayStart },
+      },
+      include: {
+        lead: { select: { id: true, clientName: true, phone: true, leadCode: true } },
+        properties: { include: { property: true } },
+      },
+      orderBy: [
+        { visitDate: "asc" },
+        { visitTime: "asc" },
+      ],
+      take: 1,
+    }),
+    prisma.visit.findMany({
+      where: {
+        organizationId,
+        assignedToId: targetUserId,
+        status: "COMPLETED",
+      },
+      include: {
+        lead: { select: { id: true, clientName: true, phone: true, leadCode: true } },
+        properties: { include: { property: true } },
+      },
+      orderBy: { visitDate: "desc" },
+      take: 3,
+    }),
+  ]);
+
+  const nextVisit = upcomingVisits[0] ?? null;
   const visitItems = todaysWork.items.filter((i) => i.kind === "VISIT_TODAY");
   const nonVisitItems = todaysWork.items.filter((i) => i.kind !== "VISIT_TODAY");
   const followUpsTodayCount = todaysWork.callToday + todaysWork.whatsappToday + todaysWork.visitExpectedToday + todaysWork.generalToday;
@@ -65,6 +105,47 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
         <CountTile label="Overdue" value={todaysWork.overdue} icon={BellRing} tone="red" />
       </div>
 
+      {/* B2/B9 FE Experience: Next Visit prominent card */}
+      {nextVisit && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/30 p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[#3366FF]">Next Visit</h2>
+            <Badge tone="blue">Scheduled</Badge>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-base font-bold text-[#1B2430]">
+                {nextVisit.visitTime} &middot; {nextVisit.lead.clientName}
+                <span className="ml-2 font-mono text-xs font-normal text-slate-500">({nextVisit.lead.leadCode})</span>
+              </p>
+              <p className="text-xs text-slate-600 mt-1">
+                Date: {formatDate(nextVisit.visitDate)}
+                {nextVisit.meetingLocation ? ` · Meeting point: ${nextVisit.meetingLocation}` : ""}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Properties to show ({nextVisit.properties.length}): {nextVisit.properties.map(p => p.property.title).join(", ")}
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              {nextVisit.lead.phone && (
+                <a
+                  href={`tel:${nextVisit.lead.phone}`}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-xs hover:bg-[#F3F6FA] transition-colors"
+                >
+                  <PhoneCall className="h-3.5 w-3.5" /> Call Customer
+                </a>
+              )}
+              <Link
+                href={`/visits/${nextVisit.id}`}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#3366FF] px-3.5 text-xs font-semibold text-white shadow-xs hover:bg-[#2952CC] transition-colors"
+              >
+                Open Visit &rarr;
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Today's Visits - dashboard-card style, non-blocking (spec item 13:
           a card, never a forced modal). */}
       <div>
@@ -74,7 +155,7 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {visitItems.map((v) => (
-              <a key={v.id} href={`/visits/${v.id}`} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs hover:border-[#3366FF] transition-colors">
+              <Link key={v.id} href={`/visits/${v.id}`} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs hover:border-[#3366FF] transition-colors">
                 <p className="text-sm font-bold text-[#1B2430]">{v.visitTime} &middot; {v.leadName}</p>
                 <p className="mt-1 text-xs text-[#596579]">
                   {v.propertyCount} {v.propertyCount === 1 ? "property" : "properties"}
@@ -82,7 +163,7 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
                   {viewingOther && v.ownerName ? ` · ${v.ownerName}` : ""}
                 </p>
                 <span className="mt-2 inline-block text-xs font-semibold text-[#3366FF]">Open Visit &rarr;</span>
-              </a>
+              </Link>
             ))}
           </div>
         )}
@@ -93,6 +174,27 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
       <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Follow-ups Today &amp; Overdue</h2>
         <TodaysPrioritiesList items={nonVisitItems} />
+      </div>
+
+      {/* B2/B9 FE Experience: Recently Completed Visits */}
+      <div>
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Recently Completed Visits</h2>
+        {recentlyCompletedVisits.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-[#E7ECF2] bg-white p-6 text-center text-sm text-[#8A94A6]">No completed visits recently.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {recentlyCompletedVisits.map((v) => (
+              <Link key={v.id} href={`/visits/${v.id}`} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs hover:border-[#3366FF] transition-colors">
+                <p className="text-sm font-bold text-[#1B2430]">{formatDate(v.visitDate)} at {v.visitTime}</p>
+                <p className="mt-0.5 text-xs text-slate-700">Client: {v.lead.clientName}</p>
+                <p className="mt-1 text-xs text-[#596579]">
+                  Outcome: <span className="font-semibold text-green-600">{v.outcome ? enumToLabel(v.outcome) : "No outcome recorded"}</span>
+                </p>
+                <span className="mt-2 inline-block text-xs font-semibold text-[#3366FF]">Open Details &rarr;</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

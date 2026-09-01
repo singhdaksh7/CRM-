@@ -37,10 +37,12 @@ export function ClientPreferencesPanel({
   liked,
   notInterested,
   catalogueSummaries,
+  onScheduleVisit,
 }: {
   liked: PreferenceCard[];
   notInterested: PreferenceCard[];
   catalogueSummaries: CatalogueResponseSummary[];
+  onScheduleVisit?: (propertyId: string) => void;
 }) {
   if (liked.length === 0 && notInterested.length === 0 && catalogueSummaries.length === 0) {
     return null;
@@ -48,7 +50,7 @@ export function ClientPreferencesPanel({
 
   return (
     <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Client Preferences</h3>
+      <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Client Feedback</h3>
 
       {catalogueSummaries.length > 0 && (
         <div className="space-y-2">
@@ -64,7 +66,7 @@ export function ClientPreferencesPanel({
       )}
 
       {liked.length > 0 && (
-        <PreferenceGroup title="Liked" icon={<Heart className="h-3.5 w-3.5 text-[#E5484D]" />} items={liked} liked />
+        <PreferenceGroup title="Liked" icon={<Heart className="h-3.5 w-3.5 text-[#E5484D]" />} items={liked} liked onScheduleVisit={onScheduleVisit} />
       )}
       {notInterested.length > 0 && (
         <PreferenceGroup title="Not Interested" icon={<ThumbsDown className="h-3.5 w-3.5 text-[#8A94A6]" />} items={notInterested} />
@@ -78,11 +80,13 @@ function PreferenceGroup({
   icon,
   items,
   liked,
+  onScheduleVisit,
 }: {
   title: string;
   icon: React.ReactNode;
   items: PreferenceCard[];
   liked?: boolean;
+  onScheduleVisit?: (propertyId: string) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -115,9 +119,20 @@ function PreferenceGroup({
                   {!item.available && " · Unavailable"}
                 </p>
               </div>
-              <Link href={`/properties/${item.property.id}`} className="inline-flex shrink-0 items-center gap-1 self-center text-xs font-semibold text-[#3366FF]">
-                <ExternalLink className="h-3.5 w-3.5" /> Open
-              </Link>
+              <div className="flex flex-col gap-2 justify-center items-end shrink-0">
+                <Link href={`/properties/${item.property.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:underline">
+                  <ExternalLink className="h-3.5 w-3.5" /> Open
+                </Link>
+                {liked && onScheduleVisit && item.available && (
+                  <button
+                    type="button"
+                    onClick={() => onScheduleVisit(item.property.id)}
+                    className="inline-flex items-center gap-1 rounded-xl bg-[#3366FF] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#2952CC] transition-colors shadow-xs"
+                  >
+                    Schedule Visit
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}

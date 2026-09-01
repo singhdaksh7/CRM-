@@ -5,15 +5,13 @@ import { formatINR, enumToLabel } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { getCoverImageUrls, getPublicOrderedImageUrls } from "@/lib/property-images";
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage";
+import { PUBLIC_PROPERTY_SELECT } from "@/lib/public-property-select";
 import { Building, MapPin, BedDouble, Bath, Ruler, Phone, CalendarCheck, FileText } from "lucide-react";
 
-/**
- * Public, unauthenticated property page for WhatsApp sharing.
- * Deliberately excludes owner name/phone/notes/KYC/private documents.
- */
+/** Public, unauthenticated property page for WhatsApp sharing. See public-property-select.ts for the data-boundary privacy contract. */
 export default async function PublicPropertyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const property = await prisma.property.findUnique({ where: { id } });
+  const property = await prisma.property.findUnique({ where: { id }, select: PUBLIC_PROPERTY_SELECT });
   if (!property) notFound();
 
   // Public, unauthenticated page - there is no session to resolve a tenant
@@ -23,6 +21,13 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
   // every subsequent org-scoped lookup below must use ITS organizationId,
   // never a session-derived or default one).
   const organizationId = property.organizationId;
+  // Multi-tenant branding (Phase A / A3) - every organization's customers
+  // must see THAT organization's name/phone/logo, never a different
+  // tenant's hardcoded brand baked into this shared page.
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { name: true, phone: true, logoUrl: true },
+  });
   let coverImage = property.coverImage;
   let gallery: string[] = [];
   let publicDocs: { id: string; fileName: string; url: string }[] = [];
@@ -67,14 +72,22 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
-  const contactPhone = "+919811100002";
-  const whatsappHref = `https://wa.me/${contactPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi, I'm interested in ${property.title} (${property.propertyCode}).`)}`;
+  const brandName = organization?.name || "Property Listing";
+  const contactPhone = organization?.phone ?? null;
+  const whatsappHref = contactPhone
+    ? `https://wa.me/${contactPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi, I'm interested in ${property.title} (${property.propertyCode}).`)}`
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-8">
-        <Building className="h-5 w-5 text-indigo-600" />
-        <span className="text-sm font-semibold text-slate-800">KP Properties</span>
+        {organization?.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- org-supplied external URL, not an optimizable local/known-host asset
+          <img src={organization.logoUrl} alt={brandName} className="h-6 w-auto" />
+        ) : (
+          <Building className="h-5 w-5 text-indigo-600" />
+        )}
+        <span className="text-sm font-semibold text-slate-800">{brandName}</span>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
@@ -152,14 +165,16 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
             </div>
           )}
 
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-            <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500">
-              <Phone className="h-4 w-4" /> Contact via WhatsApp
-            </a>
-            <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
-              <CalendarCheck className="h-4 w-4" /> Request a Visit
-            </a>
-          </div>
+          {whatsappHref && (
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+              <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500">
+                <Phone className="h-4 w-4" /> Contact via WhatsApp
+              </a>
+              <a href={whatsappHref} target="_blank" rel="noreferrer" className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
+                <CalendarCheck className="h-4 w-4" /> Request a Visit
+              </a>
+            </div>
+          )}
         </div>
       </main>
     </div>

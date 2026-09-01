@@ -14,6 +14,7 @@ import { RATING_DESCRIPTIONS } from "@/lib/visit-progress";
 import { HUMAN_FOLLOWUP_TYPES } from "@/lib/follow-up-types";
 import type { VisitDetailDTO, VisitDetailProperty } from "@/lib/visit-detail-dto";
 import type { FollowUpType } from "@prisma/client";
+import { CaptureLocationButton } from "@/components/properties/capture-location-button";
 
 /**
  * The Field Executive's on-site workflow, in one client component.
@@ -261,6 +262,7 @@ function PropertyCard({
               <Phone className="h-4 w-4" /> Call
             </a>
           )}
+          <CaptureLocationButton propertyId={property.propertyId} />
         </div>
 
         {!locked && (

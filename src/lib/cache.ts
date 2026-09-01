@@ -20,7 +20,16 @@ function getClient(): Redis | null {
     client = null;
     return null;
   }
-  client = new Redis(url, { maxRetriesPerRequest: 1, lazyConnect: false, enableOfflineQueue: true });
+  // See src/lib/rate-limit.ts for why connectTimeout/commandTimeout are
+  // bounded - same fix, same root cause (ioredis's 10s default connectTimeout
+  // stalls cold serverless requests when Redis is slow/unreachable).
+  client = new Redis(url, {
+    maxRetriesPerRequest: 1,
+    lazyConnect: false,
+    enableOfflineQueue: true,
+    connectTimeout: 1500,
+    commandTimeout: 750,
+  });
   client.on("error", (err) => logger.error("redis_cache_error", { message: err.message }));
   return client;
 }
@@ -45,6 +54,11 @@ export async function cached<T>(key: string, ttlSeconds: number, compute: () => 
   }
 
   return value;
+}
+
+/** Test-only: forces the next getClient() call to re-read REDIS_URL. */
+export function _resetCacheClientForTests(): void {
+  client = undefined;
 }
 
 /** Deletes every cached key starting with `prefix` - call after a write that makes cached data stale. Uses SCAN (not KEYS) so it never blocks Redis. */

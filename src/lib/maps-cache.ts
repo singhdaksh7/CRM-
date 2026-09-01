@@ -20,7 +20,16 @@ function getClient(): Redis | null {
     client = null;
     return null;
   }
-  client = new Redis(url, { maxRetriesPerRequest: 1, lazyConnect: false, enableOfflineQueue: true });
+  // See src/lib/rate-limit.ts for why connectTimeout/commandTimeout are
+  // bounded - same fix, same root cause (ioredis's 10s default connectTimeout
+  // stalls cold serverless requests when Redis is slow/unreachable).
+  client = new Redis(url, {
+    maxRetriesPerRequest: 1,
+    lazyConnect: false,
+    enableOfflineQueue: true,
+    connectTimeout: 1500,
+    commandTimeout: 750,
+  });
   client.on("error", (err) => logger.error("maps_cache_redis_error", { message: err.message }));
   return client;
 }

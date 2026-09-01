@@ -3,6 +3,13 @@ import { prisma } from "./prisma";
 import { ApiError } from "./api-auth";
 import { getCoverImageUrls } from "./property-images";
 import { logActivity } from "./activity";
+import { createNotification, notifyRoles } from "./notifications";
+
+// A client browsing a catalogue can like/skip several properties within
+// seconds - one notification per click would spam the responsible employee.
+// Instead: at most one "client responded" notification per lead within this
+// window, aggregating however many properties they've reacted to so far.
+const PREFERENCE_NOTIFICATION_IDEMPOTENCY_WINDOW_MS = 10 * 60 * 1000;
 
 export type PreferenceStatus = CataloguePropertyPreferenceStatus;
 
@@ -37,7 +44,10 @@ export interface UpsertCataloguePreferenceInput {
  *   rows still accepted so a client can update preference on a previously seen item)
  * - never trusts organizationId from the request body
  * - idempotent on same status; allows LIKED <-> NOT_INTERESTED
- * - does NOT create per-click employee notifications (aggregate summaries instead)
+ * - notifies the responsible employee that the client responded, but at
+ *   most once per PREFERENCE_NOTIFICATION_IDEMPOTENCY_WINDOW_MS per lead -
+ *   a client clicking through ten properties in a minute produces one
+ *   notification, not ten (see maybeNotifyBrokerOfPreferenceResponse)
  */
 export async function upsertCataloguePropertyPreference(input: UpsertCataloguePreferenceInput) {
   const catalogue = await prisma.catalogueShare.findUnique({
@@ -49,7 +59,7 @@ export async function upsertCataloguePropertyPreference(input: UpsertCataloguePr
       status: true,
       expiresAt: true,
       title: true,
-      lead: { select: { id: true, clientName: true } },
+      lead: { select: { id: true, clientName: true, assignedToId: true } },
     },
   });
   if (!catalogue) throw new ApiError(404, "Catalogue not found");
@@ -102,16 +112,65 @@ export async function upsertCataloguePropertyPreference(input: UpsertCataloguePr
     },
   });
 
+  const activityType = input.status === "LIKED" ? "PROPERTY_INTERESTED" : "PROPERTY_NOT_INTERESTED";
   await logActivity({
     leadId: catalogue.leadId,
-    type: input.status === "LIKED" ? "PROPERTY_INTERESTED" : "PROPERTY_NOT_INTERESTED",
+    type: activityType,
     description:
       input.status === "LIKED"
         ? `Client liked property ${property.propertyCode} on catalogue "${catalogue.title}".`
         : `Client marked property ${property.propertyCode} as not interested on catalogue "${catalogue.title}".`,
   });
 
+  await maybeNotifyBrokerOfPreferenceResponse(catalogue.organizationId, catalogue.leadId, catalogue.lead.clientName, catalogue.lead.assignedToId, activityType);
+
   return preference;
+}
+
+/**
+ * Debounced "client responded" alert - reuses the same
+ * notifyRoles/createNotification pattern as lead-matching.ts and
+ * match-recommendations.ts. Never sends anything to the customer; this is
+ * purely an internal signal that "this client responded to shared
+ * properties," not a per-property blow-by-blow.
+ */
+async function maybeNotifyBrokerOfPreferenceResponse(
+  organizationId: string,
+  leadId: string,
+  clientName: string,
+  assignedToId: string | null,
+  type: "PROPERTY_INTERESTED" | "PROPERTY_NOT_INTERESTED"
+) {
+  const since = new Date(Date.now() - PREFERENCE_NOTIFICATION_IDEMPOTENCY_WINDOW_MS);
+  const recent = await prisma.notification.findFirst({
+    where: {
+      leadId,
+      type: { in: ["PROPERTY_INTERESTED", "PROPERTY_NOT_INTERESTED"] },
+      createdAt: { gte: since },
+    },
+  });
+  if (recent) return;
+
+  const title = "Client responded to shared properties";
+  const message = `${clientName} responded to the properties you shared.`;
+
+  await notifyRoles(["ADMIN", "DATA_MANAGER"], {
+    organizationId,
+    type,
+    title,
+    message,
+    leadId,
+  });
+  if (assignedToId) {
+    await createNotification({
+      organizationId,
+      userId: assignedToId,
+      type,
+      title,
+      message,
+      leadId,
+    });
+  }
 }
 
 export async function getCataloguePreferencesByToken(token: string) {

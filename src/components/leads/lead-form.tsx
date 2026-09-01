@@ -116,13 +116,13 @@ export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-slate-800">Requirement</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Requirement Type" required>
+          <Field label="Rent / Sale" required>
             <Select {...register("transactionType")}>
               <option value="RENT">Rent</option>
               <option value="SALE">Sale</option>
             </Select>
           </Field>
-          <Field label="Asset Class" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
+          <Field label="Property Category" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
           <Field label="Preferred Location" required>
             <Select {...register("preferredLocation")}>
               {AREAS.map((a) => (<option key={a} value={a}>{a}</option>))}
