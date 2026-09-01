@@ -1,5 +1,3 @@
-import "server-only";
-
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export type DiagnosticMetric = { duration: number; calls: number; parallel: boolean };
