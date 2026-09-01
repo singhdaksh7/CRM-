@@ -14,6 +14,7 @@
     "seed:demo:dry-run": "tsx scripts/seed-demo-dry-run.ts",
     "seed:demo:verify": "tsx scripts/seed-demo-verify.ts",
     "seed:remove": "tsx scripts/remove-demo.ts",
+    "perf:sync-preview-admin": "tsx scripts/sync-preview-performance-admin.ts",
     "bootstrap:production": "tsx scripts/bootstrap-admin.ts",
     "test": "vitest run",
     "test:e2e:seed": "tsx tests/e2e/setup/seed-qa.ts",
