@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { checkRateLimit, clientIp } from "./rate-limit";
 import { verifyCredentials } from "./credential-auth";
 import { getSessionAuthState, isSessionStillValid } from "./session-guard";
+import { withSynchronousTiming, withTiming } from "./perf";
 import type { Role } from "@prisma/client";
 
 declare module "next-auth" {
@@ -74,22 +75,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.organizationId = (user as { organizationId: string }).organizationId;
         return token;
       }
-      if (typeof token.id !== "string") return null;
-      const state = await getSessionAuthState(token.id);
-      if (!isSessionStillValid(state, token.authVersion)) return null;
-      // Role AND organization changes made by an admin take effect on the
-      // next request too - this is the same per-request DB check that
-      // already re-verifies role/authVersion, so re-deriving organizationId
-      // here costs nothing extra (one indexed lookup, not a new query).
-      token.role = state!.role;
-      token.organizationId = state!.organizationId;
-      return token;
+      return withTiming("auth.jwt", "auth", async () => {
+        const userId = token.id;
+        if (typeof userId !== "string") return null;
+        const state = await withTiming("auth.jwt.db", "auth", () => getSessionAuthState(userId));
+        if (!isSessionStillValid(state, token.authVersion)) return null;
+        // Role AND organization changes made by an admin take effect on the
+        // next request too - this is the same per-request DB check that
+        // already re-verifies role/authVersion, so re-deriving organizationId
+        // here costs nothing extra (one indexed lookup, not a new query).
+        token.role = state!.role;
+        token.organizationId = state!.organizationId;
+        return token;
+      });
     },
     session({ session, token }) {
-      session.user.id = token.id as string;
-      session.user.role = token.role as Role;
-      session.user.organizationId = token.organizationId as string;
-      return session;
+      return withSynchronousTiming("auth.session", "auth", () => {
+        session.user.id = token.id as string;
+        session.user.role = token.role as Role;
+        session.user.organizationId = token.organizationId as string;
+        return session;
+      });
     },
   },
 });

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { canAccess } from "@/lib/permissions";
+import { withTiming } from "@/lib/perf";
+import { performanceDiagnosticsEnabled } from "@/lib/performance-diagnostics";
 
-export default auth((req) => {
+const authenticatedProxy = auth((req) => {
   const { pathname } = req.nextUrl;
   const isPublic =
     pathname === "/login" ||
@@ -37,6 +39,12 @@ export default auth((req) => {
 
   if (isPublic) return NextResponse.next();
 
+  if (pathname.startsWith("/internal/performance") || pathname.startsWith("/api/internal/performance")) {
+    if (!performanceDiagnosticsEnabled() || !req.auth || req.auth.user.role !== "ADMIN") {
+      return new NextResponse(null, { status: 404 });
+    }
+  }
+
   if (!req.auth) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     return NextResponse.redirect(loginUrl);
@@ -59,6 +67,17 @@ export default auth((req) => {
 
   return NextResponse.next();
 });
+
+/**
+ * Temporary performance instrumentation. This measures the complete Auth.js
+ * wrapper in proxy without inspecting session or request contents.
+ */
+export default async function proxy(
+  req: Parameters<typeof authenticatedProxy>[0],
+  event: Parameters<typeof authenticatedProxy>[1]
+) {
+  return withTiming("auth.proxy", "proxy", async () => await authenticatedProxy(req, event));
+}
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],

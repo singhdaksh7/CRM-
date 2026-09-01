@@ -12,7 +12,7 @@ import { logger } from "@/lib/logger";
 const LAZY_SWEEP_THROTTLE_SECONDS = 600; // at most once every 10 minutes
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await withTiming("auth", "(app)/layout", () => auth());
+  const session = await withTiming("auth.layout", "(app)/layout", () => auth());
   if (!session) redirect("/login");
 
   const { role } = session.user;

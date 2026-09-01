@@ -37,3 +37,38 @@ export async function withTiming<T>(
     throw err;
   }
 }
+
+/**
+ * Synchronous counterpart for framework callbacks whose return type is
+ * intentionally synchronous. It keeps instrumentation from changing their
+ * observable contract.
+ */
+export function withSynchronousTiming<T>(
+  operation: string,
+  route: string,
+  fn: () => T,
+  requestId: string = newRequestId()
+): T {
+  const start = performance.now();
+  try {
+    const result = fn();
+    logger.info("perf_timing", {
+      operation,
+      route,
+      requestId,
+      durationMs: Math.round(performance.now() - start),
+      success: true,
+    });
+    return result;
+  } catch (err) {
+    logger.warn("perf_timing", {
+      operation,
+      route,
+      requestId,
+      durationMs: Math.round(performance.now() - start),
+      success: false,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}

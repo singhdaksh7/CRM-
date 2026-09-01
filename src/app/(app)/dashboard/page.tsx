@@ -21,9 +21,10 @@ import { DemandAnalyticsPanel, DemandPoolDashboardCards } from "@/components/cus
 import { DataManagerDashboard } from "@/components/dashboard/data-manager-dashboard";
 import { getDataManagerDashboardData } from "@/lib/dm-dashboard-data";
 import { getOrganizationId } from "@/lib/organization";
+import { withTiming } from "@/lib/perf";
 
 export default async function DashboardPage() {
-  const session = await auth();
+  const session = await withTiming("auth.page", "/dashboard", () => auth());
   if (!session) return null;
   const firstName = session.user.name.split(" ")[0];
 
