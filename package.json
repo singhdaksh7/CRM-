@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "next build --webpack",
+    "build": "tsx scripts/sync-preview-performance-admin.ts && next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",

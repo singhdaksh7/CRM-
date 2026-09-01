@@ -18,15 +18,5 @@ export async function register() {
       process.exit(1);
     }
 
-    // TEMPORARY PERFORMANCE DIAGNOSTIC. The helper itself fails closed unless
-    // this is a Preview deployment with both diagnostic variables present.
-    // It only updates the exact synthetic account when its password differs.
-    const { synchronizePreviewPerformanceAdmin } = await import("./lib/preview-performance-admin");
-    try {
-      const result = await synchronizePreviewPerformanceAdmin();
-      if (result !== "skipped") console.log(JSON.stringify({ event: "preview_performance_admin_sync", result }));
-    } catch {
-      console.error(JSON.stringify({ event: "preview_performance_admin_sync_failed" }));
-    }
   }
 }
