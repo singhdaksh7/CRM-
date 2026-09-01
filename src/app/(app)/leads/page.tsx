@@ -1,4 +1,4 @@
-import { getRscSession } from "@/lib/request-auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
@@ -14,7 +14,7 @@ import { Plus } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const session = await getRscSession();
+  const session = await auth();
   const sp = await searchParams;
   const organizationId = getOrganizationId(session!.user);
   const page = parsePage(sp.page);

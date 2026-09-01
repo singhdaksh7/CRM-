@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getRscSession } from "@/lib/request-auth";
+import { auth } from "@/lib/auth";
 import { getDashboardCriticalData, getDashboardSecondaryData } from "@/lib/dashboard-data";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { LeadsAwaitingShortlistPanel } from "@/components/dashboard/leads-awaiting-shortlist-panel";
@@ -24,7 +24,7 @@ import { getOrganizationId } from "@/lib/organization";
 import { withTiming } from "@/lib/perf";
 
 export default async function DashboardPage() {
-  const session = await withTiming("auth.page", "/dashboard", () => getRscSession());
+  const session = await withTiming("auth.page", "/dashboard", () => auth());
   if (!session) return null;
   const firstName = session.user.name.split(" ")[0];
 

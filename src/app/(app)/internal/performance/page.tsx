@@ -17,5 +17,5 @@ export default async function PerformanceDiagnosticPage() {
     notFound();
   }
 
-  return <PerformanceDiagnosticClient previewDeployment={process.env.VERCEL_URL ?? "Preview deployment"} />;
+  return <PerformanceDiagnosticClient previewDeployment={process.env.VERCEL_URL ?? "Preview deployment"} variant="baseline" />;
 }

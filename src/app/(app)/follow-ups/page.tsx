@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getRscSession } from "@/lib/request-auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AddFollowUpModal } from "@/components/followups/add-followup-modal";
 import { FollowUpRow } from "@/components/followups/followup-row";
@@ -13,7 +13,7 @@ import { assignedToSelect } from "@/lib/user-select";
 import type { Prisma } from "@prisma/client";
 
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const session = await getRscSession();
+  const session = await auth();
   const organizationId = getOrganizationId(session!.user);
   const sp = await searchParams;
   const bucket = sp.bucket ?? "today";

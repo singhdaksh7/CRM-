@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getRscSession } from "@/lib/request-auth";
+import { auth } from "@/lib/auth";
 import { PropertyFilters } from "@/components/properties/property-filters";
 import { PropertiesTable } from "@/components/properties/properties-table";
 import { SavedViewsBar } from "@/components/saved-views/saved-views-bar";
@@ -24,7 +24,7 @@ import type { Prisma, PropertyStatus } from "@prisma/client";
  * See More uses real server cursor pagination via `cursor` query param.
  */
 export default async function PropertiesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const session = await getRscSession();
+  const session = await auth();
   const organizationId = getOrganizationId(session!.user);
   const sp = await searchParams;
   const view = sp.view === "table" ? "table" : "card";

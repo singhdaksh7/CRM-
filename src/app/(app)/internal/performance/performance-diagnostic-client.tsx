@@ -25,7 +25,7 @@ async function routeSample(path: string) {
   await response.arrayBuffer(); return performance.now() - started;
 }
 
-export function PerformanceDiagnosticClient({ previewDeployment }: { previewDeployment: string }) {
+export function PerformanceDiagnosticClient({ previewDeployment, variant = "experimental" }: { previewDeployment: string; variant?: "baseline" | "experimental" }) {
   const [results, setResults] = useState<Row[]>([]); const [routeResults, setRouteResults] = useState<Record<string, number[]>>({});
   const [running, setRunning] = useState(false); const [error, setError] = useState<string | null>(null);
   const get = (target: string) => results.find((row) => row.name === target);
@@ -49,7 +49,7 @@ export function PerformanceDiagnosticClient({ previewDeployment }: { previewDepl
   };
   return <section className="mx-auto max-w-6xl space-y-6">
     <div className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5 text-amber-950"><p className="font-bold">PREVIEW DIAGNOSTIC — NEVER PRODUCTION</p><p className="mt-1 text-sm">ADMIN-only, read-only timing metadata. No records, identifiers, cookies, SQL, or secrets are returned.</p></div>
-    <div><h1 className="text-2xl font-bold">Performance Diagnosis</h1><p className="mt-1 text-sm text-[#596579]">Ten isolated server samples per page data path, then authenticated browser route samples. Dashboard samples bypass only its short-lived data cache so the query waterfall reflects real loader work; parallel durations are never summed.</p></div>
+    <div><h1 className="text-2xl font-bold">Performance Diagnosis</h1><p className="mt-1 text-sm text-[#596579]">Variant: {variant}. Ten isolated server samples per page data path, then authenticated browser route samples. Dashboard samples bypass only its short-lived data cache so the query waterfall reflects real loader work; parallel durations are never summed.</p></div>
     <div className="flex gap-3"><button onClick={run} disabled={running} className="rounded-xl bg-[#3366FF] px-4 py-2 font-semibold text-white disabled:opacity-60">{running ? "Running deep benchmark…" : "RUN DEEP BENCHMARK"}</button><button onClick={copy} disabled={!results.length || running} className="rounded-xl border border-[#E7ECF2] bg-white px-4 py-2 font-semibold disabled:opacity-60">Copy Report</button></div>
     {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {!!results.length && <><Table title="Server benchmark — this deployment" headers={["Metric", "Mean wall-clock"]} rows={TARGETS.map((name) => [name, fmt(current(name))])} /><Table title="Dashboard branch waterfall — mean per sample" headers={["Operation", "Duration", "Calls", "Scheduling"]} rows={Object.entries(dashboardMetrics).map(([name, item]) => [name, fmt(item.duration), String(item.calls), item.parallel ? "Parallel" : "Sequential"])} /><Table title="Dashboard Prisma query waterfall — mean per sample" headers={["Scope", "Model.operation", "Duration", "Calls", "Result size", "Indexed?"]} rows={dashboardQueries.map((query) => [query.scope, `${query.model}.${query.operation}`, fmt(query.duration), query.calls.toFixed(1), query.resultSize, query.indexed])} /><Table title="Real browser route latency — this deployment" headers={["Route", "Mean wall-clock"]} rows={ROUTES.map((path) => [path, fmt(mean(routeResults[path] ?? []))])} /></>}
