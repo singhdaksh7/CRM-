@@ -1,7 +1,17 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export type DiagnosticMetric = { duration: number; calls: number; parallel: boolean };
-export type DiagnosticQuery = { model: string; operation: string; duration: number; calls: number; resultSize: "none" | "one" | "many" | "unknown"; scope: string; indexed: "UNKNOWN" };
+export type DiagnosticQuery = {
+  model: string;
+  operation: string;
+  duration: number;
+  calls: number;
+  resultSize: "none" | "one" | "many" | "unknown";
+  scope: string;
+  /** Field names only; values and SQL never leave the diagnostic request. */
+  filterFields: string;
+  indexed: "UNKNOWN";
+};
 type Store = { metrics: Map<string, DiagnosticMetric>; queries: Map<string, DiagnosticQuery>; bypassCache: boolean; scopes: string[] };
 
 const storage = new AsyncLocalStorage<Store>();
@@ -36,14 +46,42 @@ export async function measurePerformanceMetric<T>(name: string, work: () => Prom
   }
 }
 
-/** Called by Prisma middleware; retains metadata only, never query arguments or returned records. */
-export function recordPrismaOperation(model: string | undefined, operation: string, duration: number, result: unknown): void {
+/**
+ * Redacts Prisma arguments down to field names used to shape the query. This
+ * deliberately does not retain values, identifiers, SQL, or selections.
+ */
+function queryFieldNames(args: unknown): string {
+  if (!args || typeof args !== "object") return "none";
+  const input = args as Record<string, unknown>;
+  const fields = new Set<string>();
+  const collectWhere = (value: unknown) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return;
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (["AND", "OR", "NOT"].includes(key)) {
+        for (const item of Array.isArray(nested) ? nested : [nested]) collectWhere(item);
+      } else {
+        fields.add(key);
+      }
+    }
+  };
+  collectWhere(input.where);
+  for (const key of ["by", "distinct", "orderBy"] as const) {
+    const value = input[key];
+    if (Array.isArray(value)) value.forEach((item) => collectWhere(item));
+    else collectWhere(value);
+  }
+  return [...fields].sort().join(",") || "none";
+}
+
+/** Called by the Prisma client extension; retains metadata only, never query arguments or returned records. */
+export function recordPrismaOperation(model: string | undefined, operation: string, duration: number, result: unknown, args: unknown): void {
   const store = storage.getStore();
   if (!store) return;
   const resultSize: DiagnosticQuery["resultSize"] = Array.isArray(result) ? (result.length ? "many" : "none") : result == null ? "none" : "one";
   const scope = store.scopes.join(" > ") || "unscoped";
-  const key = `${scope}|${model ?? "raw"}|${operation}|${resultSize}`;
-  const current = store.queries.get(key) ?? { model: model ?? "raw", operation, duration: 0, calls: 0, resultSize, scope, indexed: "UNKNOWN" as const };
+  const filterFields = queryFieldNames(args);
+  const key = `${scope}|${model ?? "raw"}|${operation}|${resultSize}|${filterFields}`;
+  const current = store.queries.get(key) ?? { model: model ?? "raw", operation, duration: 0, calls: 0, resultSize, scope, filterFields, indexed: "UNKNOWN" as const };
   current.duration += duration; current.calls += 1;
   store.queries.set(key, current);
 }
