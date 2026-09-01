@@ -137,6 +137,32 @@ describe("validateEnv - STORAGE_PROVIDER=DISABLED (default)", () => {
   });
 });
 
+describe("validateEnv - Auth.js origin", () => {
+  it("allows Auth.js to derive a trusted Vercel Preview hostname", () => {
+    const originalVercelEnv = process.env.VERCEL_ENV;
+    process.env.VERCEL_ENV = "preview";
+    delete process.env.NEXTAUTH_URL;
+    try {
+      expect(() => validateEnv()).not.toThrow();
+    } finally {
+      if (originalVercelEnv === undefined) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = originalVercelEnv;
+    }
+  });
+
+  it("continues to require NEXTAUTH_URL outside Vercel Preview", () => {
+    const originalVercelEnv = process.env.VERCEL_ENV;
+    delete process.env.VERCEL_ENV;
+    delete process.env.NEXTAUTH_URL;
+    try {
+      expect(() => validateEnv()).toThrow(/NEXTAUTH_URL/);
+    } finally {
+      if (originalVercelEnv === undefined) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = originalVercelEnv;
+    }
+  });
+});
+
 describe("validateEnv - MAPS_PROVIDER", () => {
   it("passes with no maps variables set at all (defaults to DISABLED)", () => {
     expect(() => validateEnv()).not.toThrow();

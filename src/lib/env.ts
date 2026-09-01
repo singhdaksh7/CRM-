@@ -14,7 +14,10 @@ const envSchema = z
   .object({
     DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
     AUTH_SECRET: z.string().min(16, "AUTH_SECRET must be at least 16 characters"),
-    NEXTAUTH_URL: z.string().url("NEXTAUTH_URL must be a valid URL"),
+    // Auth.js v5 derives its origin from the trusted request host on Vercel
+    // Preview. Keeping a production URL here for Preview would send users to
+    // the production hostname, so it is deliberately optional only there.
+    NEXTAUTH_URL: z.string().url("NEXTAUTH_URL must be a valid URL").optional(),
     NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL"),
 
     WHATSAPP_PROVIDER: z.enum(["MOCK", "CLICK_TO_CHAT", "META_CLOUD"]).default("MOCK"),
@@ -107,6 +110,10 @@ const envSchema = z
     CRON_SECRET: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    const isVercelPreview = process.env.VERCEL_ENV === "preview";
+    if (!isVercelPreview && !data.NEXTAUTH_URL) {
+      ctx.addIssue({ code: "custom", path: ["NEXTAUTH_URL"], message: "NEXTAUTH_URL is required outside Vercel Preview" });
+    }
     if (data.WHATSAPP_PROVIDER === "META_CLOUD") {
       for (const key of ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_APP_SECRET"] as const) {
         if (!data[key]) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required when WHATSAPP_PROVIDER=META_CLOUD` });
@@ -150,7 +157,7 @@ const envSchema = z
         if (!data[key]) ctx.addIssue({ code: "custom", path: [key], message: `${key} is required when STORAGE_PROVIDER=FIREBASE` });
       }
     }
-    if (process.env.NODE_ENV === "production" && data.NEXTAUTH_URL.startsWith("http://")) {
+    if (process.env.NODE_ENV === "production" && data.NEXTAUTH_URL?.startsWith("http://")) {
       ctx.addIssue({ code: "custom", path: ["NEXTAUTH_URL"], message: "NEXTAUTH_URL must be https:// in production" });
     }
   });
