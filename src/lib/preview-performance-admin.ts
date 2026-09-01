@@ -24,15 +24,21 @@ export async function synchronizePreviewPerformanceAdmin(): Promise<PreviewAdmin
 
   const syntheticAdmin = await prisma.user.findUnique({
     where: { email: SYNTHETIC_ADMIN_EMAIL },
-    select: { id: true, passwordHash: true },
+    select: { id: true, passwordHash: true, role: true, status: true },
   });
   if (!syntheticAdmin) return "missing";
+  if (syntheticAdmin.role !== "ADMIN" || syntheticAdmin.status !== "ACTIVE") {
+    throw new Error("Synthetic Preview admin is not eligible for credential authentication");
+  }
 
   if (await bcrypt.compare(process.env.PERF_STAGING_PASSWORD, syntheticAdmin.passwordHash)) {
     return "already-current";
   }
 
   const passwordHash = await bcrypt.hash(process.env.PERF_STAGING_PASSWORD, BCRYPT_ROUNDS);
+  if (!(await bcrypt.compare(process.env.PERF_STAGING_PASSWORD, passwordHash))) {
+    throw new Error("Synthetic Preview admin password validation failed");
+  }
   await prisma.user.update({
     where: { id: syntheticAdmin.id },
     data: { passwordHash, authVersion: { increment: 1 } },
