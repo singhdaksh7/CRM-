@@ -6,8 +6,7 @@ import { LayoutGrid, List, Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-
-const AREAS = ["Janakpuri", "Dwarka", "Rajouri Garden", "Uttam Nagar", "Rohini", "Pitampura", "Vasant Kunj", "Saket", "Greater Kailash", "Lajpat Nagar", "Karol Bagh", "Paschim Vihar"];
+import { LocalityCombobox } from "@/components/properties/locality-combobox";
 
 export function PropertyFilters({ view }: { view: "table" | "card" }) {
   const router = useRouter();
@@ -41,12 +40,15 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
             className="pl-9"
           />
         </div>
-        <Select defaultValue={sp.get("area") ?? ""} onChange={(e) => update("area", e.target.value)} className="w-auto text-xs font-semibold">
-          <option value="">All Locations</option>
-          {AREAS.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </Select>
+        <div className="w-auto min-w-[180px]">
+          <LocalityCombobox
+            value={sp.get("area") ?? ""}
+            onChange={(name) => update("area", name)}
+            allowCreate={false}
+            placeholder="All Locations"
+            aria-label="Filter by area / locality"
+          />
+        </div>
         <Button
           type="button"
           variant="secondary"

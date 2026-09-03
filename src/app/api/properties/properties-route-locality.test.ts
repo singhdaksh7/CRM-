@@ -106,3 +106,44 @@ describe("PATCH /api/properties/[id] - locality wiring (A8)", () => {
     expect(resolveOrCreatePropertyLocality).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Regression for a release-blocking bug: editing a property (after
+ * uploading images via the separate PropertyGallery flow, or on any plain
+ * edit) always 500'd, because `suitableForTags` - unlike `amenities` and
+ * `images`, both correctly JSON.stringify'd - was spread straight from the
+ * parsed body into `prisma.property.update()`'s `data`, and the column is a
+ * JSON-string-encoded `String`, not a native Postgres array. Prisma's
+ * client-side validation rejected the raw array with "Invalid value
+ * provided. Expected String... provided ()." Reproduced against a real
+ * local Postgres + MinIO stack (not mocked) before this fix; these tests
+ * assert the mocked call shape a real Prisma client would also require.
+ */
+describe("PATCH /api/properties/[id] - JSON-array field serialization", () => {
+  beforeEach(() => {
+    propertyFindFirst.mockResolvedValue({ id: "p1", area: "Kirti Nagar", status: "AVAILABLE" });
+    propertyUpdate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "p1", updatedAt: new Date(), ...data }));
+  });
+
+  it("JSON-stringifies suitableForTags before it reaches Prisma, same as amenities/images", async () => {
+    const res = await PATCH(patchReq({ suitableForTags: ["FAMILY", "PET_FRIENDLY"], amenities: ["Lift"], images: [] }), params("p1"));
+    expect(res.status).toBe(200);
+    const data = propertyUpdate.mock.calls[0][0].data;
+    expect(data.suitableForTags).toBe(JSON.stringify(["FAMILY", "PET_FRIENDLY"]));
+    expect(data.amenities).toBe(JSON.stringify(["Lift"]));
+    expect(data.images).toBe(JSON.stringify([]));
+    expect(Array.isArray(data.suitableForTags)).toBe(false);
+  });
+
+  it("clears suitableForTags to an empty JSON array (not omitted) when submitted as []", async () => {
+    const res = await PATCH(patchReq({ suitableForTags: [] }), params("p1"));
+    expect(res.status).toBe(200);
+    expect(propertyUpdate.mock.calls[0][0].data.suitableForTags).toBe("[]");
+  });
+
+  it("omits suitableForTags from the update entirely when not submitted", async () => {
+    const res = await PATCH(patchReq({ title: "Renamed" }), params("p1"));
+    expect(res.status).toBe(200);
+    expect(propertyUpdate.mock.calls[0][0].data).not.toHaveProperty("suitableForTags");
+  });
+});

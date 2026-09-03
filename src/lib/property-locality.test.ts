@@ -2,12 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const findUnique = vi.fn();
 const create = vi.fn();
+const findMany = vi.fn();
 
-const fakePrisma = { propertyLocality: { findUnique: (...a: unknown[]) => findUnique(...a), create: (...a: unknown[]) => create(...a) } };
+const fakePrisma = {
+  propertyLocality: {
+    findUnique: (...a: unknown[]) => findUnique(...a),
+    create: (...a: unknown[]) => create(...a),
+    findMany: (...a: unknown[]) => findMany(...a),
+  },
+};
 
 vi.mock("./prisma", () => ({ prisma: fakePrisma }));
 
-const { resolveOrCreatePropertyLocality } = await import("./property-locality");
+const { resolveOrCreatePropertyLocality, searchPropertyLocalities } = await import("./property-locality");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -73,5 +80,39 @@ describe("resolveOrCreatePropertyLocality (A8)", () => {
     create.mockResolvedValue({ id: "loc3" });
     await resolveOrCreatePropertyLocality("org1", "Rajouri Garden", null);
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ createdById: null }) }));
+  });
+});
+
+describe("searchPropertyLocalities - the read side the locality picker uses", () => {
+  it("scopes the query to the given organization and orders by name", async () => {
+    findMany.mockResolvedValue([]);
+    await searchPropertyLocalities("org1", null, 20);
+    expect(findMany).toHaveBeenCalledWith({
+      where: { organizationId: "org1" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+      take: 20,
+    });
+  });
+
+  it("adds a case-insensitive contains filter when a query is given", async () => {
+    findMany.mockResolvedValue([{ id: "loc1", name: "Basai Darapur" }]);
+    const result = await searchPropertyLocalities("org1", "basai", 20);
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: "org1", name: { contains: "basai", mode: "insensitive" } },
+      })
+    );
+    expect(result).toEqual([{ id: "loc1", name: "Basai Darapur" }]);
+  });
+
+  it("trims the query before searching and ignores a whitespace-only query", async () => {
+    findMany.mockResolvedValue([]);
+    await searchPropertyLocalities("org1", "  Basai  ", 20);
+    expect(findMany.mock.calls[0][0].where.name).toEqual({ contains: "Basai", mode: "insensitive" });
+
+    findMany.mockClear();
+    await searchPropertyLocalities("org1", "   ", 20);
+    expect(findMany.mock.calls[0][0].where).toEqual({ organizationId: "org1" });
   });
 });

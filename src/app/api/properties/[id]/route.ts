@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const { id } = await params;
     const body = await req.json();
-    const { amenities, images, availableFrom, ...data } = propertySchema.partial().parse(body);
+    const { amenities, images, suitableForTags, availableFrom, ...data } = propertySchema.partial().parse(body);
     const patchOrganizationId = getOrganizationId(session.user);
     const existing = await prisma.property.findFirst({ where: { id, organizationId: patchOrganizationId } });
     if (!existing) throw new ApiError(404, "Property not found");
@@ -57,6 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(localityId !== undefined ? { localityId } : {}),
         ...(amenities ? { amenities: JSON.stringify(amenities) } : {}),
         ...(images ? { images: JSON.stringify(images) } : {}),
+        ...(suitableForTags ? { suitableForTags: JSON.stringify(suitableForTags) } : {}),
         // Phase 4 - photo-freshness signal for property health, distinct from
         // the generic updatedAt (which changes on ANY edit, not just photos).
         ...(images || data.coverImage !== undefined ? { imagesUpdatedAt: new Date() } : {}),

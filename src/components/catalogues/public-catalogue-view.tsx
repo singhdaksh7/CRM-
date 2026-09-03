@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +17,8 @@ import {
   Navigation,
   Clock,
   BriefcaseBusiness,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import type { PublicCatalogueDTO, PublicCatalogueProperty } from "@/lib/catalogues";
 import { catalogueSpecChips } from "@/lib/catalogue-specs";
@@ -214,6 +216,102 @@ function BulkVisitBar({
   );
 }
 
+/**
+ * Public catalogue's per-property image gallery. `images` is the full
+ * ordered ACTIVE-image URL list already resolved server-side (see
+ * getPublicOrderedImageUrls / withResolvedCoverImages in catalogues.ts) -
+ * only ever short-lived signed URLs or the legacy Property.images URLs,
+ * never a storageKey/bucket/credential. Falls back to just `coverImage`
+ * when the gallery list is empty (older catalogues / properties without
+ * PropertyImage rows), and to a plain "No photo available" state when
+ * there's nothing at all. A single broken image (expired signed URL,
+ * network hiccup) is swapped for the placeholder in place - it never takes
+ * down the rest of the catalogue.
+ */
+function PropertyGallery({ images, coverImage, title, area }: { images: string[]; coverImage: string | null; title: string; area: string }) {
+  const gallery = images.length > 0 ? images : coverImage ? [coverImage] : [];
+  const [index, setIndex] = useState(0);
+  const [failed, setFailed] = useState<Set<number>>(new Set());
+  const touchStartX = useRef<number | null>(null);
+
+  const safeIndex = Math.min(index, Math.max(gallery.length - 1, 0));
+  const current = gallery[safeIndex];
+  const currentFailed = failed.has(safeIndex);
+
+  function go(delta: number) {
+    setIndex((i) => {
+      const next = i + delta;
+      if (next < 0) return gallery.length - 1;
+      if (next >= gallery.length) return 0;
+      return next;
+    });
+  }
+
+  if (gallery.length === 0 || !current || currentFailed) {
+    return <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">No photo available</div>;
+  }
+
+  return (
+    <div
+      className="relative h-full w-full touch-pan-y"
+      onTouchStart={(e) => {
+        touchStartX.current = e.touches[0].clientX;
+      }}
+      onTouchEnd={(e) => {
+        if (touchStartX.current === null) return;
+        const delta = e.changedTouches[0].clientX - touchStartX.current;
+        touchStartX.current = null;
+        if (Math.abs(delta) < 40) return;
+        go(delta > 0 ? -1 : 1);
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- external signed/legacy URLs, loaded lazily */}
+      <img
+        src={current}
+        alt={`${title} in ${area}${gallery.length > 1 ? ` - photo ${safeIndex + 1} of ${gallery.length}` : ""}`}
+        loading="lazy"
+        className="h-full w-full object-cover"
+        onError={() => setFailed((prev) => new Set(prev).add(safeIndex))}
+      />
+      {gallery.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={() => go(-1)}
+            aria-label="Previous photo"
+            className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => go(1)}
+            aria-label="Next photo"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white">
+            {safeIndex + 1} / {gallery.length}
+          </span>
+          <div className="absolute bottom-2 left-2 flex gap-1">
+            {gallery.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setIndex(i)}
+                aria-label={`Go to photo ${i + 1}`}
+                aria-current={i === safeIndex}
+                className={`h-1.5 w-1.5 rounded-full ${i === safeIndex ? "bg-white" : "bg-white/50"}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function PropertyCard({
   property,
   token,
@@ -287,12 +385,7 @@ function PropertyCard({
   return (
     <div className={`overflow-hidden rounded-2xl border bg-white shadow-xs ${isAvailable ? "border-[#E7ECF2]" : "border-[#E7ECF2] opacity-75"}`}>
       <div className="relative h-56 w-full bg-[#FAFBFC]">
-        {property.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element -- external signed/legacy URLs, loaded lazily
-          <img src={property.coverImage} alt={`${property.title} in ${property.area}`} loading="lazy" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">No photo available</div>
-        )}
+        <PropertyGallery images={property.images} coverImage={property.coverImage} title={property.title} area={property.area} />
         {!isAvailable && (
           <div className="absolute left-2 top-2">
             <Badge tone="slate">{property.status === "RENTED" ? "Already Rented" : property.status === "SOLD" ? "Already Sold" : "No Longer Available"}</Badge>

@@ -10,8 +10,8 @@ import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyAddressSearch, type AppliedLocation } from "@/components/properties/property-address-search";
+import { LocalityCombobox } from "@/components/properties/locality-combobox";
 
-const AREAS = ["Janakpuri", "Dwarka", "Rajouri Garden", "Uttam Nagar", "Rohini", "Pitampura", "Vasant Kunj", "Saket", "Greater Kailash", "Lajpat Nagar", "Karol Bagh", "Paschim Vihar"];
 const AMENITIES_POOL = ["Lift", "Power Backup", "24x7 Security", "Swimming Pool", "Gym", "Club House", "Children's Play Area", "Covered Parking", "CCTV", "Park Facing", "Modular Kitchen", "Water Storage"];
 
 function isValidUrl(value: string): boolean {
@@ -106,7 +106,7 @@ function toFormValues(p?: Property): FormValues {
     listingType: (p?.listingType as "RENT" | "SALE") ?? "RENT",
     status: p?.status ?? "AVAILABLE",
     description: p?.description ?? "",
-    area: p?.area ?? AREAS[0],
+    area: p?.area ?? "",
     address: p?.address ?? "",
     landmark: p?.landmark ?? "",
     monthlyRent: p?.monthlyRent?.toString() ?? "",
@@ -330,12 +330,9 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           />
         </Field>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Area / Locality" required>
-            <Select {...register("area")}>
-              {AREAS.map((a) => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </Select>
+          <Field label="Area / Locality" required error={errors.area?.message}>
+            <input type="hidden" {...register("area", { required: "Area / Locality is required", minLength: { value: 2, message: "Enter a locality" } })} />
+            <LocalityCombobox value={watch("area")} onChange={(name) => setValue("area", name, { shouldValidate: true })} aria-label="Search or add area / locality" />
           </Field>
           <Field label="Landmark">
             <Input {...register("landmark")} placeholder="Near Metro Station" />

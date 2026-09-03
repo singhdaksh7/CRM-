@@ -59,4 +59,29 @@ function isUniqueConstraintViolation(err: unknown): boolean {
   return Boolean(err && typeof err === "object" && "code" in err && (err as { code: unknown }).code === "P2002");
 }
 
+/**
+ * Org-scoped, name-searchable read of the reusable locality list - the
+ * counterpart read path to resolveOrCreatePropertyLocality's write-only
+ * accumulation. Powers the searchable/addable locality picker (property
+ * form, lead form, inventory filter) instead of each of those hand-copying
+ * its own hardcoded area array.
+ */
+export async function searchPropertyLocalities(
+  organizationId: string,
+  query: string | null,
+  take: number,
+  tx: Pick<typeof prisma, "propertyLocality"> = prisma
+): Promise<{ id: string; name: string }[]> {
+  const trimmed = query?.trim();
+  return tx.propertyLocality.findMany({
+    where: {
+      organizationId,
+      ...(trimmed ? { name: { contains: trimmed, mode: "insensitive" } } : {}),
+    },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+    take,
+  });
+}
+
 export type PropertyLocalityDelegate = Prisma.PropertyLocalityDelegate;

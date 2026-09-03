@@ -6,8 +6,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-
-const AREAS = ["Janakpuri", "Dwarka", "Rajouri Garden", "Uttam Nagar", "Rohini", "Pitampura", "Vasant Kunj", "Saket", "Greater Kailash", "Lajpat Nagar", "Karol Bagh", "Paschim Vihar"];
+import { LocalityCombobox } from "@/components/properties/locality-combobox";
 
 type FormValues = {
   clientName: string;
@@ -43,13 +42,13 @@ type EmployeeOption = { id: string; name: string };
 export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
-  const { register, handleSubmit, watch } = useForm<FormValues>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       source: "MANUAL",
       requirementType: "RENT",
       assetClass: "RESIDENTIAL",
       transactionType: "RENT",
-      preferredLocation: AREAS[0],
+      preferredLocation: "",
       priority: "WARM",
       furnishingPref: "",
       assignedToId: "",
@@ -123,10 +122,9 @@ export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
             </Select>
           </Field>
           <Field label="Property Category" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
-          <Field label="Preferred Location" required>
-            <Select {...register("preferredLocation")}>
-              {AREAS.map((a) => (<option key={a} value={a}>{a}</option>))}
-            </Select>
+          <Field label="Preferred Location" required error={errors.preferredLocation?.message}>
+            <input type="hidden" {...register("preferredLocation", { required: "Preferred location is required" })} />
+            <LocalityCombobox value={watch("preferredLocation")} onChange={(name) => setValue("preferredLocation", name, { shouldValidate: true })} aria-label="Search or add preferred location" />
           </Field>
           {assetClass === "RESIDENTIAL" && <Field label="Preferred BHK">
             <Select {...register("preferredBhk")}>
