@@ -260,6 +260,17 @@ export function LeadWorkspace({
             canManage={canManage}
             providerSendConfigured={providerSendConfigured}
           />
+          <div>
+            <h3 className="mb-3 text-sm font-bold text-[#1B2430]">Catalogues</h3>
+            <CataloguesTab
+              leadId={lead.id}
+              canManage={canManage}
+              canSend={canManage || role === "FIELD_EXECUTIVE"}
+              clientName={lead.clientName}
+              primaryPhone={lead.phone}
+              phones={lead.phones}
+            />
+          </div>
         </div>
       )}
       {tab === "response" && (

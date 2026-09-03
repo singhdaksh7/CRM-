@@ -6,8 +6,9 @@ import { LinkButton, Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState, EmptyState } from "@/components/ui/states";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { Plus, Copy, Send, Ban, Eye, ExternalLink, MessageCircle } from "lucide-react";
+import { Plus, Copy, Send, Ban, Eye, ExternalLink, MessageCircle, Pencil } from "lucide-react";
 import type { CatalogueShare, CatalogueShareProperty, CatalogueStatus, Property } from "@prisma/client";
+import { EditCatalogueDialog } from "@/components/catalogues/edit-catalogue-dialog";
 
 type CatalogueWithProperties = CatalogueShare & { properties: (CatalogueShareProperty & { property: Property })[]; createdBy: { id: string; name: string } | null };
 
@@ -41,6 +42,7 @@ export function CataloguesTab({
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [fallbackBusyId, setFallbackBusyId] = useState<string | null>(null);
   const [phoneForCatalogue, setPhoneForCatalogue] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const phoneOptions = [
     ...(primaryPhone ? [{ label: "Primary", number: primaryPhone }] : []),
@@ -192,6 +194,11 @@ export function CataloguesTab({
                   </>
                 )}
                 {canManage && c.status === "ACTIVE" && (
+                  <Button size="sm" variant="secondary" onClick={() => setEditingId(c.id)}>
+                    <Pencil className="h-3.5 w-3.5" /> Edit Catalogue
+                  </Button>
+                )}
+                {canManage && c.status === "ACTIVE" && (
                   <Button size="sm" variant="danger" onClick={() => revoke(c.id)}>
                     <Ban className="h-3.5 w-3.5" /> Revoke
                   </Button>
@@ -200,6 +207,16 @@ export function CataloguesTab({
             </div>
           ))}
         </div>
+      )}
+
+      {editingId && (
+        <EditCatalogueDialog
+          open
+          onClose={() => setEditingId(null)}
+          leadId={leadId}
+          catalogueId={editingId}
+          onSaved={load}
+        />
       )}
     </div>
   );

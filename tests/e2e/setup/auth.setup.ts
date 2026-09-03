@@ -6,7 +6,7 @@ const STATE_DIR = path.join(__dirname, "..", ".auth");
 
 async function loginAs(page: import("@playwright/test").Page, email: string, expectedPath: RegExp) {
   await page.goto("/login");
-  await page.getByPlaceholder("you@delhibrokercrm.com").fill(email);
+  await page.getByPlaceholder("you@kpproperties.com").fill(email);
   await page.getByPlaceholder("••••••••").fill(QA_PASSWORD);
   await page.getByRole("button", { name: "Sign In to CRM" }).click();
   // The app navigates client-side (router.push after signIn) - no full page

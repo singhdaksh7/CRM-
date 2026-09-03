@@ -9,8 +9,8 @@ const RESULT_CAP = 20;
 
 /**
  * Lightweight, org-scoped property search for the "Add More Properties"
- * picker in the matching workspace - deliberately minimal (no filters
- * beyond a free-text query plus optional rent/BHK bounds) and capped at
+ * picker in the matching workspace - deliberately minimal (free-text query,
+ * an exact locality filter, plus optional rent/BHK bounds) and capped at
  * RESULT_CAP results so it stays fast enough for debounced as-you-type
  * search. Not a replacement for the full /api/properties list endpoint.
  * Cover thumbnails resolved in one batched query (no N+1).
@@ -31,6 +31,14 @@ export async function GET(req: NextRequest) {
         { address: { contains: q } },
       ];
     }
+
+    // Exact-match against Property.area, matching the same field/semantics
+    // as the main inventory filter (src/app/api/properties/route.ts) - the
+    // locality picker only ever hands back a real locality name, never
+    // freeform text, so exact match (not `contains`) is correct here and
+    // composes with the free-text `q` OR-clause above (AND'd together).
+    const area = sp.get("area")?.trim();
+    if (area) where.area = area;
 
     const minRent = sp.get("minRent");
     const maxRent = sp.get("maxRent");

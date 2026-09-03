@@ -247,7 +247,7 @@ function PropertyGallery({ images, coverImage, title, area }: { images: string[]
     });
   }
 
-  if (gallery.length === 0 || !current || currentFailed) {
+  if (gallery.length === 0 || !current) {
     return <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">No photo available</div>;
   }
 
@@ -265,14 +265,21 @@ function PropertyGallery({ images, coverImage, title, area }: { images: string[]
         go(delta > 0 ? -1 : 1);
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- external signed/legacy URLs, loaded lazily */}
-      <img
-        src={current}
-        alt={`${title} in ${area}${gallery.length > 1 ? ` - photo ${safeIndex + 1} of ${gallery.length}` : ""}`}
-        loading="lazy"
-        className="h-full w-full object-cover"
-        onError={() => setFailed((prev) => new Set(prev).add(safeIndex))}
-      />
+      {/* A broken image never removes Previous/Next/dots - the viewer can
+          always navigate away from it to a working photo, rather than
+          getting stuck on a dead end. */}
+      {currentFailed ? (
+        <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">Photo unavailable</div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- external signed/legacy URLs, loaded lazily
+        <img
+          src={current}
+          alt={`${title} in ${area}${gallery.length > 1 ? ` - photo ${safeIndex + 1} of ${gallery.length}` : ""}`}
+          loading="lazy"
+          className="h-full w-full object-cover"
+          onError={() => setFailed((prev) => new Set(prev).add(safeIndex))}
+        />
+      )}
       {gallery.length > 1 && (
         <>
           <button

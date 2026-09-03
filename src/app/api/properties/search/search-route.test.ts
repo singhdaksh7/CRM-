@@ -103,4 +103,42 @@ describe("GET /api/properties/search", () => {
     const body = await res.json();
     expect(body.properties).toEqual([{ id: "p1" }]);
   });
+
+  // The "Add Other Properties" picker's new locality filter (used from the
+  // matching/catalogue workflow) - see PropertyPickerDialog.
+  it("applies an exact-match area filter when given", async () => {
+    await GET(req("?area=Basai%20Darapur"));
+    const args = propertyFindMany.mock.calls[0][0];
+    expect(args.where.area).toBe("Basai Darapur");
+  });
+
+  it("omits the area filter when not given", async () => {
+    await GET(req("?q=x"));
+    const args = propertyFindMany.mock.calls[0][0];
+    expect(args.where.area).toBeUndefined();
+  });
+
+  it("combines free-text search and the locality filter (AND, not OR)", async () => {
+    await GET(req("?q=ramesh&area=Basai%20Darapur"));
+    const args = propertyFindMany.mock.calls[0][0];
+    expect(args.where.area).toBe("Basai Darapur");
+    expect(args.where.OR).toEqual([
+      { propertyCode: { contains: "ramesh" } },
+      { title: { contains: "ramesh" } },
+      { area: { contains: "ramesh" } },
+      { address: { contains: "ramesh" } },
+    ]);
+  });
+
+  it("trims whitespace from the area filter", async () => {
+    await GET(req("?area=%20%20Kirti%20Nagar%20%20"));
+    const args = propertyFindMany.mock.calls[0][0];
+    expect(args.where.area).toBe("Kirti Nagar");
+  });
+
+  it("always scopes by organizationId regardless of which filters are combined - tenant isolation", async () => {
+    await GET(req("?q=x&area=Kirti%20Nagar&minRent=1000&bhk=2"));
+    const args = propertyFindMany.mock.calls[0][0];
+    expect(args.where.organizationId).toBe("org_default");
+  });
 });

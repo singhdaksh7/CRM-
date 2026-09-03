@@ -34,6 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const catalogue = await updateCatalogue(catalogueId, organizationId, {
       ...data,
       expiresAt: data.expiresAt === undefined ? undefined : data.expiresAt ? new Date(data.expiresAt) : null,
+      actorId: session.user.id,
     });
 
     return NextResponse.json({ catalogue });

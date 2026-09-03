@@ -286,6 +286,27 @@ async function main() {
   // dedicated lead, deliberately separate from "unsharedMatch" above so
   // creating this share never contaminates that lead's sharedProperties===0
   // assertion. ---
+  // Property D gets a multi-image gallery (legacy Property.images, a plain
+  // JSON string array) - self-contained data: URIs so the public gallery
+  // spec never depends on network/storage reachability. Image 4 is
+  // deliberately malformed (valid data: scheme, invalid PNG bytes) to
+  // exercise the broken-image fallback without a flaky external URL. Kept
+  // separate from propertyBody() (used by all four properties) since only
+  // D's gallery needs to be real for the public-catalogue spec.
+  {
+    const TINY_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+    const BROKEN_IMAGE = "data:image/png;base64,not-valid-png-data";
+    const propD = await prisma.property.findUniqueOrThrow({ where: { id: propertyIds.D } });
+    const currentImages = JSON.parse(propD.images || "[]") as string[];
+    if (currentImages.length === 0) {
+      await prisma.property.update({
+        where: { id: propertyIds.D },
+        data: { images: JSON.stringify([TINY_PNG, TINY_PNG, TINY_PNG, BROKEN_IMAGE]), coverImage: TINY_PNG },
+      });
+      console.log(`[seed-qa-workflow] gave property D a 4-image gallery (3 real + 1 deliberately broken)`);
+    }
+  }
+
   let publicCatalogueToken: string | null = null;
   {
     let share = await prisma.catalogueShare.findFirst({ where: { leadId: leadIds.publicCatalogue } });
@@ -295,10 +316,16 @@ async function main() {
         includePrice: true,
         includeAddress: true,
         includeBrokerage: false,
-        properties: [{ propertyId: propertyIds.D, sortOrder: 0, priceVisible: true, addressVisible: true, brokerageVisible: false }],
+        // Two properties - D carries the multi-image gallery above, A is a
+        // second, single/no-image property so the responsive spec also
+        // covers "multiple properties in one catalogue", not just D alone.
+        properties: [
+          { propertyId: propertyIds.D, sortOrder: 0, priceVisible: true, addressVisible: true, brokerageVisible: false },
+          { propertyId: propertyIds.A, sortOrder: 1, priceVisible: true, addressVisible: true, brokerageVisible: false },
+        ],
       });
       share = await prisma.catalogueShare.findUniqueOrThrow({ where: { id: created.catalogue.id } });
-      console.log(`[seed-qa-workflow] created public catalogue share (Property D): token=${share.token}`);
+      console.log(`[seed-qa-workflow] created public catalogue share (Properties D, A): token=${share.token}`);
     }
     publicCatalogueToken = share.token;
   }

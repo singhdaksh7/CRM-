@@ -199,36 +199,72 @@ interface UpdateCatalogueParams {
   includeBrokerage?: boolean;
   expiresAt?: Date | null;
   properties?: CataloguePropertyInput[];
+  /** Who made the change - only needed when `properties` is set (drives the version-event/activity log below); optional so non-property edits (title/visibility toggles) don't require it. */
+  actorId?: string;
 }
 
+/**
+ * Full-replace property-set edit (the "Edit Catalogue" UI's Save action),
+ * alongside the same simple field patch this function already supported.
+ * The CatalogueShare row's id/token is never touched - only its
+ * CatalogueShareProperty children and version/title/etc fields - so the
+ * existing public link keeps working and immediately reflects the new
+ * selection. When `properties` changes the set of propertyIds, this bumps
+ * `version` and writes one CatalogueVersionEvent per actual add/remove
+ * (mirroring the granularity of the single-property DELETE route at
+ * src/app/api/catalogues/[id]/properties/[propertyId]/route.ts) plus one
+ * CATALOGUE_VERSION_CHANGED activity entry - never a second catalogue/token.
+ */
 export async function updateCatalogue(catalogueId: string, organizationId: string, patch: UpdateCatalogueParams) {
   const existing = await getCatalogueById(catalogueId, organizationId);
   if (existing.status !== "ACTIVE") throw new ApiError(400, `Cannot edit a ${existing.status.toLowerCase()} catalogue`);
+
+  let versionChange: { nextVersion: number; added: string[]; removed: string[] } | null = null;
 
   if (patch.properties) {
     const propertyIds = patch.properties.map((p) => p.propertyId);
     const found = await prisma.property.findMany({ where: { id: { in: propertyIds }, organizationId } });
     if (found.length !== propertyIds.length) throw new ApiError(400, "One or more selected properties were not found in this organization's inventory");
 
-    await prisma.catalogueShareProperty.deleteMany({ where: { catalogueShareId: catalogueId } });
-    await prisma.catalogueShareProperty.createMany({
-      data: patch.properties.map((p) => ({
-        catalogueShareId: catalogueId,
-        propertyId: p.propertyId,
-        sortOrder: p.sortOrder,
-        customNote: p.customNote,
-        internalNote: p.internalNote,
-        priceVisible: p.priceVisible,
-        addressVisible: p.addressVisible,
-        brokerageVisible: p.brokerageVisible,
-        isTopPick: p.isTopPick ?? false,
-        addedManually: p.addedManually ?? false,
-        addedByUserId: p.addedByUserId ?? null,
-      })),
-    });
+    const previousIds = new Set(existing.properties.filter((p) => !p.removedAt).map((p) => p.propertyId));
+    const nextIds = new Set(propertyIds);
+    const added = propertyIds.filter((id) => !previousIds.has(id));
+    const removed = [...previousIds].filter((id) => !nextIds.has(id));
+    const nextVersion = existing.version + (added.length > 0 || removed.length > 0 ? 1 : 0);
+    if (added.length > 0 || removed.length > 0) versionChange = { nextVersion, added, removed };
+
+    await prisma.$transaction([
+      prisma.catalogueShareProperty.deleteMany({ where: { catalogueShareId: catalogueId } }),
+      prisma.catalogueShareProperty.createMany({
+        data: patch.properties.map((p) => ({
+          catalogueShareId: catalogueId,
+          propertyId: p.propertyId,
+          sortOrder: p.sortOrder,
+          customNote: p.customNote,
+          internalNote: p.internalNote,
+          priceVisible: p.priceVisible,
+          addressVisible: p.addressVisible,
+          brokerageVisible: p.brokerageVisible,
+          isTopPick: p.isTopPick ?? false,
+          addedManually: p.addedManually ?? false,
+          addedByUserId: p.addedByUserId ?? null,
+        })),
+      }),
+      ...(versionChange
+        ? [
+            prisma.catalogueShare.update({ where: { id: catalogueId }, data: { version: versionChange.nextVersion } }),
+            ...versionChange.added.map((propertyId) =>
+              prisma.catalogueVersionEvent.create({ data: { organizationId, catalogueShareId: catalogueId, version: versionChange!.nextVersion, changeType: "PROPERTY_ADDED", propertyId, actorId: patch.actorId ?? null } })
+            ),
+            ...versionChange.removed.map((propertyId) =>
+              prisma.catalogueVersionEvent.create({ data: { organizationId, catalogueShareId: catalogueId, version: versionChange!.nextVersion, changeType: "PROPERTY_REMOVED", propertyId, actorId: patch.actorId ?? null } })
+            ),
+          ]
+        : []),
+    ]);
   }
 
-  return prisma.catalogueShare.update({
+  const catalogue = await prisma.catalogueShare.update({
     where: { id: catalogueId },
     data: {
       title: patch.title,
@@ -240,6 +276,21 @@ export async function updateCatalogue(catalogueId: string, organizationId: strin
     },
     include: { properties: { include: { property: true, addedByUser: { select: { id: true, name: true } } }, orderBy: { sortOrder: "asc" } } },
   });
+
+  if (versionChange) {
+    const parts = [];
+    if (versionChange.added.length > 0) parts.push(`${versionChange.added.length} added`);
+    if (versionChange.removed.length > 0) parts.push(`${versionChange.removed.length} removed`);
+    await logActivity({
+      leadId: existing.leadId,
+      type: "CATALOGUE_VERSION_CHANGED",
+      description: `Catalogue "${catalogue.title}" edited (${parts.join(", ")}, now v${versionChange.nextVersion})`,
+      actorId: patch.actorId ?? null,
+      metadata: { version: versionChange.nextVersion, added: versionChange.added, removed: versionChange.removed },
+    });
+  }
+
+  return catalogue;
 }
 
 export async function revokeCatalogue(catalogueId: string, organizationId: string, actorId: string) {

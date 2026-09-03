@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/form";
 import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { formatINR, enumToLabel } from "@/lib/utils";
 import { Search, Plus, ImageOff } from "lucide-react";
+import { LocalityCombobox } from "@/components/properties/locality-combobox";
 
 export interface PickerProperty {
   id: string;
@@ -41,6 +42,7 @@ export function PropertyPickerDialog({
   excludeIds: Set<string>;
 }) {
   const [query, setQuery] = useState("");
+  const [locality, setLocality] = useState("");
   const [results, setResults] = useState<PickerProperty[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -50,7 +52,10 @@ export function PropertyPickerDialog({
     setLoading(true);
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetch(`/api/properties/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      const params = new URLSearchParams();
+      if (query) params.set("q", query);
+      if (locality) params.set("area", locality);
+      fetch(`/api/properties/search?${params.toString()}`, { signal: controller.signal })
         .then((r) => r.json())
         .then((data) => setResults(data.properties ?? []))
         .catch(() => {})
@@ -60,12 +65,13 @@ export function PropertyPickerDialog({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, open]);
+  }, [query, locality, open]);
 
   useEffect(() => {
     if (!open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset search state each time the dialog closes
       setQuery("");
+      setLocality("");
       setResults([]);
     }
   }, [open]);
@@ -73,14 +79,23 @@ export function PropertyPickerDialog({
   return (
     <Dialog open={open} onClose={onClose} title="Add More Properties" description="Search the full inventory to manually add a property to this shortlist." sheet wide>
       <div className="space-y-3">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
-          <Input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by code, title, locality, address..."
-            className="pl-9"
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+            <Input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by code, title, locality, address..."
+              className="pl-9"
+            />
+          </div>
+          <LocalityCombobox
+            value={locality}
+            onChange={setLocality}
+            allowCreate={false}
+            placeholder="All localities"
+            aria-label="Filter by locality"
           />
         </div>
 
