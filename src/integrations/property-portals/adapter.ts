@@ -1,6 +1,7 @@
 import "server-only";
 import type { CanonicalPortalLead } from "./ingestion";
 import type { PropertyPortalCapabilities, PropertyPortalProviderId } from "./registry";
+import { awaitingAccessAdapters } from "./awaiting-access-adapters";
 
 /** Official-contract boundary. Implementations must not call undocumented endpoints or automate portals. */
 export interface PropertyPortalAdapter {
@@ -14,6 +15,6 @@ export interface PropertyPortalAdapter {
 }
 
 /** Central registration point. Adapters without authorized contracts intentionally have no network operations. */
-const adapters = new Map<PropertyPortalProviderId, PropertyPortalAdapter>();
+const adapters = new Map<PropertyPortalProviderId, PropertyPortalAdapter>(awaitingAccessAdapters.map((adapter) => [adapter.provider, adapter]));
 export function registerPortalAdapter(adapter: PropertyPortalAdapter) { adapters.set(adapter.provider, adapter); }
 export function getPortalAdapter(provider: PropertyPortalProviderId) { return adapters.get(provider); }
