@@ -9,7 +9,7 @@ import { Badge, FOLLOWUP_STATUS_TONE, VISIT_STATUS_TONE } from "@/components/ui/
 import { Select, Input, Textarea, Field } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDateTime, enumToLabel, timeAgo } from "@/lib/utils";
-import { ArrowRightLeft, Send, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText, CalendarPlus } from "lucide-react";
+import { ArrowRightLeft, Send, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText, CalendarPlus, ClipboardPenLine } from "lucide-react";
 import { ConversationPanel } from "@/components/whatsapp/conversation-panel";
 import { CataloguesTab } from "@/components/catalogues/catalogues-tab";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
@@ -217,11 +217,13 @@ export function LeadWorkspace({
   const [tab, setTab] = useState<LeadTab>(
     preselectedPropertyId || outcomeOverrideVisitId ? "visits" : "overview"
   );
+  const [showInteraction, setShowInteraction] = useState(false);
   const canManage = role === "ADMIN" || role === "DATA_MANAGER";
 
   return (
     <div className="space-y-6">
-      <PrimaryActionsBar leadId={lead.id} phone={lead.phone} phones={lead.phones} onNavigate={setTab} />
+      <PrimaryActionsBar leadId={lead.id} phone={lead.phone} phones={lead.phones} onNavigate={setTab} onLogInteraction={() => setShowInteraction(true)} />
+      {showInteraction && <InteractionComposer leadId={lead.id} onClose={() => setShowInteraction(false)} />}
 
       <div className="flex gap-1.5 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1.5 text-sm shadow-xs">
         {TABS.map((t) => (
@@ -356,11 +358,13 @@ function PrimaryActionsBar({
   phone,
   phones,
   onNavigate,
+  onLogInteraction,
 }: {
   leadId: string;
   phone: string;
   phones: { phone: string; label: string | null; type: string }[];
   onNavigate: (tab: LeadTab) => void;
+  onLogInteraction: () => void;
 }) {
   const phoneOptions: PhoneOption[] = [
     { label: "Primary", number: phone, isPrimary: true },
@@ -381,12 +385,57 @@ function PrimaryActionsBar({
       <Button size="sm" variant="secondary" onClick={() => onNavigate("followups")}>
         <Plus className="h-4 w-4" /> Add Follow-up
       </Button>
+      <Button size="sm" variant="secondary" onClick={onLogInteraction}>
+        <ClipboardPenLine className="h-4 w-4" /> Log Interaction
+      </Button>
       <Button size="sm" variant="secondary" onClick={() => onNavigate("overview")}>
         <FileText className="h-4 w-4" /> Add Note
       </Button>
       <Button size="sm" variant="secondary" onClick={() => onNavigate("visits")}>
         <CalendarPlus className="h-4 w-4" /> Schedule Visit
       </Button>
+    </div>
+  );
+}
+
+function InteractionComposer({ leadId, onClose }: { leadId: string; onClose: () => void }) {
+  const router = useRouter();
+  const [type, setType] = useState("CALL");
+  const [outcome, setOutcome] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    const res = await fetch(`/api/leads/${leadId}/interactions`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, outcome: outcome || null, notes: notes || null }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      toast.success("Internal interaction logged");
+      onClose();
+      router.refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to log interaction");
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#3366FF]/30 bg-[#EFF4FF]/40 p-4 shadow-xs">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div><h3 className="text-sm font-bold text-[#1B2430]">Log Internal Interaction</h3><p className="text-xs text-[#596579]">CRM record only — this does not send WhatsApp or place a call.</p></div>
+        <button onClick={onClose} className="text-xs font-semibold text-[#596579] hover:text-[#1B2430]">Cancel</button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Select value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="CALL">Call</option><option value="WHATSAPP">WhatsApp</option><option value="MEETING">Meeting</option><option value="OFFICE_VISIT">Office visit</option><option value="OTHER">Other</option>
+        </Select>
+        <Input value={outcome} maxLength={200} placeholder="Outcome (optional)" onChange={(e) => setOutcome(e.target.value)} />
+        <Button onClick={save} loading={saving}>Save interaction</Button>
+      </div>
+      <Textarea className="mt-3" rows={2} value={notes} maxLength={4000} placeholder="Internal notes (optional)" onChange={(e) => setNotes(e.target.value)} />
     </div>
   );
 }
@@ -772,6 +821,22 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
     if (res.ok) { toast.success("Marked completed"); router.refresh(); } else toast.error("Failed");
   }
 
+  async function reschedule(followUp: LeadWithRelations["followUps"][number]) {
+    const current = new Date(followUp.dueDate).toISOString().slice(0, 16);
+    const next = window.prompt("New due date and time (YYYY-MM-DDTHH:mm)", current);
+    if (!next) return;
+    const dueDate = new Date(next);
+    if (Number.isNaN(dueDate.getTime())) return toast.error("Enter a valid date and time");
+    const res = await fetch(`/api/follow-ups/${followUp.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dueDate: dueDate.toISOString(), status: "PENDING" }) });
+    if (res.ok) { toast.success("Follow-up rescheduled"); router.refresh(); } else toast.error("Failed to reschedule follow-up");
+  }
+
+  async function cancel(id: string) {
+    if (!window.confirm("Cancel this follow-up?")) return;
+    const res = await fetch(`/api/follow-ups/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "CANCELLED" }) });
+    if (res.ok) { toast.success("Follow-up cancelled"); router.refresh(); } else toast.error("Failed to cancel follow-up");
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
@@ -803,10 +868,14 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
               </div>
               <div className="flex items-center gap-2">
                 <Badge tone={FOLLOWUP_STATUS_TONE[f.status]}>{enumToLabel(f.status)}</Badge>
-                {f.status !== "COMPLETED" && (
+                {!["COMPLETED", "CANCELLED"].includes(f.status) && (
+                  <>
                   <button onClick={() => complete(f.id)} className="text-[#8A94A6] hover:text-[#1FA971] transition-colors" title="Mark completed">
                     <CheckCircle2 className="h-5 w-5" />
                   </button>
+                  <button onClick={() => reschedule(f)} className="text-xs font-semibold text-[#3366FF] hover:underline">Reschedule</button>
+                  <button onClick={() => cancel(f.id)} className="text-xs font-semibold text-rose-600 hover:underline">Cancel</button>
+                  </>
                 )}
               </div>
             </div>

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const combined = lead.notes ? `${lead.notes}\n\n[${new Date().toLocaleString("en-IN")} - ${session.user.name}]: ${note}` : `[${new Date().toLocaleString("en-IN")} - ${session.user.name}]: ${note}`;
     const updated = await prisma.lead.update({ where: { id }, data: { notes: combined } });
-    await logActivity({ leadId: id, type: "NOTE_ADDED", description: note, actorId: session.user.id });
+    await logActivity({ leadId: id, organizationId: lead.organizationId, type: "NOTE_ADDED", description: note, actorId: session.user.id });
 
     return NextResponse.json({ lead: updated });
   } catch (err) {

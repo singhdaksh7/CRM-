@@ -269,6 +269,13 @@ export const followUpSchema = z.object({
   status: z.enum(["PENDING", "COMPLETED", "RESCHEDULED", "OVERDUE", "CANCELLED"]).default("PENDING"),
 });
 
+/** An internal CRM record only; it never sends a message or initiates a call. */
+export const leadInteractionSchema = z.object({
+  type: z.enum(["CALL", "WHATSAPP", "MEETING", "OFFICE_VISIT", "OTHER"]),
+  outcome: z.string().trim().max(200).optional().nullable(),
+  notes: z.string().trim().max(4000).optional().nullable(),
+});
+
 export const employeeSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
