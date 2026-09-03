@@ -81,7 +81,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // alongside the moved one. Logged only when the date actually changed
     // (not on every incidental PATCH, e.g. a notes edit).
     if (rest.dueDate && new Date(rest.dueDate).getTime() !== existing.dueDate.getTime() && existing.leadId) {
-      await logActivity({ leadId: existing.leadId, type: "STATUS_CHANGED", description: "Follow-up rescheduled", actorId: session.user.id });
+      await logActivity({
+        leadId: existing.leadId,
+        organizationId,
+        type: "STATUS_CHANGED",
+        description: `Follow-up rescheduled from ${existing.dueDate.toLocaleString("en-IN")} to ${new Date(rest.dueDate).toLocaleString("en-IN")}`,
+        actorId: session.user.id,
+      });
     }
 
     return NextResponse.json({ followUp });
