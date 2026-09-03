@@ -164,7 +164,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               <ShieldCheck className="h-5 w-5" />
               <h3 className="text-sm font-bold uppercase tracking-wider">NCR Verification Status</h3>
             </div>
-            <p className="text-xs text-[#596579]">Property address and owner identity verified by Delhi Broker team.</p>
+            <p className="text-xs text-[#596579]">Property address and owner identity verified by the KP Properties team.</p>
             <div className="mt-3 flex flex-wrap gap-4 text-xs font-semibold text-[#1FA971]">
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Address Checked</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Owner Phone Active</span>

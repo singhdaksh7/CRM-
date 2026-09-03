@@ -69,7 +69,7 @@ export function buildPropertyShareMessage(params: {
   baseUrl: string;
 }): string {
   const { clientName, bhk, location, budget, properties, baseUrl } = params;
-  const brokerageCompanyName = params.brokerageCompanyName ?? "Delhi Broker CRM";
+  const brokerageCompanyName = params.brokerageCompanyName ?? "KP Properties";
 
   const lines: string[] = [];
   lines.push(`Hello ${clientName},`);

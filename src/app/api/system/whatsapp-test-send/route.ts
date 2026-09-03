@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const provider = getWhatsAppProvider();
     const result = await provider.sendTextMessage({
       to: config.testRecipient,
-      body: "This is a test message from Delhi Broker CRM to confirm WhatsApp connectivity. No action is needed.",
+      body: "This is a test message from KP Properties to confirm WhatsApp connectivity. No action is needed.",
     });
 
     await recordAudit({

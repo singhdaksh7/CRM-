@@ -32,7 +32,7 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsSection icon={Building} title="Company Profile">
-        <Row label="Brokerage Name" value="Delhi Broker CRM" />
+        <Row label="Brokerage Name" value="KP Properties" />
         <Row label="City / Region" value="Delhi-NCR, India" />
         <Row label="Currency Format" value="Indian Rupee (₹) with Lakh/Crore notation" />
       </SettingsSection>

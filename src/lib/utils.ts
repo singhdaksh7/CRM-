@@ -72,3 +72,10 @@ export function enumToLabel(value: string): string {
 export function generateCode(prefix: string, num: number): string {
   return `${prefix}-${String(num).padStart(5, "0")}`;
 }
+
+export function getTimeBasedGreeting(date: Date = new Date()): string {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}

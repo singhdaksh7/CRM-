@@ -167,7 +167,7 @@ describe("renderCatalogueMessage", () => {
 
   it("falls back to default employee/brokerage names when not provided", () => {
     const msg = renderCatalogueMessage({ lead: lead(), properties: [], catalogueUrl: "https://x" });
-    expect(msg).toContain("Regards,\nOur Team\nDelhi Broker CRM");
+    expect(msg).toContain("Regards,\nOur Team\nKP Properties");
   });
 
   it("uses the provided employee and brokerage names in the sign-off", () => {

@@ -17,14 +17,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Delhi Broker CRM",
+  title: "KP Properties",
   description: "Real-estate broker CRM & property inventory management",
   // Phase 4, Objective 14 - PWA. iOS Safari doesn't honor the manifest's
   // display:standalone on its own, hence the explicit apple-* tags.
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Broker CRM",
+    title: "KP CRM",
   },
 };
 

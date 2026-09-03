@@ -5,7 +5,7 @@ import { TodaysPrioritiesList } from "./todays-priorities-list";
 import { NewLeadsPanel } from "./new-leads-panel";
 import type { DataManagerDashboardData } from "@/lib/dm-dashboard-data";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
-import { formatINR, timeAgo, enumToLabel } from "@/lib/utils";
+import { formatINR, timeAgo, enumToLabel, getTimeBasedGreeting } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/states";
 
 /**
@@ -21,7 +21,7 @@ export function DataManagerDashboard({ data, firstName }: { data: DataManagerDas
   return (
     <div className="space-y-6">
       <div className="border-b border-[#E7ECF2] pb-5">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Good day, {firstName}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">{getTimeBasedGreeting()}{firstName ? `, ${firstName}` : ""}</h1>
         <p className="mt-1 text-sm text-[#596579]">Here&apos;s what needs your attention today.</p>
       </div>
 

@@ -59,7 +59,7 @@ export function ForgotPasswordForm() {
             disabled={submitting}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@delhibrokercrm.com"
+            placeholder="you@kpproperties.com"
           />
         </Field>
         <Button type="submit" loading={submitting} disabled={submitting} className="w-full justify-center py-2.5 text-sm font-semibold">

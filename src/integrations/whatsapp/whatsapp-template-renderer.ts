@@ -26,7 +26,7 @@ export interface CatalogueTemplateParams {
   catalogueUrl: string;
   /** The employee sending/assigned to this lead. Falls back to a generic sign-off when absent. */
   employeeName?: string | null;
-  /** Organization.name. Falls back to "Delhi Broker CRM" when absent. */
+  /** Organization.name. Falls back to "KP Properties" when absent. */
   brokerageName?: string | null;
 }
 
@@ -99,7 +99,7 @@ export function renderCatalogueMessage(params: CatalogueTemplateParams): string 
   const typeLine = bhk || typeLabel ? `🏠 Property type: ${[bhk ? `${bhk} BHK` : null, typeLabel].filter(Boolean).join(" ")}` : null;
 
   const employeeName = params.employeeName?.trim() || "Our Team";
-  const brokerageName = params.brokerageName?.trim() || "Delhi Broker CRM";
+  const brokerageName = params.brokerageName?.trim() || "KP Properties";
 
   const lines: string[] = [greeting, "", introLine, "", `💰 Budget range: ${formatINR(params.lead.minBudget)}–${formatINR(params.lead.maxBudget)}`];
   if (location) lines.push(`📍 Preferred area: ${location}`);

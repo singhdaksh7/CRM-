@@ -55,7 +55,7 @@ export function InventoryImportWizard() {
   }
 
   async function savePreset() {
-    if (!parsed) return; const name = window.prompt("Preset name", "Abhishek Bhaiya Inventory Sheet"); if (!name) return;
+    if (!parsed) return; const name = window.prompt("Preset name", "Inventory Sheet"); if (!name) return;
     const response = await fetch("/api/properties/import/presets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, headers: parsed.headers, mapping }) });
     if (!response.ok) setError((await response.json()).error ?? "Could not save preset"); else { const body = await response.json(); setPresets((current) => [{ ...body.preset, mapping }, ...current]); }
   }

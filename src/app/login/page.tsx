@@ -67,7 +67,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#3366FF] text-white font-bold text-2xl shadow-lg shadow-[#3366FF]/20">
             KP
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Welcome back, Bhaiya</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Welcome back</h1>
           <p className="mt-2 text-sm text-[#596579]">Sign in to manage today’s leads, visits, and client follow-ups.</p>
         </div>
 
@@ -83,7 +83,7 @@ export default function LoginPage() {
               disabled={loading}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@delhibrokercrm.com"
+              placeholder="you@kpproperties.com"
             />
           </Field>
           <Field label="Password">

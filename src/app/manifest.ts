@@ -9,8 +9,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Delhi Broker CRM",
-    short_name: "Broker CRM",
+    name: "KP Properties",
+    short_name: "KP CRM",
     description: "Real-estate broker CRM & property inventory management",
     start_url: "/dashboard",
     display: "standalone",

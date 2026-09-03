@@ -4,7 +4,7 @@ import { getDashboardCriticalData, getDashboardSecondaryData } from "@/lib/dashb
 import { KpiCard } from "@/components/ui/kpi-card";
 import { LeadsAwaitingShortlistPanel } from "@/components/dashboard/leads-awaiting-shortlist-panel";
 import { Badge, LEAD_STATUS_TONE } from "@/components/ui/badge";
-import { timeAgo, enumToLabel } from "@/lib/utils";
+import { timeAgo, enumToLabel, getTimeBasedGreeting } from "@/lib/utils";
 import { Building2, Home, Landmark, Users, UserX, BellRing, CalendarClock, Trophy, ArrowRight, Send, Eye, Heart, CalendarPlus, ListChecks, BarChart3 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import Link from "next/link";
@@ -46,7 +46,7 @@ export default async function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-5">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">
-            Welcome back, {firstName} Bhaiya 👋
+            {getTimeBasedGreeting()}{firstName ? `, ${firstName}` : ""}
           </h1>
           <p className="mt-1 text-sm text-[#596579]">
             Here is what needs your attention and action today.

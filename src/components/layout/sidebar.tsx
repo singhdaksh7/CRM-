@@ -127,7 +127,7 @@ export function Sidebar({ role, mobile, onNavigate }: { role: Role; mobile?: boo
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-tight text-[#1B2430]">Delhi Broker</span>
+              <span className="text-sm font-bold tracking-tight text-[#1B2430]">KP Properties</span>
               <span className="text-[10px] font-semibold text-[#3366FF] uppercase tracking-wider">CRM Enterprise</span>
             </div>
           )}
@@ -233,7 +233,7 @@ export function Sidebar({ role, mobile, onNavigate }: { role: Role; mobile?: boo
 
       {!collapsed && (
         <div className="border-t border-[#E7ECF2] px-4 py-3 text-xs text-[#8A94A6]">
-          Delhi Broker CRM &middot; NCR Edition
+          KP Properties &middot; CRM
         </div>
       )}
     </aside>
