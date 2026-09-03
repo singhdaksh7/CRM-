@@ -1,0 +1,5 @@
+# Local agent/tool state is never part of an application deployment.
+.claude/
+.kilo/
+firebase-debug.log
+kilo.json
