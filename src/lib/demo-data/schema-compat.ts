@@ -305,7 +305,7 @@ export const REQUIRED_PORTAL_ENUM_VALUES = [
   "TransactionType.RENT", "TransactionType.SALE",
   "CommercialFitOut.FURNISHED", "CommercialFitOut.SEMI_FURNISHED", "CommercialFitOut.BARE_SHELL",
   "PropertyPortalProvider.HOUSING", "PropertyPortalProvider.NINETY_NINE_ACRES", "PropertyPortalProvider.MAGICBRICKS",
-  "PropertyPortalProvider.OLX", "PropertyPortalProvider.SQUARE_CONNECT", "PropertyPortalProvider.OTHER",
+  "PropertyPortalProvider.OLX", "PropertyPortalProvider.SQUARE_CONNECT", "PropertyPortalProvider.META", "PropertyPortalProvider.OTHER",
   "PortalConnectionStatus.CONNECTED", "PortalConnectionStatus.NOT_CONFIGURED", "PortalConnectionStatus.DEGRADED",
   "PortalConnectionStatus.AUTH_FAILED", "PortalConnectionStatus.PARTNER_ACCESS_REQUIRED",
   "PortalConnectionMode.API", "PortalConnectionMode.WEBHOOK", "PortalConnectionMode.CSV", "PortalConnectionMode.EMAIL", "PortalConnectionMode.MANUAL",

@@ -19,7 +19,7 @@ import type { Lead, Property, User } from "@prisma/client";
 import { prisma } from "../prisma";
 import { DEMO_ORGANIZATION_ID, demoCode, demoId, demoPhone } from "./constants";
 
-export const DEMO_PORTAL_PROVIDERS = ["HOUSING", "NINETY_NINE_ACRES", "MAGICBRICKS", "OLX", "SQUARE_CONNECT"] as const;
+export const DEMO_PORTAL_PROVIDERS = ["HOUSING", "OLX", "MAGICBRICKS", "NINETY_NINE_ACRES", "META", "OTHER"] as const;
 export type DemoPortalProvider = (typeof DEMO_PORTAL_PROVIDERS)[number];
 
 /**
@@ -33,7 +33,8 @@ export const DEMO_PORTAL_CONNECTIONS = [
   { index: 2, provider: "NINETY_NINE_ACRES", status: "PARTNER_ACCESS_REQUIRED", connectionMode: "MANUAL", displayName: "99acres (demo)", lastErrorSummary: "Official partner API access has not been granted." },
   { index: 3, provider: "MAGICBRICKS", status: "NOT_CONFIGURED", connectionMode: "CSV", displayName: "MagicBricks (demo)", lastErrorSummary: null },
   { index: 4, provider: "OLX", status: "NOT_CONFIGURED", connectionMode: "EMAIL", displayName: "OLX (demo)", lastErrorSummary: null },
-  { index: 5, provider: "SQUARE_CONNECT", status: "PARTNER_ACCESS_REQUIRED", connectionMode: "MANUAL", displayName: "Square Connect (demo)", lastErrorSummary: "Official partner API access has not been granted." },
+  { index: 5, provider: "META", status: "NOT_CONFIGURED", connectionMode: "MANUAL", displayName: "Meta (demo)", lastErrorSummary: "Official provider access has not been granted." },
+  { index: 6, provider: "OTHER", status: "NOT_CONFIGURED", connectionMode: "MANUAL", displayName: "Other portal (demo)", lastErrorSummary: null },
 ] as const;
 
 /**
@@ -66,7 +67,8 @@ export const DEMO_PORTAL_LEADS = [
   { index: 9002, provider: "NINETY_NINE_ACRES", source: "ACRES_99", clientName: "99acres Portal Enquiry", assetClass: "RESIDENTIAL", transactionType: "SALE", requirementType: "BUY", preferredLocation: "Dwarka", minBudget: 7500000, maxBudget: 9500000, preferredBhk: 3, commercialPropertyType: null, externalLeadId: "DEMO-99A-LEAD-0001" },
   { index: 9003, provider: "MAGICBRICKS", source: "MAGICBRICKS", clientName: "MagicBricks Commercial Enquiry", assetClass: "COMMERCIAL", transactionType: "RENT", requirementType: "RENT", preferredLocation: "Rajouri Garden", minBudget: 170000, maxBudget: 210000, preferredBhk: null, commercialPropertyType: "COMMERCIAL_OFFICE", externalLeadId: "DEMO-MB-LEAD-0001" },
   { index: 9004, provider: "OLX", source: "MANUAL", clientName: "OLX Portal Enquiry", assetClass: "RESIDENTIAL", transactionType: "SALE", requirementType: "BUY", preferredLocation: "Janakpuri", minBudget: 6000000, maxBudget: 8000000, preferredBhk: 2, commercialPropertyType: null, externalLeadId: "DEMO-OLX-LEAD-0001" },
-  { index: 9005, provider: "SQUARE_CONNECT", source: "MANUAL", clientName: "Square Connect Commercial Enquiry", assetClass: "COMMERCIAL", transactionType: "SALE", requirementType: "BUY", preferredLocation: "Karol Bagh", minBudget: 17000000, maxBudget: 21000000, preferredBhk: null, commercialPropertyType: "COMMERCIAL_SHOP", externalLeadId: "DEMO-SQC-LEAD-0001" },
+  { index: 9005, provider: "META", source: "META", clientName: "Meta Portal Enquiry", assetClass: "COMMERCIAL", transactionType: "SALE", requirementType: "BUY", preferredLocation: "Karol Bagh", minBudget: 17000000, maxBudget: 21000000, preferredBhk: null, commercialPropertyType: "COMMERCIAL_SHOP", externalLeadId: "DEMO-META-LEAD-0001" },
+  { index: 9006, provider: "OTHER", source: "OTHER", clientName: "Other Portal Enquiry", assetClass: "RESIDENTIAL", transactionType: "RENT", requirementType: "RENT", preferredLocation: "Janakpuri", minBudget: 30000, maxBudget: 45000, preferredBhk: 2, commercialPropertyType: null, externalLeadId: "DEMO-OTHER-LEAD-0001" },
 ] as const;
 
 /**
@@ -79,7 +81,8 @@ export const DEMO_PORTAL_EVENTS = [
   { index: 2, provider: "NINETY_NINE_ACRES", connectionIndex: 2, leadIndex: 9002, ingestionStatus: "RECEIVED", externalEventId: "DEMO-99A-EVT-0001", scenario: "NEW_PORTAL_LEAD", failureReason: null, attemptCount: 1 },
   { index: 3, provider: "MAGICBRICKS", connectionIndex: 3, leadIndex: 9003, ingestionStatus: "RECEIVED", externalEventId: "DEMO-MB-EVT-0001", scenario: "NEW_PORTAL_LEAD", failureReason: null, attemptCount: 1 },
   { index: 4, provider: "OLX", connectionIndex: 4, leadIndex: 9004, ingestionStatus: "RECEIVED", externalEventId: "DEMO-OLX-EVT-0001", scenario: "NEW_PORTAL_LEAD", failureReason: null, attemptCount: 1 },
-  { index: 5, provider: "SQUARE_CONNECT", connectionIndex: 5, leadIndex: 9005, ingestionStatus: "RECEIVED", externalEventId: "DEMO-SQC-EVT-0001", scenario: "NEW_PORTAL_LEAD", failureReason: null, attemptCount: 1 },
+  { index: 5, provider: "META", connectionIndex: 5, leadIndex: 9005, ingestionStatus: "RECEIVED", externalEventId: "DEMO-META-EVT-0001", scenario: "NEW_PORTAL_LEAD", failureReason: null, attemptCount: 1 },
+  { index: 10, provider: "OTHER", connectionIndex: 6, leadIndex: 9006, ingestionStatus: "RECEIVED", externalEventId: "DEMO-OTHER-EVT-0001", scenario: "NEW_PORTAL_LEAD", failureReason: null, attemptCount: 1 },
   { index: 6, provider: "HOUSING", connectionIndex: 1, leadIndex: 9001, ingestionStatus: "MATCHED_EXISTING", externalEventId: "DEMO-HSG-EVT-0002", scenario: "EXISTING_LEAD_MATCH", failureReason: null, attemptCount: 1 },
   { index: 7, provider: "HOUSING", connectionIndex: 1, leadIndex: null, ingestionStatus: "AMBIGUOUS", externalEventId: "DEMO-HSG-EVT-0003", scenario: "AMBIGUOUS_CONTACT", failureReason: null, attemptCount: 1 },
   { index: 8, provider: "HOUSING", connectionIndex: 1, leadIndex: 9001, ingestionStatus: "DUPLICATE", externalEventId: "DEMO-HSG-EVT-0004", scenario: "DUPLICATE_EVENT", failureReason: null, attemptCount: 2 },

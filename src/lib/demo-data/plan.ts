@@ -91,14 +91,14 @@ export const DEMO_SEED_PLAN = {
   // createDemoProperties/createDemoLeads generate, so a fully seeded
   // database holds properties + portalCommercialProperties properties and
   // leads + portalLeads leads. ---
-  /** One PropertyPortalConnection per registry provider (Housing, 99acres, MagicBricks, OLX, Square Connect). */
-  portalConnections: 5,
+  /** One PropertyPortalConnection per registry provider (Housing, OLX, MagicBricks, 99acres, Meta, Other). */
+  portalConnections: 6,
   /** One commercial rental + one commercial sale property - properties.ts only generates residential stock. */
   portalCommercialProperties: 2,
   /** One portal-originated lead per provider, spanning both asset classes and both transaction types. */
-  portalLeads: 5,
+  portalLeads: 6,
   /** New / matched / ambiguous / duplicate / failed ingestion events. */
-  portalExternalLeadEvents: 9,
+  portalExternalLeadEvents: 10,
   /** Published, sync-conflict, and capability-blocked draft listings. */
   portalListings: 3,
   /** Retryable, dead-letter, and capability-blocked operations. */
