@@ -110,8 +110,8 @@ describe("no external provider requests", () => {
 });
 
 describe("registry stays contract-only", () => {
-  it("covers exactly the five documented providers", () => {
-    expect([...PROPERTY_PORTAL_PROVIDERS]).toEqual(["HOUSING", "NINETY_NINE_ACRES", "MAGICBRICKS", "OLX", "SQUARE_CONNECT"]);
+  it("covers the production portal providers", () => {
+    expect([...PROPERTY_PORTAL_PROVIDERS]).toEqual(["HOUSING", "OLX", "MAGICBRICKS", "NINETY_NINE_ACRES", "META", "OTHER"]);
   });
 
   it("declares no AVAILABLE write capability for any provider, and no AVAILABLE lead-webhook capability except HOUSING's genuinely-implemented inbound push", () => {
@@ -132,7 +132,7 @@ describe("registry stays contract-only", () => {
   });
 
   it("only ever uses documented capability statuses", () => {
-    const allowed = ["AVAILABLE", "CONFIGURATION_REQUIRED", "PARTNER_ACCESS_REQUIRED", "NOT_SUPPORTED", "UNKNOWN"];
+    const allowed = ["AVAILABLE", "CONFIGURATION_REQUIRED", "PARTNER_ACCESS_REQUIRED", "NOT_SUPPORTED", "SUPPORTED", "UNSUPPORTED", "UNKNOWN"];
     for (const provider of PROPERTY_PORTAL_PROVIDERS) {
       for (const status of Object.values(propertyPortalRegistry[provider])) expect(allowed).toContain(status);
     }

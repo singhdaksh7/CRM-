@@ -166,7 +166,7 @@ export const mockWebhookLeadSchema = z.object({
 });
 
 export const portalConnectionSchema = z.object({
-  provider: z.enum(["HOUSING", "NINETY_NINE_ACRES", "MAGICBRICKS", "OLX", "SQUARE_CONNECT", "OTHER"]),
+  provider: z.enum(["HOUSING", "NINETY_NINE_ACRES", "MAGICBRICKS", "OLX", "SQUARE_CONNECT", "OTHER", "META"]),
   connectionMode: z.enum(["API", "WEBHOOK", "CSV", "EMAIL", "MANUAL"]),
   displayName: z.string().max(120).optional().nullable(),
   accountReference: z.string().max(255).optional().nullable(),

@@ -119,6 +119,7 @@ enum LeadSource {
   SQUARE_CONNECT
   DIRECT
   OTHER
+  META
 }
 
 enum PropertyPortalProvider {
@@ -128,6 +129,7 @@ enum PropertyPortalProvider {
   OLX
   SQUARE_CONNECT
   OTHER
+  META
 }
 
 enum PortalConnectionStatus {

@@ -6,14 +6,14 @@ import type { PropertyPortalCapabilities, PropertyPortalProviderId } from "./reg
 export interface PropertyPortalAdapter {
   readonly provider: PropertyPortalProviderId;
   readonly capabilities: PropertyPortalCapabilities;
-  validateConfig(config: unknown): Promise<{ valid: boolean; state: "NOT_CONFIGURED" | "PARTNER_ACCESS_REQUIRED" | "AUTH_FAILED"; reason?: string }>;
-  verifyWebhook(request: Request): Promise<{ verified: boolean; reason?: string }>;
-  parseLead(payload: unknown): CanonicalPortalLead | null;
-  canonicalizeLead(lead: CanonicalPortalLead): CanonicalPortalLead;
-  mapProperty(property: unknown): { valid: boolean; preview: Record<string, unknown>; errors: string[] };
-  publishListing(): Promise<never>;
-  updateListing(): Promise<never>;
-  deactivateListing(): Promise<never>;
-  fetchLeads(): Promise<never>;
-  healthCheck(): Promise<{ state: "PARTNER_ACCESS_REQUIRED" }>;
+  normalizeLead(lead: CanonicalPortalLead): CanonicalPortalLead;
+  verifyWebhook?(request: Request): Promise<{ verified: boolean; reason?: string }>;
+  parseWebhook?(payload: unknown): CanonicalPortalLead | null;
+  fetchLeads?(): Promise<CanonicalPortalLead[]>;
+  testConnection?(): Promise<{ success: boolean; checkedAt: Date; message: string }>;
 }
+
+/** Central registration point. Adapters without authorized contracts intentionally have no network operations. */
+const adapters = new Map<PropertyPortalProviderId, PropertyPortalAdapter>();
+export function registerPortalAdapter(adapter: PropertyPortalAdapter) { adapters.set(adapter.provider, adapter); }
+export function getPortalAdapter(provider: PropertyPortalProviderId) { return adapters.get(provider); }
