@@ -86,6 +86,11 @@ describe("property-image-upload sessions", () => {
     vi.resetModules();
   });
 
+  // First dynamic import() of ./property-image-upload in this file also
+  // pulls in ./storage -> storage-providers/index.ts, which statically
+  // imports every provider's SDK (AWS S3 client, firebase-admin) regardless
+  // of the MOCK provider mocked below - a real ~2s cold-module cost that can
+  // exceed the 5s default timeout under full-suite parallel CPU contention.
   it("creates an upload session with a server-generated object key", async () => {
     const { createPropertyImageUploadSession } = await import("./property-image-upload");
     const result = await createPropertyImageUploadSession({
@@ -109,7 +114,7 @@ describe("property-image-upload sessions", () => {
         }),
       })
     );
-  });
+  }, 20000);
 
   it("rejects SVG / dangerous types via validation", async () => {
     const { createPropertyImageUploadSession } = await import("./property-image-upload");

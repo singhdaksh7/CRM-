@@ -15,6 +15,12 @@ async function freshDTO() {
 }
 
 describe("getStorageCapabilitiesDTO", () => {
+  // storage-providers/index.ts statically imports every provider (AWS SDK
+  // for S3/R2, firebase-admin) regardless of which one is active, so this
+  // first freshDTO() in the file pays a real ~2s cold module-evaluation
+  // cost. Under the full parallel test suite (many worker threads sharing
+  // CPU) that can exceed the 5s default - a longer timeout here reflects
+  // genuinely slower-but-not-broken work, not a hang.
   it("reports uploads disabled and provider DISABLED when unset", async () => {
     delete process.env.STORAGE_PROVIDER;
     const dto = await freshDTO();
@@ -23,7 +29,7 @@ describe("getStorageCapabilitiesDTO", () => {
     expect(dto.uploadsEnabled).toBe(false);
     expect(dto.propertyImages.enabled).toBe(false);
     expect(dto.documents.enabled).toBe(false);
-  });
+  }, 20000);
 
   it("reports uploads enabled when STORAGE_PROVIDER=FIREBASE", async () => {
     process.env.STORAGE_PROVIDER = "FIREBASE";

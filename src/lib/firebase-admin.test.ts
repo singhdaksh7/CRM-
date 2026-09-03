@@ -131,6 +131,10 @@ describe("getFirebaseStorage - configuration validation", () => {
   // which is intentional - see firebase-admin.ts's "safe during hot reload"
   // requirement - but means they can't each assert against a *different*
   // config the way the throwing tests above can).
+  // The first successful cert()/initializeApp() call in this file does real
+  // RSA/PEM parsing (CPU-bound, no network) - a genuine ~300ms-2s cost
+  // depending on CPU contention, not a hang. Under the full parallel test
+  // suite this can exceed the 5s default timeout.
   it("accepts a private key with escaped \\n sequences, initializes without a network call, and returns a usable Storage instance", () => {
     process.env.FIREBASE_PROJECT_ID = "proj-escaped";
     process.env.FIREBASE_CLIENT_EMAIL = "svc@proj.iam.gserviceaccount.com";
@@ -139,7 +143,7 @@ describe("getFirebaseStorage - configuration validation", () => {
     const storage = getFirebaseStorage();
     expect(storage).toBeTruthy();
     expect(typeof storage.bucket).toBe("function");
-  });
+  }, 20000);
 
   it("reuses the same singleton app instance on a second call (safe during hot reload / warm serverless instances)", () => {
     process.env.FIREBASE_PROJECT_ID = "proj-escaped";
