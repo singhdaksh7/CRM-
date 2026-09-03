@@ -11,4 +11,5 @@ function awaitingAccessAdapter(provider: Exclude<PropertyPortalProviderId, "HOUS
   };
 }
 
-export const awaitingAccessAdapters = ["OLX", "MAGICBRICKS", "NINETY_NINE_ACRES", "META", "OTHER"].map(awaitingAccessAdapter);
+const AWAITING_ACCESS_PROVIDERS = ["OLX", "MAGICBRICKS", "NINETY_NINE_ACRES", "META", "OTHER"] as const;
+export const awaitingAccessAdapters = AWAITING_ACCESS_PROVIDERS.map((provider) => awaitingAccessAdapter(provider));
