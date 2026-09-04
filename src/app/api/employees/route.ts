@@ -18,9 +18,18 @@ const EMPLOYEE_SELECT = {
   serviceAreas: true,
 } as const;
 
+// Feature 6 (daily-ops hardening, RBAC consistency): this previously allowed
+// ANY authenticated role (including FIELD_EXECUTIVE) to list every employee
+// in the org - name, email, phone, workload counts, service areas - while
+// the sibling detail route (GET /api/employees/[id]) already required
+// ADMIN. Every consumer of this endpoint (employee-modal.tsx on the /employees
+// admin page, assignment-rules-panel.tsx on the ADMIN-only /settings page) is
+// itself ADMIN-gated in navigation with no legitimate DATA_MANAGER/
+// FIELD_EXECUTIVE use case found, so this now matches the detail route
+// instead of being the odd one out.
 export async function GET() {
   try {
-    const session = await requireSession();
+    const session = await requireSession(["ADMIN"]);
     const employees = await prisma.user.findMany({
       where: { organizationId: getOrganizationId(session.user) },
       select: EMPLOYEE_SELECT,
