@@ -20,7 +20,7 @@ import type { MatchSummary, PrepareRecommendationResult, PropertyRecommendation,
 import { formatINR } from "@/lib/utils";
 import type { Role } from "@prisma/client";
 import { MatchExplanation } from "./match-explanation";
-import { MatchTierBadge } from "./badges";
+import { MatchTierBadge, MatchHistoryBadge } from "./badges";
 import { RecommendationPreviewModal } from "./recommendation-preview";
 
 const DEFAULT_STRETCH = 0.2;
@@ -231,6 +231,7 @@ export function MatchedCustomersPanel({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-[#1B2430]">{name}</p>
                         <MatchTierBadge tier={row.tier} />
+                        <MatchHistoryBadge status={row.matchHistoryStatus} />
                         <span className="text-xs font-semibold text-[#8A94A6]">{row.source}</span>
                         <span className="text-xs text-[#596579]" aria-label={`Match score ${row.score} percent`}>
                           {row.score}%
