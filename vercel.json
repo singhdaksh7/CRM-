@@ -4,6 +4,10 @@
     {
       "path": "/api/internal/notifications/sweep",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/internal/olx/sync",
+      "schedule": "*/30 * * * *"
     }
   ],
   "regions": ["hnd1"]
