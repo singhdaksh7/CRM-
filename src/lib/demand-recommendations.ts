@@ -92,13 +92,34 @@ export async function recomputeMatchesForProperty(propertyId: string, organizati
 
   let created = 0;
   let updated = 0;
+  const matchedCandidateKeys: string[] = [];
   for (const requirement of normalized) {
     const result = scoreDemandCandidate(property, requirement, config);
     if (!result) continue;
+    matchedCandidateKeys.push(candidateKeyFor(requirement));
     const wrote = await upsertRecommendation(organizationId, property.id, requirement, result);
     if (wrote === "created") created++;
     else updated++;
   }
+
+  // Feature 1 (daily-ops hardening) - stale-match cleanup: a property edit
+  // (price/area/bhk/etc.) can make a previously-matching candidate no longer
+  // match. Never delete history and never touch a row a human has already
+  // acted on (REVIEWED/PREPARED/SENT/RESPONDED/IGNORED are all decisions) -
+  // only a still-untouched PENDING row, generated purely by the algorithm,
+  // is moved to the existing EXPIRED status so it stops appearing as an
+  // active candidate in the Matched Customers panel while remaining visible
+  // in history/filters.
+  await prisma.propertyRecommendation.updateMany({
+    where: {
+      organizationId,
+      propertyId: property.id,
+      status: "PENDING",
+      candidateKey: { notIn: matchedCandidateKeys.length > 0 ? matchedCandidateKeys : ["__none__"] },
+    },
+    data: { status: "EXPIRED" },
+  });
+
   return { created, updated };
 }
 

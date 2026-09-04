@@ -8,6 +8,7 @@ import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
 import { shouldRematchProperty } from "@/lib/property-rematch";
 import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
+import { recomputeMatchesForProperty } from "@/lib/demand-recommendations";
 import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
 import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
 import { resolveOrCreatePropertyLocality } from "@/lib/property-locality";
@@ -75,6 +76,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (shouldRematchProperty(existing, property)) {
         // Internal recommendation only; it never invokes WhatsApp or mutates a catalogue.
         void recommendPropertyToWaitingLeads(property.id, `property:${property.id}:${property.updatedAt.toISOString()}`);
+
+        // Feature 1 (daily-ops hardening): keep the real PropertyRecommendation
+        // candidates (Matched Customers panel) in sync with material edits,
+        // same trigger condition already used for the notification-only
+        // MatchRecommendation direction. recomputeMatchesForProperty's upsert
+        // never overwrites status/preparedAt/sentAt/response* - human
+        // recommendation lifecycle (PREPARED/SENT/RESPONDED) is preserved.
+        // The property update above already succeeded; a recompute failure
+        // must not fail this request - manual Recalculate remains available.
+        try {
+          await recomputeMatchesForProperty(property.id, patchOrganizationId);
+        } catch (err) {
+          logger.error("property_recommendation_recompute_failed", {
+            propertyId: property.id,
+            stage: "update",
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
       try {
         if (data.status && data.status !== "AVAILABLE" && data.status !== existing.status) {
