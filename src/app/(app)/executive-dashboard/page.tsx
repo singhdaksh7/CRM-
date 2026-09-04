@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getOrganizationId } from "@/lib/organization";
 import { getTodaysWork } from "@/lib/todays-work";
+import { getLeadsNeedingAttention } from "@/lib/needs-attention";
 import { prisma } from "@/lib/prisma";
 import { TodaysPrioritiesList } from "@/components/dashboard/todays-priorities-list";
 import { PhoneCall, CalendarClock, BellRing } from "lucide-react";
@@ -9,7 +10,7 @@ import type { Role } from "@prisma/client";
 import { startOfIstDay } from "@/lib/ist-date";
 import { formatDate, enumToLabel } from "@/lib/utils";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { Badge, LEAD_PRIORITY_TONE } from "@/components/ui/badge";
 
 /**
  * simplified-role-workflow (continuation pass, spec item 2/3) - "Today's
@@ -50,7 +51,7 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
 
   const todayStart = startOfIstDay(new Date());
 
-  const [todaysWork, upcomingVisits, recentlyCompletedVisits] = await Promise.all([
+  const [todaysWork, upcomingVisits, recentlyCompletedVisits, needsAttention] = await Promise.all([
     getTodaysWork(organizationId, { id: targetUserId, role: targetRole }),
     prisma.visit.findMany({
       where: {
@@ -82,6 +83,11 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
       orderBy: { visitDate: "desc" },
       take: 3,
     }),
+    // Feature 5 (daily-ops hardening): active leads with zero forward-looking
+    // next action (no future follow-up, no scheduled visit) - the gap where a
+    // WARM/COLD lead can silently fall off daily attention while HOT leads
+    // already get smart notification protection elsewhere.
+    getLeadsNeedingAttention(organizationId, { id: targetUserId, role: targetRole }),
   ]);
 
   const nextVisit = upcomingVisits[0] ?? null;
@@ -175,6 +181,36 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Follow-ups Today &amp; Overdue</h2>
         <TodaysPrioritiesList items={nonVisitItems} />
       </div>
+
+      {/* Feature 5 (daily-ops hardening): Needs Attention - compact, capped
+          list, only rendered when non-empty so it never adds noise. */}
+      {needsAttention.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 shadow-xs">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-amber-700">Needs Attention</h2>
+          <div className="space-y-2">
+            {needsAttention.slice(0, 10).map((lead) => (
+              <Link
+                key={lead.id}
+                href={`/leads/${lead.id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-amber-100 bg-white p-3 shadow-xs hover:border-amber-300 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#1B2430]">{lead.clientName}</p>
+                  <p className="mt-0.5 text-xs text-[#596579]">
+                    {enumToLabel(lead.status)}
+                    {viewingOther && lead.assignedToName ? ` · ${lead.assignedToName}` : ""}
+                    {!lead.assignedToId ? " · Unassigned" : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge tone={LEAD_PRIORITY_TONE[lead.priority] ?? "slate"}>{enumToLabel(lead.priority)}</Badge>
+                  <span className="text-xs font-semibold text-[#3366FF]">Open &rarr;</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* B2/B9 FE Experience: Recently Completed Visits */}
       <div>
