@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Navigation, Phone, CheckCircle2, SkipForward, Star, AlertTriangle, ChevronRight, Play, Flag } from "lucide-react";
@@ -566,6 +566,26 @@ function NextActionAfterComplete({ leadId, clientPhone, clientName }: { leadId: 
   const [time, setTime] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  // Feature 4 (daily-ops hardening): a completed visit shouldn't leave the
+  // lead without a next action, but it also shouldn't nudge a broker into
+  // creating an accidental duplicate. `null` = still checking, `undefined`
+  // once checked and none exists.
+  const [existingUpcoming, setExistingUpcoming] = useState<{ type: FollowUpType; dueDate: string } | null | undefined>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/follow-ups?leadId=${leadId}&status=PENDING`)
+      .then((res) => (res.ok ? res.json() : { followUps: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const upcoming = (data.followUps ?? []).find((f: { dueDate: string }) => new Date(f.dueDate).getTime() >= Date.now());
+        setExistingUpcoming(upcoming ? { type: upcoming.type, dueDate: upcoming.dueDate } : undefined);
+      })
+      .catch(() => !cancelled && setExistingUpcoming(undefined));
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId]);
 
   function done() {
     router.refresh();
@@ -594,6 +614,21 @@ function NextActionAfterComplete({ leadId, clientPhone, clientName }: { leadId: 
     <div className="space-y-3 rounded-xl border border-[#CCE0FF] bg-[#F5F8FF] p-3">
       <p className="text-sm font-bold text-[#1B2430]">Visit completed. What&apos;s next for {clientName}?</p>
 
+      {/* Feature 4 (daily-ops hardening): surfaces whether this lead already
+          has an upcoming open follow-up (avoids nudging toward a duplicate)
+          or has none at all (a clear, non-blocking warning - completion is
+          never blocked on this). */}
+      {existingUpcoming === undefined && !addingFollowUp && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+          No next follow-up scheduled yet for {clientName}.
+        </p>
+      )}
+      {existingUpcoming && (
+        <p className="rounded-lg bg-[#E6F7F0] px-3 py-2 text-xs font-semibold text-[#1FA971]">
+          Already has a follow-up scheduled for {new Date(existingUpcoming.dueDate).toLocaleString("en-IN")}.
+        </p>
+      )}
+
       {!addingFollowUp ? (
         <div className="grid grid-cols-2 gap-2">
           {clientPhone && (
@@ -607,7 +642,7 @@ function NextActionAfterComplete({ leadId, clientPhone, clientName }: { leadId: 
             </a>
           )}
           <button onClick={() => setAddingFollowUp(true)} className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-[#E7ECF2] bg-white text-sm font-semibold text-[#3366FF]">
-            Add Follow-up
+            {existingUpcoming ? "Add Another Follow-up" : "Add Follow-up"}
           </button>
           <a href={`/leads/${leadId}`} className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-[#E7ECF2] bg-white text-sm font-semibold text-[#596579]">
             Schedule Another Visit

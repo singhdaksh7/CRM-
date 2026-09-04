@@ -28,6 +28,13 @@ export async function GET(req: NextRequest) {
 
     const status = sp.get("status");
     if (status) where.status = status;
+    // Feature 4 (daily-ops hardening): lets the post-visit "Next Action?"
+    // step (NextActionAfterComplete) check whether this lead already has an
+    // upcoming open follow-up before offering to add another, so a broker
+    // isn't nudged into creating an accidental duplicate. Still org/owner
+    // scoped exactly as above - this only narrows the result further.
+    const leadId = sp.get("leadId");
+    if (leadId) where.leadId = leadId;
 
     // simplified-role-workflow (targeted fix pass, Blocker A) - this
     // previously did `include: { lead: true }`, loading the ENTIRE Lead row
