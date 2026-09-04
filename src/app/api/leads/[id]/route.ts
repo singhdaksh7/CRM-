@@ -56,6 +56,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json();
     const data = leadSchema.partial().parse(body);
 
+    // Feature 3 (daily-ops hardening): moving a lead to a lost/not-interested
+    // terminal status requires a reason, mirroring Deal's CLOSED_LOST
+    // validation (deal-stage.ts). Any other status change is unaffected -
+    // this only fires on the specific transition.
+    const movingToLostTerminal = data.status && data.status !== existing.status && (data.status === "CLOSED_LOST" || data.status === "NOT_INTERESTED");
+    if (movingToLostTerminal) {
+      if (!data.lostReasonCategory) {
+        throw new ApiError(400, "A reason is required when marking a lead Closed Lost or Not Interested");
+      }
+      if (data.lostReasonCategory === "OTHER" && !data.lostReasonDetail?.trim()) {
+        throw new ApiError(400, "Please add a short detail when reason is Other");
+      }
+    }
+    // Reopening a lead to a non-terminal status clears any prior lost reason
+    // so a stale reason never lingers on an active lead.
+    const reopening = data.status && data.status !== existing.status && data.status !== "CLOSED_LOST" && data.status !== "NOT_INTERESTED" && (existing.status === "CLOSED_LOST" || existing.status === "NOT_INTERESTED");
+
     const requirementChanged = REQUIREMENT_FIELDS.some((field) => {
       if (!(field in data)) return false;
       if (field === "moveInDate") {
@@ -72,15 +89,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...data,
         email: data.email || undefined,
         moveInDate: data.moveInDate ? new Date(data.moveInDate) : undefined,
+        ...(movingToLostTerminal
+          ? { lostReasonCategory: data.lostReasonCategory, lostReasonDetail: data.lostReasonDetail?.trim() || null }
+          : reopening
+          ? { lostReasonCategory: null, lostReasonDetail: null }
+          : {}),
       } as never,
     });
 
     if (data.status && data.status !== existing.status) {
+      const reasonSuffix = movingToLostTerminal
+        ? ` - reason: ${enumToLabel(data.lostReasonCategory!)}${data.lostReasonDetail?.trim() ? ` (${data.lostReasonDetail.trim()})` : ""}`
+        : "";
       await logActivity({
         leadId: id,
         type: "STATUS_CHANGED",
-        description: `Status changed from ${enumToLabel(existing.status)} to ${enumToLabel(data.status)}`,
+        description: `Status changed from ${enumToLabel(existing.status)} to ${enumToLabel(data.status)}${reasonSuffix}`,
         actorId: session.user.id,
+        ...(movingToLostTerminal ? { metadata: { lostReasonCategory: data.lostReasonCategory, lostReasonDetail: data.lostReasonDetail?.trim() || null } } : {}),
       });
     }
     if (data.notes && data.notes !== existing.notes) {

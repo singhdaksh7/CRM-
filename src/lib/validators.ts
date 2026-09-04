@@ -148,6 +148,14 @@ export const leadSchema = z.object({
   status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"]).default("NEW"),
   priority: z.enum(["HOT", "WARM", "COLD"]).default("WARM"),
   notes: z.string().optional().nullable(),
+  // Feature 3 (daily-ops hardening): reuses Deal's lostReason design -
+  // structured category (same enum as Deal.lostReasonCategory) + optional
+  // free-text detail, required only when the OTHER category is chosen.
+  // Only meaningful when status is being set to CLOSED_LOST/NOT_INTERESTED;
+  // enforced in the PATCH route, not here, since this schema is also used
+  // (via .partial()) for edits that don't touch status at all.
+  lostReasonCategory: z.enum(["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"]).optional().nullable(),
+  lostReasonDetail: z.string().max(500).optional().nullable(),
 });
 
 export const mockWebhookLeadSchema = z.object({
