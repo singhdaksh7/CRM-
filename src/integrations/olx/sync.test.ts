@@ -34,8 +34,15 @@ vi.mock("./client", async () => {
 const { computeSyncWindows, computeSyncStart, syncOlxConnection } = await import("./sync");
 const { OlxApiError } = await import("./client");
 
+// Per the documented contract, leads carry no embedded `ad` field - the
+// correlated ad (if any) is supplied separately as an `ads` Map on the
+// fetchLeadsPage() result, keyed by adId (see client.ts).
 function olxLead(adId: string) {
-  return { name: "Test Lead", phoneNumber: "9811100001", emailId: null, date: "01/03/26", adId, ad: { id: adId, title: "Flat", desc: null, price: 10000, lat: null, long: null, parameters: null } };
+  return { name: "Test Lead", phoneNumber: "9811100001", emailId: null, date: "01/03/26", adId };
+}
+
+function olxAdsMap(entries: Array<{ id: string; title?: string | null; price?: number | null; parameters?: Record<string, unknown> | null }>) {
+  return new Map(entries.map((e) => [e.id, { id: e.id, title: e.title ?? null, desc: null, price: e.price ?? null, lat: null, long: null, parameters: e.parameters ?? null }]));
 }
 
 beforeEach(() => {
@@ -90,7 +97,7 @@ describe("syncOlxConnection", () => {
   const now = new Date("2026-01-10T00:00:00Z");
 
   it("ingests every lead in a single-window, single-page sync and advances the cursor to now", async () => {
-    fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1")], rejected: 0, page: 1, pageSize: 100, isLastPage: true });
+    fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1")], ads: new Map(), rejected: 0, page: 1, pageSize: 100, isLastPage: true });
     const result = await syncOlxConnection(connection, now);
     expect(result.leadsNew).toBe(1);
     expect(result.error).toBeNull();
@@ -100,7 +107,7 @@ describe("syncOlxConnection", () => {
   });
 
   it("scopes ingestion to the connection's own organizationId, never anything from the OLX response", async () => {
-    fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1")], rejected: 0, page: 1, pageSize: 100, isLastPage: true });
+    fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1")], ads: new Map(), rejected: 0, page: 1, pageSize: 100, isLastPage: true });
     await syncOlxConnection(connection, now);
     expect(ingestPortalLead.mock.calls[0][0]).toBe("org_default");
     expect(ingestPortalLead.mock.calls[0][1]).toBe("OLX");
@@ -108,7 +115,7 @@ describe("syncOlxConnection", () => {
   });
 
   it("triggers a best-effort Sell.Do sync only for genuinely NEW leads", async () => {
-    fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1")], rejected: 0, page: 1, pageSize: 100, isLastPage: true });
+    fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1")], ads: new Map(), rejected: 0, page: 1, pageSize: 100, isLastPage: true });
     ingestPortalLead.mockResolvedValueOnce({ status: "DUPLICATE", event: { id: "evt1" } });
     await syncOlxConnection(connection, now);
     expect(syncSelldoForNewLead).not.toHaveBeenCalled();
@@ -116,7 +123,7 @@ describe("syncOlxConnection", () => {
 
   it("does not lose leads already ingested from earlier pages when a later page fails (partial pagination failure)", async () => {
     fetchLeadsPage
-      .mockResolvedValueOnce({ leads: [olxLead("ad-1")], rejected: 0, page: 1, pageSize: 1, isLastPage: false })
+      .mockResolvedValueOnce({ leads: [olxLead("ad-1")], ads: new Map(), rejected: 0, page: 1, pageSize: 1, isLastPage: false })
       .mockRejectedValueOnce(new OlxApiError(500, "upstream error on page 2"));
     const result = await syncOlxConnection(connection, now);
     expect(ingestPortalLead).toHaveBeenCalledTimes(1); // page 1's lead was ingested before page 2 failed
@@ -137,7 +144,7 @@ describe("syncOlxConnection", () => {
   });
 
   it("one malformed/failing lead never aborts the rest of the page", async () => {
-    fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1"), olxLead("ad-2")], rejected: 0, page: 1, pageSize: 100, isLastPage: true });
+    fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1"), olxLead("ad-2")], ads: new Map(), rejected: 0, page: 1, pageSize: 100, isLastPage: true });
     ingestPortalLead.mockRejectedValueOnce(new Error("db down")).mockResolvedValueOnce({ status: "NEW", lead: { id: "lead2" }, event: { id: "evt2" } });
     const result = await syncOlxConnection(connection, now);
     expect(ingestPortalLead).toHaveBeenCalledTimes(2);
@@ -149,5 +156,61 @@ describe("syncOlxConnection", () => {
     const result = await syncOlxConnection({ id: "conn1", organizationId: "org_default", lastSuccessfulSyncAt: future }, now);
     expect(fetchLeadsPage).not.toHaveBeenCalled();
     expect(result.windowsPlanned).toBe(0);
+  });
+
+  describe("adId <-> ads-array correlation (documented as two separate lists, not an embedded field)", () => {
+    it("enriches a lead using its correlated ad from the page's separate ads map", async () => {
+      fetchLeadsPage.mockResolvedValueOnce({
+        leads: [olxLead("ad-1")],
+        ads: olxAdsMap([{ id: "ad-1", title: "2BHK Flat", price: 30000, parameters: { locality: "Dwarka", adType: "Rent" } }]),
+        rejected: 0,
+        page: 1,
+        pageSize: 100,
+        isLastPage: true,
+      });
+      await syncOlxConnection(connection, now);
+      const canonical = ingestPortalLead.mock.calls[0][2];
+      expect(canonical.locality).toBe("Dwarka");
+      expect(canonical.transactionType).toBe("RENT");
+      expect(canonical.minBudget).toBe(30000);
+    });
+
+    it("still ingests a lead whose adId has no correlated entry in the ads map", async () => {
+      fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-orphan")], ads: new Map(), rejected: 0, page: 1, pageSize: 100, isLastPage: true });
+      const result = await syncOlxConnection(connection, now);
+      expect(result.leadsNew).toBe(1);
+      const canonical = ingestPortalLead.mock.calls[0][2];
+      expect(canonical.name).toBe("Test Lead");
+      expect(canonical.locality).toBe("Unknown (OLX)");
+    });
+
+    it("handled gracefully when the page returns an ads map with no matching adId at all", async () => {
+      fetchLeadsPage.mockResolvedValueOnce({
+        leads: [olxLead("ad-1")],
+        ads: olxAdsMap([{ id: "ad-unrelated", title: "Some other ad" }]),
+        rejected: 0,
+        page: 1,
+        pageSize: 100,
+        isLastPage: true,
+      });
+      const result = await syncOlxConnection(connection, now);
+      expect(result.leadsNew).toBe(1);
+      expect(result.error).toBeNull();
+    });
+
+    it("preserves both the raw lead and its correlated ad (or null) in the rawPayload passed to ingestPortalLead", async () => {
+      fetchLeadsPage.mockResolvedValueOnce({
+        leads: [olxLead("ad-1")],
+        ads: olxAdsMap([{ id: "ad-1", title: "2BHK Flat" }]),
+        rejected: 0,
+        page: 1,
+        pageSize: 100,
+        isLastPage: true,
+      });
+      await syncOlxConnection(connection, now);
+      const rawPayload = ingestPortalLead.mock.calls[0][3];
+      expect(rawPayload.lead.adId).toBe("ad-1");
+      expect(rawPayload.ad.title).toBe("2BHK Flat");
+    });
   });
 });

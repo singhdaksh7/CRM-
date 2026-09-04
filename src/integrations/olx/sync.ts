@@ -110,8 +110,17 @@ export async function syncOlxConnection(connection: { id: string; organizationId
 
         for (const rawLead of pageResult.leads) {
           try {
-            const { canonical, snapshot, needsReview, reviewReasons } = mapOlxLead(rawLead);
-            const ingestResult = await ingestPortalLead(connection.organizationId, "OLX", canonical, rawLead, { connectionId: connection.id, snapshot: { ...snapshot, needsReview, reviewReasons } });
+            // Correlate this lead's adId against the SEPARATE ads list this
+            // same page returned (per the documented contract - never an
+            // embedded field on the lead). No match is expected and
+            // handled: mapOlxLead falls back to safe defaults + needsReview.
+            const correlatedAd = pageResult.ads.get(String(rawLead.adId)) ?? null;
+            const { canonical, snapshot, needsReview, reviewReasons } = mapOlxLead(rawLead, correlatedAd);
+            // Raw payload preserved for the idempotency hash includes both
+            // the lead and its correlated ad (if any) - the two separate,
+            // documented pieces of provider data for this delivery.
+            const rawPayload = { lead: rawLead, ad: correlatedAd };
+            const ingestResult = await ingestPortalLead(connection.organizationId, "OLX", canonical, rawPayload, { connectionId: connection.id, snapshot: { ...snapshot, needsReview, reviewReasons } });
             if (ingestResult.status === "NEW") {
               result.leadsNew++;
               // Best-effort, matches ingestion.ts's own autoAssignLead pattern -

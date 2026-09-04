@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "crypto";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
 import type { CanonicalPortalLead } from "@/integrations/property-portals/ingestion";
-import type { OlxLeadPayload } from "./schema";
+import type { OlxLeadPayload, OlxAdSnapshot } from "./schema";
 
 export interface OlxMappingResult {
   canonical: CanonicalPortalLead;
@@ -91,7 +91,20 @@ export function deriveOlxEventId(payload: OlxLeadPayload, normalizedPhone: strin
   return `olx:${createHash("sha256").update(JSON.stringify(stable)).digest("hex")}`;
 }
 
-export function mapOlxLead(payload: OlxLeadPayload): OlxMappingResult {
+/**
+ * Maps one OLX lead into a CanonicalPortalLead. `correlatedAd` is the ad
+ * entry from the SEPARATE "OLX ad data" list whose `id` matches this lead's
+ * `adId` (see client.ts, which does the id === adId correlation - never an
+ * `ad` field read off the lead itself, since the documented contract lists
+ * leads and ads as two separate arrays). `correlatedAd` is optional: OLX may
+ * return a lead whose adId has no corresponding entry in the ads list (the
+ * ad could be deleted/expired, or simply omitted) - per the task, missing ad
+ * metadata must never block ingestion, so every field below that depends on
+ * it degrades to an explicit default with a needsReview reason, exactly like
+ * Housing's adapter does for its own low-confidence field mappings, rather
+ * than fabricating a value the documented contract doesn't provide.
+ */
+export function mapOlxLead(payload: OlxLeadPayload, correlatedAd?: OlxAdSnapshot | null): OlxMappingResult {
   const reviewReasons: string[] = [];
 
   const normalizedPhone = normalizeIndianPhone(payload.phoneNumber, "91");
@@ -100,9 +113,11 @@ export function mapOlxLead(payload: OlxLeadPayload): OlxMappingResult {
   const leadDate = parseOlxLeadDate(payload.date);
   if (!leadDate) reviewReasons.push(`date "${payload.date}" could not be parsed as DD/MM/YY`);
 
-  const parameters = payload.ad?.parameters ?? null;
-  const locality = findParam(parameters, ["locality", "location", "area", "city", "sector", "neighbourhood", "neighborhood"]) ?? payload.ad?.title?.trim() ?? "Unknown (OLX)";
-  if (locality === "Unknown (OLX)") reviewReasons.push("no locality/location parameter found on the OLX ad snapshot");
+  if (!correlatedAd) reviewReasons.push(`no ad data was returned for adId "${String(payload.adId)}" - locality/asset class/transaction type/budget could not be determined from the ad and are left at their safe defaults`);
+
+  const parameters = correlatedAd?.parameters ?? null;
+  const locality = findParam(parameters, ["locality", "location", "area", "city", "sector", "neighbourhood", "neighborhood"]) ?? correlatedAd?.title?.trim() ?? "Unknown (OLX)";
+  if (locality === "Unknown (OLX)" && correlatedAd) reviewReasons.push("no locality/location parameter found on the correlated OLX ad");
 
   const { assetClass, confident: assetConfident } = inferAssetClass(parameters);
   if (!assetConfident) reviewReasons.push("asset class could not be confidently inferred from OLX ad parameters; defaulted to RESIDENTIAL");
@@ -111,7 +126,7 @@ export function mapOlxLead(payload: OlxLeadPayload): OlxMappingResult {
   if (!transactionConfident) reviewReasons.push("transaction type could not be confidently inferred from OLX ad parameters; defaulted to SALE");
 
   const bhk = inferBhk(parameters);
-  const price = round(payload.ad?.price ?? null);
+  const price = round(correlatedAd?.price ?? null);
 
   // Preferred stable id from OLX's own response (Part F) if present; falls back to the derived hash.
   const providerLeadId = payload.leadId ?? payload.id ?? null;
@@ -138,7 +153,8 @@ export function mapOlxLead(payload: OlxLeadPayload): OlxMappingResult {
   const snapshot: Record<string, unknown> = {
     provider: "OLX",
     adId: String(payload.adId),
-    adTitle: payload.ad?.title ?? null,
+    adCorrelated: Boolean(correlatedAd),
+    adTitle: correlatedAd?.title ?? null,
     locality,
     price: price ?? null,
     assetClass,
