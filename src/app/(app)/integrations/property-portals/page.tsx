@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { getOrganizationId } from "@/lib/organization";
 import { propertyPortalRegistry, PROPERTY_PORTAL_PROVIDERS } from "@/integrations/property-portals/registry";
 import { ConnectionCard } from "@/components/property-portals/connection-card";
+import { OlxSelldoPanel } from "@/components/property-portals/olx-selldo-panel";
 import { getHousingWebhookUrl } from "@/integrations/housing/config";
 
 export default async function PropertyPortalsPage() {
