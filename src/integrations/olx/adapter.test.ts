@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseOlxLeadDate, deriveOlxEventId, mapOlxLead } from "./adapter";
-import type { OlxLeadPayload } from "./schema";
+import type { OlxLeadPayload, OlxAdSnapshot } from "./schema";
 
 describe("parseOlxLeadDate", () => {
   it("parses DD/MM/YY unambiguously", () => {
@@ -36,6 +36,13 @@ describe("parseOlxLeadDate", () => {
   });
 });
 
+/**
+ * Per the task's documented contract, "OLX lead fields" (name/phoneNumber/
+ * emailId/date/adId) and "OLX ad data" (id/title/desc/price/lat/long/
+ * parameters) are two separate lists, correlated by `ad.id === lead.adId`.
+ * mapOlxLead() takes the correlated ad as an explicit second argument - it
+ * is never read off the lead object (there is no `lead.ad` field).
+ */
 function lead(overrides: Partial<OlxLeadPayload> = {}): OlxLeadPayload {
   return {
     name: "Ramesh Kumar",
@@ -45,57 +52,94 @@ function lead(overrides: Partial<OlxLeadPayload> = {}): OlxLeadPayload {
     adId: "olx-ad-123",
     leadId: "olx-lead-999",
     id: undefined,
-    ad: { id: "olx-ad-123", title: "2BHK Flat in Rajouri Garden", desc: "Spacious flat", price: 45000, lat: 28.5, long: 77.1, parameters: { locality: "Rajouri Garden", category: "Residential", adType: "Rent", bhk: "2 BHK" } },
+    ...overrides,
+  };
+}
+
+function ad(overrides: Partial<OlxAdSnapshot> = {}): OlxAdSnapshot {
+  return {
+    id: "olx-ad-123",
+    title: "2BHK Flat in Rajouri Garden",
+    desc: "Spacious flat",
+    price: 45000,
+    lat: 28.5,
+    long: 77.1,
+    parameters: { locality: "Rajouri Garden", category: "Residential", adType: "Rent", bhk: "2 BHK" },
     ...overrides,
   };
 }
 
 describe("mapOlxLead", () => {
   it("normalizes a +91-prefixed phone number", () => {
-    const { canonical } = mapOlxLead(lead());
+    const { canonical } = mapOlxLead(lead(), ad());
     expect(canonical.phone).toBe("919811100099");
   });
 
   it("handles a null email without throwing", () => {
-    const { canonical } = mapOlxLead(lead({ emailId: null }));
+    const { canonical } = mapOlxLead(lead({ emailId: null }), ad());
     expect(canonical.email).toBeUndefined();
   });
 
   it("maps adId to externalListingId for property matching", () => {
-    const { canonical } = mapOlxLead(lead());
+    const { canonical } = mapOlxLead(lead(), ad());
     expect(canonical.externalListingId).toBe("olx-ad-123");
   });
 
   it("prefers OLX's own stable leadId over a derived hash", () => {
-    const { canonical } = mapOlxLead(lead());
+    const { canonical } = mapOlxLead(lead(), ad());
     expect(canonical.externalLeadId).toBe("olx-lead-999");
     expect(canonical.externalEventId).toBe("olx-lead-999");
   });
 
   it("falls back to a derived olx: event id when no stable id is present", () => {
-    const { canonical } = mapOlxLead(lead({ leadId: undefined, id: undefined }));
+    const { canonical } = mapOlxLead(lead({ leadId: undefined, id: undefined }), ad());
     expect(canonical.externalLeadId).toBeUndefined();
     expect(canonical.externalEventId).toMatch(/^olx:[a-f0-9]{64}$/);
   });
 
-  it("infers locality, transaction type and BHK from the ad parameters", () => {
-    const { canonical } = mapOlxLead(lead());
+  it("infers locality, transaction type and BHK from the correlated ad's parameters", () => {
+    const { canonical } = mapOlxLead(lead(), ad());
     expect(canonical.locality).toBe("Rajouri Garden");
     expect(canonical.transactionType).toBe("RENT");
     expect(canonical.assetClass).toBe("RESIDENTIAL");
     expect(canonical.bhk).toBe(2);
   });
 
-  it("defaults to RESIDENTIAL/SALE and flags for review when parameters are absent", () => {
-    const { canonical, needsReview, reviewReasons } = mapOlxLead(lead({ ad: { id: "ad-x", title: null, desc: null, price: null, lat: null, long: null, parameters: null } }));
+  it("defaults to RESIDENTIAL/SALE and flags for review when the correlated ad has no parameters", () => {
+    const { canonical, needsReview, reviewReasons } = mapOlxLead(lead(), ad({ title: null, desc: null, price: null, lat: null, long: null, parameters: null }));
     expect(canonical.assetClass).toBe("RESIDENTIAL");
     expect(canonical.transactionType).toBe("SALE");
     expect(needsReview).toBe(true);
     expect(reviewReasons.length).toBeGreaterThan(0);
   });
 
+  it("still ingests a lead with NO correlated ad data at all (adId absent from the ads array) - never blocks ingestion", () => {
+    const { canonical, needsReview, reviewReasons } = mapOlxLead(lead(), null);
+    expect(canonical.name).toBe("Ramesh Kumar");
+    expect(canonical.phone).toBe("919811100099");
+    expect(canonical.externalListingId).toBe("olx-ad-123");
+    expect(canonical.locality).toBe("Unknown (OLX)");
+    expect(canonical.assetClass).toBe("RESIDENTIAL");
+    expect(canonical.transactionType).toBe("SALE");
+    expect(canonical.minBudget).toBe(0);
+    expect(canonical.maxBudget).toBe(0);
+    expect(needsReview).toBe(true);
+    expect(reviewReasons.some((r) => r.includes("no ad data was returned"))).toBe(true);
+  });
+
+  it("behaves identically whether correlatedAd is explicitly null or simply omitted", () => {
+    const withNull = mapOlxLead(lead());
+    const withOmitted = mapOlxLead(lead(), undefined);
+    expect(withNull.canonical).toEqual(withOmitted.canonical);
+  });
+
+  it("records whether an ad was correlated on the staff-facing snapshot", () => {
+    expect(mapOlxLead(lead(), ad()).snapshot.adCorrelated).toBe(true);
+    expect(mapOlxLead(lead(), null).snapshot.adCorrelated).toBe(false);
+  });
+
   it("never leaks GPS coordinates into the staff-facing snapshot", () => {
-    const { snapshot } = mapOlxLead(lead());
+    const { snapshot } = mapOlxLead(lead(), ad());
     expect(JSON.stringify(snapshot)).not.toContain("28.5");
     expect(JSON.stringify(snapshot)).not.toContain("77.1");
     expect(snapshot).not.toHaveProperty("lat");
@@ -103,7 +147,7 @@ describe("mapOlxLead", () => {
   });
 
   it("uses ad price as both min and max budget when only a single price is given", () => {
-    const { canonical } = mapOlxLead(lead());
+    const { canonical } = mapOlxLead(lead(), ad());
     expect(canonical.minBudget).toBe(45000);
     expect(canonical.maxBudget).toBe(45000);
   });

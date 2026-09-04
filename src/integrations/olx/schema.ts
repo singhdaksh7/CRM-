@@ -5,17 +5,22 @@ import { z } from "zod";
  *
  * IMPORTANT - ASSUMPTION FLAG: no OLX SOP document was actually supplied to
  * this implementation. The task description gives the endpoint contract
- * (base URL, auth headers/response fields, lead-fetch query params, the two
- * field lists "OLX lead fields" and "OLX ad data") but does NOT give:
- *   1. the login request body shape,
- *   2. the leads-fetch response envelope/pagination shape, or
- *   3. how/whether "ad data" (id/title/desc/price/lat/long/parameters) is
- *      actually delivered - as a field embedded per-lead, or via a separate
- *      undocumented ad-lookup endpoint.
- * Every place below that fills that gap is marked "ASSUMPTION" and is the
+ * (base URL, auth headers/response fields, lead-fetch query params, and two
+ * SEPARATE field lists - "OLX lead fields" (name/phoneNumber/emailId/date/adId)
+ * and "OLX ad data" (id/title/desc/price/lat/long/parameters)) but does NOT
+ * give:
+ *   1. the login request body shape, or
+ *   2. the exact response envelope shape.
+ * Per the documented contract, leads and ads are two separate lists,
+ * correlated by `lead.adId === ad.id` - NOT one lead object with an embedded
+ * `ad` field. This file models that correlation explicitly (see
+ * `olxLeadsResponseSchema`'s separate `leads`/`ads` arrays); `client.ts`
+ * builds the `adId -> ad` lookup and `adapter.ts` accepts the correlated ad
+ * as an optional second argument rather than reading it off the lead. Every
+ * place below that fills a genuine gap is marked "ASSUMPTION" and is the
  * single place to change once the real OLX SOP/response samples are
  * available. Everything else (base URL, header names, token field names,
- * lead field names, 7-day/100-row constraints) is taken verbatim from the
+ * lead/ad field names, 7-day/100-row constraints) is taken verbatim from the
  * task's endpoint contract.
  */
 
@@ -39,13 +44,14 @@ export type OlxLoginResponse = z.infer<typeof olxLoginResponseSchema>;
 // ---- Ad snapshot ---------------------------------------------------------
 
 /**
- * ASSUMPTION: OLX ad data (id/title/desc/price/lat/long/parameters) is
- * embedded per-lead in the leads-fetch response as an `ad` object, since no
- * separate ad-lookup endpoint is documented anywhere in the task's contract.
- * `parameters` is treated as an opaque bag of provider-defined key/value
- * pairs (OLX ad attribute schemas vary by category) and is never trusted
- * beyond best-effort locality/asset-class/transaction-type inference - see
- * adapter.ts.
+ * "OLX ad data" per the task's documented field list: id/title/desc/price/
+ * lat/long/parameters. Delivered as its own list item (see
+ * `olxLeadsResponseSchema`'s `ads` array), correlated to a lead by
+ * `id === lead.adId` - never embedded on the lead itself. `parameters` is
+ * treated as an opaque bag of provider-defined key/value pairs (OLX ad
+ * attribute schemas vary by category) and is never trusted beyond
+ * best-effort locality/asset-class/transaction-type inference - see
+ * adapter.ts. Nothing beyond this documented field list is invented.
  */
 export const olxAdSnapshotSchema = z.object({
   id: z.union([z.string(), z.number()]),
@@ -62,6 +68,7 @@ export type OlxAdSnapshot = z.infer<typeof olxAdSnapshotSchema>;
 
 const DDMMYY = /^([0-3]?\d)\/([0-1]?\d)\/(\d{2}|\d{4})$/;
 
+/** "OLX lead fields" per the task, verbatim: name, phoneNumber, emailId, date, adId. No embedded ad object. */
 export const olxLeadSchema = z.object({
   name: z.string().trim().min(1).max(200),
   phoneNumber: z.string().trim().min(4).max(20),
@@ -76,21 +83,26 @@ export const olxLeadSchema = z.object({
   // task) - accepted here as an optional field under either common name.
   leadId: z.union([z.string(), z.number()]).nullish(),
   id: z.union([z.string(), z.number()]).nullish(),
-  ad: olxAdSnapshotSchema.nullish(),
 });
 export type OlxLeadPayload = z.infer<typeof olxLeadSchema>;
 
 /**
- * ASSUMPTION: envelope shape for GET /api/v1/leads. Accepts `leads` (also
- * tolerates `data`/`items` as an alias, in case the real response differs)
- * plus optional pagination metadata used only as a hint - fetchAllLeads()
- * in client.ts does not depend on any specific field name being present and
- * instead paginates by "did this page come back full" (see client.ts).
+ * ASSUMPTION (envelope shape only - the two arrays themselves and their
+ * item field names are the documented contract, not assumed): GET
+ * /api/v1/leads returns leads and ads as two separate, correlated lists.
+ * `leads` (also tolerates `data`/`items` as an alias) and `ads` (also
+ * tolerates `adData`/`adverts` as an alias) plus optional pagination
+ * metadata used only as a hint - client.ts does not depend on any specific
+ * pagination field name being present and instead paginates by "did this
+ * page come back full" (see client.ts).
  */
 export const olxLeadsResponseSchema = z.object({
   leads: z.array(z.unknown()).optional(),
   data: z.array(z.unknown()).optional(),
   items: z.array(z.unknown()).optional(),
+  ads: z.array(z.unknown()).optional(),
+  adData: z.array(z.unknown()).optional(),
+  adverts: z.array(z.unknown()).optional(),
   page: z.number().int().nonnegative().optional(),
   pageSize: z.number().int().positive().optional(),
   totalCount: z.number().int().nonnegative().optional(),

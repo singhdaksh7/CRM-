@@ -148,3 +148,63 @@ describe("OLX leads pagination", () => {
     expect(page.rejected).toBe(1);
   });
 });
+
+describe("OLX leads/ads correlation (documented as two separate lists)", () => {
+  it("parses leads and ads as separate arrays and exposes an adId -> ad lookup map", async () => {
+    const { fetchLeadsPage, _resetOlxTokenCacheForTests } = await import("./client");
+    _resetOlxTokenCacheForTests();
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: "tok", user_id: "u1" }))
+      .mockResolvedValueOnce(jsonResponse({
+        leads: [{ name: "A", phoneNumber: "9811100001", emailId: null, date: "01/03/26", adId: "ad-1" }],
+        ads: [{ id: "ad-1", title: "2BHK Flat", desc: "Nice", price: 40000, lat: 28.1, long: 77.2, parameters: { locality: "Dwarka" } }],
+      })) as unknown as typeof fetch;
+
+    const page = await fetchLeadsPage({ startDate: "2026-01-01", endDate: "2026-01-02" });
+    expect(page.leads).toHaveLength(1);
+    expect(page.ads.get("ad-1")?.title).toBe("2BHK Flat");
+  });
+
+  it("leaves the ads map without an entry when a lead's adId has no correlated ad - never rejects the lead", async () => {
+    const { fetchLeadsPage, _resetOlxTokenCacheForTests } = await import("./client");
+    _resetOlxTokenCacheForTests();
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: "tok", user_id: "u1" }))
+      .mockResolvedValueOnce(jsonResponse({
+        leads: [{ name: "A", phoneNumber: "9811100001", emailId: null, date: "01/03/26", adId: "ad-orphan" }],
+        ads: [{ id: "ad-other", title: "Different ad", price: 10000 }],
+      })) as unknown as typeof fetch;
+
+    const page = await fetchLeadsPage({ startDate: "2026-01-01", endDate: "2026-01-02" });
+    expect(page.leads).toHaveLength(1);
+    expect(page.ads.has("ad-orphan")).toBe(false);
+  });
+
+  it("tolerates a response with no ads array at all", async () => {
+    const { fetchLeadsPage, _resetOlxTokenCacheForTests } = await import("./client");
+    _resetOlxTokenCacheForTests();
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: "tok", user_id: "u1" }))
+      .mockResolvedValueOnce(jsonResponse({ leads: [{ name: "A", phoneNumber: "9811100001", emailId: null, date: "01/03/26", adId: "ad-1" }] })) as unknown as typeof fetch;
+
+    const page = await fetchLeadsPage({ startDate: "2026-01-01", endDate: "2026-01-02" });
+    expect(page.leads).toHaveLength(1);
+    expect(page.ads.size).toBe(0);
+  });
+
+  it("merges the ads map across pages in fetchAllLeadsForWindow", async () => {
+    const { fetchAllLeadsForWindow, _resetOlxTokenCacheForTests } = await import("./client");
+    _resetOlxTokenCacheForTests();
+    const leadFactory = (n: number, prefix: string) => Array.from({ length: n }, (_, i) => ({ name: `Lead ${i}`, phoneNumber: "9811100001", emailId: null, date: "01/03/26", adId: `${prefix}-${i}` }));
+    const adFactory = (n: number, prefix: string) => Array.from({ length: n }, (_, i) => ({ id: `${prefix}-${i}`, title: `Ad ${prefix}-${i}` }));
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: "tok", user_id: "u1" }))
+      .mockResolvedValueOnce(jsonResponse({ leads: leadFactory(100, "p1"), ads: adFactory(100, "p1") }))
+      .mockResolvedValueOnce(jsonResponse({ leads: leadFactory(1, "p2"), ads: adFactory(1, "p2") })) as unknown as typeof fetch;
+
+    const result = await fetchAllLeadsForWindow("2026-01-01", "2026-01-02");
+    expect(result.leads).toHaveLength(101);
+    expect(result.ads.size).toBe(101);
+    expect(result.ads.get("p2-0")?.title).toBe("Ad p2-0");
+  });
+});

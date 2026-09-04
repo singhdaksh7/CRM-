@@ -35,17 +35,27 @@ while OLX - a genuinely implemented pull integration - lives in its own module.
 
 **No OLX SOP document was supplied to this implementation.** The endpoint
 contract given (base URL, auth headers/response field names, lead-fetch query
-params, the 7-day/100-row limits) is implemented verbatim; a small number of
-gaps not covered by that contract are filled with explicit, commented
-assumptions in `src/integrations/olx/schema.ts`, `client.ts`, `adapter.ts`,
-and `sync.ts` - most importantly: the login request body's field names, the
-leads-fetch response envelope/pagination shape, whether "ad data"
-(title/desc/price/lat/long/parameters) is delivered embedded per-lead versus
-via a separate lookup call, and the `startDate`/`endDate` query format. Each
-assumption is isolated to one file/function so it can be corrected quickly
-once real OLX response samples are available - **nothing here has been
-verified against a live OLX account**, only against mocked HTTP responses in
-tests.
+params, the 7-day/100-row limits, and - critically - "OLX lead fields" and
+"OLX ad data" as two SEPARATE documented field lists) is implemented
+verbatim. Leads and ads are parsed and modeled as two separate, correlated
+lists (`lead.adId === ad.id`) - `src/integrations/olx/client.ts` builds an
+`adId -> ad` lookup map per page and `adapter.ts`'s `mapOlxLead()` takes the
+correlated ad as an explicit second argument; there is no `lead.ad` field.
+A lead whose `adId` has no correlated entry in the ads list still ingests
+via `ingestPortalLead` with whatever fields the lead itself documents
+(name/phone/email/date/adId) - locality/asset class/transaction
+type/BHK/budget simply fall back to safe defaults with a `needsReview`
+reason recorded, exactly like Housing's adapter does for its own
+low-confidence field mappings, rather than being fabricated.
+
+A small number of gaps genuinely not covered by the documented contract are
+filled with explicit, commented `ASSUMPTION` markers in `schema.ts`,
+`client.ts`, and `sync.ts` - the login request body's field names, the
+response envelope's exact key names (`leads`/`ads` vs. aliases), and the
+`startDate`/`endDate` query value format. Each assumption is isolated to one
+file/function so it can be corrected quickly once real OLX response samples
+are available - **nothing here has been verified against a live OLX
+account**, only against mocked HTTP responses in tests.
 
 ### Environment variables (names only)
 

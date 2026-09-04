@@ -1,6 +1,6 @@
 import "server-only";
 import { getOlxApiBaseUrl, getOlxDealerLogin, getOlxDealerPassword, shouldSendOlxDevHeader, OLX_MAX_PAGE_SIZE, OLX_ACCESS_TOKEN_TTL_SECONDS } from "./config";
-import { olxLoginResponseSchema, olxLeadsResponseSchema, olxLeadSchema, type OlxLeadPayload } from "./schema";
+import { olxLoginResponseSchema, olxLeadsResponseSchema, olxLeadSchema, olxAdSnapshotSchema, type OlxLeadPayload, type OlxAdSnapshot } from "./schema";
 import { logger } from "@/lib/logger";
 
 /**
@@ -85,6 +85,8 @@ async function getToken(forceRefresh = false): Promise<CachedToken> {
 
 export interface OlxLeadsPage {
   leads: OlxLeadPayload[];
+  /** Correlated by adId === ad.id (per the task's documented, separate "OLX ad data" field list) - never embedded on the lead. Absent for any adId OLX didn't return ad data for. */
+  ads: Map<string, OlxAdSnapshot>;
   rejected: number;
   page: number;
   pageSize: number;
@@ -145,6 +147,10 @@ export async function fetchLeadsPage(params: FetchLeadsParams): Promise<OlxLeads
   }
   const envelope = olxLeadsResponseSchema.safeParse(json);
   const rawLeads = envelope.success ? envelope.data.leads ?? envelope.data.data ?? envelope.data.items ?? [] : Array.isArray(json) ? json : [];
+  // Per the task's documented contract, "OLX ad data" (id/title/desc/price/
+  // lat/long/parameters) is its own list, correlated to a lead by
+  // `ad.id === lead.adId` - never read off the lead object itself.
+  const rawAds = envelope.success ? envelope.data.ads ?? envelope.data.adData ?? envelope.data.adverts ?? [] : [];
 
   const leads: OlxLeadPayload[] = [];
   let rejected = 0;
@@ -157,25 +163,35 @@ export async function fetchLeadsPage(params: FetchLeadsParams): Promise<OlxLeads
     }
   }
 
+  const ads = new Map<string, OlxAdSnapshot>();
+  for (const raw of rawAds) {
+    const parsed = olxAdSnapshotSchema.safeParse(raw);
+    // A malformed/unparseable ad entry is simply dropped from the
+    // correlation map - never rejects or blocks the leads on this page.
+    if (parsed.success) ads.set(String(parsed.data.id), parsed.data);
+  }
+
   // isLastPage is a heuristic (no reliable "hasMore"/"totalPages" field is
   // guaranteed to exist - see schema.ts ASSUMPTION note): a page that comes
   // back with fewer rows than requested cannot have a following page.
   const isLastPage = rawLeads.length < pageSize;
-  return { leads, rejected, page, pageSize, isLastPage };
+  return { leads, ads, rejected, page, pageSize, isLastPage };
 }
 
 /** Fetches every page for one <=7-day window, stopping when a page is short or a safety cap is hit. */
-export async function fetchAllLeadsForWindow(startDate: string, endDate: string, adIds?: string[]): Promise<{ leads: OlxLeadPayload[]; rejected: number; pagesFetched: number }> {
+export async function fetchAllLeadsForWindow(startDate: string, endDate: string, adIds?: string[]): Promise<{ leads: OlxLeadPayload[]; ads: Map<string, OlxAdSnapshot>; rejected: number; pagesFetched: number }> {
   const MAX_PAGES = 500; // safety cap against a misbehaving/looping upstream response
   const allLeads: OlxLeadPayload[] = [];
+  const allAds = new Map<string, OlxAdSnapshot>();
   let rejectedTotal = 0;
   let page = 1;
   for (; page <= MAX_PAGES; page++) {
     const result = await fetchLeadsPage({ startDate, endDate, adIds, page, pageSize: OLX_MAX_PAGE_SIZE });
     allLeads.push(...result.leads);
+    for (const [id, ad] of result.ads) allAds.set(id, ad);
     rejectedTotal += result.rejected;
-    if (result.isLastPage) return { leads: allLeads, rejected: rejectedTotal, pagesFetched: page };
+    if (result.isLastPage) return { leads: allLeads, ads: allAds, rejected: rejectedTotal, pagesFetched: page };
   }
   logger.error("olx_pagination_safety_cap_hit", { pagesFetched: MAX_PAGES });
-  return { leads: allLeads, rejected: rejectedTotal, pagesFetched: MAX_PAGES };
+  return { leads: allLeads, ads: allAds, rejected: rejectedTotal, pagesFetched: MAX_PAGES };
 }
