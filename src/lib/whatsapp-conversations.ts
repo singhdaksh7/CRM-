@@ -13,9 +13,9 @@ const DEFAULT_PAGE_SIZE = 50;
  * number changes) - the unique constraint is on (leadId, phoneNumber), not
  * leadId alone, which is exactly the flexibility the schema comment calls for.
  */
-export async function findOrCreateConversation(leadId: string, organizationId: string) {
+export async function findOrCreateConversation(leadId: string, organizationId: string, recipientPhone?: string) {
   const lead = await prisma.lead.findFirstOrThrow({ where: { id: leadId, organizationId } });
-  const phoneNumber = normalizeIndianPhone(lead.phone, loadWhatsAppConfig().defaultCountryCode);
+  const phoneNumber = normalizeIndianPhone(recipientPhone ?? lead.phone, loadWhatsAppConfig().defaultCountryCode);
   if (!phoneNumber) {
     throw new ApiError(400, `Lead's phone number "${lead.phone}" is not a valid Indian number - cannot start a WhatsApp conversation.`);
   }

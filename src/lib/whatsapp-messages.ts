@@ -22,6 +22,8 @@ interface SendMessageParams {
   catalogueUrl?: string;
   metadata?: Record<string, unknown>;
   idempotencyKey?: string;
+  /** Already authorized by the caller; used only to select this lead's conversation. */
+  recipientPhone?: string;
 }
 
 /** Sends an outbound message through whichever provider is configured, persisting every state transition. */
@@ -31,7 +33,7 @@ export async function sendOutboundMessage(params: SendMessageParams) {
   const organizationId = await resolveOrganizationIdForUser(params.sentByUserId);
   const conversation = params.conversationId
     ? await prisma.whatsAppConversation.findFirst({ where: { id: params.conversationId, organizationId, leadId: params.leadId } })
-    : await findOrCreateConversation(params.leadId, organizationId);
+    : await findOrCreateConversation(params.leadId, organizationId, params.recipientPhone);
   if (!conversation) throw new ApiError(404, "Conversation not found");
   const provider = getWhatsAppProvider();
   const messageType = params.messageType ?? "TEXT";
