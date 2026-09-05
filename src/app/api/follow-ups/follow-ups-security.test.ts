@@ -260,4 +260,20 @@ describe("GET /api/follow-ups - narrow lead projection (Blocker A)", () => {
     await getFollowUps(getReq());
     expect(followUpFindMany.mock.calls[0][0].where.ownerId).toBe("fe_1");
   });
+
+  // Feature 4 (daily-ops hardening): the post-visit "Next Action?" step
+  // queries this route with ?leadId= to check whether the lead already has
+  // an upcoming open follow-up before offering to add another.
+  it("filters by leadId when provided, on top of the existing org/owner scope", async () => {
+    await getFollowUps(new NextRequest(new Request("https://x.test/api/follow-ups?leadId=lead_1&status=PENDING")));
+    const where = followUpFindMany.mock.calls[0][0].where;
+    expect(where.leadId).toBe("lead_1");
+    expect(where.status).toBe("PENDING");
+    expect(where.ownerId).toBe("fe_1");
+  });
+
+  it("omits the leadId filter entirely when not provided", async () => {
+    await getFollowUps(getReq());
+    expect(followUpFindMany.mock.calls[0][0].where).not.toHaveProperty("leadId");
+  });
 });

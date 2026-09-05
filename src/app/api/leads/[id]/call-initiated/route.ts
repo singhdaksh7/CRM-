@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
-import { prisma } from "@/lib/prisma";
+import { requireSession, handleApiError } from "@/lib/api-auth";
 import { logActivity } from "@/lib/activity";
-import { getOrganizationId } from "@/lib/organization";
+import { assertLeadAccessible } from "@/lib/lead-access";
 
 /**
  * Change 13 - Lead Timeline should include "Call Made". A tel: link can't
@@ -14,8 +13,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await requireSession();
     const { id: leadId } = await params;
-    const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId: getOrganizationId(session.user) }, select: { id: true } });
-    if (!lead) throw new ApiError(404, "Lead not found");
+    // Feature 6 (daily-ops hardening, RBAC consistency): previously only
+    // org-scoped, so a FIELD_EXECUTIVE could log a call against another FE's
+    // lead by ID. Reuses the same ownership helper every sibling lead-child
+    // route (notes/interactions/match) already goes through.
+    await assertLeadAccessible(session, leadId);
 
     // simplified-role-workflow (spec item 6) - optional, best-effort: which
     // number (primary or alternate) the call was placed to, when the caller

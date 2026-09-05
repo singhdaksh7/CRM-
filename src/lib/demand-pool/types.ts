@@ -102,6 +102,9 @@ export interface LinkedLead {
   createdAt?: string;
 }
 
+/** Feature 2 (daily-ops hardening) - see src/lib/match-history.ts. */
+export type MatchHistoryStatus = "NEW" | "LIKED" | "ALREADY_SHARED" | "VISITED" | "REJECTED";
+
 export interface PropertyRecommendation {
   id: string;
   propertyId: string;
@@ -114,6 +117,8 @@ export interface PropertyRecommendation {
   score: number;
   reasons: string;
   status: RecommendationStatus;
+  /** Present on GET /api/properties/[id]/matches responses only (annotated at read time, not stored). */
+  matchHistoryStatus?: MatchHistoryStatus;
   preparedAt: string | null;
   sentAt: string | null;
   channel: string | null;
@@ -163,6 +168,8 @@ export interface MatchSummary {
   strong: number;
   stretch: number;
   low: number;
+  /** Count of NEW/LIKED candidates - see src/lib/match-history.ts (Feature 2, daily-ops hardening). */
+  new?: number;
 }
 
 export interface CustomerListFilters {

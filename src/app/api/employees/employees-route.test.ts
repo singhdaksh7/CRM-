@@ -8,7 +8,8 @@ const tokenCreate = vi.fn();
 const auditCreate = vi.fn();
 const findUnique = vi.fn();
 const transaction = vi.fn(async (callback: (tx: unknown) => unknown) => callback({ user: { create: userCreate }, accountSetupToken: { create: tokenCreate }, auditLog: { create: auditCreate } }));
-vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique }, $transaction: transaction } }));
+const userFindMany = vi.fn();
+vi.mock("@/lib/prisma", () => ({ prisma: { user: { findUnique, findMany: userFindMany }, $transaction: transaction } }));
 vi.mock("@/lib/api-auth", () => ({ requireSession, ApiError: class ApiError extends Error { status: number; constructor(status: number, message: string) { super(message); this.status = status; } }, handleApiError: (error: { status?: number; message: string }) => Response.json({ error: error.message }, { status: error.status ?? 500 }) }));
 vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org1" }));
 vi.mock("@/lib/cache", () => ({ invalidateCache }));
@@ -17,13 +18,30 @@ vi.mock("@/lib/account-setup", () => ({
   createAccountSetupSecret: () => ({ token: "plain-setup-token", tokenHash: "hashed-setup-token", expiresAt: new Date("2026-08-10T00:00:00Z") }),
   buildAccountSetupUrl: () => "https://crm.example.com/setup-account/plain-setup-token",
 }));
-const { POST } = await import("./route");
+const { GET, POST } = await import("./route");
 
 beforeEach(() => {
   vi.clearAllMocks();
   requireSession.mockResolvedValue({ user: { id: "admin1", role: "ADMIN" } });
   findUnique.mockResolvedValue(null);
   userCreate.mockResolvedValue({ id: "u1", organizationId: "org1", name: "New Employee", email: "new@example.com", role: "FIELD_EXECUTIVE", status: "PENDING_SETUP" });
+  userFindMany.mockResolvedValue([]);
+});
+
+// Feature 6 (daily-ops hardening, RBAC consistency): GET /api/employees must
+// require ADMIN, matching GET /api/employees/[id] - see route.ts comment.
+describe("GET /api/employees", () => {
+  it("requires ADMIN", async () => {
+    await GET();
+    expect(requireSession).toHaveBeenCalledWith(["ADMIN"]);
+  });
+
+  it("rejects a non-ADMIN session before touching the database", async () => {
+    requireSession.mockRejectedValueOnce(Object.assign(new Error("Forbidden"), { status: 403 }));
+    const response = await GET();
+    expect(response.status).toBe(403);
+    expect(userFindMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/employees", () => {

@@ -1,8 +1,33 @@
 "use client";
 
 import { Badge, type BadgeTone } from "@/components/ui/badge";
-import type { RecommendationTier, RequirementLifecycleStatus } from "@/lib/demand-pool/types";
+import type { RecommendationTier, RequirementLifecycleStatus, MatchHistoryStatus } from "@/lib/demand-pool/types";
 import { tierTone } from "@/lib/demand-pool/format";
+
+// Feature 2 (daily-ops hardening) - compact match-history context. "NEW" is
+// intentionally not rendered (no badge = fresh match, the common case; only
+// the exceptions get a badge, so the panel stays uncluttered).
+const MATCH_HISTORY_TONE: Record<Exclude<MatchHistoryStatus, "NEW">, BadgeTone> = {
+  LIKED: "green",
+  ALREADY_SHARED: "blue",
+  VISITED: "purple",
+  REJECTED: "red",
+};
+const MATCH_HISTORY_LABEL: Record<Exclude<MatchHistoryStatus, "NEW">, string> = {
+  LIKED: "Liked before",
+  ALREADY_SHARED: "Already shared",
+  VISITED: "Visited",
+  REJECTED: "Not interested",
+};
+
+export function MatchHistoryBadge({ status }: { status?: MatchHistoryStatus }) {
+  if (!status || status === "NEW") return null;
+  return (
+    <span aria-label={`Match history: ${MATCH_HISTORY_LABEL[status]}`}>
+      <Badge tone={MATCH_HISTORY_TONE[status]}>{MATCH_HISTORY_LABEL[status]}</Badge>
+    </span>
+  );
+}
 
 const LIFECYCLE_TONE: Record<RequirementLifecycleStatus, BadgeTone> = {
   ACTIVE: "green",

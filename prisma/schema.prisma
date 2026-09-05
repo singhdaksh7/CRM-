@@ -1324,6 +1324,15 @@ model Lead {
   nextFollowUpAt  DateTime?
   notes           String?
 
+  // Feature 3 (daily-ops hardening): lost/not-interested reason capture,
+  // reusing Deal's structured-category + free-text-detail design
+  // (LostDealReasonCategory - see Deal.lostReasonCategory above). Nullable
+  // and only ever set when status is CLOSED_LOST or NOT_INTERESTED; cleared
+  // if the lead is later reopened to a non-terminal status. Internal-only -
+  // never included in any public/customer-facing DTO.
+  lostReasonCategory LostDealReasonCategory?
+  lostReasonDetail   String?
+
   // Demand pool linkage (Phase: Demand Pool + Matching) - when this Lead
   // originated from (or was later linked to) a long-term CustomerContact,
   // never a duplicate identity. See CustomerContact.leads.
