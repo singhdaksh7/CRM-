@@ -42,6 +42,16 @@ export const NAV_ITEMS = [
   { href: "/documents", label: "Documents", roles: ["ADMIN"] as Role[] },
   { href: "/notifications", label: "Notifications", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/admin/property-issues", label: "Property Issues", roles: ["ADMIN"] as Role[] },
+  // Property Portals (incl. the Housing.com lead-file importer) is deliberately
+  // reachable by DATA_MANAGER, matching the property-portals page's own
+  // canImportHousingLeads / housing-import page's ["ADMIN","DATA_MANAGER"]
+  // check - this entry must be listed before the generic "/integrations"
+  // entry below so canAccess's prefix match (href.startsWith) picks the more
+  // specific, more permissive rule first for this subtree. Before this entry
+  // existed, DATA_MANAGER's own housing-import link/permission was silently
+  // overridden by the ADMIN-only "/integrations" rule below, which redirected
+  // them to their dashboard on every attempt (typed URL or otherwise).
+  { href: "/integrations/property-portals", label: "Property Portals", roles: ["ADMIN", "DATA_MANAGER"] as Role[] },
   // Previously reachable by every role because no NAV_ITEMS entry existed for
   // it (canAccess falls through to "allow" when a path matches nothing) -
   // now explicitly ADMIN-only, matching the "hide system config/integrations"
