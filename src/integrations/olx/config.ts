@@ -38,15 +38,11 @@ export function isOlxLiveIngestionEnabled(): boolean {
 }
 
 /**
- * Dev/sandbox-only header (`x-origin-panamera: dev`) - the task is explicit
- * that this must NEVER be sent in production and must be gated behind an
- * explicit opt-in flag that defaults off. Vercel sets NODE_ENV=production
- * for every deployment (preview and production alike), so this also
- * requires the operator to explicitly opt in via OLX_DEV_MODE=true rather
- * than inferring "non-prod" from NODE_ENV alone.
+ * The official SOP requires `x-origin-panamera: dev` for development and
+ * testing. Production deployments never send it.
  */
 export function shouldSendOlxDevHeader(): boolean {
-  return process.env.OLX_DEV_MODE === "true" && process.env.NODE_ENV !== "production";
+  return process.env.NODE_ENV !== "production";
 }
 
 /** First-sync lookback window (hours) when a connection has no lastSuccessfulSyncAt cursor yet. */

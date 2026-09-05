@@ -26,9 +26,9 @@ import { z } from "zod";
 
 // ---- Auth --------------------------------------------------------------
 
-/** ASSUMPTION: request body field names for POST /api/v1/auth/login. */
+/** Official OLX Dealer Lead Sharing API login request contract. */
 export const olxLoginRequestSchema = z.object({
-  username: z.string().min(1),
+  login: z.string().min(1),
   password: z.string().min(1),
 });
 export type OlxLoginRequest = z.infer<typeof olxLoginRequestSchema>;
@@ -87,25 +87,22 @@ export const olxLeadSchema = z.object({
 export type OlxLeadPayload = z.infer<typeof olxLeadSchema>;
 
 /**
- * ASSUMPTION (envelope shape only - the two arrays themselves and their
- * item field names are the documented contract, not assumed): GET
- * /api/v1/leads returns leads and ads as two separate, correlated lists.
- * `leads` (also tolerates `data`/`items` as an alias) and `ads` (also
- * tolerates `adData`/`adverts` as an alias) plus optional pagination
- * metadata used only as a hint - client.ts does not depend on any specific
- * pagination field name being present and instead paginates by "did this
- * page come back full" (see client.ts).
+ * Official OLX Dealer Lead Sharing API response envelope. Leads and ads are
+ * separate, correlated lists at `data.leads` and `data.ads`; pagination is
+ * supplied alongside them at `data.pagination`.
  */
 export const olxLeadsResponseSchema = z.object({
-  leads: z.array(z.unknown()).optional(),
-  data: z.array(z.unknown()).optional(),
-  items: z.array(z.unknown()).optional(),
-  ads: z.array(z.unknown()).optional(),
-  adData: z.array(z.unknown()).optional(),
-  adverts: z.array(z.unknown()).optional(),
-  page: z.number().int().nonnegative().optional(),
-  pageSize: z.number().int().positive().optional(),
-  totalCount: z.number().int().nonnegative().optional(),
-  total: z.number().int().nonnegative().optional(),
+  status: z.string(),
+  code: z.number(),
+  data: z.object({
+    leads: z.array(z.unknown()),
+    ads: z.array(z.unknown()),
+    pagination: z.object({
+      page: z.number().int().positive(),
+      pageSize: z.number().int().positive(),
+      totalPages: z.number().int().nonnegative(),
+      totalRecords: z.number().int().nonnegative(),
+    }),
+  }),
 });
 export type OlxLeadsResponse = z.infer<typeof olxLeadsResponseSchema>;

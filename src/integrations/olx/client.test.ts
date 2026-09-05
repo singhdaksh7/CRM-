@@ -13,7 +13,11 @@ const originalFetch = global.fetch;
 const originalEnv = { ...process.env };
 
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  const isLeadPage = Boolean(body && typeof body === "object" && "leads" in body);
+  const payload = isLeadPage
+    ? { status: "success", code: status, data: { leads: (body as { leads: unknown[] }).leads, ads: (body as { ads?: unknown[] }).ads ?? [], pagination: { page: 1, pageSize: 100, totalPages: ((body as { leads: unknown[] }).leads.length ?? 0) >= 100 ? 2 : 1, totalRecords: (body as { leads: unknown[] }).leads.length ?? 0 } } }
+    : body;
+  return new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json" } });
 }
 
 beforeEach(() => {
@@ -30,6 +34,25 @@ afterEach(() => {
 });
 
 describe("OLX authentication", () => {
+  it("uses the official login request contract without a username field", async () => {
+    const { fetchLeadsPage, _resetOlxTokenCacheForTests } = await import("./client");
+    _resetOlxTokenCacheForTests();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: "tok", user_id: "u1" }))
+      .mockResolvedValueOnce(jsonResponse({ status: "success", code: 200, data: { leads: [], ads: [], pagination: { page: 1, pageSize: 20, totalPages: 0, totalRecords: 0 } } }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await fetchLeadsPage({ startDate: "2026-01-01", endDate: "2026-01-02", pageSize: 20 });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://olx.example.test/api/v1/auth/login");
+    expect(init.method).toBe("POST");
+    expect(init.headers).toMatchObject({ "content-type": "text/plain", "client-language": "en-IN", "x-origin-panamera": "dev" });
+    const body = JSON.parse(String(init.body));
+    expect(Object.keys(body).sort()).toEqual(["login", "password"]);
+    expect(body).not.toHaveProperty("username");
+  });
+
   it("logs in and caches the token/userId within one process", async () => {
     const { fetchLeadsPage, _resetOlxTokenCacheForTests } = await import("./client");
     _resetOlxTokenCacheForTests();

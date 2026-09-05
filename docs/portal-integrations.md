@@ -61,7 +61,7 @@ account**, only against mocked HTTP responses in tests.
 
 - `OLX_DEALER_LOGIN`, `OLX_DEALER_PASSWORD` - dealer credentials, server-only, read only in `src/integrations/olx/config.ts`.
 - `OLX_API_BASE_URL` - defaults to `https://business.olx.in` if unset.
-- `OLX_DEV_MODE` - must be explicitly set to `"true"` (and never in a `NODE_ENV=production` deploy) to send the sandbox-only `x-origin-panamera: dev` header. Off by default.
+- `x-origin-panamera: dev` is sent automatically in development and test environments, as required by the official SOP; it is never sent when `NODE_ENV=production`.
 - `OLX_INITIAL_LOOKBACK_HOURS` - first-sync bounded lookback when a connection has no cursor yet (default 24).
 - `OLX_SYNC_OVERLAP_MINUTES` - overlap subtracted from the cursor on every incremental sync (default 10).
 - `OLX_LIVE_INGESTION_ENABLED` - must be exactly `true` before any OLX lead can be fetched and ingested. It remains off until live authentication and the response contract have been reviewed.
@@ -71,7 +71,7 @@ account**, only against mocked HTTP responses in tests.
 
 `src/integrations/olx/client.ts` authenticates via `POST /api/v1/auth/login`
 (`Content-Type: text/plain`, `client-language: en-IN`, plus the dev header
-only when `OLX_DEV_MODE=true` outside production). The access token, user id
+in development/testing, and never in production). The access token, user id
 and an expiry (15 minutes minus a small safety margin) are cached in a
 module-level variable that lives only as long as one serverless invocation -
 Vercel gives no durable memory between invocations, so re-authenticating once

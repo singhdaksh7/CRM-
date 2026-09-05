@@ -36,9 +36,9 @@ function baseHeaders(): Record<string, string> {
 }
 
 async function login(): Promise<CachedToken> {
-  const username = getOlxDealerLogin();
+  const login = getOlxDealerLogin();
   const password = getOlxDealerPassword();
-  if (!username || !password) {
+  if (!login || !password) {
     throw new OlxAuthError("OLX credentials are not configured (OLX_DEALER_LOGIN / OLX_DEALER_PASSWORD).");
   }
 
@@ -48,7 +48,7 @@ async function login(): Promise<CachedToken> {
     // Content-Type is deliberately text/plain per the task's endpoint
     // contract; the body itself is still JSON-encoded (OLX's documented
     // login contract fixes the header, not the payload).
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ login, password }),
   });
 
   if (!response.ok) {
@@ -151,11 +151,12 @@ export async function fetchLeadsPage(params: FetchLeadsParams): Promise<OlxLeads
     throw new OlxApiError(response.status, "OLX leads response was not valid JSON.");
   }
   const envelope = olxLeadsResponseSchema.safeParse(json);
-  const rawLeads = envelope.success ? envelope.data.leads ?? envelope.data.data ?? envelope.data.items ?? [] : Array.isArray(json) ? json : [];
+  if (!envelope.success) throw new OlxApiError(response.status, "OLX leads response did not match the documented contract.");
+  const rawLeads = envelope.data.data.leads;
   // Per the task's documented contract, "OLX ad data" (id/title/desc/price/
   // lat/long/parameters) is its own list, correlated to a lead by
   // `ad.id === lead.adId` - never read off the lead object itself.
-  const rawAds = envelope.success ? envelope.data.ads ?? envelope.data.adData ?? envelope.data.adverts ?? [] : [];
+  const rawAds = envelope.data.data.ads;
 
   const leads: OlxLeadPayload[] = [];
   let rejected = 0;
@@ -176,10 +177,7 @@ export async function fetchLeadsPage(params: FetchLeadsParams): Promise<OlxLeads
     if (parsed.success) ads.set(String(parsed.data.id), parsed.data);
   }
 
-  // isLastPage is a heuristic (no reliable "hasMore"/"totalPages" field is
-  // guaranteed to exist - see schema.ts ASSUMPTION note): a page that comes
-  // back with fewer rows than requested cannot have a following page.
-  const isLastPage = rawLeads.length < pageSize;
+  const isLastPage = page >= envelope.data.data.pagination.totalPages;
   return { leads, ads, rejected, page, pageSize, isLastPage };
 }
 
