@@ -301,7 +301,7 @@ export async function revokeCatalogue(catalogueId: string, organizationId: strin
 }
 
 /** Sends the catalogue via the configured provider, and records the same event in the legacy SharedPropertyLog for the lead's existing "Shared" tab. */
-export async function sendCatalogue(catalogueId: string, organizationId: string, sentByUserId: string) {
+export async function sendCatalogue(catalogueId: string, organizationId: string, sentByUserId: string, recipientPhone?: string) {
   const catalogue = await getCatalogueById(catalogueId, organizationId);
   if (catalogue.status !== "ACTIVE") throw new ApiError(400, `Cannot send a ${catalogue.status.toLowerCase()} catalogue`);
 
@@ -324,6 +324,7 @@ export async function sendCatalogue(catalogueId: string, organizationId: string,
     messageType: "CATALOGUE",
     catalogueUrl,
     metadata: { catalogueShareId: catalogue.id },
+    recipientPhone,
   };
 
   if (provider.name === "META_CLOUD") {

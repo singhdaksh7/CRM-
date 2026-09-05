@@ -21,7 +21,8 @@ describe("LeadPhone → catalogue WhatsApp fallback seam", () => {
   it("catalogues-tab wires Open WhatsApp & Send without provider send", () => {
     const source = readFileSync(join(__dirname, "../components/catalogues/catalogues-tab.tsx"), "utf8");
     expect(source).toContain("Open WhatsApp");
-    expect(source).toContain("/api/catalogues/whatsapp-fallback");
+    expect(source).toContain("/whatsapp-link");
+    expect(source).not.toContain('fetch("/api/catalogues/whatsapp-fallback"');
     expect(source).not.toMatch(/sendOutboundMessage|sendCatalogueMessage|META_CLOUD/);
   });
 });

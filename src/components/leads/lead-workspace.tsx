@@ -269,6 +269,7 @@ export function LeadWorkspace({
               clientName={lead.clientName}
               primaryPhone={lead.phone}
               phones={lead.phones}
+              providerSendConfigured={providerSendConfigured}
             />
           </div>
         </div>

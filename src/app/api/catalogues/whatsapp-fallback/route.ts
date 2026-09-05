@@ -17,12 +17,11 @@ const bodySchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     await requireSession(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"]);
-    const data = bodySchema.parse(await req.json());
-    const prepared = prepareCatalogueWhatsAppFallback(data);
-    if (!prepared) {
-      return NextResponse.json({ error: "Invalid recipient phone number" }, { status: 400 });
-    }
-    return NextResponse.json(prepared);
+    // This legacy generic endpoint cannot establish catalogue/lead ownership.
+    // Call the lead-bound route instead; fail closed rather than trusting IDs,
+    // phone data, or a public URL supplied by a browser.
+    bodySchema.parse(await req.json());
+    return NextResponse.json({ error: "Use the catalogue share action to prepare WhatsApp." }, { status: 410 });
   } catch (err) {
     return handleApiError(err);
   }
