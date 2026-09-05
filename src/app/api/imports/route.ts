@@ -14,15 +14,18 @@ export async function GET(req: NextRequest) {
     const sp = req.nextUrl.searchParams;
     const take = readTake(sp);
     const skip = readSkip(sp);
+    const entityTypeParam = sp.get("entityType");
+    const ALLOWED_ENTITY_TYPES = new Set(["PROPERTIES", "LEADS", "OWNERS", "EMPLOYEES", "CONTACTS", "HOUSING_LEADS"]);
+    const where = { organizationId, ...(entityTypeParam && ALLOWED_ENTITY_TYPES.has(entityTypeParam) ? { entityType: entityTypeParam as never } : {}) };
     const [jobs, total] = await Promise.all([
       prisma.importJob.findMany({
-        where: { organizationId },
+        where,
         include: { createdBy: { select: { id: true, name: true } } },
         orderBy: { createdAt: "desc" },
         take,
         skip,
       }),
-      prisma.importJob.count({ where: { organizationId } }),
+      prisma.importJob.count({ where }),
     ]);
     return NextResponse.json({ jobs, total, take, skip });
   } catch (err) {

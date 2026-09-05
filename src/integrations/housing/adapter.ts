@@ -14,7 +14,7 @@ export interface HousingMappingResult {
 }
 
 /** "3 BHK" / "3BHK" / "3 bhk" -> 3. Anything else is left unmapped rather than guessed. */
-function parseBhk(apartmentNames: string): number | undefined {
+export function parseBhk(apartmentNames: string): number | undefined {
   const match = apartmentNames.trim().match(/^(\d{1,2})\s*BHK$/i);
   if (!match) return undefined;
   const value = Number(match[1]);
@@ -29,7 +29,7 @@ function parseBhk(apartmentNames: string): number | undefined {
  * flagged via needsReview and the raw value is always preserved in the
  * snapshot so staff can correct it.
  */
-function mapAssetClass(categoryType: string): { assetClass: "RESIDENTIAL" | "COMMERCIAL"; confident: boolean } {
+export function mapAssetClass(categoryType: string): { assetClass: "RESIDENTIAL" | "COMMERCIAL"; confident: boolean } {
   const normalized = categoryType.trim().toLowerCase();
   if (normalized === "residential") return { assetClass: "RESIDENTIAL", confident: true };
   if (normalized === "commercial") return { assetClass: "COMMERCIAL", confident: true };
@@ -42,14 +42,14 @@ function mapAssetClass(categoryType: string): { assetClass: "RESIDENTIAL" | "COM
  * rental enquiry. Any other value defaults to SALE (the more common Housing
  * lead type) but is flagged via needsReview with the raw value preserved.
  */
-function mapTransactionType(serviceType: string): { transactionType: "RENT" | "SALE"; confident: boolean } {
+export function mapTransactionType(serviceType: string): { transactionType: "RENT" | "SALE"; confident: boolean } {
   const normalized = serviceType.trim().toLowerCase();
   if (normalized.includes("rent")) return { transactionType: "RENT", confident: true };
   if (normalized === "new-projects" || normalized === "resale" || normalized.includes("sale")) return { transactionType: "SALE", confident: true };
   return { transactionType: "SALE", confident: false };
 }
 
-function round(value: number | null | undefined): number | undefined {
+export function round(value: number | null | undefined): number | undefined {
   if (value === null || value === undefined) return undefined;
   return Math.round(value);
 }

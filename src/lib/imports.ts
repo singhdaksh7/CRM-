@@ -18,6 +18,12 @@ const NUMERIC_FIELDS: Record<ImportEntityType, string[]> = {
   OWNERS: [],
   EMPLOYEES: ["maxActiveLeads"],
   CONTACTS: ["bhk", "minBudget", "maxBudget", "minArea", "maxArea", "workstations", "cabins"],
+  // HOUSING_LEADS never runs through this generic pipeline (runImport /
+  // createEntity) - it has its own dedicated orchestration in
+  // ./housing-import.ts (canonical mapping + ingestPortalLead dedup +
+  // assignment). This entry exists only so ImportEntityType's exhaustive
+  // Record types below still compile; it is never read.
+  HOUSING_LEADS: [],
 };
 
 const BOOLEAN_FIELDS: Record<ImportEntityType, string[]> = {
@@ -26,6 +32,7 @@ const BOOLEAN_FIELDS: Record<ImportEntityType, string[]> = {
   OWNERS: [],
   EMPLOYEES: ["isAvailable", "autoAssignEnabled"],
   CONTACTS: ["parkingRequired", "liftRequired"],
+  HOUSING_LEADS: [],
 };
 
 /**
@@ -67,6 +74,7 @@ export function coerceTypes(mapped: Record<string, unknown>, entityType: ImportE
 }
 
 function validateRow(entityType: ImportEntityType, mapped: Record<string, unknown>): { valid: true; data: Record<string, unknown> } | { valid: false; error: string } {
+  if (entityType === "HOUSING_LEADS") throw new Error("HOUSING_LEADS must use runHousingImport(), not the generic import pipeline");
   const schema = { PROPERTIES: propertySchema, LEADS: leadSchema, OWNERS: ownerSchema, EMPLOYEES: employeeSchema, CONTACTS: contactImportRowSchema }[entityType];
   const result = schema.safeParse(mapped);
   if (!result.success) return { valid: false, error: result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") };
@@ -98,6 +106,8 @@ async function contactRowIsDuplicate(data: Record<string, unknown>, organization
 
 async function findExistingDuplicate(entityType: ImportEntityType, data: Record<string, unknown>, organizationId: string): Promise<boolean> {
   switch (entityType) {
+    case "HOUSING_LEADS":
+      throw new Error("HOUSING_LEADS must use runHousingImport(), not the generic import pipeline");
     case "LEADS":
       return !!(await prisma.lead.findFirst({ where: { organizationId, phone: data.phone as string } }));
     case "OWNERS":
@@ -306,6 +316,8 @@ export async function previewContactImport(params: {
 
 async function createEntity(entityType: ImportEntityType, data: Record<string, unknown>, organizationId: string, actorId: string): Promise<string> {
   switch (entityType) {
+    case "HOUSING_LEADS":
+      throw new Error("HOUSING_LEADS must use runHousingImport(), not the generic import pipeline");
     case "OWNERS": {
       const ownerCode = generateCode("OWN", (await prisma.owner.count()) + 1);
       const owner = await prisma.owner.create({
@@ -440,6 +452,10 @@ async function createEntity(entityType: ImportEntityType, data: Record<string, u
 async function rollbackCreatedEntities(entityType: ImportEntityType, ids: string[]) {
   if (ids.length === 0) return;
   switch (entityType) {
+    case "HOUSING_LEADS":
+      // Never reached: HOUSING_LEADS rows are never created via createEntity()
+      // above, so there is nothing here for this pipeline to roll back.
+      break;
     case "OWNERS":
       await prisma.owner.deleteMany({ where: { id: { in: ids } } });
       break;
