@@ -71,6 +71,10 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   // behavior on a transient 5xx never gets mistaken for abuse, per-provider+IP
   // so it never shares a bucket with (or is starved by) the generic webhook rule.
   housingWebhook: { limit: Number(process.env.RATE_LIMIT_HOUSING_WEBHOOK_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_HOUSING_WEBHOOK_WINDOW_SECONDS ?? 60) },
+  // Admin-triggered "Sync Now" button for the OLX connection - per-admin,
+  // deliberately tight so repeated-click abuse can't hammer the OLX API or
+  // rack up avoidable Sell.Do retry attempts.
+  olxManualSync: { limit: Number(process.env.RATE_LIMIT_OLX_MANUAL_SYNC_MAX ?? 5), windowSeconds: Number(process.env.RATE_LIMIT_OLX_MANUAL_SYNC_WINDOW_SECONDS ?? 300) },
   import: { limit: Number(process.env.RATE_LIMIT_IMPORT_MAX ?? 5), windowSeconds: Number(process.env.RATE_LIMIT_IMPORT_WINDOW_SECONDS ?? 300) },
   upload: { limit: Number(process.env.RATE_LIMIT_UPLOAD_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_UPLOAD_WINDOW_SECONDS ?? 60) },
   document: { limit: Number(process.env.RATE_LIMIT_DOCUMENT_MAX ?? 100), windowSeconds: Number(process.env.RATE_LIMIT_DOCUMENT_WINDOW_SECONDS ?? 60) },
