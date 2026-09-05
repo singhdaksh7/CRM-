@@ -20,13 +20,31 @@ export interface ParsedInventorySheet {
 
 function extension(name: string) { return name.toLowerCase().slice(name.lastIndexOf(".")); }
 
+/**
+ * Client-facing validation failure (bad extension, oversized, empty, MIME
+ * mismatch). Deliberately does NOT import ApiError from ./api-auth - that
+ * module transitively drags in the full NextAuth stack (see
+ * OrganizationResolutionError in ./organization.ts for the same pattern and
+ * rationale). handleApiError() duck-types on a numeric `status` property for
+ * exactly this reason, so a plain Error here previously fell through to its
+ * generic 500 "Internal server error" branch instead of surfacing the actual
+ * validation message - reproduced in production via a legacy .xls upload to
+ * the Housing lead importer.
+ */
+class InventoryFileValidationError extends Error {
+  status = 400;
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export function validateInventoryFile(file: Pick<File, "name" | "size" | "type">) {
   const ext = extension(file.name);
-  if (ext === ".xls") throw new Error("Legacy .xls files are not accepted safely. Save the workbook as .xlsx or .csv first.");
-  if (![".xlsx", ".csv"].includes(ext)) throw new Error("Only .xlsx and .csv inventory files are supported");
-  if (file.size <= 0) throw new Error("The uploaded file is empty");
-  if (file.size > INVENTORY_IMPORT_MAX_BYTES) throw new Error(`File exceeds the ${Math.round(INVENTORY_IMPORT_MAX_BYTES / 1024 / 1024)} MB upload limit`);
-  if (file.type && !ALLOWED_MIME.has(file.type)) throw new Error("The file MIME type does not match an accepted spreadsheet format");
+  if (ext === ".xls") throw new InventoryFileValidationError("Legacy .xls files are not accepted safely. Save the workbook as .xlsx or .csv first.");
+  if (![".xlsx", ".csv"].includes(ext)) throw new InventoryFileValidationError("Only .xlsx and .csv inventory files are supported");
+  if (file.size <= 0) throw new InventoryFileValidationError("The uploaded file is empty");
+  if (file.size > INVENTORY_IMPORT_MAX_BYTES) throw new InventoryFileValidationError(`File exceeds the ${Math.round(INVENTORY_IMPORT_MAX_BYTES / 1024 / 1024)} MB upload limit`);
+  if (file.type && !ALLOWED_MIME.has(file.type)) throw new InventoryFileValidationError("The file MIME type does not match an accepted spreadsheet format");
   return ext;
 }
 
@@ -92,10 +110,10 @@ export async function parseInventoryFile(file: File, requestedSheet?: string): P
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
   const sheetNames = workbook.worksheets.map((sheet) => sheet.name);
-  if (!sheetNames.length) throw new Error("The workbook contains no worksheets");
+  if (!sheetNames.length) throw new InventoryFileValidationError("The workbook contains no worksheets");
   const selectedSheet = requestedSheet ?? sheetNames[0];
   const sheet = workbook.getWorksheet(selectedSheet);
-  if (!sheet) throw new Error("Selected worksheet was not found");
+  if (!sheet) throw new InventoryFileValidationError("Selected worksheet was not found");
   const matrix: string[][] = [];
   sheet.eachRow({ includeEmpty: false }, (excelRow) => {
     const cells: string[] = [];
