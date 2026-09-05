@@ -41,7 +41,7 @@ export function CataloguesTab({
   providerSendConfigured: boolean;
 }) {
   const [catalogues, setCatalogues] = useState<CatalogueWithProperties[] | null>(null);
-  const [shareCatalogue, setShareCatalogue] = useState<CatalogueWithProperties | null>(null);
+  const [shareRequest, setShareRequest] = useState<{ catalogue: CatalogueWithProperties; method: "crm" | "open" } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const phoneOptions = [
@@ -132,8 +132,8 @@ export function CataloguesTab({
                 </Button>
                 {canSend && c.status === "ACTIVE" && (
                   <>
-                    <Button size="sm" onClick={() => setShareCatalogue(c)} disabled={!providerSendConfigured} title={!providerSendConfigured ? "CRM WhatsApp sending is not configured" : undefined}><Send className="h-3.5 w-3.5" /> Send from CRM</Button>
-                    <Button size="sm" variant="secondary" onClick={() => setShareCatalogue(c)}><MessageCircle className="h-3.5 w-3.5" /> Open in WhatsApp</Button>
+                    <Button size="sm" onClick={() => setShareRequest({ catalogue: c, method: "crm" })} disabled={!providerSendConfigured} title={!providerSendConfigured ? "CRM WhatsApp sending is not configured" : undefined}><Send className="h-3.5 w-3.5" /> Send from CRM</Button>
+                    <Button size="sm" variant="secondary" onClick={() => setShareRequest({ catalogue: c, method: "open" })}><MessageCircle className="h-3.5 w-3.5" /> Open in WhatsApp</Button>
                   </>
                 )}
                 {canManage && c.status === "ACTIVE" && (
@@ -162,19 +162,17 @@ export function CataloguesTab({
         />
       )}
       {!providerSendConfigured && catalogues.some((c) => c.status === "ACTIVE") && <p className="text-xs text-slate-500">CRM WhatsApp sending is not configured. You can still use Open in WhatsApp.</p>}
-      {shareCatalogue && <CatalogueShareDialog catalogue={shareCatalogue} leadId={leadId} clientName={clientName ?? "Customer"} phoneOptions={phoneOptions} providerSendConfigured={providerSendConfigured} onClose={() => setShareCatalogue(null)} onSent={load} />}
+      {shareRequest && <CatalogueShareDialog catalogue={shareRequest.catalogue} method={shareRequest.method} leadId={leadId} clientName={clientName ?? "Customer"} phoneOptions={phoneOptions} onClose={() => setShareRequest(null)} onSent={load} />}
     </div>
   );
 }
 
-function CatalogueShareDialog({ catalogue, leadId, clientName, phoneOptions, providerSendConfigured, onClose, onSent }: { catalogue: CatalogueWithProperties; leadId: string; clientName: string; phoneOptions: { label: string; number: string }[]; providerSendConfigured: boolean; onClose: () => void; onSent: () => void }) {
+function CatalogueShareDialog({ catalogue, method, leadId, clientName, phoneOptions, onClose, onSent }: { catalogue: CatalogueWithProperties; method: "crm" | "open"; leadId: string; clientName: string; phoneOptions: { label: string; number: string }[]; onClose: () => void; onSent: () => void }) {
   const usable = useMemo(() => phoneOptions.filter((p, index, all) => p.number && all.findIndex((other) => other.number === p.number) === index), [phoneOptions]);
-  const [method, setMethod] = useState<"crm" | "open" | null>(null);
   const [recipient, setRecipient] = useState(usable.length === 1 ? usable[0]?.number ?? "" : "");
   const [busy, setBusy] = useState(false);
   const selected = usable.find((p) => p.number === recipient);
   async function proceed() {
-    if (!method) return;
     if (!recipient) return toast.error("Select a WhatsApp number");
     setBusy(true);
     const url = method === "crm" ? `/api/leads/${leadId}/catalogues/${catalogue.id}/send` : `/api/leads/${leadId}/catalogues/${catalogue.id}/whatsapp-link`;
@@ -190,5 +188,5 @@ function CatalogueShareDialog({ catalogue, leadId, clientName, phoneOptions, pro
     } else toast.success("Catalogue sent from CRM");
     onSent(); onClose();
   }
-  return <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label="Share catalogue"><div className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-slate-900">Share Catalogue</h2><button onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button></div>{!method ? <div className="mt-5 grid gap-3"><Button onClick={() => setMethod("crm")} disabled={!providerSendConfigured}>Send from CRM</Button><Button variant="secondary" onClick={() => setMethod("open")}>Open in WhatsApp</Button>{!providerSendConfigured && <p className="text-xs text-amber-700">CRM WhatsApp sending is not configured.</p>}<p className="text-xs text-slate-500">Opening WhatsApp prepares a message only; it never sends automatically.</p></div> : <div className="mt-5 space-y-4"><div><p className="text-sm font-medium text-slate-900">Customer</p><p className="text-sm text-slate-600">{clientName}</p></div><fieldset><legend className="text-sm font-medium text-slate-900">Select WhatsApp number</legend><div className="mt-2 space-y-2">{usable.length === 0 ? <p className="text-sm text-rose-700">No valid phone number is available for this lead.</p> : usable.map((p) => <label key={p.number} className="flex min-h-11 items-center gap-3 rounded-lg border p-3 text-sm"><input type="radio" name="recipient" checked={recipient === p.number} onChange={() => setRecipient(p.number)} /><span>{p.number}</span><span className="ml-auto text-xs text-slate-500">{p.label}</span></label>)}</div></fieldset>{selected && <div className="rounded-lg bg-slate-50 p-3 text-sm"><p>To: {clientName} · {selected.number}</p><p>Catalogue: {catalogue.properties.length} properties</p><p>From: {method === "crm" ? "KP Properties (configured CRM sender)" : "Your WhatsApp"}</p></div>}<div className="flex gap-2"><Button variant="secondary" onClick={() => setMethod(null)} disabled={busy}>Back</Button><Button onClick={() => void proceed()} disabled={!recipient} loading={busy}>{method === "crm" ? "Send" : "Open WhatsApp"}</Button></div></div>}</div></div>;
+  return <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label="Share catalogue"><div className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-slate-900">{method === "crm" ? "Send Catalogue" : "Open Catalogue in WhatsApp"}</h2><button onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button></div><div className="mt-5 space-y-4"><div><p className="text-sm font-medium text-slate-900">Customer</p><p className="text-sm text-slate-600">{clientName}</p></div><fieldset><legend className="text-sm font-medium text-slate-900">Select WhatsApp number</legend><div className="mt-2 space-y-2">{usable.length === 0 ? <p className="text-sm text-rose-700">No valid phone number is available for this lead.</p> : usable.map((p) => <label key={p.number} className="flex min-h-11 items-center gap-3 rounded-lg border p-3 text-sm"><input type="radio" name="recipient" checked={recipient === p.number} onChange={() => setRecipient(p.number)} /><span>{p.number}</span><span className="ml-auto text-xs text-slate-500">{p.label}</span></label>)}</div></fieldset>{selected && <div className="rounded-lg bg-slate-50 p-3 text-sm"><p>To: {clientName} · {selected.number}</p><p>Catalogue: {catalogue.properties.length} properties</p><p>From: {method === "crm" ? "KP Properties (configured CRM sender)" : "Your WhatsApp"}</p></div>}{method === "open" && <p className="text-xs text-slate-500">WhatsApp will open with a prepared message. Review it and press Send yourself.</p>}<div className="flex gap-2"><Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button><Button onClick={() => void proceed()} disabled={!recipient} loading={busy}>{method === "crm" ? "Send" : "Open WhatsApp"}</Button></div></div></div></div>;
 }
