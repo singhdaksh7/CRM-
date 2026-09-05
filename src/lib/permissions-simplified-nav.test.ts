@@ -41,6 +41,22 @@ describe("simplified nav - DATA_MANAGER", () => {
   it("can reach /follow-ups", () => {
     expect(canAccess("DATA_MANAGER", "/follow-ups")).toBe(true);
   });
+
+  // Regression: DATA_MANAGER is explicitly allowed to import Housing.com
+  // lead exports (see canImportHousingLeads in property-portals/page.tsx and
+  // the ["ADMIN","DATA_MANAGER"] check on the housing-import page itself),
+  // but until the "/integrations/property-portals" NAV_ITEMS entry was added
+  // ahead of the general ADMIN-only "/integrations" entry, canAccess's
+  // prefix match silently redirected DATA_MANAGER away from this path on
+  // every attempt - typed URL, bookmark, or otherwise - even though the
+  // pages themselves already allowed the role. Bare "/integrations" (no
+  // real page exists there) correctly stays out of reach, per
+  // adminOnlyForStaff above.
+  it("can reach /integrations/property-portals and its housing-import child, but not bare /integrations", () => {
+    expect(canAccess("DATA_MANAGER", "/integrations/property-portals")).toBe(true);
+    expect(canAccess("DATA_MANAGER", "/integrations/property-portals/housing-import")).toBe(true);
+    expect(canAccess("DATA_MANAGER", "/integrations")).toBe(false);
+  });
 });
 
 describe("simplified nav - FIELD_EXECUTIVE", () => {

@@ -73,7 +73,10 @@ export function Sidebar({ role, mobile, onNavigate }: { role: Role; mobile?: boo
         { href: "/notifications", label: "Notifications", icon: Bell },
       ],
       admin: [
-        { href: "/integrations", label: "Integrations", icon: Plug },
+        // No page exists at the bare "/integrations" path (only its
+        // "/property-portals" child does) - pointing here instead of at that
+        // dead route so the link actually resolves.
+        { href: "/integrations/property-portals", label: "Property Portals", icon: Plug },
         { href: "/documents", label: "Documents", icon: FileText },
         { href: "/settings", label: "Settings", icon: Settings },
         { href: "/admin/property-issues", label: "Property Issues", icon: ShieldAlert },
@@ -92,6 +95,12 @@ export function Sidebar({ role, mobile, onNavigate }: { role: Role; mobile?: boo
         { href: "/catalogues", label: "Catalogues", icon: BookOpen },
         { href: "/notifications", label: "Notifications", icon: Bell },
         { href: "/documents", label: "Documents", icon: FileText },
+        // DATA_MANAGER can import Housing.com lead exports (see
+        // canImportHousingLeads in the property-portals page and the
+        // ["ADMIN","DATA_MANAGER"] check on the housing-import page), but had
+        // no sidebar entry point at all to reach it - only ADMIN's menuConfig
+        // listed an Integrations link.
+        { href: "/integrations/property-portals", label: "Property Portals", icon: Plug },
       ],
       admin: []
     },
