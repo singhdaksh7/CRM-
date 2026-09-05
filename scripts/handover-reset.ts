@@ -22,6 +22,7 @@
 import { PrismaClient } from "@prisma/client";
 import { computeDryRunReport, executeReset, HandoverResetAbortedError, type ResetClient } from "../src/lib/handover-reset/reset";
 import { REQUIRED_EXECUTE_CONFIRMATION } from "../src/lib/handover-reset/constants";
+import { createHandoverResetExecuteClient } from "../src/lib/handover-reset/direct-client";
 
 interface ParsedArgs {
   mode: "dry-run" | "execute";
@@ -131,8 +132,13 @@ async function main(prisma: ResetClient, argv: string[] = process.argv.slice(2))
 }
 
 if (require.main === module) {
-  const prisma = new PrismaClient();
-  main(prisma as unknown as ResetClient)
+  const argv = process.argv.slice(2);
+  const args = parseArgs(argv);
+  // A dry-run remains read-only on the normal application datasource. The
+  // only write-capable path gets a dedicated direct/session connection so its
+  // interactive transaction cannot be invalidated by the transaction pooler.
+  const prisma = args.mode === "execute" ? createHandoverResetExecuteClient() : new PrismaClient();
+  main(prisma as unknown as ResetClient, argv)
     .catch((err) => {
       console.error(err instanceof Error ? err.message : err);
       process.exitCode = 1;
