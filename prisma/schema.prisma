@@ -627,6 +627,15 @@ enum ImportEntityType {
   OWNERS
   EMPLOYEES
   CONTACTS
+  // Housing.com lead-export file import (distinct from LEADS): the rows go
+  // through the canonical portal-ingestion path (ingestPortalLead - same
+  // service the live Housing webhook uses) rather than the generic
+  // createEntity()/runImport() Lead path, so its ImportJob/ImportRecord
+  // history needs its own entityType value to stay meaningful (source=Housing,
+  // per-row ExternalLeadEvent linkage) rather than being indistinguishable
+  // from a manual LEADS spreadsheet import. Additive-only: see migration
+  // 20260905020000_housing_leads_import_entity_type.
+  HOUSING_LEADS
 }
 
 enum ImportStatus {
