@@ -22,16 +22,13 @@ vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: 
 const ingestPortalLead = vi.fn();
 vi.mock("@/integrations/property-portals/ingestion", () => ({ ingestPortalLead: (...a: unknown[]) => ingestPortalLead(...a) }));
 
-const syncSelldoForNewLead = vi.fn();
-vi.mock("@/integrations/selldo/sync", () => ({ syncSelldoForNewLead: (...a: unknown[]) => syncSelldoForNewLead(...a) }));
-
 const fetchLeadsPage = vi.fn();
 vi.mock("./client", async () => {
   const actual = await vi.importActual<typeof import("./client")>("./client");
   return { ...actual, fetchLeadsPage: (...a: unknown[]) => fetchLeadsPage(...a) };
 });
 
-const { computeSyncWindows, computeSyncStart, syncOlxConnection } = await import("./sync");
+const { computeSyncWindows, computeSyncStart, syncOlxConnection, runOlxSync } = await import("./sync");
 const { OlxApiError } = await import("./client");
 
 // Per the documented contract, leads carry no embedded `ad` field - the
@@ -114,11 +111,11 @@ describe("syncOlxConnection", () => {
     expect(ingestPortalLead.mock.calls[0][4]).toMatchObject({ connectionId: "conn1" });
   });
 
-  it("triggers a best-effort Sell.Do sync only for genuinely NEW leads", async () => {
+  it("does not activate Sell.Do while processing a genuinely new OLX lead", async () => {
     fetchLeadsPage.mockResolvedValueOnce({ leads: [olxLead("ad-1")], ads: new Map(), rejected: 0, page: 1, pageSize: 100, isLastPage: true });
     ingestPortalLead.mockResolvedValueOnce({ status: "DUPLICATE", event: { id: "evt1" } });
-    await syncOlxConnection(connection, now);
-    expect(syncSelldoForNewLead).not.toHaveBeenCalled();
+    const result = await syncOlxConnection(connection, now);
+    expect(result.leadsNew).toBe(0);
   });
 
   it("does not lose leads already ingested from earlier pages when a later page fails (partial pagination failure)", async () => {
@@ -212,5 +209,30 @@ describe("syncOlxConnection", () => {
       expect(rawPayload.lead.adId).toBe("ad-1");
       expect(rawPayload.ad.title).toBe("2BHK Flat");
     });
+  });
+});
+
+describe("runOlxSync tenant scope", () => {
+  it("looks up only the requested organization's OLX connections", async () => {
+    process.env.OLX_DEALER_LOGIN = "test-dealer";
+    process.env.OLX_DEALER_PASSWORD = "test-password";
+    process.env.OLX_LIVE_INGESTION_ENABLED = "true";
+    connectionFindMany.mockResolvedValue([]);
+
+    await runOlxSync({ organizationId: "org_a" });
+
+    expect(connectionFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ organizationId: "org_a", provider: "OLX" }),
+    }));
+  });
+
+  it("fails closed before any connection lookup until live ingestion is explicitly enabled", async () => {
+    process.env.OLX_DEALER_LOGIN = "test-dealer";
+    process.env.OLX_DEALER_PASSWORD = "test-password";
+    delete process.env.OLX_LIVE_INGESTION_ENABLED;
+
+    await runOlxSync({ organizationId: "org_a" });
+
+    expect(connectionFindMany).not.toHaveBeenCalled();
   });
 });

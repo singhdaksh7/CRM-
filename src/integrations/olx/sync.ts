@@ -4,8 +4,7 @@ import { logger } from "@/lib/logger";
 import { ingestPortalLead } from "@/integrations/property-portals/ingestion";
 import { fetchLeadsPage, OlxAuthError, OlxApiError } from "./client";
 import { mapOlxLead } from "./adapter";
-import { isOlxConfigured, getOlxInitialLookbackHours, getOlxSyncOverlapMinutes, OLX_MAX_DATE_RANGE_DAYS, OLX_MAX_PAGE_SIZE } from "./config";
-import { syncSelldoForNewLead } from "@/integrations/selldo/sync";
+import { isOlxConfigured, isOlxLiveIngestionEnabled, getOlxInitialLookbackHours, getOlxSyncOverlapMinutes, OLX_MAX_DATE_RANGE_DAYS, OLX_MAX_PAGE_SIZE } from "./config";
 
 /**
  * OLX is pull-based. This module owns incremental polling built on
@@ -121,14 +120,8 @@ export async function syncOlxConnection(connection: { id: string; organizationId
             // documented pieces of provider data for this delivery.
             const rawPayload = { lead: rawLead, ad: correlatedAd };
             const ingestResult = await ingestPortalLead(connection.organizationId, "OLX", canonical, rawPayload, { connectionId: connection.id, snapshot: { ...snapshot, needsReview, reviewReasons } });
-            if (ingestResult.status === "NEW") {
-              result.leadsNew++;
-              // Best-effort, matches ingestion.ts's own autoAssignLead pattern -
-              // Sell.Do sync failure must never affect OLX lead ingestion.
-              await syncSelldoForNewLead(ingestResult.lead.id, connection.organizationId, connection.id).catch((err) => {
-                logger.error("olx_selldo_inline_sync_failed", { leadId: ingestResult.lead.id, message: err instanceof Error ? err.message : String(err) });
-              });
-            } else if (ingestResult.status === "MATCHED_EXISTING") result.leadsMatchedExisting++;
+            if (ingestResult.status === "NEW") result.leadsNew++;
+            else if (ingestResult.status === "MATCHED_EXISTING") result.leadsMatchedExisting++;
             else if (ingestResult.status === "AMBIGUOUS") result.leadsAmbiguous++;
             else if (ingestResult.status === "DUPLICATE") result.leadsDuplicate++;
           } catch (err) {
@@ -180,13 +173,21 @@ export async function syncOlxConnection(connection: { id: string; organizationId
  * organizationId for every downstream write is always connection.organizationId
  * from this DB row - never anything read from the OLX response.
  */
-export async function runOlxSync(): Promise<{ configured: boolean; results: OlxSyncConnectionResult[] }> {
+export async function runOlxSync(options: { organizationId?: string } = {}): Promise<{ configured: boolean; results: OlxSyncConnectionResult[] }> {
   if (!isOlxConfigured()) {
     logger.warn("olx_sync_skipped_not_configured");
     return { configured: false, results: [] };
   }
+  if (!isOlxLiveIngestionEnabled()) {
+    logger.warn("olx_sync_skipped_live_ingestion_not_enabled", { organizationId: options.organizationId ?? null });
+    return { configured: true, results: [] };
+  }
   const connections = await prisma.propertyPortalConnection.findMany({
-    where: { provider: "OLX", status: { not: "PARTNER_ACCESS_REQUIRED" } },
+    where: {
+      provider: "OLX",
+      status: { not: "PARTNER_ACCESS_REQUIRED" },
+      ...(options.organizationId ? { organizationId: options.organizationId } : {}),
+    },
     select: { id: true, organizationId: true, lastSuccessfulSyncAt: true },
   });
   const results: OlxSyncConnectionResult[] = [];

@@ -109,8 +109,9 @@ export interface FetchLeadsParams {
  * surfaced as a failure rather than retried again.
  */
 export async function fetchLeadsPage(params: FetchLeadsParams): Promise<OlxLeadsPage> {
-  const pageSize = Math.min(params.pageSize ?? OLX_MAX_PAGE_SIZE, OLX_MAX_PAGE_SIZE);
-  const page = params.page ?? 1;
+  const requestedPageSize = params.pageSize ?? OLX_MAX_PAGE_SIZE;
+  const pageSize = Math.max(1, Math.min(requestedPageSize, OLX_MAX_PAGE_SIZE));
+  const page = Math.max(1, params.page ?? 1);
 
   const doFetch = async (token: CachedToken): Promise<Response> => {
     const url = new URL(`${getOlxApiBaseUrl()}/api/v1/leads`);
@@ -134,6 +135,10 @@ export async function fetchLeadsPage(params: FetchLeadsParams): Promise<OlxLeads
       throw new OlxApiError(403, "OLX rejected the request with 403 even after re-authentication.");
     }
   }
+
+  // The documented provider contract treats a 404/no-leads response as a
+  // successful empty result, rather than a connection failure.
+  if (response.status === 404) return { leads: [], ads: new Map(), rejected: 0, page, pageSize, isLastPage: true };
 
   if (!response.ok) {
     throw new OlxApiError(response.status, `OLX leads fetch failed with status ${response.status}`);

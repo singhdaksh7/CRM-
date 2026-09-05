@@ -21,8 +21,7 @@ export async function POST() {
     const rate = await checkRateLimit("olxManualSync", session.user.id);
     if (!rate.allowed) return rateLimitResponse(rate);
 
-    const result = await runOlxSync();
-    const orgResults = result.results.filter((r) => r.organizationId === organizationId);
+    const result = await runOlxSync({ organizationId });
 
     await recordAudit({
       userId: session.user.id,
@@ -30,10 +29,10 @@ export async function POST() {
       action: "UPDATE",
       entityType: "PropertyPortalConnection",
       entityId: null,
-      newValues: { event: "OLX_MANUAL_SYNC_TRIGGERED", configured: result.configured, connectionsSynced: orgResults.length },
+      newValues: { event: "OLX_MANUAL_SYNC_TRIGGERED", configured: result.configured, connectionsSynced: result.results.length },
     });
 
-    return NextResponse.json({ configured: result.configured, results: orgResults });
+    return NextResponse.json({ configured: result.configured, results: result.results });
   } catch (err) {
     return handleApiError(err);
   }
@@ -48,17 +47,10 @@ export async function GET() {
       where: { organizationId, provider: "OLX" },
       select: { status: true, lastSyncAt: true, lastSuccessfulSyncAt: true, lastErrorAt: true, lastErrorSummary: true },
     });
-    const [leadCount, selldoPending, selldoRetryable, selldoDeadLetter, selldoSucceeded] = await Promise.all([
-      prisma.externalLeadEvent.count({ where: { organizationId, provider: "OLX" } }),
-      prisma.portalOperation.count({ where: { organizationId, operationType: "SELLDO_LEAD_SYNC", status: "PENDING" } }),
-      prisma.portalOperation.count({ where: { organizationId, operationType: "SELLDO_LEAD_SYNC", status: "RETRYABLE" } }),
-      prisma.portalOperation.count({ where: { organizationId, operationType: "SELLDO_LEAD_SYNC", status: "DEAD_LETTER" } }),
-      prisma.portalOperation.count({ where: { organizationId, operationType: "SELLDO_LEAD_SYNC", status: "SUCCEEDED" } }),
-    ]);
+    const leadCount = await prisma.externalLeadEvent.count({ where: { organizationId, provider: "OLX" } });
     return NextResponse.json({
       connection,
       olxLeadEventCount: leadCount,
-      selldo: { pending: selldoPending, retryable: selldoRetryable, deadLetter: selldoDeadLetter, succeeded: selldoSucceeded },
     });
   } catch (err) {
     return handleApiError(err);

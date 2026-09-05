@@ -29,6 +29,15 @@ export function isOlxConfigured(): boolean {
 }
 
 /**
+ * Deliberate live-ingestion guard. Credentials alone only permit the separate
+ * authentication/contract check; an operator must explicitly enable CRM
+ * ingestion after that review. Defaults to false in every environment.
+ */
+export function isOlxLiveIngestionEnabled(): boolean {
+  return process.env.OLX_LIVE_INGESTION_ENABLED === "true";
+}
+
+/**
  * Dev/sandbox-only header (`x-origin-panamera: dev`) - the task is explicit
  * that this must NEVER be sent in production and must be gated behind an
  * explicit opt-in flag that defaults off. Vercel sets NODE_ENV=production
@@ -63,6 +72,7 @@ export function presence() {
   return {
     dealerLoginConfigured: Boolean(getOlxDealerLogin()),
     dealerPasswordConfigured: Boolean(getOlxDealerPassword()),
+    liveIngestionEnabled: isOlxLiveIngestionEnabled(),
     apiBaseUrlConfigured: Boolean(process.env.OLX_API_BASE_URL?.trim()),
     devModeEnabled: shouldSendOlxDevHeader(),
   };

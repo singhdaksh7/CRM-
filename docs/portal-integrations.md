@@ -64,6 +64,7 @@ account**, only against mocked HTTP responses in tests.
 - `OLX_DEV_MODE` - must be explicitly set to `"true"` (and never in a `NODE_ENV=production` deploy) to send the sandbox-only `x-origin-panamera: dev` header. Off by default.
 - `OLX_INITIAL_LOOKBACK_HOURS` - first-sync bounded lookback when a connection has no cursor yet (default 24).
 - `OLX_SYNC_OVERLAP_MINUTES` - overlap subtracted from the cursor on every incremental sync (default 10).
+- `OLX_LIVE_INGESTION_ENABLED` - must be exactly `true` before any OLX lead can be fetched and ingested. It remains off until live authentication and the response contract have been reviewed.
 - `CRON_SECRET` - already exists in this project; also protects `/api/internal/olx/sync`.
 
 ### Auth / token behavior

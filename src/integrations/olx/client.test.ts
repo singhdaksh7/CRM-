@@ -134,6 +134,15 @@ describe("OLX leads pagination", () => {
     expect(new URL(leadsCallUrl).searchParams.get("pageSize")).toBe("100");
   });
 
+  it("treats a documented 404/no-leads response as a valid empty page", async () => {
+    const { fetchLeadsPage, _resetOlxTokenCacheForTests } = await import("./client");
+    _resetOlxTokenCacheForTests();
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ access_token: "tok", user_id: "u1" }))
+      .mockResolvedValueOnce(new Response(null, { status: 404 })) as unknown as typeof fetch;
+    await expect(fetchLeadsPage({ startDate: "2026-01-01", endDate: "2026-01-02" })).resolves.toMatchObject({ leads: [], isLastPage: true });
+  });
+
   it("rejects a malformed lead without discarding the rest of the page", async () => {
     const { fetchLeadsPage, _resetOlxTokenCacheForTests } = await import("./client");
     _resetOlxTokenCacheForTests();

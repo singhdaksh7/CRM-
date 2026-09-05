@@ -2,6 +2,10 @@
 
 ## Overview
 
+> **Dormant in the KP CRM demo environment.** This design is retained only as
+> implementation reference. No OLX path imports, invokes, queues, retries, or
+> sends Sell.Do operations. Live Sell.Do validation is a separate task.
+
 Every OLX lead that lands as a **new** CRM `Lead` (via `ingestPortalLead`) is
 forwarded to Sell.Do, best-effort, asynchronously to CRM lead creation. Sell.Do
 unavailability, misconfiguration, or any API/network failure **never** rolls
