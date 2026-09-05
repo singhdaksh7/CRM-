@@ -58,8 +58,18 @@ describe("POST /api/imports/housing/parse", () => {
   });
 
   it("surfaces the shared parser's rejection of an unsafe file (e.g. legacy .xls) as a client error, not a 500", async () => {
-    parseInventoryFile.mockRejectedValue(new Error("Legacy .xls files are not accepted safely. Save the workbook as .xlsx or .csv first."));
+    // Mirrors the real validateInventoryFile shape (a `status`-bearing Error,
+    // not a plain one - see InventoryFileValidationError in
+    // ./inventory-import-parser.ts) so this test actually exercises the same
+    // contract handleApiError's real implementation relies on. Asserting the
+    // status (not just the message) is the important part of this
+    // regression test: this exact scenario previously returned 500 in
+    // production against a legacy .xls Housing export, and a message-only
+    // assertion here would not have caught that.
+    class InventoryFileValidationError extends Error { status = 400; }
+    parseInventoryFile.mockRejectedValue(new InventoryFileValidationError("Legacy .xls files are not accepted safely. Save the workbook as .xlsx or .csv first."));
     const response = await postForm(new File(["binary"], "old.xls"));
+    expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error).toMatch(/xls/i);
   });
