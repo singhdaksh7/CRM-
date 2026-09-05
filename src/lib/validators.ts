@@ -103,6 +103,18 @@ export const propertySchema = z.object({
   camCharge: z.number().int().nonnegative().optional().nullable(),
   expectedPrice: z.number().int().positive().optional().nullable(),
   ownershipTitleNotes: z.string().max(2000).optional().nullable(),
+  // Property Inventory V2 - additive import provenance/parsing fields, all
+  // optional/nullable since a manually-created property via this form never
+  // populates them (see prisma/schema.prisma Property model and
+  // src/lib/inventory-import-core.ts for how imported rows populate these).
+  areaUnit: z.enum(["SQ_FT", "SQ_YD", "SQ_M", "ACRE", "OTHER"]).optional().nullable(),
+  areaRaw: z.string().max(200).optional().nullable(),
+  floorRaw: z.string().max(200).optional().nullable(),
+  priceRaw: z.string().max(200).optional().nullable(),
+  lastPrice: z.number().int().nonnegative().optional().nullable(),
+  parkFacing: z.boolean().optional().nullable(),
+  sourceRaw: z.string().max(200).optional().nullable(),
+  possessionStatus: z.enum(["READY_TO_MOVE", "UNDER_CONSTRUCTION", "BOOKING", "TENANTED", "UNKNOWN"]).optional().nullable(),
 });
 
 /**
@@ -120,6 +132,40 @@ export const createPropertySchema = propertySchema.refine(
   (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
   { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
 );
+
+// Property Inventory V2 - import-only variant of createPropertySchema.
+// Real broker workbooks (e.g. KP's inventory sheet) never carry a
+// schema-exact `furnishing` value - there is no column for it and it is not
+// safely derivable/guessable from anything else in the row. Manual
+// create/edit (createPropertySchema, used directly by the property form's
+// API route) is UNCHANGED and still requires furnishing. This variant is
+// used only by validateImportedProperty (inventory-import-core.ts) for
+// CREATE-path import rows, where `furnishing` is allowed to stay null
+// (Property.furnishing is nullable at the DB level specifically to support
+// this - see prisma/schema.prisma). title/propertyType are NOT relaxed here:
+// title is always filled in beforehand by a fallback generator, and
+// propertyType is filled in beforehand by a safe OTHER/OTHER_COMMERCIAL
+// default when the sheet/row genuinely can't determine it - both happen in
+// normalizeMappedRow before this schema ever runs, so this schema itself
+// only needs to relax furnishing.
+//
+// Also deliberately drops createPropertySchema's "DIRECT requires owner
+// name+phone" refine: on the real KP workbook 55% of rows (383/694) are
+// DIRECT with no owner on file yet (DIR/IND usually holds a referring
+// person's name, not confirmed owner contact - see parseSourceDetailed).
+// Forcing that refine here would make more than half the workbook
+// unimportable. Manual create/edit (createPropertySchema) is UNCHANGED and
+// still requires owner name+phone for DIRECT inventory.
+export const importCreatePropertySchema = propertySchema
+  .extend({ furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]).optional().nullable() })
+  .refine(
+    (data) => data.inventorySource !== "INDIRECT" || !!data.partnerId,
+    { message: "An inventory partner is required for indirect inventory", path: ["partnerId"] }
+  )
+  .refine(
+    (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
+    { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
+  );
 
 export const leadSchema = z.object({
   clientName: z.string().min(2),

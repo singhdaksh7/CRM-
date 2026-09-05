@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({
   property: { findMany: vi.fn(), findFirst: vi.fn(), deleteMany: vi.fn(), update: vi.fn(), create: vi.fn() },
   owner: { findMany: vi.fn(), create: vi.fn() }, inventoryPartner: { findMany: vi.fn(), findFirst: vi.fn() },
+  propertyLocalityAlias: { findMany: vi.fn(), upsert: vi.fn() }, propertyLocality: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
   importJob: { create: vi.fn(), update: vi.fn(), findFirst: vi.fn() }, importRecord: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn() },
   propertyTimelineEvent: { createMany: vi.fn() }, $transaction: vi.fn(),
 }));
@@ -15,6 +16,8 @@ const direct = { Title: "Two bedroom apartment", Type: "APARTMENT", Listing: "RE
 
 beforeEach(() => {
   vi.clearAllMocks(); db.property.findMany.mockResolvedValue([]); db.owner.findMany.mockResolvedValue([]); db.inventoryPartner.findMany.mockResolvedValue([]);
+  db.propertyLocalityAlias.findMany.mockResolvedValue([]); db.propertyLocalityAlias.upsert.mockResolvedValue({}); db.propertyLocality.findMany.mockResolvedValue([]);
+  db.propertyLocality.findUnique.mockResolvedValue(null); db.propertyLocality.create.mockResolvedValue({ id: "loc-created" });
   db.importJob.findFirst.mockResolvedValue(null); db.importJob.create.mockResolvedValue({ id: "job-123456", status: "RUNNING" }); db.importJob.update.mockImplementation(({ data }: { data: object }) => Promise.resolve({ id: "job-123456", ...data }));
   db.owner.create.mockResolvedValue({ id: "owner-new" }); db.property.create.mockResolvedValue({ id: "property-new" }); db.property.update.mockResolvedValue({ id: "property-existing" });
   db.importRecord.create.mockResolvedValue({}); db.importRecord.createMany.mockResolvedValue({ count: 0 }); db.propertyTimelineEvent.createMany.mockResolvedValue({ count: 1 });
@@ -88,6 +91,55 @@ describe("inventory import preview service", () => {
   it("create-only never updates a duplicate", async () => {
     db.property.findMany.mockResolvedValue([{ id: "p1", propertyCode: "X", title: direct.Title, area: direct.Location, address: direct.Address, floorNumber: null, builtUpAreaSqft: 850, monthlyRent: 25000, salePrice: null, bhk: 2, ownerPhone: "919876543210" }]);
     const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [direct], mapping, mode: "CREATE_ONLY" }); expect(result.action).toBe("SKIP");
+  });
+});
+
+describe("locality alias resolution", () => {
+  it("resolves via an existing alias within the org, skipping the plain locality match", async () => {
+    db.propertyLocalityAlias.findMany.mockResolvedValue([{ normalizedAlias: "janakpuri", localityId: "loc-1" }]);
+    db.propertyLocality.findMany.mockResolvedValue([{ normalizedName: "janakpuri", id: "loc-other" }]);
+    const [row] = await previewInventoryImport({ organizationId: "org-a", rows: [direct], mapping, mode: "CREATE_ONLY" });
+    expect(row.localityResolution).toBe("ALIAS_MATCHED"); expect(row.localityId).toBe("loc-1"); expect(row.data.localityId).toBe("loc-1");
+  });
+  it("falls back to an exact PropertyLocality match when no alias exists", async () => {
+    db.propertyLocality.findMany.mockResolvedValue([{ normalizedName: "janakpuri", id: "loc-2" }]);
+    const [row] = await previewInventoryImport({ organizationId: "org-a", rows: [direct], mapping, mode: "CREATE_ONLY" });
+    expect(row.localityResolution).toBe("MATCHED"); expect(row.localityId).toBe("loc-2");
+  });
+  it("surfaces NOT_FOUND without blocking the row when neither an alias nor a locality matches", async () => {
+    const [row] = await previewInventoryImport({ organizationId: "org-a", rows: [direct], mapping, mode: "CREATE_ONLY" });
+    expect(row.localityResolution).toBe("NOT_FOUND"); expect(row.localityId).toBeNull();
+    expect(row.issues.some((issue) => issue.severity === "ERROR")).toBe(false);
+  });
+  it("never resolves an alias created for a different organization", async () => {
+    db.propertyLocalityAlias.findMany.mockImplementation(({ where }: { where: { organizationId: string } }) =>
+      Promise.resolve(where.organizationId === "org-a" ? [{ normalizedAlias: "janakpuri", localityId: "loc-1" }] : []));
+    const [rowA] = await previewInventoryImport({ organizationId: "org-a", rows: [direct], mapping, mode: "CREATE_ONLY" });
+    const [rowB] = await previewInventoryImport({ organizationId: "org-b", rows: [direct], mapping, mode: "CREATE_ONLY" });
+    expect(rowA.localityResolution).toBe("ALIAS_MATCHED"); expect(rowB.localityResolution).toBe("NOT_FOUND");
+    expect(db.propertyLocalityAlias.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-a" }) }));
+    expect(db.propertyLocalityAlias.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-b" }) }));
+  });
+  it("persists a chosen alias resolution on execute and reuses it on the next preview", async () => {
+    // The alias's localityId must resolve to a PropertyLocality this org
+    // actually owns before it's persisted - see the cross-org test below.
+    db.propertyLocality.findMany.mockResolvedValue([{ id: "loc-9" }]);
+    await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "aliases.csv", rows: [direct], mapping, mode: "CREATE_ONLY", partialPolicy: "IMPORT_VALID_ROWS", localityAliasResolutions: [{ alias: "Janakpuri", localityId: "loc-9" }] });
+    expect(db.propertyLocalityAlias.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { organizationId_normalizedAlias: { organizationId: "org-a", normalizedAlias: "janakpuri" } },
+      create: expect.objectContaining({ organizationId: "org-a", normalizedAlias: "janakpuri", localityId: "loc-9" }),
+    }));
+    // Simulate the alias now existing in the DB for the next preview call within the same org.
+    db.propertyLocalityAlias.findMany.mockResolvedValue([{ normalizedAlias: "janakpuri", localityId: "loc-9" }]);
+    const [row] = await previewInventoryImport({ organizationId: "org-a", rows: [direct], mapping, mode: "CREATE_ONLY" });
+    expect(row.localityResolution).toBe("ALIAS_MATCHED"); expect(row.localityId).toBe("loc-9");
+  });
+  it("never persists an alias pointing at a locality the organization does not own", async () => {
+    // Org-a does not own "loc-from-org-b" - the ownership lookup returns
+    // nothing for it, so the alias upsert must never be called.
+    db.propertyLocality.findMany.mockResolvedValue([]);
+    await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "aliases.csv", rows: [direct], mapping, mode: "CREATE_ONLY", partialPolicy: "IMPORT_VALID_ROWS", localityAliasResolutions: [{ alias: "Janakpuri", localityId: "loc-from-org-b" }] });
+    expect(db.propertyLocalityAlias.upsert).not.toHaveBeenCalled();
   });
 });
 

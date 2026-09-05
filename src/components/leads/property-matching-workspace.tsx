@@ -48,7 +48,7 @@ export interface ClientMatchProperty {
   propertyType: string;
   bhk: number;
   bathrooms: number;
-  furnishing: string;
+  furnishing: string | null;
   builtUpAreaSqft: number;
   floorNumber: number | null;
   totalFloors: number | null;
@@ -101,7 +101,7 @@ interface ShortlistProperty {
   listingType: "RENT" | "SALE";
   status: string;
   bhk: number;
-  furnishing: string;
+  furnishing: string | null;
   builtUpAreaSqft: number | null;
   floorNumber: number | null;
   monthlyRent: number | null;
@@ -739,7 +739,7 @@ export function PropertyMatchingWorkspace({
                 <CompareRow label="Score" cells={comparedMatches.map((m) => `${m.score}%`)} />
                 <CompareRow label="Price" cells={comparedMatches.map((m) => formatPrice(m.property))} />
                 <CompareRow label="BHK" cells={comparedMatches.map((m) => `${m.property.bhk} BHK`)} />
-                <CompareRow label="Furnishing" cells={comparedMatches.map((m) => enumToLabel(m.property.furnishing))} />
+                <CompareRow label="Furnishing" cells={comparedMatches.map((m) => (m.property.furnishing ? enumToLabel(m.property.furnishing) : "-"))} />
                 <CompareRow label="Area" cells={comparedMatches.map((m) => `${m.property.builtUpAreaSqft} sqft`)} />
                 <CompareRow label="Floor" cells={comparedMatches.map((m) => (m.property.floorNumber !== null ? `${m.property.floorNumber}${m.property.totalFloors ? ` / ${m.property.totalFloors}` : ""}` : "-"))} />
               </tbody>
@@ -858,7 +858,7 @@ function MatchCard({
               )}
             </div>
             <p className="text-xs text-[#596579]">
-              {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {p.builtUpAreaSqft} sqft
+              {p.area} &middot; {p.bhk} BHK &middot; {p.furnishing ? enumToLabel(p.furnishing) : "-"} &middot; {p.builtUpAreaSqft} sqft
             </p>
             <p className="text-sm font-bold text-[#3366FF]">{formatPrice(p)}</p>
           </div>

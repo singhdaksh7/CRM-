@@ -18,7 +18,7 @@ export interface PickerProperty {
   monthlyRent: number | null;
   salePrice: number | null;
   bhk: number;
-  furnishing: string;
+  furnishing: string | null;
   coverImage: string | null;
   status: string;
 }
@@ -123,7 +123,7 @@ export function PropertyPickerDialog({
                       <Badge tone={PROPERTY_STATUS_TONE[p.status] ?? "slate"} className="shrink-0">{enumToLabel(p.status)}</Badge>
                     </div>
                     <p className="truncate text-xs text-[#94A3B8]">
-                      {p.propertyCode} &middot; {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {price}
+                      {p.propertyCode} &middot; {p.area} &middot; {p.bhk} BHK &middot; {p.furnishing ? enumToLabel(p.furnishing) : "-"} &middot; {price}
                     </p>
                   </div>
                   <button

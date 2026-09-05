@@ -427,7 +427,7 @@ function PropertyCard({
         </div>
         {property.price && <p className="mt-2 text-lg font-bold text-[#3366FF]">{property.price}</p>}
         {property.brokerage && <p className="text-xs text-[#8A94A6]">Brokerage: {property.brokerage}</p>}
-        <p className="mt-1 text-xs text-[#596579]">{property.furnishing.replace(/_/g, " ")}</p>
+        {property.furnishing && <p className="mt-1 text-xs text-[#596579]">{property.furnishing.replace(/_/g, " ")}</p>}
         {property.availableFrom && (
           <p className="mt-1 flex items-center gap-1 text-xs text-[#8A94A6]">
             <Clock className="h-3 w-3" /> Available from {new Date(property.availableFrom).toLocaleDateString("en-IN")}

@@ -64,6 +64,22 @@ const WEIGHTS = {
 /** Small, additive bonuses layered on top of the core 100-point scale - tiebreakers, not a rework of the existing weights. Total score is always capped at 100. */
 const VERIFIED_BONUS = 3;
 const HAS_IMAGES_BONUS = 2;
+/**
+ * Property Inventory V2 - possession-status bonus. Non-gating: a null/UNKNOWN
+ * possessionStatus, or a lead with no timing preference, simply contributes
+ * zero, never a penalty.
+ *
+ * Lead has no dedicated "possession preference" field (no enum mirroring
+ * PossessionStatus), so this reuses `moveInDate` - the only existing
+ * timing-preference signal on Lead - as the "meaningful possession
+ * preference" the spec asks for: a lead with a concrete move-in date has
+ * signalled they care about *when* a property becomes available, and a
+ * READY_TO_MOVE property unconditionally satisfies any such date (unlike
+ * UNDER_CONSTRUCTION/BOOKING/TENANTED, which may or may not be ready in
+ * time). Deliberately narrow - only the unambiguous READY_TO_MOVE case
+ * scores, nothing is inferred for the other statuses.
+ */
+const POSSESSION_MATCH_BONUS = 4;
 
 function getListingPrice(property: Property): number {
   return property.listingType === "RENT" ? property.monthlyRent ?? 0 : property.salePrice ?? 0;
@@ -85,12 +101,27 @@ function parseImageCount(images: string | null | undefined): number | null {
   }
 }
 
-function finalizeMatch(property: MatchableProperty, score: number, reasons: MatchReason[], overagePct: number, budgetTier: string, locationMatchKind: LocationMatchKind): MatchResult {
+function finalizeMatch(property: MatchableProperty, lead: Lead, score: number, reasons: MatchReason[], overagePct: number, budgetTier: string, locationMatchKind: LocationMatchKind): MatchResult {
+  // Verified-listing and has-images signals - additive bonuses, never part of the hard filter.
   const verified = property.owner?.verificationStatus === "VERIFIED";
+  if (verified) {
+    score += VERIFIED_BONUS;
+    reasons.push({ label: "Verified", matched: true, detail: "Verified listing" });
+  }
   const imageCount = parseImageCount(property.images);
   const hasImages = Boolean(property.coverImage) || Boolean(imageCount && imageCount > 0);
-  if (verified) score += VERIFIED_BONUS;
-  if (hasImages) score += HAS_IMAGES_BONUS;
+  if (hasImages) {
+    score += HAS_IMAGES_BONUS;
+    reasons.push({
+      label: "Photos",
+      matched: true,
+      detail: imageCount && imageCount > 0 ? `Includes ${imageCount} photos` : "Includes photos",
+    });
+  }
+  if (lead.moveInDate && property.possessionStatus === "READY_TO_MOVE") {
+    score += POSSESSION_MATCH_BONUS;
+    reasons.push({ label: "Possession", matched: true, detail: "Ready to move in, matching your move-in timeline" });
+  }
   return { property, score: Math.round(Math.min(100, score)), reasons, aboveBudget: overagePct > 0, overagePct, budgetTier, locationMatchKind, verified, hasImages };
 }
 
@@ -103,6 +134,13 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
   if (wantsRent && property.listingType !== "RENT") return null;
   if (!wantsRent && property.listingType !== "SALE") return null;
   if (property.status !== "AVAILABLE") return null;
+  // Lift requirement is a hard gate, asset-class-agnostic - Lead.liftRequired
+  // itself carries no residential/commercial restriction (see prisma/schema.prisma),
+  // it was only ever checked here for COMMERCIAL leads. A missing/null value on
+  // either side (no lead preference, or - moot here since the Property column
+  // is a non-nullable boolean - an "unset" property) never eliminates a match;
+  // only an explicit lead requirement against an explicit property mismatch does.
+  if (lead.liftRequired === true && property.liftAvailable === false) return null;
 
   const reasons: MatchReason[] = [];
   let score = 0;
@@ -171,8 +209,8 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
       reasons.push({ label: "Commercial fit", matched: true, detail: "Commercial type and area match requirement" });
     }
     if (lead.parkingRequired && !property.parkingAvailable) return null;
-    if (lead.liftRequired && !property.liftAvailable) return null;
-    return finalizeMatch(property, score, reasons, overagePct, budgetTier, locationMatchKind);
+    // liftRequired is now gated uniformly above for both asset classes.
+    return finalizeMatch(property, lead, score, reasons, overagePct, budgetTier, locationMatchKind);
   }
 
   // BHK match
@@ -191,8 +229,11 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
     reasons.push({ label: "BHK", matched: true, detail: "No specific BHK preference" });
   }
 
-  // Furnishing match
-  if (lead.furnishingPref) {
+  // Furnishing match. A null property.furnishing (e.g. an imported row with
+  // no furnishing signal in the source - see Property Inventory V2) is
+  // unknown, not "unfurnished" - treated the same as "no preference" so it
+  // never counts as a mismatch against an explicit lead preference.
+  if (lead.furnishingPref && property.furnishing) {
     if (property.furnishing === lead.furnishingPref) {
       score += WEIGHTS.furnishing;
       reasons.push({ label: "Furnishing", matched: true, detail: `${property.furnishing.replace("_", " ")} as requested` });
@@ -202,7 +243,7 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
     }
   } else {
     score += WEIGHTS.furnishing;
-    reasons.push({ label: "Furnishing", matched: true, detail: "No specific furnishing preference" });
+    reasons.push({ label: "Furnishing", matched: true, detail: property.furnishing ? "No specific furnishing preference" : "Furnishing not specified for this property" });
   }
 
   // Availability match
@@ -223,36 +264,10 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
   score += WEIGHTS.propertyType;
   reasons.push({ label: "Property Type", matched: true, detail: `${property.propertyType.replace(/_/g, " ")}` });
 
-  // Verified-listing signal - additive bonus, never part of the hard filter.
-  const verified = property.owner?.verificationStatus === "VERIFIED";
-  if (verified) {
-    score += VERIFIED_BONUS;
-    reasons.push({ label: "Verified", matched: true, detail: "Verified listing" });
-  }
-
-  // Has-images signal - additive bonus, never part of the hard filter.
-  const imageCount = parseImageCount(property.images);
-  const hasImages = Boolean(property.coverImage) || Boolean(imageCount && imageCount > 0);
-  if (hasImages) {
-    score += HAS_IMAGES_BONUS;
-    reasons.push({
-      label: "Photos",
-      matched: true,
-      detail: imageCount && imageCount > 0 ? `Includes ${imageCount} photos` : "Includes photos",
-    });
-  }
-
-  return {
-    property,
-    score: Math.round(Math.min(100, score)),
-    reasons,
-    aboveBudget: overagePct > 0,
-    overagePct,
-    budgetTier,
-    locationMatchKind,
-    verified,
-    hasImages,
-  };
+  // Verified-listing, has-images, and possession-status bonuses are additive,
+  // never part of the hard filter - handled centrally in finalizeMatch so both
+  // the residential and commercial paths apply them identically.
+  return finalizeMatch(property, lead, score, reasons, overagePct, budgetTier, locationMatchKind);
 }
 
 export function matchPropertiesToLead(properties: MatchableProperty[], lead: Lead, maxOverageTolerance = 0.2): MatchResult[] {

@@ -74,6 +74,19 @@ function property(overrides: Partial<Property> = {}): Property {
     pendingVerification: false,
     lastVerifiedAt: null,
     lastVerifiedById: null,
+    // Property Inventory V2 - import provenance/parsing fields. Sentinel
+    // values distinct from anything else in this fixture so a privacy-leak
+    // regression test can assert on them unambiguously.
+    areaUnit: "SQ_YD",
+    areaRaw: "200 gaj (raw)",
+    floorRaw: "2nd floor (raw)",
+    priceRaw: "22k negotiable, ask Sharma ji",
+    lastPrice: 21000,
+    parkFacing: true,
+    sourceRaw: "DIR - Rakesh broker",
+    possessionStatus: "READY_TO_MOVE",
+    dimension: "30x40",
+    liftAvailable: true,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -231,6 +244,31 @@ describe("toPublicCatalogueDTO - privacy", () => {
   });
 });
 
+describe("toPublicCatalogueDTO - Property Inventory V2 field exposure", () => {
+  it("never includes sourceRaw, priceRaw, lastPrice, areaRaw, or floorRaw anywhere in the serialized output", () => {
+    const dto = toPublicCatalogueDTO(fakeCatalogue());
+    const serialized = JSON.stringify(dto);
+    expect(serialized).not.toContain("Rakesh broker"); // sourceRaw
+    expect(serialized).not.toContain("ask Sharma ji"); // priceRaw
+    expect(serialized).not.toContain("200 gaj"); // areaRaw
+    expect(serialized).not.toContain("2nd floor (raw)"); // floorRaw
+    expect(dto.properties[0]).not.toHaveProperty("sourceRaw");
+    expect(dto.properties[0]).not.toHaveProperty("priceRaw");
+    expect(dto.properties[0]).not.toHaveProperty("lastPrice");
+    expect(dto.properties[0]).not.toHaveProperty("areaRaw");
+    expect(dto.properties[0]).not.toHaveProperty("floorRaw");
+    expect(dto.properties[0]).not.toHaveProperty("dimension");
+    expect(dto.properties[0]).not.toHaveProperty("areaUnit");
+  });
+
+  it("exposes possessionStatus, liftAvailable, and parkFacing on the public property DTO", () => {
+    const dto = toPublicCatalogueDTO(fakeCatalogue());
+    expect(dto.properties[0].possessionStatus).toBe("READY_TO_MOVE");
+    expect(dto.properties[0].liftAvailable).toBe(true);
+    expect(dto.properties[0].parkFacing).toBe(true);
+  });
+});
+
 describe("toPublicCatalogueDTO - location privacy", () => {
   it("hides coordinates entirely when publicLocationMode is LOCALITY_ONLY (the default)", () => {
     const dto = toPublicCatalogueDTO(fakeCatalogue());
@@ -373,6 +411,20 @@ describe("toExecutiveCatalogueDTO", () => {
     const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
     expect(dto.properties[0].executiveStatus).toBe("CUSTOMER_LIKED");
     expect(dto.properties[0].executiveStatusNote).toBe("Loved the balcony view");
+  });
+
+  it("exposes all Property Inventory V2 fields internally (never reachable from the public token route)", () => {
+    const base = fakeCatalogue();
+    base.properties[0].property = directProperty();
+    const dto = toExecutiveCatalogueDTO(fakeCatalogue({ properties: base.properties }));
+    expect(dto.properties[0].areaUnit).toBe("SQ_YD");
+    expect(dto.properties[0].areaRaw).toBe("200 gaj (raw)");
+    expect(dto.properties[0].floorRaw).toBe("2nd floor (raw)");
+    expect(dto.properties[0].priceRaw).toBe("22k negotiable, ask Sharma ji");
+    expect(dto.properties[0].lastPrice).toBe(21000);
+    expect(dto.properties[0].parkFacing).toBe(true);
+    expect(dto.properties[0].sourceRaw).toBe("DIR - Rakesh broker");
+    expect(dto.properties[0].possessionStatus).toBe("READY_TO_MOVE");
   });
 });
 

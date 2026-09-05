@@ -105,6 +105,52 @@ describe("matchPropertyToLead - hard filters", () => {
   });
 });
 
+describe("matchPropertyToLead - residential lift-required gate", () => {
+  // Property.liftAvailable is a non-nullable boolean (defaults false) - a
+  // property that was never explicitly marked as having a lift genuinely IS
+  // liftAvailable=false, not "missing data". The gate only ever activates
+  // when the LEAD explicitly requires a lift; it must never eliminate a
+  // match just because the property side is false without a lead requirement.
+  it("rejects a residential property with liftAvailable=false when the lead explicitly requires a lift", () => {
+    const result = matchPropertyToLead(property({ liftAvailable: false } as Partial<Property>), lead({ liftRequired: true } as Partial<Lead>));
+    expect(result).toBeNull();
+  });
+
+  it("does not eliminate a residential match when the lead has no lift preference, even if the property has no lift", () => {
+    const result = matchPropertyToLead(property({ liftAvailable: false } as Partial<Property>), lead({ liftRequired: null } as Partial<Lead>));
+    expect(result).not.toBeNull();
+  });
+
+  it("matches a residential property with liftAvailable=true when the lead explicitly requires a lift", () => {
+    const result = matchPropertyToLead(property({ liftAvailable: true } as Partial<Property>), lead({ liftRequired: true } as Partial<Lead>));
+    expect(result).not.toBeNull();
+  });
+});
+
+describe("matchPropertyToLead - possession-status bonus", () => {
+  it("adds a bonus and a reason when the lead has a move-in date and the property is READY_TO_MOVE", () => {
+    const base = { furnishing: "UNFURNISHED" as const }; // avoid an already-capped score
+    const withPossession = matchPropertyToLead(property({ ...base, possessionStatus: "READY_TO_MOVE" } as Partial<Property>), lead({ moveInDate: new Date() } as Partial<Lead>));
+    const withoutPossession = matchPropertyToLead(property({ ...base, possessionStatus: "READY_TO_MOVE" } as Partial<Property>), lead({ moveInDate: null } as Partial<Lead>));
+    expect(withPossession!.score).toBeGreaterThan(withoutPossession!.score);
+    expect(withPossession!.reasons.some((r) => r.label === "Possession")).toBe(true);
+  });
+
+  it("contributes no bonus when the property's possessionStatus is null", () => {
+    const base = { furnishing: "UNFURNISHED" as const };
+    const withDate = matchPropertyToLead(property({ ...base, possessionStatus: null } as Partial<Property>), lead({ moveInDate: new Date() } as Partial<Lead>));
+    const withoutDate = matchPropertyToLead(property({ ...base, possessionStatus: null } as Partial<Property>), lead({ moveInDate: null } as Partial<Lead>));
+    expect(withDate!.score).toBe(withoutDate!.score);
+    expect(withDate!.reasons.some((r) => r.label === "Possession")).toBe(false);
+  });
+
+  it("contributes no bonus for a non-READY_TO_MOVE possessionStatus even with a move-in date set", () => {
+    const base = { furnishing: "UNFURNISHED" as const };
+    const result = matchPropertyToLead(property({ ...base, possessionStatus: "UNDER_CONSTRUCTION" } as Partial<Property>), lead({ moveInDate: new Date() } as Partial<Lead>));
+    expect(result!.reasons.some((r) => r.label === "Possession")).toBe(false);
+  });
+});
+
 describe("matchPropertyToLead - budget tolerance", () => {
   it("matches a property exactly within budget with full budget score", () => {
     const result = matchPropertyToLead(property({ monthlyRent: 19000 }), lead({ minBudget: 18000, maxBudget: 20000 }));

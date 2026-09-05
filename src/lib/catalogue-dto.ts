@@ -63,7 +63,7 @@ export interface PublicCatalogueProperty {
   cabins: number | null;
   bhk: number;
   bathrooms: number;
-  furnishing: string;
+  furnishing: string | null;
   builtUpAreaSqft: number;
   amenities: string[];
   coverImage: string | null;
@@ -78,6 +78,12 @@ export interface PublicCatalogueProperty {
   longitude: number | null;
   /** What the coordinates above (if any) actually represent - lets the UI show "Approximate area" rather than implying a precise pin when it isn't one. */
   locationDisclosure: "EXACT" | "APPROXIMATE" | "HIDDEN";
+  // Property Inventory V2 - safe, structured booleans/enums (audit-confirmed
+  // public-safe). Deliberately NEVER add sourceRaw/priceRaw/lastPrice/areaRaw/
+  // floorRaw/dimension/areaUnit here - see PUBLIC_PROPERTY_SELECT for why.
+  possessionStatus: string | null;
+  liftAvailable: boolean;
+  parkFacing: boolean | null;
 }
 
 /**
@@ -192,6 +198,9 @@ export function toPublicCatalogueDTO(catalogue: CatalogueForDTO): PublicCatalogu
         latitude: location.latitude,
         longitude: location.longitude,
         locationDisclosure: location.locationDisclosure,
+        possessionStatus: p.possessionStatus,
+        liftAvailable: p.liftAvailable,
+        parkFacing: p.parkFacing,
       };
     }),
   };
@@ -225,7 +234,7 @@ export interface ExecutiveCatalogueProperty {
   cabins: number | null;
   bhk: number;
   bathrooms: number;
-  furnishing: string;
+  furnishing: string | null;
   builtUpAreaSqft: number;
   amenities: string[];
   coverImage: string | null;
@@ -247,6 +256,16 @@ export interface ExecutiveCatalogueProperty {
   hiddenRemarks: string | null;
   executiveStatus: string;
   executiveStatusNote: string | null;
+  // Property Inventory V2 - internal-only, role-gated by the caller (never
+  // reachable from the public token route). All 8 additive fields.
+  areaUnit: string | null;
+  areaRaw: string | null;
+  floorRaw: string | null;
+  priceRaw: string | null;
+  lastPrice: number | null;
+  parkFacing: boolean | null;
+  sourceRaw: string | null;
+  possessionStatus: string | null;
 }
 
 export interface ExecutiveCatalogueDTO {
@@ -312,6 +331,14 @@ export function toExecutiveCatalogueDTO(catalogue: CatalogueForDTO): ExecutiveCa
           hiddenRemarks: p.hiddenRemarks,
           executiveStatus: cp.executiveStatus,
           executiveStatusNote: cp.executiveStatusNote,
+          areaUnit: p.areaUnit,
+          areaRaw: p.areaRaw,
+          floorRaw: p.floorRaw,
+          priceRaw: p.priceRaw,
+          lastPrice: p.lastPrice,
+          parkFacing: p.parkFacing,
+          sourceRaw: p.sourceRaw,
+          possessionStatus: p.possessionStatus,
         };
       }),
   };

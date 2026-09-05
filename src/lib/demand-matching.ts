@@ -257,7 +257,7 @@ export function scoreDemandCandidate(property: Property, requirement: Normalized
       reasons.push({ label: "BHK", matched: false, detail: `${property.bhk} BHK does not match requested ${requirement.bhk} BHK` });
     }
 
-    if (requirement.furnishing) {
+    if (requirement.furnishing && property.furnishing) {
       if (property.furnishing === requirement.furnishing) {
         score += WEIGHTS.furnishing;
         reasons.push({ label: "Furnishing", matched: true, detail: `${property.furnishing.replace("_", " ")} as requested` });
@@ -267,7 +267,7 @@ export function scoreDemandCandidate(property: Property, requirement: Normalized
       }
     } else {
       score += WEIGHTS.furnishing;
-      reasons.push({ label: "Furnishing", matched: true, detail: "No specific furnishing preference" });
+      reasons.push({ label: "Furnishing", matched: true, detail: property.furnishing ? "No specific furnishing preference" : "Furnishing not specified for this property" });
     }
 
     if (requirement.parkingRequired == null || !requirement.parkingRequired || property.parkingAvailable) {

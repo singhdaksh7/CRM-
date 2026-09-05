@@ -1,6 +1,6 @@
 import "server-only";
 import ExcelJS from "exceljs";
-import { INVENTORY_IMPORT_MAX_BYTES, INVENTORY_IMPORT_MAX_ROWS, suggestColumnMapping } from "./inventory-import-core";
+import { INVENTORY_IMPORT_MAX_BYTES, INVENTORY_IMPORT_MAX_ROWS, normalizeHeader, SERIAL_NUMBER_HEADER_TOKENS, suggestColumnMapping } from "./inventory-import-core";
 
 const ALLOWED_MIME = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -80,7 +80,30 @@ function materialize(matrix: string[][], sheetNames: string[], selectedSheet: st
     const count = seen.get(base) ?? 0; seen.set(base, count + 1);
     return count ? `${base} (${count + 1})` : base;
   });
-  const sourceRows = matrix.slice(headerIndex + 1).map((row, index) => ({ row, rowNumber: headerIndex + index + 2 })).filter(({ row }) => row.some((cell) => cell.trim() !== ""));
+  // Property Inventory V2 - a row needs at least 2 non-blank cells overall,
+  // AND at least one of them must be outside the S.NO/row-index column, to
+  // count as a real inventory row: a lone S.NO value alone (1 non-blank
+  // cell, all of it the serial column) or a single stray annotation cell
+  // elsewhere (1 non-blank cell total) is not enough on its own; S.NO plus
+  // one other real field (2 non-blank cells, 1 of them non-serial) is.
+  const serialNumberColumnIndex = headers.findIndex((header) => SERIAL_NUMBER_HEADER_TOKENS.has(normalizeHeader(header)));
+  const sourceRows = matrix.slice(headerIndex + 1).map((row, index) => ({ row, rowNumber: headerIndex + index + 2 })).filter(({ row }) => {
+    let nonBlankTotal = 0; let nonSerialNonBlank = 0;
+    row.forEach((cell, cellIndex) => {
+      if (cell.trim() === "") return;
+      nonBlankTotal++;
+      if (cellIndex !== serialNumberColumnIndex) nonSerialNonBlank++;
+    });
+    // The stricter ">=2, 1 non-serial" rule only makes sense relative to a
+    // detected serial column - without one, cellIndex !== serialNumberColumnIndex
+    // (-1) is always true, so the rule would silently collapse to
+    // "nonBlankTotal >= 2" and drop a genuinely real but sparse one-cell row
+    // (e.g. a lone Location value) that the old ">=1 non-blank cell" rule
+    // always accepted. Only tighten the check when there's an actual S.No
+    // column to be suspicious of.
+    if (serialNumberColumnIndex === -1) return nonBlankTotal >= 1;
+    return nonBlankTotal >= 2 && nonSerialNonBlank >= 1;
+  });
   const rows = sourceRows.slice(0, INVENTORY_IMPORT_MAX_ROWS).map(({ row, rowNumber }) => ({ ...Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])), __spreadsheetRowNumber: String(rowNumber) }));
   const suggestions = suggestColumnMapping(headers);
   return { sheetNames, selectedSheet, headerRow: headerIndex + 1, headers, rows, suggestedMapping: suggestions.mapping, ambiguousMappings: suggestions.ambiguous, truncated: sourceRows.length > rows.length };

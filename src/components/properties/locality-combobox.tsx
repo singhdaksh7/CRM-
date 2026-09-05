@@ -22,12 +22,21 @@ interface Locality {
 export function LocalityCombobox({
   value,
   onChange,
+  onSelectLocality,
   allowCreate = true,
   placeholder = "Search locality...",
   "aria-label": ariaLabel = "Search locality",
 }: {
   value: string;
   onChange: (name: string) => void;
+  /**
+   * Optional - fires with the full { id, name } record whenever an existing
+   * locality is picked from the dropdown (not on free typing, and not on
+   * "+ Add" since that creates a locality with no id known client-side yet).
+   * Additive: existing callers that only need the name (property-form,
+   * property-filters) are unaffected by omitting it.
+   */
+  onSelectLocality?: (locality: Locality) => void;
   allowCreate?: boolean;
   placeholder?: string;
   "aria-label"?: string;
@@ -127,7 +136,10 @@ export function LocalityCombobox({
               key={opt.id}
               type="button"
               className="block w-full truncate px-3 py-2 text-left text-sm text-[#1B2430] hover:bg-[#F3F6FA]"
-              onClick={() => select(opt.name)}
+              onClick={() => {
+                select(opt.name);
+                onSelectLocality?.(opt);
+              }}
             >
               {opt.name}
             </button>

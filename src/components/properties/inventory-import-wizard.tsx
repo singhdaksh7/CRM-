@@ -4,13 +4,15 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, Select } from "@/components/ui/form";
+import { LocalityCombobox } from "@/components/properties/locality-combobox";
 import { IMPORTABLE_PROPERTY_FIELDS, headerSignature, type ImportActionValue } from "@/lib/inventory-import-shared";
 
 type Parsed = { fileName: string; fileHash: string; sheetNames: string[]; selectedSheet: string; headerRow: number; headers: string[]; rows: Record<string, string>[]; suggestedMapping: Record<string, string>; ambiguousMappings: Record<string, string[]>; truncated: boolean };
-type PreviewRow = { rowNumber: number; data: Record<string, unknown>; issues: Array<{ field: string; originalValue?: string; message: string; severity: string }>; duplicateClass: string; duplicateReasons: string[]; action: ImportActionValue; state: string; matchedProperty: { id: string; propertyCode: string; title: string } | null; diff: Array<{ field: string; before: unknown; after: unknown }>; partnerResolution: string };
+type PreviewRow = { rowNumber: number; data: Record<string, unknown>; issues: Array<{ field: string; originalValue?: string; message: string; severity: string }>; duplicateClass: string; duplicateReasons: string[]; action: ImportActionValue; state: string; matchedProperty: { id: string; propertyCode: string; title: string } | null; diff: Array<{ field: string; before: unknown; after: unknown }>; partnerResolution: string; localityResolution: string };
 type Partner = { id: string; name: string; company: string | null };
 type Resolution = { action?: ImportActionValue; partnerId?: string; existingPropertyId?: string };
 type Preset = { id: string; name: string; mapping: Record<string, string> };
+type LocalityAliasResolution = { alias: string; localityId: string; name: string };
 
 const labels: Record<string, string> = { area: "Locality", address: "Specific / complete address", builtUpAreaSqft: "Built-up area (sq ft)", ownerAlternatePhone: "Alternate phone", parkingLift: "Combined parking/lift" };
 const steps = ["Upload", "Sheet", "Headers & mapping", "Preview & validate", "Duplicates", "Confirm", "Result"];
@@ -20,12 +22,24 @@ export function InventoryImportWizard() {
   const [mapping, setMapping] = useState<Record<string, string>>({}); const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [mode, setMode] = useState("CREATE_ONLY"); const [partialPolicy, setPartialPolicy] = useState("REQUIRE_ALL_ROWS_VALID");
   const [allowBlankClear, setAllowBlankClear] = useState(false); const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
+  // Property Inventory V2 - staff-chosen raw-locality-text -> existing
+  // PropertyLocality mappings, keyed by the raw alias text (deduplicated
+  // across rows, since many rows commonly share the same unresolved token
+  // like "RN"). Mirrors the partner NOT_FOUND resolution pattern above.
+  const [localityAliasResolutions, setLocalityAliasResolutions] = useState<Record<string, LocalityAliasResolution>>({});
   const [partners, setPartners] = useState<Partner[]>([]); const [filter, setFilter] = useState("ALL"); const [busy, setBusy] = useState(false);
   const [presets, setPresets] = useState<Preset[]>([]); const [previewPage, setPreviewPage] = useState(1);
   const [error, setError] = useState(""); const [result, setResult] = useState<{ job: { id: string }; counts: Record<string, number> } | null>(null);
   const step = result ? 6 : preview.length ? 4 : parsed ? 2 : 0;
   const filtered = useMemo(() => preview.filter((row) => filter === "ALL" || row.state === filter), [preview, filter]);
   const visible = useMemo(() => filtered.slice((previewPage - 1) * 100, previewPage * 100), [filtered, previewPage]);
+  // Property Inventory V2 - deduplicated across rows: many rows commonly
+  // share the same unresolved raw locality token (e.g. "RN"), so this is
+  // surfaced once above the table rather than per row.
+  const unresolvedLocalities = useMemo(
+    () => [...new Set(preview.filter((row) => row.localityResolution === "NOT_FOUND").map((row) => String(row.data.area ?? "")).filter(Boolean))],
+    [preview]
+  );
 
   async function parse(selectedSheet?: string) {
     if (!file) return; setBusy(true); setError("");
@@ -39,14 +53,26 @@ export function InventoryImportWizard() {
     if (presetResponse.ok) setPresets((await presetResponse.json()).presets);
   }
 
-  async function loadPreview(nextResolutions = resolutions) {
+  async function loadPreview(nextResolutions = resolutions, nextLocalityAliasResolutions = localityAliasResolutions) {
     if (!parsed) return; setBusy(true); setError("");
-    const response = await fetch("/api/properties/import/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: parsed.rows, mapping, mode, allowBlankClear, resolutions: nextResolutions }) });
+    const localityAliasResolutionsPayload = Object.values(nextLocalityAliasResolutions).map(({ alias, localityId }) => ({ alias, localityId }));
+    // sheetName must match what execute() sends below - otherwise the
+    // preview a Data Manager reviews (sheet-derived assetClass/bhk/
+    // listingType defaults applied or not) can silently diverge from what
+    // actually gets validated/created on confirm.
+    const response = await fetch("/api/properties/import/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: parsed.rows, mapping, mode, allowBlankClear, resolutions: nextResolutions, localityAliasResolutions: localityAliasResolutionsPayload, sheetName: parsed.selectedSheet }) });
     const body = await response.json(); setBusy(false); if (!response.ok) return setError(body.error ?? "Preview failed"); setPreview(body.rows);
   }
 
   function resolve(rowNumber: number, value: Resolution) {
     const next = { ...resolutions, [String(rowNumber)]: { ...resolutions[String(rowNumber)], ...value } }; setResolutions(next); void loadPreview(next);
+  }
+
+  /** Maps a raw, unresolved locality token (e.g. "RN") to an existing PropertyLocality, then re-runs the preview live so every row sharing that token updates at once. */
+  function resolveLocality(alias: string, localityId: string, name: string) {
+    const next = { ...localityAliasResolutions, [alias]: { alias, localityId, name } };
+    setLocalityAliasResolutions(next);
+    void loadPreview(resolutions, next);
   }
 
   function resolveAllExact(action: ImportActionValue) {
@@ -69,7 +95,9 @@ export function InventoryImportWizard() {
 
   async function execute() {
     if (!parsed) return; if (!window.confirm(`Import ${preview.filter((row) => row.action !== "SKIP" && row.state !== "ERROR").length} actionable rows? No spreadsheet row is written until you confirm here.`)) return;
-    setBusy(true); setError(""); const response = await fetch("/api/properties/import/execute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: parsed.fileName, fileHash: parsed.fileHash, sheetName: parsed.selectedSheet, rows: parsed.rows, mapping, mode, partialPolicy, allowBlankClear, resolutions }) });
+    setBusy(true); setError("");
+    const localityAliasResolutionsPayload = Object.values(localityAliasResolutions).map(({ alias, localityId }) => ({ alias, localityId }));
+    const response = await fetch("/api/properties/import/execute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: parsed.fileName, fileHash: parsed.fileHash, sheetName: parsed.selectedSheet, rows: parsed.rows, mapping, mode, partialPolicy, allowBlankClear, resolutions, localityAliasResolutions: localityAliasResolutionsPayload }) });
     const body = await response.json(); setBusy(false); if (!response.ok) return setError(body.error ?? "Import failed"); setResult(body);
   }
 
@@ -86,7 +114,29 @@ export function InventoryImportWizard() {
       <div className="grid gap-3 md:grid-cols-3"><label className="text-xs font-semibold">Import mode<Select value={mode} onChange={(event) => setMode(event.target.value)}><option value="CREATE_ONLY">Create only (safest)</option><option value="UPSERT_SAFE">Safe upsert exact matches</option><option value="UPDATE_EXISTING_ONLY">Update existing only</option></Select></label><label className="text-xs font-semibold">Partial policy<Select value={partialPolicy} onChange={(event) => setPartialPolicy(event.target.value)}><option value="REQUIRE_ALL_ROWS_VALID">Require all rows valid</option><option value="IMPORT_VALID_ROWS">Import valid rows only</option></Select></label><Checkbox label="Allow blank cells to clear CRM values" checked={allowBlankClear} onChange={(event) => setAllowBlankClear(event.target.checked)}/></div>
       <Button onClick={() => void loadPreview()} loading={busy}>Build validation preview</Button></section></>}
     {preview.length > 0 && !result && <section className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold">Preview and duplicate resolution</h2><p className="text-sm text-slate-600">{preview.length} rows · {preview.filter((row) => row.state === "ERROR").length} errors · {preview.filter((row) => row.duplicateClass !== "NEW").length} duplicate candidates</p></div><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={()=>resolveAllExact("SKIP")}>Skip all exact</Button>{mode !== "CREATE_ONLY" && <Button size="sm" variant="secondary" onClick={()=>resolveAllExact("UPDATE_EXISTING")}>Update all exact</Button>}<Select className="w-auto" value={filter} onChange={(event) => { setFilter(event.target.value); setPreviewPage(1); }}><option>ALL</option>{["READY","WARNING","ERROR","DUPLICATE","SKIPPED"].map((value) => <option key={value}>{value}</option>)}</Select></div></div>
-      <div className="overflow-x-auto rounded-2xl border bg-white"><table className="min-w-full text-xs"><thead className="bg-slate-50 text-left"><tr>{["Row","Code / title","Location","Source","Price","Owner","State","Duplicate","Action"].map((heading) => <th key={heading} className="p-3">{heading}</th>)}</tr></thead><tbody>{visible.map((row) => <tr key={row.rowNumber} className="border-t align-top"><td className="p-3">{row.rowNumber}</td><td className="p-3">{String(row.data.propertyCode ?? "—")}<br/><strong>{String(row.data.title ?? "—")}</strong></td><td className="p-3">{String(row.data.area ?? "—")}<br/>{String(row.data.address ?? "")}</td><td className="p-3">{String(row.data.inventorySource ?? "—")}</td><td className="p-3">{String(row.data.monthlyRent ?? row.data.salePrice ?? "—")}</td><td className="p-3">{String(row.data.ownerName ?? "—")}</td><td className="p-3"><strong>{row.state}</strong>{row.issues.map((issue, i) => <p key={i} className={issue.severity === "ERROR" ? "text-red-700" : "text-amber-700"}>{issue.field}: {issue.message}</p>)}</td><td className="p-3">{row.duplicateClass}{row.matchedProperty && <p>{row.matchedProperty.propertyCode}</p>}{row.diff.map((diff) => <p key={diff.field}>{diff.field}: {String(diff.before ?? "—")} → {String(diff.after ?? "—")}</p>)}</td><td className="p-3 space-y-2"><Select value={row.action} onChange={(event) => resolve(row.rowNumber, { action: event.target.value as ImportActionValue })}><option value="SKIP">Skip</option><option value="CREATE">Create anyway</option><option value="UPDATE_EXISTING">Update existing</option></Select>{row.partnerResolution === "NOT_FOUND" && <Select value={resolutions[String(row.rowNumber)]?.partnerId ?? ""} onChange={(event) => resolve(row.rowNumber, { partnerId: event.target.value })}><option value="">Choose partner</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.name}{partner.company ? ` · ${partner.company}` : ""}</option>)}</Select>}</td></tr>)}</tbody></table></div>
+      {unresolvedLocalities.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+          <p className="text-sm font-semibold text-amber-900">Unresolved localities - {unresolvedLocalities.length} raw value(s) don&apos;t match an existing locality. They&apos;ll still import fine as new localities, but you can map them to an existing one instead (e.g. an abbreviation like &quot;RN&quot; → Rajouri Garden):</p>
+          <div className="grid gap-2 md:grid-cols-2">
+            {unresolvedLocalities.map((alias) => (
+              <div key={alias} className="flex items-center gap-2 text-xs">
+                <span className="w-32 shrink-0 truncate font-semibold" title={alias}>{alias}</span>
+                <div className="flex-1">
+                  <LocalityCombobox
+                    value={localityAliasResolutions[alias]?.name ?? ""}
+                    onChange={() => {}}
+                    onSelectLocality={(locality) => resolveLocality(alias, locality.id, locality.name)}
+                    allowCreate={false}
+                    placeholder="Map to existing locality..."
+                    aria-label={`Map "${alias}" to an existing locality`}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="overflow-x-auto rounded-2xl border bg-white"><table className="min-w-full text-xs"><thead className="bg-slate-50 text-left"><tr>{["Row","Code / title","Location","Source","Price","Owner","State","Duplicate","Action"].map((heading) => <th key={heading} className="p-3">{heading}</th>)}</tr></thead><tbody>{visible.map((row) => <tr key={row.rowNumber} className="border-t align-top"><td className="p-3">{row.rowNumber}</td><td className="p-3">{String(row.data.propertyCode ?? "—")}<br/><strong>{String(row.data.title ?? "—")}</strong></td><td className="p-3">{String(row.data.area ?? "—")}{row.localityResolution === "ALIAS_MATCHED" && <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">resolved via saved alias</span>}<br/>{String(row.data.address ?? "")}</td><td className="p-3">{String(row.data.inventorySource ?? "—")}</td><td className="p-3">{String(row.data.monthlyRent ?? row.data.salePrice ?? "—")}</td><td className="p-3">{String(row.data.ownerName ?? "—")}</td><td className="p-3"><strong>{row.state}</strong>{row.issues.map((issue, i) => <p key={i} className={issue.severity === "ERROR" ? "text-red-700" : "text-amber-700"}>{issue.field}: {issue.message}</p>)}</td><td className="p-3">{row.duplicateClass}{row.matchedProperty && <p>{row.matchedProperty.propertyCode}</p>}{row.diff.map((diff) => <p key={diff.field}>{diff.field}: {String(diff.before ?? "—")} → {String(diff.after ?? "—")}</p>)}</td><td className="p-3 space-y-2"><Select value={row.action} onChange={(event) => resolve(row.rowNumber, { action: event.target.value as ImportActionValue })}><option value="SKIP">Skip</option><option value="CREATE">Create anyway</option><option value="UPDATE_EXISTING">Update existing</option></Select>{row.partnerResolution === "NOT_FOUND" && <Select value={resolutions[String(row.rowNumber)]?.partnerId ?? ""} onChange={(event) => resolve(row.rowNumber, { partnerId: event.target.value })}><option value="">Choose partner</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.name}{partner.company ? ` · ${partner.company}` : ""}</option>)}</Select>}</td></tr>)}</tbody></table></div>
       {filtered.length > 100 && <div className="flex items-center justify-end gap-2 text-xs"><Button size="sm" variant="secondary" disabled={previewPage===1} onClick={()=>setPreviewPage((page)=>page-1)}>Previous</Button><span>Page {previewPage} of {Math.ceil(filtered.length/100)}</span><Button size="sm" variant="secondary" disabled={previewPage>=Math.ceil(filtered.length/100)} onClick={()=>setPreviewPage((page)=>page+1)}>Next</Button></div>}
       <div className="rounded-xl border bg-white p-4"><p className="mb-3 text-sm">Final confirmation will re-run validation and duplicate detection on the server. Blank clearing is <strong>{allowBlankClear ? "enabled" : "disabled"}</strong>.</p><Button onClick={() => void execute()} loading={busy}>Confirm and import</Button></div></section>}
     {result && <section className="rounded-2xl border border-green-200 bg-green-50 p-6"><h2 className="text-lg font-bold text-green-900">Import completed</h2><p className="mt-2 text-sm">Created {result.counts.created}, updated {result.counts.updated}, skipped {result.counts.skipped}, failed {result.counts.failed}.</p><div className="mt-4 flex gap-2"><Link href={`/properties/import/history/${result.job.id}`} className="rounded-xl bg-green-800 px-3 py-2 text-sm font-semibold text-white">View row results</Link><Link href="/properties" className="rounded-xl border px-3 py-2 text-sm font-semibold">Return to inventory</Link></div></section>}

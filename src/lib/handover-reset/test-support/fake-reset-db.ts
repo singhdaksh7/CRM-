@@ -91,7 +91,11 @@ export class FakeResetDb {
       for (const row of rows) table.set(row.id, { ...row });
       this.state[model] = table;
     }
-    this.appliedMigrationCount = options.appliedMigrationCount ?? 32;
+    // Kept in sync with EXPECTED_MIGRATION_COUNT_AT_BUILD_TIME in constants.ts
+    // and the actual prisma/migrations/ directory count - bump both together
+    // whenever a new migration is added, or the default-options tests below
+    // will fail the real disk-vs-applied preflight check.
+    this.appliedMigrationCount = options.appliedMigrationCount ?? 33;
     this.missingCoreTables = options.missingCoreTables ?? [];
     this.failOnDeleteMany = options.failOnDeleteMany;
   }
