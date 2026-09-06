@@ -5,7 +5,7 @@ import { visitSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
 import { checkVisitConflict } from "@/lib/visit-conflict";
 import { recordAudit } from "@/lib/audit";
-import { scheduleVisit, visitRoleScopeWhere, upcomingVisitsWhere, todaysVisitsWhere } from "@/lib/visits";
+import { needsVisitOutcomeWhere, scheduleVisit, visitRoleScopeWhere, upcomingVisitsWhere, todaysVisitsWhere } from "@/lib/visits";
 import { startOfIstDay, endOfIstDay } from "@/lib/ist-date";
 import { assignedToSelect } from "@/lib/user-select";
 import type { Prisma } from "@prisma/client";
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     const scope = sp.get("scope");
     if (scope === "upcoming") Object.assign(where, upcomingVisitsWhere(organizationId, new Date(), where.assignedToId as string | undefined));
     else if (scope === "today") Object.assign(where, todaysVisitsWhere(organizationId, new Date(), where.assignedToId as string | undefined));
+    else if (scope === "needs-outcome") Object.assign(where, needsVisitOutcomeWhere(organizationId, new Date(), where.assignedToId as string | undefined));
 
     const date = sp.get("date");
     if (date) {

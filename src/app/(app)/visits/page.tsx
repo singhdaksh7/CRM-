@@ -10,7 +10,7 @@ import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagina
 import { formatDate, enumToLabel } from "@/lib/utils";
 import { withTiming } from "@/lib/perf";
 import { getOrganizationId } from "@/lib/organization";
-import { computeVisitProgress, todaysVisitsWhere, upcomingVisitsWhere, visitRoleScopeWhere } from "@/lib/visits";
+import { computeVisitProgress, needsVisitOutcomeWhere, todaysVisitsWhere, upcomingVisitsWhere, visitRoleScopeWhere } from "@/lib/visits";
 import { assignedToSelect } from "@/lib/user-select";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
@@ -22,6 +22,7 @@ type VisitWithRelations = Prisma.VisitGetPayload<{
 const TABS = [
   { key: "today", label: "Today" },
   { key: "upcoming", label: "Upcoming" },
+  { key: "needs-outcome", label: "Needs Outcome" },
   { key: "all", label: "All Visits" },
   { key: "employee", label: "Employee-wise" },
 ];
@@ -50,12 +51,14 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
   let where: Prisma.VisitWhereInput = visitRoleScopeWhere(organizationId, user);
   if (tab === "today") where = todaysVisitsWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined);
   else if (tab === "upcoming") where = upcomingVisitsWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined);
+  else if (tab === "needs-outcome") where = needsVisitOutcomeWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined);
 
   if (tab === "employee" && sp.employeeId && canManage) where.assignedToId = sp.employeeId;
 
   const isAllTab = tab === "all";
+  const isNeedsOutcomeTab = tab === "needs-outcome";
 
-  const [visits, totalCount, leads, properties, employees] = await withTiming("visitsPageQuery", "/visits", () =>
+  const [visits, totalCount, needsOutcomeCount, leads, properties, employees] = await withTiming("visitsPageQuery", "/visits", () =>
     Promise.all([
       prisma.visit.findMany({
         where,
@@ -65,6 +68,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
         take: isAllTab ? DEFAULT_PAGE_SIZE : SAFETY_CAP,
       }),
       isAllTab ? prisma.visit.count({ where }) : Promise.resolve(null),
+      prisma.visit.count({ where: needsVisitOutcomeWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined) }),
       // Every supporting query is organization-scoped too - previously none of
       // them were, so the Schedule Visit modal could offer another org's data.
       canManage ? prisma.lead.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 100 }) : Promise.resolve([]),
@@ -137,13 +141,13 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       <div className="flex gap-1 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1 text-sm shadow-xs w-fit">
         {TABS.map((t) => (
           <Link key={t.key} href={`/visits?tab=${t.key}`} className={`whitespace-nowrap rounded-xl px-3.5 py-1.5 font-semibold transition-all ${tab === t.key ? "bg-[#3366FF] text-white shadow-xs" : "text-[#596579] hover:text-[#1B2430] hover:bg-[#F3F6FA]"}`}>
-            {t.label}
+            {t.label}{t.key === "needs-outcome" ? ` (${needsOutcomeCount})` : ""}
           </Link>
         ))}
       </div>
 
       {visits.length === 0 ? (
-        <EmptyState title="No visits found" description={tab === "upcoming" ? "Nothing scheduled beyond today." : "Schedule a visit to get started."} />
+        <EmptyState title={isNeedsOutcomeTab ? "No visits need an outcome" : "No visits found"} description={isNeedsOutcomeTab ? "" : tab === "upcoming" ? "Nothing scheduled beyond today." : "Schedule a visit to get started."} />
       ) : tab === "employee" ? (
         <div className="space-y-4">
           {[...grouped.entries()].map(([name, vs]) => (

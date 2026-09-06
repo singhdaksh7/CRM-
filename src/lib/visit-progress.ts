@@ -176,3 +176,35 @@ export function visitRoleScopeWhere(organizationId: string, user: { id: string; 
   if (user.role === "FIELD_EXECUTIVE") base.assignedToId = user.id;
   return base;
 }
+
+/**
+ * Past scheduled visits whose outcome has not been captured yet. This is the
+ * operational counterpart of the existing missed-visit rule: a no-show is
+ * already an outcome/status, while a SCHEDULED visit after its appointment
+ * time still needs somebody to record what happened.
+ *
+ * Visit stores the IST calendar date and appointment time separately, so both
+ * values are compared. Keeping this in the shared query helper prevents the
+ * queue, its badge, and role-scoped callers from drifting apart.
+ */
+export function needsVisitOutcomeWhere(organizationId: string, now: Date = new Date(), assignedToId?: string | null): Prisma.VisitWhereInput {
+  const start = startOfIstDay(now);
+  const end = endOfIstDay(now);
+  const currentTime = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(now);
+
+  return {
+    organizationId,
+    status: "SCHEDULED",
+    outcome: null,
+    ...(assignedToId ? { assignedToId } : {}),
+    OR: [
+      { visitDate: { lt: start } },
+      { visitDate: { gte: start, lte: end }, visitTime: { lt: currentTime } },
+    ],
+  };
+}
