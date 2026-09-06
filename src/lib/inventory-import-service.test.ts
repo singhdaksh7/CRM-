@@ -34,6 +34,30 @@ describe("inventory import execution policies", () => {
     expect(result.counts).toMatchObject({ created: 1, skipped: 1, failed: 0 }); expect(db.property.create).toHaveBeenCalledTimes(1);
     expect(db.importRecord.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ rawData: expect.stringContaining("******3210") }) }));
   });
+  it("preserves the existing zero bathroom default for a workbook-shaped sale row without inferring a count", async () => {
+    const workbookSaleMapping = {
+      propertyCode: "S.NO", area: "LOCATION", address: "ADDRESS", salePrice: "PRICE", floorNumber: "FLOOR",
+      builtUpAreaSqft: "SQ.FT", inventorySource: "DIR/IND", ownerName: "OWNER", ownerPhone: "PHONE NO",
+    };
+    const workbookSaleRow = {
+      "S.NO": "KP-XLS-2BHK-SALE-15", LOCATION: "Bali Nagar", ADDRESS: "F-41", PRICE: "87L", FLOOR: "3 RD WITH ROOF",
+      "SQ.FT": "900", "DIR/IND": "DIRECT", OWNER: "Source Owner", "PHONE NO": "8527126123",
+    };
+
+    const result = await executeInventoryImport({
+      organizationId: "org-a", actorId: "u1", fileName: "INVENTORY FOR SALE(AutoRecovered).xlsx",
+      rows: [workbookSaleRow], mapping: workbookSaleMapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID",
+      sheetName: "2BHK SALE", sheetTitle: "2 BHK FOR SALE",
+    });
+
+    expect(result.counts).toMatchObject({ created: 1, failed: 0 });
+    expect(db.property.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        bathrooms: 0, bhk: 2, salePrice: 8_700_000, area: "Bali Nagar", address: "F-41",
+        listingType: "SALE", propertyType: "OTHER", inventorySource: "DIRECT",
+      }),
+    }));
+  });
   it("safe upsert updates the exact match without clearing omitted fields", async () => {
     db.property.findMany.mockResolvedValue([{ id: "property-existing", propertyCode: "X", title: direct.Title, area: direct.Location, address: direct.Address, floorNumber: null, builtUpAreaSqft: 850, monthlyRent: 25000, salePrice: null, bhk: 2, ownerPhone: "919876543210", internalNotes: "keep me" }]);
     await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "upsert.csv", rows: [{ ...direct, Rent: "27k" }], mapping, mode: "UPSERT_SAFE", partialPolicy: "REQUIRE_ALL_ROWS_VALID", allowBlankClear: false });

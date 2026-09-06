@@ -569,6 +569,11 @@ export function validateImportedProperty(data: Record<string, unknown>, issues: 
   const result = importCreatePropertySchema.safeParse(safeData);
   if (!result.success) {
     for (const issue of result.error.issues) issues.push({ field: issue.path.join(".") || "row", message: issue.message, severity: "ERROR" });
+  } else if (data.bathrooms === undefined) {
+    // `bathrooms` is required by Property and the existing import schema
+    // deliberately defaults an unknown source value to 0. Keep that
+    // validated default in the create payload; do not infer a count.
+    data.bathrooms = result.data.bathrooms;
   }
   return issues;
 }
