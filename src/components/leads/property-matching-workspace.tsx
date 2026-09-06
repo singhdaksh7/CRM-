@@ -639,51 +639,64 @@ export function PropertyMatchingWorkspace({
 
       {loading && <LoadingState label="Computing property match scores..." />}
 
-      {!loading && allEmpty && (
-        <EmptyState
-          title="No suitable matches found for this requirement yet"
-          description="Try widening the budget tolerance or locality radius above, or use Add More Properties to manually shortlist something outside the current match criteria."
-        />
-      )}
-
-      {!loading && sections && !allEmpty && (
+      {/* The shortlist/review panel must stay reachable even when automatic
+          matching found nothing (allEmpty) - a broker can still use "Add More
+          Properties" to manually shortlist an out-of-criteria property, and
+          previously had no way to reach "Review & Create Catalogue" for it on
+          desktop because this whole grid (including ShortlistPanel) was gated
+          on `!allEmpty`. The manually-added property sits in this component's
+          in-memory `shortlist` state only, so if the panel needed to reach it
+          never renders, that property never gets submitted to
+          POST /api/leads/[id]/catalogues and no CatalogueShareProperty row is
+          ever created for it - matching the "added to shortlist but never
+          shows in the catalogue" report. Only the left match-list column is
+          conditional on `!allEmpty` now; the right ShortlistPanel column
+          always renders once matches have loaded. */}
+      {!loading && sections && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="space-y-3 lg:col-span-2">
-            {SECTION_META.map((meta) => {
-              const list = filteredSections?.[meta.key] ?? [];
-              const isOpen = openSections.has(meta.key);
-              return (
-                <div key={meta.key} className="overflow-hidden rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
-                  <button type="button" onClick={() => toggleSection(meta.key)} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left">
-                    <div>
-                      <p className="flex items-center gap-2 text-sm font-bold text-[#1B2430]">
-                        {meta.label} <Badge tone="slate">{list.length}</Badge>
-                      </p>
-                      <p className="text-xs text-[#596579]">{meta.hint}</p>
-                    </div>
-                    {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-[#8A94A6]" /> : <ChevronDown className="h-4 w-4 shrink-0 text-[#8A94A6]" />}
-                  </button>
-                  {isOpen && (
-                    <div className="space-y-3 border-t border-[#EFF4FF] p-3">
-                      {list.length === 0 ? (
-                        <p className="py-4 text-center text-xs text-[#8A94A6]">No properties in this section{sections[meta.key].length > 0 ? " match the current filters" : ""}.</p>
-                      ) : (
-                        list.map((m) => (
-                          <MatchCard
-                            key={m.property.id}
-                            match={m}
-                            inShortlist={shortlistIds.has(m.property.id)}
-                            onToggleShortlist={() => toggleShortlist(m)}
-                            compareChecked={compareIds.has(m.property.id)}
-                            onToggleCompare={() => toggleCompare(m.property.id)}
-                          />
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {allEmpty ? (
+              <EmptyState
+                title="No suitable matches found for this requirement yet"
+                description="Try widening the budget tolerance or locality radius above, or use Add More Properties to manually shortlist something outside the current match criteria."
+              />
+            ) : (
+              SECTION_META.map((meta) => {
+                const list = filteredSections?.[meta.key] ?? [];
+                const isOpen = openSections.has(meta.key);
+                return (
+                  <div key={meta.key} className="overflow-hidden rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
+                    <button type="button" onClick={() => toggleSection(meta.key)} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left">
+                      <div>
+                        <p className="flex items-center gap-2 text-sm font-bold text-[#1B2430]">
+                          {meta.label} <Badge tone="slate">{list.length}</Badge>
+                        </p>
+                        <p className="text-xs text-[#596579]">{meta.hint}</p>
+                      </div>
+                      {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-[#8A94A6]" /> : <ChevronDown className="h-4 w-4 shrink-0 text-[#8A94A6]" />}
+                    </button>
+                    {isOpen && (
+                      <div className="space-y-3 border-t border-[#EFF4FF] p-3">
+                        {list.length === 0 ? (
+                          <p className="py-4 text-center text-xs text-[#8A94A6]">No properties in this section{sections[meta.key].length > 0 ? " match the current filters" : ""}.</p>
+                        ) : (
+                          list.map((m) => (
+                            <MatchCard
+                              key={m.property.id}
+                              match={m}
+                              inShortlist={shortlistIds.has(m.property.id)}
+                              onToggleShortlist={() => toggleShortlist(m)}
+                              compareChecked={compareIds.has(m.property.id)}
+                              onToggleCompare={() => toggleCompare(m.property.id)}
+                            />
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
 
           <div className="space-y-4">
