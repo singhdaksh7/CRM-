@@ -858,7 +858,7 @@ function MatchCard({
               )}
             </div>
             <p className="text-xs text-[#596579]">
-              {p.area} &middot; {p.bhk} BHK &middot; {p.furnishing ? enumToLabel(p.furnishing) : "-"} &middot; {p.builtUpAreaSqft} sqft
+              {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {p.builtUpAreaSqft} sqft
             </p>
             <p className="text-sm font-bold text-[#3366FF]">{formatPrice(p)}</p>
           </div>

@@ -96,6 +96,24 @@ describe("parsePriceDetailed", () => {
   });
 });
 
+describe("import provenance priority", () => {
+  it("keeps the first mapped listing price provenance rather than clobbering it", () => {
+    const { data } = normalizeMappedRow(
+      { rent: "25k", sale: "1.5cr (1.4cr last)", expected: "1.6cr (1.5cr last)" },
+      { monthlyRent: "rent", salePrice: "sale", expectedPrice: "expected" }
+    );
+    expect(data).toMatchObject({ monthlyRent: 25_000, salePrice: 15_000_000, expectedPrice: 16_000_000, priceRaw: "25k", lastPrice: 14_000_000 });
+  });
+
+  it("keeps built-up provenance ahead of carpet and super area deterministically", () => {
+    const { data } = normalizeMappedRow(
+      { built: "100 gaj", carpet: "800 sq ft", super: "1100 sq ft" },
+      { builtUpAreaSqft: "built", carpetAreaSqft: "carpet", superAreaSqft: "super" }
+    );
+    expect(data).toMatchObject({ builtUpAreaSqft: 900, carpetAreaSqft: 800, superAreaSqft: 1100, areaRaw: "100 gaj", areaUnit: "SQ_YD" });
+  });
+});
+
 describe("parseAreaDetailed", () => {
   it.each([["1800", 1800], ["1800 SQ FT", 1800], ["87 Sq. ft", 87]])("confidently parses %s as SQ_FT", (raw, sqft) => {
     const result = parseAreaDetailed(raw);
@@ -120,6 +138,9 @@ describe("parseAreaDetailed", () => {
   it("is ambiguous for a bare number on a commercial sheet context", () => {
     expect(parseAreaDetailed("1200", { sheetAssetClass: "COMMERCIAL" })).toMatchObject({ sqft: null, unit: "OTHER", ambiguous: true });
   });
+  it("is ambiguous for a bare number on a PLOT sheet context", () => {
+    expect(parseAreaDetailed("1200", { sheetAssetClass: "PLOT" })).toMatchObject({ sqft: null, unit: "OTHER", ambiguous: true });
+  });
   it("treats a whitespace-only cell identically to blank", () => {
     expect(parseAreaDetailed("   ")).toEqual({ sqft: null, unit: "SQ_FT", raw: null, ambiguous: false });
   });
@@ -138,6 +159,9 @@ describe("parseFloorDetailed", () => {
   });
   it("leaves an unrecognized token unset while preserving raw", () => {
     expect(parseFloorDetailed("UG FLOOR")).toEqual({ floorNumber: null, raw: "UG FLOOR" });
+  });
+  it.each([["UG FLOOR", null], ["UPPER GROUND", null], ["GROUND", 0], ["BASEMENT", -1]] as const)("normalizes %s as %s", (raw, floorNumber) => {
+    expect(parseFloorDetailed(raw)).toEqual({ floorNumber, raw });
   });
   it("treats a whitespace-only cell identically to blank", () => expect(parseFloorDetailed("   ")).toEqual({ floorNumber: null, raw: null }));
 });

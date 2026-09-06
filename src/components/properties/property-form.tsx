@@ -193,6 +193,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
   const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: defaults });
   const listingType = watch("listingType");
   const assetClass = watch("assetClass");
+  const propertyType = watch("propertyType");
+  const isPlot = assetClass === "RESIDENTIAL" && propertyType === "PLOT";
   const amenities = watch("amenities");
   const inventorySource = watch("inventorySource");
   const [partners, setPartners] = useState<{ id: string; name: string; company: string | null }[]>([]);
@@ -225,8 +227,10 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       salePrice: values.salePrice ? Number(values.salePrice) : null,
       pricePerSqft: values.pricePerSqft ? Number(values.pricePerSqft) : null,
       saleBrokeragePct: values.saleBrokeragePct ? Number(values.saleBrokeragePct) : null,
-      bhk: assetClass === "RESIDENTIAL" ? Number(values.bhk) : 0,
-      bathrooms: assetClass === "RESIDENTIAL" ? Number(values.bathrooms) : 0,
+      // PLOT uses the legacy RESIDENTIAL asset class, but BHK/bathrooms are
+      // not meaningful for land. Keep the existing non-nullable DB contract.
+      bhk: assetClass === "RESIDENTIAL" && !isPlot ? Number(values.bhk) : 0,
+      bathrooms: assetClass === "RESIDENTIAL" && !isPlot ? Number(values.bathrooms) : 0,
       balconies: Number(values.balconies),
       floorNumber: values.floorNumber ? Number(values.floorNumber) : null,
       totalFloors: values.totalFloors ? Number(values.totalFloors) : null,
@@ -430,7 +434,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       <Section title="Property Details">
         {assetClass === "COMMERCIAL" ? <div className="space-y-4"><div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><Field label="Built-up Area (sqft)" required><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required" })} /></Field><Field label="Area Unit" hint="Only relevant if this listing's area came from a non-sqft source"><Select {...register("areaUnit")}><option value="">Not specified</option>{["SQ_FT", "SQ_YD", "SQ_M", "ACRE", "OTHER"].map((u) => <option key={u} value={u}>{u.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Carpet Area (sqft)"><Input type="number" {...register("carpetAreaSqft")} /></Field><Field label="Super Area (sqft)"><Input type="number" {...register("superAreaSqft")} /></Field><Field label="Dimension"><Input {...register("dimension")} placeholder="e.g. 30x40" /></Field><Field label="Fit-out"><Select {...register("commercialFitOut")}><option value="">Not specified</option><option value="FURNISHED">Furnished</option><option value="SEMI_FURNISHED">Semi-Furnished</option><option value="BARE_SHELL">Bare shell</option></Select></Field><Field label="Workstations"><Input type="number" {...register("workstations")} /></Field><Field label="Cabins"><Input type="number" {...register("cabins")} /></Field><Field label="Washrooms"><Input type="number" {...register("washrooms")} /></Field><Field label="Frontage (ft)"><Input type="number" {...register("frontageFeet")} /></Field><Field label="Power Load (kW)"><Input type="number" {...register("powerLoadKw")} /></Field><Field label="Park Facing"><Select {...register("parkFacing")}><option value="">Not specified</option><option value="true">Yes</option><option value="false">No</option></Select></Field></div><div className="flex flex-wrap gap-4"><Checkbox label="Parking available" {...register("parkingAvailable")} /><Checkbox label="Lift available" {...register("liftAvailable")} /><Checkbox label="Goods lift" {...register("goodsLiftAvailable")} /><Checkbox label="Pantry" {...register("pantryAvailable")} /><Checkbox label="Loading access" {...register("loadingAccessAvailable")} /></div><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Field label="Possession Status"><Select {...register("possessionStatus")}><option value="">Not specified</option>{["READY_TO_MOVE", "UNDER_CONSTRUCTION", "BOOKING", "TENANTED", "UNKNOWN"].map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Possession Notes"><Input {...register("possessionNotes")} placeholder="e.g. Ready by Dec 2026" /></Field><Field label="Available From"><Input type="date" {...register("availableFrom")} /></Field></div></div> : <>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <Field label="BHK" required error={errors.bhk?.message}><Input type="number" {...register("bhk", { required: "BHK is required", min: { value: 0, message: "BHK must be 0-10" }, max: { value: 10, message: "BHK must be 0-10" } })} /></Field>
+          {!isPlot && <><Field label="BHK" required error={errors.bhk?.message}><Input type="number" {...register("bhk", { required: "BHK is required", min: { value: 0, message: "BHK must be 0-10" }, max: { value: 10, message: "BHK must be 0-10" } })} /></Field>
           <Field label="Bathrooms" required error={errors.bathrooms?.message}><Input type="number" {...register("bathrooms", { required: "Bathrooms required", min: { value: 0, message: "Bathrooms must be 0-10" }, max: { value: 10, message: "Bathrooms must be 0-10" } })} /></Field>
           <Field label="Balconies"><Input type="number" {...register("balconies")} /></Field>
           <Field label="Furnishing">
@@ -440,7 +444,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
               <option value="SEMI_FURNISHED">Semi-Furnished</option>
               <option value="UNFURNISHED">Unfurnished</option>
             </Select>
-          </Field>
+          </Field></>}
           <Field label="Floor Number"><Input type="number" {...register("floorNumber")} /></Field>
           <Field label="Total Floors"><Input type="number" {...register("totalFloors")} /></Field>
           <Field label="Property Age (years)"><Input type="number" {...register("propertyAgeYears")} /></Field>

@@ -92,6 +92,12 @@ describe("inventory import preview service", () => {
     db.property.findMany.mockResolvedValue([{ id: "p1", propertyCode: "X", title: direct.Title, area: direct.Location, address: direct.Address, floorNumber: null, builtUpAreaSqft: 850, monthlyRent: 25000, salePrice: null, bhk: 2, ownerPhone: "919876543210" }]);
     const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [direct], mapping, mode: "CREATE_ONLY" }); expect(result.action).toBe("SKIP");
   });
+  it("uses identical sheet defaults in preview and execute", async () => {
+    const row = { ...direct, Title: "", Type: "", Listing: "", BHK: "" };
+    const preview = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY", sheetName: "2BHK SALE", sheetTitle: "2 BHK FOR SALE" });
+    const executed = await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "sheet.csv", rows: [row], mapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID", sheetName: "2BHK SALE", sheetTitle: "2 BHK FOR SALE" });
+    expect(executed.rows[0].data).toMatchObject({ assetClass: preview[0].data.assetClass, propertyType: preview[0].data.propertyType, bhk: preview[0].data.bhk, listingType: preview[0].data.listingType });
+  });
 });
 
 describe("locality alias resolution", () => {
@@ -110,6 +116,11 @@ describe("locality alias resolution", () => {
     const [row] = await previewInventoryImport({ organizationId: "org-a", rows: [direct], mapping, mode: "CREATE_ONLY" });
     expect(row.localityResolution).toBe("NOT_FOUND"); expect(row.localityId).toBeNull();
     expect(row.issues.some((issue) => issue.severity === "ERROR")).toBe(false);
+  });
+  it("creates and attaches an org-scoped locality for a NOT_FOUND create row", async () => {
+    await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "new-locality.csv", rows: [direct], mapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID" });
+    expect(db.propertyLocality.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ organizationId: "org-a", normalizedName: "janakpuri" }) }));
+    expect(db.property.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ localityId: "loc-created" }) }));
   });
   it("never resolves an alias created for a different organization", async () => {
     db.propertyLocalityAlias.findMany.mockImplementation(({ where }: { where: { organizationId: string } }) =>

@@ -55,6 +55,11 @@ describe("inventory file parser", () => {
       const parsed = await parseInventoryFile(file);
       expect(parsed.rows).toHaveLength(1); expect(parsed.rows[0].Title).toBe("Flat");
     });
+    it("keeps a one-cell meaningful row when the sheet has no S.NO column", async () => {
+      const file = new File(["Location,Address\nJanakpuri,\n"], "x.csv", { type: "text/csv" });
+      const parsed = await parseInventoryFile(file);
+      expect(parsed.rows).toHaveLength(1); expect(parsed.rows[0].Location).toBe("Janakpuri");
+    });
   });
 
   describe("large-workbook safety", () => {
