@@ -27,6 +27,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json();
     const { leadId, ownerId, ...rest } = followUpSchema.partial().parse(body);
 
+    const isReschedule = rest.dueDate !== undefined && new Date(rest.dueDate).getTime() !== existing.dueDate.getTime();
+    if (isReschedule && ["COMPLETED", "CANCELLED"].includes(existing.status)) {
+      throw new ApiError(400, "Completed or cancelled follow-ups cannot be rescheduled");
+    }
+
     // simplified-role-workflow (targeted fix pass, Blocker A) - leadId is
     // immutable after creation. This route previously wrote a client-supplied
     // leadId straight into the update with no re-validation at all (unlike

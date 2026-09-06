@@ -10,6 +10,7 @@ import { withTiming } from "@/lib/perf";
 import { AlertTriangle, CalendarClock, CalendarDays } from "lucide-react";
 import { getOrganizationId } from "@/lib/organization";
 import { assignedToSelect } from "@/lib/user-select";
+import { previousCustomerContext } from "@/lib/followup-context";
 import type { Prisma } from "@prisma/client";
 
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -41,7 +42,27 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
       prisma.followUp.count({ where: { ...scoped, dueDate: { gt: endOfToday } } }),
       prisma.lead.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 100 }),
       prisma.user.findMany({ where: { organizationId, status: "ACTIVE" }, select: assignedToSelect }),
-      prisma.followUp.findMany({ where, include: { lead: true, owner: { select: assignedToSelect } }, orderBy: { dueDate: "asc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
+      prisma.followUp.findMany({
+        where,
+        include: {
+          lead: {
+            select: {
+              id: true,
+              clientName: true,
+              activities: {
+                where: { organizationId, type: { in: ["PHONE_CALL_MADE", "CLIENT_REPLY_RECEIVED", "NOTE_ADDED"] } },
+                select: { type: true, description: true, metadata: true, createdAt: true },
+                orderBy: { createdAt: "desc" },
+                take: 20,
+              },
+            },
+          },
+          owner: { select: assignedToSelect },
+        },
+        orderBy: { dueDate: "asc" },
+        skip: (page - 1) * DEFAULT_PAGE_SIZE,
+        take: DEFAULT_PAGE_SIZE,
+      }),
       prisma.followUp.count({ where }),
     ])
   );
@@ -68,7 +89,9 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
           <EmptyState title="No follow-ups in this bucket" />
         ) : (
           <div>
-            {followUps.map((f) => (<FollowUpRow key={f.id} followUp={{ ...f, lead: f.lead! }} />))}
+            {followUps.map((f) => (
+              <FollowUpRow key={f.id} followUp={{ ...f, lead: f.lead! }} previousContext={previousCustomerContext(f.lead?.activities ?? [])} />
+            ))}
           </div>
         )}
       </div>

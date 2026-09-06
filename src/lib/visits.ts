@@ -70,6 +70,7 @@ export {
   todaysVisitsWhere,
   completedTodayWhere,
   visitRoleScopeWhere,
+  needsVisitOutcomeWhere,
 } from "./visit-progress";
 export type { InterestLabel, VisitProgress } from "./visit-progress";
 

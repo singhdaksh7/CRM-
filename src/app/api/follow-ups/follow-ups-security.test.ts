@@ -176,6 +176,13 @@ describe("PATCH /api/follow-ups/[id] - org/ownership enforcement (bug fix)", () 
     expect(followUpUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "fu_1" } }));
     expect(followUpCreate).not.toHaveBeenCalled();
   });
+
+  it.each(["COMPLETED", "CANCELLED"])("rejects rescheduling a terminal %s follow-up", async (status) => {
+    followUpFindFirst.mockResolvedValue({ ...EXISTING_FOLLOWUP, status });
+    const res = await patchFollowUp(patchReq({ dueDate: "2026-08-25T10:00:00.000Z", status: "PENDING" }), params());
+    expect(res.status).toBe(400);
+    expect(followUpUpdate).not.toHaveBeenCalled();
+  });
 });
 
 // simplified-role-workflow (targeted fix pass, Blocker A) - the follow-up
