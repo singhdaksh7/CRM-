@@ -13,11 +13,13 @@ import { NextRequest } from "next/server";
 
 const leadFindFirst = vi.fn();
 const propertyFindMany = vi.fn();
+const leadRequirementFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     lead: { findFirst: (...a: unknown[]) => leadFindFirst(...a) },
     property: { findMany: (...a: unknown[]) => propertyFindMany(...a) },
+    leadRequirement: { findMany: (...a: unknown[]) => leadRequirementFindMany(...a) },
   },
 }));
 
@@ -72,6 +74,7 @@ function params() {
 beforeEach(() => {
   vi.clearAllMocks();
   propertyFindMany.mockResolvedValue([]);
+  leadRequirementFindMany.mockResolvedValue([]);
 });
 
 describe("GET /api/leads/[id]/match - FE access policy (Blocker 1 follow-up)", () => {
