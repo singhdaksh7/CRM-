@@ -170,11 +170,11 @@ describe("parseSourceDetailed", () => {
   it.each([["DIRECT", "DIRECT"], ["dir", "DIRECT"], ["INDIRECT", "INDIRECT"], ["ind", "INDIRECT"]])("confidently classifies %s", (raw, expected) => {
     expect(parseSourceDetailed(raw)).toEqual({ inventorySource: expected, sourceRaw: raw, confident: true });
   });
-  it.each(["NANAK", "BAWA SIR NE DIYA HAI"])("preserves unrecognized text as raw without confidently classifying %s", (raw) => {
+  it.each(["NANAK", "BAWA SIR NE DIYA HAI"])("preserves unrecognized text as raw without assigning a source type", (raw) => {
     const result = parseSourceDetailed(raw);
-    expect(result.confident).toBe(false); expect(result.sourceRaw).toBe(raw); expect(result.inventorySource).toBe("DIRECT");
+    expect(result.confident).toBe(false); expect(result.sourceRaw).toBe(raw); expect(result.inventorySource).toBeNull();
   });
-  it("treats a whitespace-only cell identically to blank", () => expect(parseSourceDetailed("   ")).toEqual({ inventorySource: "DIRECT", sourceRaw: null, confident: false }));
+  it("treats a whitespace-only cell as an unresolved source", () => expect(parseSourceDetailed("   ")).toEqual({ inventorySource: null, sourceRaw: null, confident: false }));
 });
 
 describe("parseParkingLift truth table", () => {

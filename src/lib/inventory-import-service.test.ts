@@ -77,6 +77,24 @@ describe("inventory import preview service", () => {
     const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY" });
     expect(result.partnerResolution).toBe("NOT_FOUND"); expect(result.state).toBe("ERROR");
   });
+  it("requires a Data Manager source decision for ambiguous source text", async () => {
+    const row = { ...direct, Source: "BAWA SIR NE DIYA HAI", Owner: "", Phone: "" };
+    const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY" });
+    expect(result.sourceResolution).toBe("REQUIRED"); expect(result.data.inventorySource).toBeUndefined();
+    expect(result.issues).toContainEqual(expect.objectContaining({ field: "inventorySource", severity: "ERROR" }));
+  });
+  it("automatically resolves a known source name to its org-scoped InventoryPartner", async () => {
+    db.inventoryPartner.findMany.mockResolvedValue([{ id: "partner-nanak", name: "Nanak", company: null }]);
+    const row = { ...direct, Source: "NANAK", Owner: "", Phone: "" };
+    const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY" });
+    expect(result.sourceResolution).toBe("AUTO_MAPPED_BROKER");
+    expect(result.data).toMatchObject({ inventorySource: "INDIRECT", partnerId: "partner-nanak", sourceRaw: "NANAK" });
+  });
+  it("uses an explicit Direct Owner source decision without inventing a broker", async () => {
+    const row = { ...direct, Source: "unclear note" };
+    const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY", resolutions: { "2": { inventorySource: "DIRECT" } } });
+    expect(result.sourceResolution).toBe("CONFIRMED"); expect(result.data.inventorySource).toBe("DIRECT"); expect(result.data.partnerId).toBeNull();
+  });
   it("allows an authorized explicit existing-partner resolution", async () => {
     db.inventoryPartner.findMany.mockResolvedValue([{ id: "partner-1", name: "Known", company: null }]);
     const row = { ...direct, Source: "IND", Partner: "Unknown Broker", Owner: "", Phone: "", __spreadsheetRowNumber: "57" };

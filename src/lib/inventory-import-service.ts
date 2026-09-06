@@ -34,6 +34,7 @@ export interface PreviewRow {
   ownerResolution: "REUSE" | "CREATE" | "NONE" | "AMBIGUOUS";
   ownerId: string | null;
   partnerResolution: "MATCHED" | "NOT_FOUND" | "NOT_REQUIRED";
+  sourceResolution: "CONFIRMED" | "AUTO_MAPPED_BROKER" | "REQUIRED";
   partnerId: string | null;
   localityResolution: "MATCHED" | "ALIAS_MATCHED" | "NOT_FOUND" | "NOT_REQUIRED";
   localityId: string | null;
@@ -46,7 +47,7 @@ export interface PreviewInventoryParams {
   mapping: Record<string, string>;
   mode: InventoryImportMode;
   allowBlankClear?: boolean;
-  resolutions?: Record<string, { action?: ImportActionValue; partnerId?: string; existingPropertyId?: string }>;
+  resolutions?: Record<string, { action?: ImportActionValue; partnerId?: string; existingPropertyId?: string; inventorySource?: "DIRECT" | "INDIRECT" }>;
   // Property Inventory V2 - sheet-derived defaults (see deriveSheetContext)
   // and pre-resolved locality aliases (see PropertyLocalityAlias). Both
   // optional so existing callers/tests that don't know about a sheet name or
@@ -74,14 +75,14 @@ export async function previewInventoryImport(params: PreviewInventoryParams): Pr
   if (params.rows.length > 5000) throw new Error("Import row limit exceeded");
   const sheetContext = params.sheetName ? deriveSheetContext(params.sheetName, params.sheetTitle) : undefined;
   const normalized = params.rows.map((raw) => {
-    const { data, issues } = normalizeMappedRow(raw, params.mapping, sheetContext);
-    return { raw, data: sheetContext ? applySheetDefaults(data, sheetContext) : data, issues };
+    const { data, issues, sourceResolutionRequired } = normalizeMappedRow(raw, params.mapping, sheetContext);
+    return { raw, data: sheetContext ? applySheetDefaults(data, sheetContext) : data, issues, sourceResolutionRequired };
   });
   const codes = unique(normalized.map((row) => String(row.data.propertyCode ?? "").trim()).filter(Boolean));
   const phones = unique(normalized.map((row) => String(row.data.ownerPhone ?? "").trim()).filter(Boolean));
   const areas = unique(normalized.map((row) => String(row.data.area ?? "").trim()).filter(Boolean));
   const explicitPartnerIds = unique(Object.values(params.resolutions ?? {}).map((resolution) => resolution.partnerId).filter((id): id is string => !!id));
-  const needsPartners = normalized.some((row) => row.data.inventorySource === "INDIRECT") || explicitPartnerIds.length > 0;
+  const needsPartners = normalized.some((row) => row.data.inventorySource === "INDIRECT" || row.sourceResolutionRequired) || explicitPartnerIds.length > 0;
   const phoneVariants = unique(phones.flatMap((phone) => [phone, phone.slice(-10), `+${phone}`, `0${phone.slice(-10)}`]));
   const normalizedAreaTokens = unique(areas.map(normalizeLocalityText).filter(Boolean));
   const [properties, owners, partners, localityAliases, localities] = await Promise.all([
@@ -114,6 +115,20 @@ export async function previewInventoryImport(params: PreviewInventoryParams): Pr
     const resolution = params.resolutions?.[String(rowNumber)] ?? {};
     let partnerId: string | null = resolution.partnerId ?? null;
     let partnerResolution: PreviewRow["partnerResolution"] = "NOT_REQUIRED";
+    let sourceResolution: PreviewRow["sourceResolution"] = "CONFIRMED";
+    if (row.sourceResolutionRequired) {
+      const sourceMatches = row.data.sourceRaw ? partnerByName.get(normalizeHeader(String(row.data.sourceRaw))) ?? [] : [];
+      if (sourceMatches.length === 1) {
+        row.data.inventorySource = "INDIRECT";
+        partnerId = partnerId ?? sourceMatches[0];
+        sourceResolution = "AUTO_MAPPED_BROKER";
+      } else if (resolution.inventorySource) {
+        row.data.inventorySource = resolution.inventorySource;
+      } else {
+        sourceResolution = "REQUIRED";
+        issues.push({ field: "inventorySource", originalValue: row.data.sourceRaw ? String(row.data.sourceRaw) : undefined, message: "Source classification is required: choose Direct Owner or Through Broker before creating this property", severity: "ERROR" });
+      }
+    }
     if (row.data.inventorySource === "DIRECT") { row.data.partnerId = null; delete row.data.partnerName; }
     if (row.data.inventorySource === "INDIRECT") {
       const matches = partnerByName.get(normalizeHeader(String(row.data.partnerName ?? ""))) ?? [];
@@ -166,7 +181,7 @@ export async function previewInventoryImport(params: PreviewInventoryParams): Pr
     if (action === "UPDATE_EXISTING" && !matchedProperty) issues.push({ field: "action", message: "Update requires an exact existing property match", severity: "ERROR" });
     if (action === "CREATE" && params.mode === "UPDATE_EXISTING_ONLY") issues.push({ field: "action", message: "Update-only mode cannot create properties", severity: "ERROR" });
     if (action === "UPDATE_EXISTING" && params.mode === "CREATE_ONLY") issues.push({ field: "action", message: "Create-only mode cannot update properties", severity: "ERROR" });
-    const preview: PreviewRow = { rowNumber, raw: row.raw, data: cleanPropertyData(row.data), issues, duplicateClass, matchedProperty: matchedProperty ?? null, duplicateReasons: duplicate.reasons, action, diff: fieldDiff(matchedProperty ?? null, cleanPropertyData(row.data), params.allowBlankClear), ownerResolution, ownerId, partnerResolution, partnerId, localityResolution, localityId, state: "READY" };
+    const preview: PreviewRow = { rowNumber, raw: row.raw, data: cleanPropertyData(row.data), issues, duplicateClass, matchedProperty: matchedProperty ?? null, duplicateReasons: duplicate.reasons, action, diff: fieldDiff(matchedProperty ?? null, cleanPropertyData(row.data), params.allowBlankClear), ownerResolution, ownerId, partnerResolution, partnerId, sourceResolution, localityResolution, localityId, state: "READY" };
     preview.state = rowState(preview);
     return preview;
   });

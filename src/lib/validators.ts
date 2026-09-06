@@ -157,7 +157,10 @@ export const createPropertySchema = propertySchema.refine(
 // unimportable. Manual create/edit (createPropertySchema) is UNCHANGED and
 // still requires owner name+phone for DIRECT inventory.
 export const importCreatePropertySchema = propertySchema
-  .extend({ furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]).optional().nullable() })
+  // Imported legacy inventory can carry a useful short address token (for
+  // example a block/house shorthand). Manual create/edit remains stricter;
+  // a truly blank address is still rejected and never fabricated.
+  .extend({ furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]).optional().nullable(), address: z.string().min(1) })
   .refine(
     (data) => data.inventorySource !== "INDIRECT" || !!data.partnerId,
     { message: "An inventory partner is required for indirect inventory", path: ["partnerId"] }

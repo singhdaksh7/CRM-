@@ -194,23 +194,23 @@ export function parseFloorDetailed(raw: unknown): FloorParseDetail {
   return { floorNumber: null, raw: original };
 }
 
-export interface SourceParseDetail { inventorySource: "DIRECT" | "INDIRECT"; sourceRaw: string | null; confident: boolean }
+export interface SourceParseDetail { inventorySource: "DIRECT" | "INDIRECT" | null; sourceRaw: string | null; confident: boolean }
 
 /**
  * Only an exact (case-insensitive, trimmed) literal "direct"/"dir" or
  * "indirect"/"ind" is confident. Anything else (a person's name, a free-text
- * note) falls back to DIRECT only because Property.inventorySource is a
- * required non-null enum with that default (never leaves the row silently
- * asserting a fact - `confident: false` tells the caller to raise a WARNING
- * and `sourceRaw` preserves the original text verbatim).
+ * note) is deliberately unresolved. UNKNOWN is an import-resolution state,
+ * not a Property.inventorySource business value: creation must wait for a
+ * Data Manager to choose DIRECT or INDIRECT. sourceRaw preserves the source
+ * text so an existing InventoryPartner can be matched safely in preview.
  */
 export function parseSourceDetailed(raw: unknown): SourceParseDetail {
   const original = String(raw ?? "").trim();
-  if (!original) return { inventorySource: "DIRECT", sourceRaw: null, confident: false };
+  if (!original) return { inventorySource: null, sourceRaw: null, confident: false };
   const normalized = normalizeHeader(original);
   if (["dir", "direct"].includes(normalized)) return { inventorySource: "DIRECT", sourceRaw: original, confident: true };
   if (["ind", "indirect"].includes(normalized)) return { inventorySource: "INDIRECT", sourceRaw: original, confident: true };
-  return { inventorySource: "DIRECT", sourceRaw: original, confident: false };
+  return { inventorySource: null, sourceRaw: original, confident: false };
 }
 
 export interface ParkingLiftParseDetail { lift: boolean | null; parking: boolean | null }
@@ -378,7 +378,7 @@ function parseEnum(raw: unknown, values: string[], aliasesMap: Record<string, st
 
 function valuePresent(value: unknown): boolean { return value !== undefined && value !== null && String(value).trim() !== ""; }
 
-export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record<string, string>, sheetContext?: SheetContext): { data: Record<string, unknown>; issues: ImportFieldIssue[] } {
+export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record<string, string>, sheetContext?: SheetContext): { data: Record<string, unknown>; issues: ImportFieldIssue[]; sourceResolutionRequired: boolean } {
   const data: Record<string, unknown> = {};
   const issues: ImportFieldIssue[] = [];
   for (const [field, header] of Object.entries(mapping)) {
@@ -397,11 +397,13 @@ export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record
   // confident; anything else falls back to the DIRECT default (required by
   // the non-nullable Property.inventorySource column) but raises a WARNING
   // rather than silently asserting a fact - see parseSourceDetailed.
-  if (valuePresent(data.inventorySource)) {
+  let sourceResolutionRequired = !Object.prototype.hasOwnProperty.call(mapping, "inventorySource");
+  if (Object.prototype.hasOwnProperty.call(mapping, "inventorySource")) {
     const detail = parseSourceDetailed(data.inventorySource);
     data.sourceRaw = detail.sourceRaw;
-    data.inventorySource = detail.inventorySource;
-    if (!detail.confident) issues.push({ field: "inventorySource", originalValue: detail.sourceRaw ?? undefined, message: "Source column contains unrecognized text - classification not confirmed, defaulted to DIRECT, raw value preserved", severity: "WARNING" });
+    if (detail.inventorySource) data.inventorySource = detail.inventorySource;
+    else delete data.inventorySource;
+    sourceResolutionRequired = !detail.confident;
   }
 
   // Price fields: amount/lastPrice/raw always preserved together. An
@@ -548,7 +550,7 @@ export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record
     const possession = normalizeHeader(String(data.possessionNotes));
     if (["ready", "ready to move", "rtm"].includes(possession)) data.possessionNotes = "Ready to Move";
   }
-  return { data, issues };
+  return { data, issues, sourceResolutionRequired };
 }
 
 export function validateImportedProperty(data: Record<string, unknown>, issues: ImportFieldIssue[]): ImportFieldIssue[] {
