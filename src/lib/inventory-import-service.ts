@@ -186,8 +186,8 @@ export async function previewInventoryImport(params: PreviewInventoryParams): Pr
       // row must never overwrite a real property's title/type with a
       // generated placeholder just because this particular re-import didn't
       // map those columns.
-      row.data = applyImportFallbackDefaults(row.data, issues);
-      validateImportedProperty(cleanPropertyData(row.data), issues);
+      row.data = cleanPropertyData(applyImportFallbackDefaults(row.data, issues));
+      validateImportedProperty(row.data, issues);
     }
     if (action === "UPDATE_EXISTING" && !matchedProperty) issues.push({ field: "action", message: "Update requires an exact existing property match", severity: "ERROR" });
     if (action === "CREATE" && params.mode === "UPDATE_EXISTING_ONLY") issues.push({ field: "action", message: "Update-only mode cannot create properties", severity: "ERROR" });
