@@ -34,6 +34,8 @@ interface ScoreFactor {
 }
 
 const STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION", "CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"];
+const LOST_TERMINAL_STATUSES = new Set(["CLOSED_LOST", "NOT_INTERESTED"]);
+const LOST_REASON_CATEGORIES = ["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"];
 const VISIT_STATUSES: VisitStatus[] = ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "COMPLETED", "RESCHEDULED", "CANCELLED", "CLIENT_NO_SHOW"];
 const OUTCOMES = ["HIGHLY_INTERESTED", "INTERESTED", "NEEDS_TIME", "NOT_INTERESTED", "WANTS_ANOTHER_PROPERTY", "READY_FOR_NEGOTIATION"];
 
@@ -478,6 +480,13 @@ function OverviewTab({
   const [note, setNote] = useState("");
   const [transferTo, setTransferTo] = useState("");
   const [saving, setSaving] = useState(false);
+  // The API rejects a status change to CLOSED_LOST/NOT_INTERESTED without a
+  // lostReasonCategory (see PATCH /api/leads/[id]) - without this, picking
+  // either option here silently failed (generic "Failed to update status"
+  // toast) while the dropdown still visually showed the picked value.
+  const [pendingLostStatus, setPendingLostStatus] = useState<string | null>(null);
+  const [lostReasonCategory, setLostReasonCategory] = useState(LOST_REASON_CATEGORIES[0]);
+  const [lostReasonDetail, setLostReasonDetail] = useState("");
 
   async function updateField(field: "status" | "priority", value: string) {
     setSaving(true);
@@ -492,6 +501,45 @@ function OverviewTab({
       router.refresh();
     } else {
       toast.error(`Failed to update ${field}`);
+    }
+  }
+
+  function onStatusChange(value: string) {
+    setStatus(value);
+    if (LOST_TERMINAL_STATUSES.has(value)) {
+      setPendingLostStatus(value);
+      setLostReasonCategory(LOST_REASON_CATEGORIES[0]);
+      setLostReasonDetail("");
+      return;
+    }
+    updateField("status", value);
+  }
+
+  function cancelLostStatus() {
+    setStatus(lead.status);
+    setPendingLostStatus(null);
+  }
+
+  async function confirmLostStatus() {
+    if (!pendingLostStatus) return;
+    if (lostReasonCategory === "OTHER" && !lostReasonDetail.trim()) {
+      toast.error("Add a short detail when reason is Other");
+      return;
+    }
+    setSaving(true);
+    const res = await fetch(`/api/leads/${lead.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: pendingLostStatus, lostReasonCategory, lostReasonDetail: lostReasonDetail.trim() || undefined }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      toast.success("Lead status updated");
+      setPendingLostStatus(null);
+      router.refresh();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error ?? "Failed to update status");
     }
   }
 
@@ -651,12 +699,33 @@ function OverviewTab({
           <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Lead Controls</h3>
             <Field label="Status">
-              <Select value={status} onChange={(e) => { setStatus(e.target.value); updateField("status", e.target.value); }} disabled={saving}>
+              <Select value={status} onChange={(e) => onStatusChange(e.target.value)} disabled={saving}>
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>{enumToLabel(s)}</option>
                 ))}
               </Select>
             </Field>
+            {pendingLostStatus && (
+              <div className="space-y-3 rounded-xl border border-[#FFC7C9] bg-[#FFECEC] p-3">
+                <p className="text-xs font-semibold text-[#E5484D]">A reason is required to mark this lead {enumToLabel(pendingLostStatus)}.</p>
+                <Field label="Reason">
+                  <Select value={lostReasonCategory} onChange={(e) => setLostReasonCategory(e.target.value)} disabled={saving}>
+                    {LOST_REASON_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{enumToLabel(c)}</option>
+                    ))}
+                  </Select>
+                </Field>
+                {lostReasonCategory === "OTHER" && (
+                  <Field label="Detail">
+                    <Input value={lostReasonDetail} onChange={(e) => setLostReasonDetail(e.target.value)} placeholder="Briefly explain why" />
+                  </Field>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="secondary" onClick={cancelLostStatus} disabled={saving}>Cancel</Button>
+                  <Button size="sm" onClick={confirmLostStatus} loading={saving}>Confirm</Button>
+                </div>
+              </div>
+            )}
             <Field label="Priority">
               <Select value={priority} onChange={(e) => { setPriority(e.target.value); updateField("priority", e.target.value); }} disabled={saving}>
                 <option value="HOT">Hot</option>
