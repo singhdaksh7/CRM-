@@ -9,7 +9,12 @@ import {
   type DuplicateClassValue, type ExistingPropertyCandidate, type ImportActionValue, type ImportFieldIssue,
 } from "./inventory-import-core";
 
-const BATCH_SIZE = 100;
+// Each row can create an owner, resolve/create a locality, persist a property,
+// write an ImportRecord, and append a timeline event. Keep the interactive
+// Prisma transaction deliberately small so routine spreadsheet imports do not
+// rely on extending the database transaction timeout. A committed batch is
+// internally atomic; a later batch may fail without undoing earlier batches.
+const BATCH_SIZE = 3;
 const PROPERTY_FIELDS = new Set([
   "title", "listingType", "propertyType", "inventorySource", "area", "address", "buildingName", "landmark", "pincode",
   "monthlyRent", "salePrice", "floorNumber", "totalFloors", "builtUpAreaSqft", "carpetAreaSqft", "dimension", "possessionNotes",
@@ -255,10 +260,16 @@ export async function executeInventoryImport(params: PreviewInventoryParams & {
     errorRows: errorRows.length, invalidRows: errorRows.length, duplicateRows: preview.filter((row) => row.duplicateClass !== "NEW").length,
     columnMapping: JSON.stringify(params.mapping), createdById: params.actorId, startedAt: new Date(),
   } });
-  let created = 0; let updated = 0; let failed = 0;
-  for (let start = 0; start < actionable.length; start += BATCH_SIZE) {
-    const batch = actionable.slice(start, start + BATCH_SIZE);
-    await prisma.$transaction(async (tx) => {
+  let created = 0; let updated = 0; let failed = 0; let skipped = 0;
+  let completed;
+  try {
+    for (let start = 0; start < actionable.length; start += BATCH_SIZE) {
+      const batch = actionable.slice(start, start + BATCH_SIZE);
+      // Only merge batch counts after its transaction commits. If Prisma
+      // rejects a batch (including an interactive transaction timeout), its
+      // writes and counters are both discarded before the job is terminalized.
+      let batchCreated = 0; let batchUpdated = 0; let batchFailed = 0;
+      await prisma.$transaction(async (tx) => {
       const timeline: Prisma.PropertyTimelineEventCreateManyInput[] = [];
       for (const row of batch) {
         try {
@@ -266,7 +277,7 @@ export async function executeInventoryImport(params: PreviewInventoryParams & {
           if (row.action === "UPDATE_EXISTING" && row.matchedProperty) {
             before = Object.fromEntries(row.diff.map((diff) => [diff.field, diff.before]));
             const property = await tx.property.update({ where: { id: row.matchedProperty.id }, data: updateData(row, params.allowBlankClear ?? false) });
-            propertyId = property.id; after = Object.fromEntries(row.diff.map((diff) => [diff.field, diff.after])); updated++;
+            propertyId = property.id; after = Object.fromEntries(row.diff.map((diff) => [diff.field, diff.after])); batchUpdated++;
             timeline.push({ organizationId: params.organizationId, propertyId, eventType: "UPDATED_FROM_IMPORT", note: `${params.fileName} row ${row.rowNumber}`, actorId: params.actorId });
           } else {
             let ownerId = row.ownerId;
@@ -287,24 +298,33 @@ export async function executeInventoryImport(params: PreviewInventoryParams & {
             }
             const suppliedCode = row.duplicateClass === "EXACT_DUPLICATE" ? null : row.data.propertyCode;
             const property = await tx.property.create({ data: { ...createData, organizationId: params.organizationId, propertyCode: String(suppliedCode || `PROP-IMP-${job.id.slice(-6)}-${row.rowNumber}`), description: String(row.data.description ?? "Imported from inventory spreadsheet"), amenities: "[]", images: "[]", ownerId, createdById: params.actorId } });
-            propertyId = property.id; after = maskedSnapshot(row.data); created++;
+            propertyId = property.id; after = maskedSnapshot(row.data); batchCreated++;
             timeline.push({ organizationId: params.organizationId, propertyId, eventType: "IMPORTED", note: `${params.fileName} row ${row.rowNumber}`, actorId: params.actorId });
           }
           await tx.importRecord.create({ data: { importJobId: job.id, rowNumber: row.rowNumber, status: "IMPORTED", action: row.action as PropertyImportAction, duplicateClass: row.duplicateClass, rawData: JSON.stringify(maskedSnapshot(row.data)), warnings: row.issues.length ? JSON.stringify(row.issues) : null, beforeSummary: before ? JSON.stringify(before) : null, afterSummary: JSON.stringify(after), entityId: propertyId } });
         } catch (error) {
-          failed++;
+          batchFailed++;
           await tx.importRecord.create({ data: { importJobId: job.id, rowNumber: row.rowNumber, status: "FAILED", action: row.action as PropertyImportAction, duplicateClass: row.duplicateClass, rawData: JSON.stringify(maskedSnapshot(row.data)), errorMessage: error instanceof Error ? error.message : "Import failed", validationErrors: JSON.stringify(row.issues) } });
         }
       }
       if (timeline.length) await tx.propertyTimelineEvent.createMany({ data: timeline });
-    });
+      });
+      created += batchCreated; updated += batchUpdated; failed += batchFailed;
+    }
+    const nonActionRecords = preview.filter((row) => row.action === "SKIP" || row.state === "ERROR").map((row) => ({ importJobId: job.id, rowNumber: row.rowNumber, status: row.state === "ERROR" ? "INVALID" as const : "SKIPPED" as const, action: "SKIP" as const, duplicateClass: row.duplicateClass, rawData: JSON.stringify(maskedSnapshot(row.data)), errorMessage: row.issues.map((issue) => `${issue.field}: ${issue.message}`).join("; ") || null, validationErrors: row.issues.length ? JSON.stringify(row.issues) : null }));
+    for (let start = 0; start < nonActionRecords.length; start += BATCH_SIZE) await prisma.importRecord.createMany({ data: nonActionRecords.slice(start, start + BATCH_SIZE) });
+    skipped = preview.length - created - updated - failed;
+    completed = await prisma.importJob.update({ where: { id: job.id }, data: { status: failed || errorRows.length ? "COMPLETED_WITH_ERRORS" : "COMPLETED", importedRows: created + updated, createdRows: created, updatedRows: updated, skippedRows: skipped, failedRows: failed, completedAt: new Date() } });
+  } catch (error) {
+    // This update intentionally runs outside the failed batch transaction.
+    // It preserves committed earlier batches while guaranteeing that a
+    // systemic failure never strands ImportJob in RUNNING.
+    await prisma.importJob.update({ where: { id: job.id }, data: { status: "FAILED", importedRows: created + updated, createdRows: created, updatedRows: updated, failedRows: failed, completedAt: new Date() } });
+    await recordAudit({ userId: params.actorId, action: "IMPORT", entityType: "ImportJob", entityId: job.id, result: "FAILURE", errorMessage: error instanceof Error ? error.message : "Import failed", newValues: { event: "IMPORT_FAILED", created, updated, failed, total: preview.length } });
+    throw error;
   }
-  const nonActionRecords = preview.filter((row) => row.action === "SKIP" || row.state === "ERROR").map((row) => ({ importJobId: job.id, rowNumber: row.rowNumber, status: row.state === "ERROR" ? "INVALID" as const : "SKIPPED" as const, action: "SKIP" as const, duplicateClass: row.duplicateClass, rawData: JSON.stringify(maskedSnapshot(row.data)), errorMessage: row.issues.map((issue) => `${issue.field}: ${issue.message}`).join("; ") || null, validationErrors: row.issues.length ? JSON.stringify(row.issues) : null }));
-  for (let start = 0; start < nonActionRecords.length; start += BATCH_SIZE) await prisma.importRecord.createMany({ data: nonActionRecords.slice(start, start + BATCH_SIZE) });
-  const skipped = preview.length - created - updated - failed;
-  const completed = await prisma.importJob.update({ where: { id: job.id }, data: { status: failed || errorRows.length ? "COMPLETED_WITH_ERRORS" : "COMPLETED", importedRows: created + updated, createdRows: created, updatedRows: updated, skippedRows: skipped, failedRows: failed, completedAt: new Date() } });
   await recordAudit({ userId: params.actorId, action: "IMPORT", entityType: "ImportJob", entityId: job.id, newValues: { event: "IMPORT_EXECUTED", created, updated, skipped, failed, total: preview.length } });
-  return { job: completed, counts: { created, updated, skipped, failed }, rows: preview };
+  return { job: completed!, counts: { created, updated, skipped, failed }, rows: preview };
 }
 
 export async function rollbackCreatedImportProperties(importJobId: string, organizationId: string, actorId: string) {
