@@ -83,7 +83,7 @@ export function buildPropertyShareMessage(params: {
     lines.push(`${i + 1}. ${p.title}`);
     lines.push(`   Location: ${p.area}, Delhi`);
     lines.push(`   Rent/Price: ${price}`);
-    lines.push(`   Furnishing: ${p.furnishing.replace("_", " ")}`);
+    lines.push(`   Furnishing: ${p.furnishing ? p.furnishing.replace("_", " ") : "Not specified"}`);
     lines.push(`   Property Link: ${baseUrl}/p/${p.id}`);
     lines.push("");
   });

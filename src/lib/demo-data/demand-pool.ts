@@ -66,7 +66,7 @@ export async function createDemoDemandPool(properties: Property[], actor: User):
   const exactRequirement = await upsertRequirement(19, {
     customerContactId: exactContact.id, assetClass: "RESIDENTIAL", transactionType: "RENT",
     preferredLocalities: [residentialRent.area], minBudget: Math.round(residentialRent.monthlyRent! * 0.8), maxBudget: residentialRent.monthlyRent!,
-    bhk: residentialRent.bhk, furnishing: residentialRent.furnishing, lastConfirmedAt: days(-1),
+    bhk: residentialRent.bhk, furnishing: residentialRent.furnishing ?? undefined, lastConfirmedAt: days(-1),
   });
 
   // --- Scenario: STRETCH match - same property, but the requirement's max budget sits in the upper half of the stretch tolerance ---

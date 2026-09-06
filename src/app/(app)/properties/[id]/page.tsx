@@ -180,7 +180,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <Detail label="Commercial Type" value={enumToLabel(property.propertyType)} />
                 <Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} />
                 <Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} />
-                <Detail label="Fit-out" value={property.commercialFitOut ? enumToLabel(property.commercialFitOut) : enumToLabel(property.furnishing)} />
+                <Detail label="Fit-out" value={property.commercialFitOut ? enumToLabel(property.commercialFitOut) : (property.furnishing ? enumToLabel(property.furnishing) : "-")} />
                 <Detail label="Floor" value={property.floorNumber !== null ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} />
                 <Detail label="Workstations" value={property.workstations ?? "-"} />
                 <Detail label="Cabins" value={property.cabins ?? "-"} />
@@ -188,7 +188,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <Detail label="Lift / Goods lift" value={`${property.liftAvailable ? "Yes" : "No"} / ${property.goodsLiftAvailable ? "Yes" : "No"}`} />
                 <Detail label="Available From" value={formatDate(property.availableFrom)} />
               </> : <>
-                <Detail label="BHK" value={`${property.bhk} BHK`} /><Detail label="Bathrooms" value={property.bathrooms} /><Detail label="Balconies" value={property.balconies} /><Detail label="Furnishing" value={enumToLabel(property.furnishing)} /><Detail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} /><Detail label="Age" value={property.propertyAgeYears !== null ? `${property.propertyAgeYears} yrs` : "-"} /><Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} /><Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} /><Detail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} /><Detail label="Parking" value={property.parkingAvailable ? "Available" : "Not available"} /><Detail label="Tenant Preference" value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} /><Detail label="Available From" value={formatDate(property.availableFrom)} />
+                <Detail label="BHK" value={`${property.bhk} BHK`} /><Detail label="Bathrooms" value={property.bathrooms} /><Detail label="Balconies" value={property.balconies} /><Detail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} /><Detail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} /><Detail label="Age" value={property.propertyAgeYears !== null ? `${property.propertyAgeYears} yrs` : "-"} /><Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} /><Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} /><Detail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} /><Detail label="Parking" value={property.parkingAvailable ? "Available" : "Not available"} /><Detail label="Tenant Preference" value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} /><Detail label="Available From" value={formatDate(property.availableFrom)} />
               </>}
             </div>
           </div>

@@ -46,6 +46,14 @@ const FORBIDDEN_FIELDS = [
   "partnerId",
   "ownerId",
   "pendingVerification",
+  // Property Inventory V2 - import provenance/negotiation-sensitive fields.
+  // Can carry negotiation notes or broker/person names - never public.
+  "sourceRaw",
+  "priceRaw",
+  "lastPrice",
+  "areaRaw",
+  "floorRaw",
+  "dimension",
 ];
 
 describe("PUBLIC_PROPERTY_SELECT - safe at the data boundary (A2)", () => {
@@ -63,6 +71,12 @@ describe("PUBLIC_PROPERTY_SELECT - safe at the data boundary (A2)", () => {
 
   it("still selects the fields the public page actually needs to render", () => {
     for (const field of ["id", "organizationId", "propertyCode", "title", "listingType", "area", "bhk", "bathrooms", "builtUpAreaSqft", "amenities", "description", "coverImage"]) {
+      expect(PUBLIC_PROPERTY_SELECT).toHaveProperty(field, true);
+    }
+  });
+
+  it("selects the Property Inventory V2 safe fields (possessionStatus, liftAvailable, parkFacing)", () => {
+    for (const field of ["possessionStatus", "liftAvailable", "parkFacing"]) {
       expect(PUBLIC_PROPERTY_SELECT).toHaveProperty(field, true);
     }
   });

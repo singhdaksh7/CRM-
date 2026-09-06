@@ -18,7 +18,7 @@ export interface PickerProperty {
   monthlyRent: number | null;
   salePrice: number | null;
   bhk: number;
-  furnishing: string;
+  furnishing: string | null;
   coverImage: string | null;
   status: string;
 }

@@ -3,6 +3,11 @@ export const IMPORTABLE_PROPERTY_FIELDS = [
   "buildingName", "landmark", "pincode", "monthlyRent", "salePrice", "floorNumber", "totalFloors", "builtUpAreaSqft",
   "carpetAreaSqft", "dimension", "possessionNotes", "availableFrom", "bhk", "bathrooms", "furnishing", "parkingAvailable",
   "liftAvailable", "status", "ownerName", "ownerPhone", "ownerAlternatePhone", "internalNotes", "description", "parkingLift", "assetClass", "superAreaSqft", "frontageFeet", "workstations", "cabins", "commercialFitOut", "goodsLiftAvailable", "leaseTermMonths", "lockInPeriodMonths", "camCharge", "expectedPrice",
+  // Property Inventory V2 - can be legitimately supplied by a mapped source
+  // column. Deliberately excludes areaRaw/floorRaw/priceRaw/sourceRaw/lastPrice,
+  // which are derived/provenance-only and populated internally by the parser
+  // functions in inventory-import-core.ts, never a direct mapping target.
+  "areaUnit", "possessionStatus", "parkFacing",
 ] as const;
 export type ImportablePropertyField = (typeof IMPORTABLE_PROPERTY_FIELDS)[number];
 export type ImportActionValue = "CREATE" | "UPDATE_EXISTING" | "SKIP";

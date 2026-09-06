@@ -121,6 +121,36 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
               <option value="INACTIVE">Inactive</option>
             </Select>
           </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Possession</label>
+            <Select defaultValue={sp.get("possessionStatus") ?? ""} onChange={(e) => update("possessionStatus", e.target.value)} className="w-full text-xs font-semibold">
+              <option value="">Any Possession</option>
+              <option value="READY_TO_MOVE">Ready to Move</option>
+              <option value="UNDER_CONSTRUCTION">Under Construction</option>
+              <option value="BOOKING">Booking</option>
+              <option value="TENANTED">Tenanted</option>
+              <option value="UNKNOWN">Unknown</option>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lift</label>
+            <Select defaultValue={sp.get("liftAvailable") ?? ""} onChange={(e) => update("liftAvailable", e.target.value)} className="w-full text-xs font-semibold">
+              <option value="">Any</option>
+              <option value="true">Lift Available</option>
+              <option value="false">No Lift</option>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Park Facing</label>
+            <Select defaultValue={sp.get("parkFacing") ?? ""} onChange={(e) => update("parkFacing", e.target.value)} className="w-full text-xs font-semibold">
+              <option value="">Any</option>
+              <option value="true">Park Facing</option>
+              <option value="false">Not Park Facing</option>
+            </Select>
+          </div>
         </div>
       )}
     </div>

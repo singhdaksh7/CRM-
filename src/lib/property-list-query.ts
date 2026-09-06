@@ -71,6 +71,12 @@ export async function listAvailablePropertiesPage(params: {
   area?: string | null;
   bhk?: number | null;
   furnishing?: string | null;
+  // Property Inventory V2 - "More Filters" additions. All asset-class-agnostic;
+  // liftAvailable/parkFacing were previously commercial-only in some surfaces,
+  // this list query has never restricted them by assetClass.
+  possessionStatus?: string | null;
+  liftAvailable?: boolean | null;
+  parkFacing?: boolean | null;
 }) {
   const take = Math.min(Math.max(params.take ?? PROPERTY_LIST_INITIAL_TAKE, 1), 50);
   const cursor = decodePropertyListCursor(params.cursor);
@@ -95,6 +101,9 @@ export async function listAvailablePropertiesPage(params: {
   if (params.area) where.area = params.area;
   if (params.bhk != null) where.bhk = params.bhk;
   if (params.furnishing) where.furnishing = params.furnishing as never;
+  if (params.possessionStatus) where.possessionStatus = params.possessionStatus as never;
+  if (params.liftAvailable != null) where.liftAvailable = params.liftAvailable;
+  if (params.parkFacing != null) where.parkFacing = params.parkFacing;
 
   if (cursor) {
     where.AND = [

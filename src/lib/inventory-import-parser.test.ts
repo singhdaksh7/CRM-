@@ -43,4 +43,46 @@ describe("inventory file parser", () => {
     }
   });
   it("tracks the actual spreadsheet row number", async () => { const file = new File(["Title,Location\n\nFlat,Delhi\n"], "x.csv", { type: "text/csv" }); const parsed = await parseInventoryFile(file); expect(parsed.rows[0].__spreadsheetRowNumber).toBe("3"); });
+
+  describe("meaningful-row threshold", () => {
+    it("rejects a row with only an S.NO value and nothing else", async () => {
+      const file = new File(["S.No,Title,Location\n1,,\n2,Flat,Delhi\n"], "x.csv", { type: "text/csv" });
+      const parsed = await parseInventoryFile(file);
+      expect(parsed.rows).toHaveLength(1); expect(parsed.rows[0].Title).toBe("Flat");
+    });
+    it("accepts a row with S.NO plus one other real field", async () => {
+      const file = new File(["S.No,Title,Location\n1,Flat,\n"], "x.csv", { type: "text/csv" });
+      const parsed = await parseInventoryFile(file);
+      expect(parsed.rows).toHaveLength(1); expect(parsed.rows[0].Title).toBe("Flat");
+    });
+    it("keeps a one-cell meaningful row when the sheet has no S.NO column", async () => {
+      const file = new File(["Location,Address\nJanakpuri,\n"], "x.csv", { type: "text/csv" });
+      const parsed = await parseInventoryFile(file);
+      expect(parsed.rows).toHaveLength(1); expect(parsed.rows[0].Location).toBe("Janakpuri");
+    });
+  });
+
+  describe("large-workbook safety", () => {
+    it("stays fast and correct against an artificially inflated worksheet dimension", async () => {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Inventory");
+      sheet.addRow(["Location", "Square Feet"]);
+      sheet.addRow(["Janakpuri", "850"]);
+      // Style a far-out cell with no real value - this is the exact artifact
+      // that inflates worksheet.rowCount/columnCount without adding any
+      // actually-populated row/column, reproduced from a real workbook.
+      sheet.getCell(5000, 16000).font = { bold: true };
+      const buffer = await workbook.xlsx.writeBuffer();
+      const file = new File([buffer], "inflated.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
+      const start = Date.now();
+      const parsed = await parseInventoryFile(file);
+      const elapsedMs = Date.now() - start;
+
+      expect(elapsedMs).toBeLessThan(5000);
+      expect(parsed.headers).toEqual(["Location", "Square Feet"]);
+      expect(parsed.rows).toHaveLength(1);
+      expect(parsed.rows[0].Location).toBe("Janakpuri");
+    });
+  });
 });

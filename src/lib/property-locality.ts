@@ -1,7 +1,10 @@
 import { prisma } from "./prisma";
 import type { Prisma } from "@prisma/client";
 
-function normalize(name: string): string {
+// Exported so other locality-adjacent lookups (e.g. PropertyLocalityAlias
+// resolution in inventory-import-service.ts) stay byte-for-byte comparable
+// with PropertyLocality.normalizedName instead of hand-duplicating this.
+export function normalize(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 

@@ -10,7 +10,11 @@ const schema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).min(1).max(5000), mapping: z.record(z.string(), z.string()),
   mode: z.enum(["CREATE_ONLY", "UPSERT_SAFE", "UPDATE_EXISTING_ONLY"]),
   partialPolicy: z.enum(["REQUIRE_ALL_ROWS_VALID", "IMPORT_VALID_ROWS"]), allowBlankClear: z.boolean().default(false),
-  resolutions: z.record(z.string(), z.object({ action: z.enum(["CREATE", "UPDATE_EXISTING", "SKIP"]).optional(), partnerId: z.string().optional(), existingPropertyId: z.string().optional() })).optional(),
+  resolutions: z.record(z.string(), z.object({ action: z.enum(["CREATE", "UPDATE_EXISTING", "SKIP"]).optional(), partnerId: z.string().optional(), existingPropertyId: z.string().optional(), inventorySource: z.enum(["DIRECT", "INDIRECT"]).optional() })).optional(),
+  sourceResolutions: z.record(z.string(), z.object({ partnerId: z.string().optional(), inventorySource: z.enum(["DIRECT", "INDIRECT"]).optional() })).optional(),
+  // Property Inventory V2 - persisted into PropertyLocalityAlias before rows
+  // are processed (see executeInventoryImport).
+  localityAliasResolutions: z.array(z.object({ alias: z.string().min(1), localityId: z.string().min(1) })).max(200).optional(),
 });
 
 export async function POST(req: NextRequest) {

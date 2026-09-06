@@ -61,7 +61,9 @@ export function timeAgo(date: Date | string): string {
   return "just now";
 }
 
-export function enumToLabel(value: string): string {
+/** Imported inventory can legitimately leave optional enum fields null. */
+export function enumToLabel(value: string | null | undefined): string {
+  if (!value) return "-";
   return value
     .toLowerCase()
     .split("_")

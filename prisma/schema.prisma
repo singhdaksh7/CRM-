@@ -685,6 +685,28 @@ enum PropertyImportAction {
   SKIP
 }
 
+// Property Inventory V2 - additive parsing metadata for imported rows whose
+// source area value wasn't confidently expressed in sqft. Nullable: absent
+// means "not specified / not from import", distinct from an explicit SQ_FT.
+enum PropertyAreaUnit {
+  SQ_FT
+  SQ_YD
+  SQ_M
+  ACRE
+  OTHER
+}
+
+// Property Inventory V2 - possession/handover state parsed from imported
+// inventory. Nullable at the column level so "genuinely never touched"
+// stays distinct from an explicit UNKNOWN classification.
+enum PossessionStatus {
+  READY_TO_MOVE
+  UNDER_CONSTRUCTION
+  BOOKING
+  TENANTED
+  UNKNOWN
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -769,6 +791,7 @@ model Organization {
   users                       User[]
   properties                  Property[]
   propertyLocalities          PropertyLocality[]
+  propertyLocalityAliases     PropertyLocalityAlias[]
   leads                       Lead[]
   leadPhones                  LeadPhone[]
   propertyPortalConnections   PropertyPortalConnection[]
@@ -902,6 +925,7 @@ model User {
   propertiesLastVerified          Property[]                   @relation("PropertyLastVerifiedBy")
   propertiesLocationCaptured      Property[]                   @relation("PropertyLocationCapturedBy")
   propertyLocalitiesCreated       PropertyLocality[]            @relation("PropertyLocalityCreatedBy")
+  propertyLocalityAliasesCreated  PropertyLocalityAlias[]       @relation("PropertyLocalityAliasCreatedBy")
   propertyTimelineEventsActed     PropertyTimelineEvent[]      @relation("PropertyTimelineEventActor")
   availabilityReportsSubmitted    PropertyAvailabilityReport[] @relation("AvailabilityReportedBy")
   availabilityReportsReviewed     PropertyAvailabilityReport[] @relation("AvailabilityReportReviewedBy")
@@ -1100,7 +1124,11 @@ model Property {
   bhk              Int
   bathrooms        Int
   balconies        Int               @default(0)
-  furnishing       FurnishingStatus
+  // Nullable (Property Inventory V2): manual create/edit still requires this
+  // via createPropertySchema's Zod validation - only import rows without a
+  // furnishing signal in the source workbook are allowed to leave it unset
+  // (null = genuinely unknown, never guessed) via importCreatePropertySchema.
+  furnishing       FurnishingStatus?
   floorNumber      Int?
   totalFloors      Int?
   propertyAgeYears Int?
@@ -1113,6 +1141,19 @@ model Property {
   liftAvailable    Boolean           @default(false)
   tenantPreference TenantPreference?
   availableFrom    DateTime?
+
+  // Property Inventory V2 - additive import provenance/parsing fields. All
+  // nullable and populated only for imported rows (never defaulted for
+  // manually-created properties via the form). See src/lib/inventory-import-core.ts
+  // parseAreaDetailed/parseFloorDetailed/parsePriceDetailed/parseSourceDetailed.
+  areaUnit         PropertyAreaUnit? // null = not specified/not from import, distinct from an explicit SQ_FT
+  areaRaw          String? // raw area/dimension-adjacent source text when parsing was ambiguous or non-sqft
+  floorRaw         String? // raw floor text preserved whenever floor data came through import, even when floorNumber also parsed cleanly
+  priceRaw         String? // raw price cell text, always preserved for imported rows
+  lastPrice        Int? // only populated from an explicit "(<amount> LAST)" parenthetical - never guessed
+  parkFacing       Boolean? // tri-state: null=unknown, true=confirmed yes, false=confirmed no - never defaulted to false
+  sourceRaw        String? // raw DIR/IND (or similar) source-column text, always preserved for imported rows
+  possessionStatus PossessionStatus? // nullable - UNKNOWN is a valid classification distinct from "never touched"
   amenities        String            @default("[]") // JSON array of strings
   tags             String            @default("[]") // JSON array of strings - free-form labels (Phase 2 bulk tagging), same pattern as amenities
 
@@ -1264,10 +1305,37 @@ model PropertyLocality {
   createdAt      DateTime     @default(now())
 
   properties Property[]
+  aliases    PropertyLocalityAlias[]
 
   @@unique([organizationId, normalizedName])
   @@index([organizationId, name])
   @@map("property_localities")
+}
+
+/**
+ * Property Inventory V2 - an organization-scoped alternate spelling/name that
+ * resolves to an existing PropertyLocality (e.g. "Mansarover Garden" ->
+ * "Mansarovar Garden"). Populated by the inventory import wizard's locality
+ * resolution step (see previewInventoryImport/executeInventoryImport in
+ * inventory-import-service.ts) so a human only has to resolve an unrecognized
+ * spelling once per organization.
+ */
+model PropertyLocalityAlias {
+  id               String           @id @default(cuid())
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id])
+  alias            String
+  normalizedAlias  String
+  localityId       String
+  locality         PropertyLocality @relation(fields: [localityId], references: [id])
+  createdById      String?
+  createdBy        User?            @relation("PropertyLocalityAliasCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([organizationId, normalizedAlias])
+  @@index([localityId])
+  @@map("property_locality_aliases")
 }
 
 enum InventorySource {

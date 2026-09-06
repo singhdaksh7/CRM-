@@ -50,11 +50,16 @@ type FormValues = {
   propertyAgeYears: string;
   builtUpAreaSqft: string;
   carpetAreaSqft: string;
+  dimension: string;
+  areaUnit: string;
   facing: string;
   parkingAvailable: boolean;
   liftAvailable: boolean;
   tenantPreference: string;
   availableFrom: string;
+  possessionNotes: string;
+  possessionStatus: string;
+  parkFacing: string;
   amenities: string[];
   pincode: string;
   latitude: number | null;
@@ -95,7 +100,10 @@ type FormValues = {
   lockInPeriodMonths: string;
   noticePeriodMonths: string;
   escalationPercentage: string;
+  escalationIntervalMonths: string;
+  fitOutPeriodDays: string;
   camCharge: string;
+  expectedPrice: string;
 };
 
 function toFormValues(p?: Property): FormValues {
@@ -120,17 +128,30 @@ function toFormValues(p?: Property): FormValues {
     bhk: p?.bhk?.toString() ?? "2",
     bathrooms: p?.bathrooms?.toString() ?? "2",
     balconies: p?.balconies?.toString() ?? "1",
-    furnishing: p?.furnishing ?? "SEMI_FURNISHED",
+    // Same rule as areaUnit below: never force a guessed value onto an
+    // existing property that genuinely has furnishing unset (e.g. imported
+    // with no furnishing signal in the source - see Property Inventory V2).
+    // createPropertySchema still requires a real selection before save.
+    furnishing: p?.furnishing ?? (p ? "" : "SEMI_FURNISHED"),
     floorNumber: p?.floorNumber?.toString() ?? "",
     totalFloors: p?.totalFloors?.toString() ?? "",
     propertyAgeYears: p?.propertyAgeYears?.toString() ?? "",
     builtUpAreaSqft: p?.builtUpAreaSqft?.toString() ?? "",
     carpetAreaSqft: p?.carpetAreaSqft?.toString() ?? "",
+    dimension: p?.dimension ?? "",
+    // Default to SQ_FT only for a brand-new manual entry (no `p`) - never
+    // force a value onto an existing (possibly imported) property that left
+    // this unset, since matching/display already assume sqft when absent.
+    areaUnit: p?.areaUnit ?? (p ? "" : "SQ_FT"),
     facing: p?.facing ?? "",
     parkingAvailable: p?.parkingAvailable ?? false,
     liftAvailable: p?.liftAvailable ?? false,
     tenantPreference: p?.tenantPreference ?? "",
     availableFrom: p?.availableFrom ? new Date(p.availableFrom).toISOString().slice(0, 10) : "",
+    possessionNotes: p?.possessionNotes ?? "",
+    // Tri-state: "" means "not specified" (null), never forced to a default.
+    possessionStatus: p?.possessionStatus ?? "",
+    parkFacing: p?.parkFacing === true ? "true" : p?.parkFacing === false ? "false" : "",
     amenities: p?.amenities ? JSON.parse(p.amenities) : [],
     pincode: p?.pincode ?? "",
     latitude: p?.latitude ?? null,
@@ -156,7 +177,7 @@ function toFormValues(p?: Property): FormValues {
     ownerAlternatePhone: p?.ownerAlternatePhone ?? "",
     ownerNotes: p?.ownerNotes ?? "",
     commercialFitOut: p?.commercialFitOut ?? "",
-    superAreaSqft: p?.superAreaSqft?.toString() ?? "", frontageFeet: p?.frontageFeet?.toString() ?? "", ceilingHeightFeet: p?.ceilingHeightFeet?.toString() ?? "", cabins: p?.cabins?.toString() ?? "", workstations: p?.workstations?.toString() ?? "", washrooms: p?.washrooms?.toString() ?? "", pantryAvailable: p?.pantryAvailable ?? false, goodsLiftAvailable: p?.goodsLiftAvailable ?? false, loadingAccessAvailable: p?.loadingAccessAvailable ?? false, powerLoadKw: p?.powerLoadKw?.toString() ?? "", suitableForTags: p?.suitableForTags ? JSON.parse(p.suitableForTags) : [], leaseTermMonths: p?.leaseTermMonths?.toString() ?? "", lockInPeriodMonths: p?.lockInPeriodMonths?.toString() ?? "", noticePeriodMonths: p?.noticePeriodMonths?.toString() ?? "", escalationPercentage: p?.escalationPercentage?.toString() ?? "", camCharge: p?.camCharge?.toString() ?? "",
+    superAreaSqft: p?.superAreaSqft?.toString() ?? "", frontageFeet: p?.frontageFeet?.toString() ?? "", ceilingHeightFeet: p?.ceilingHeightFeet?.toString() ?? "", cabins: p?.cabins?.toString() ?? "", workstations: p?.workstations?.toString() ?? "", washrooms: p?.washrooms?.toString() ?? "", pantryAvailable: p?.pantryAvailable ?? false, goodsLiftAvailable: p?.goodsLiftAvailable ?? false, loadingAccessAvailable: p?.loadingAccessAvailable ?? false, powerLoadKw: p?.powerLoadKw?.toString() ?? "", suitableForTags: p?.suitableForTags ? JSON.parse(p.suitableForTags) : [], leaseTermMonths: p?.leaseTermMonths?.toString() ?? "", lockInPeriodMonths: p?.lockInPeriodMonths?.toString() ?? "", noticePeriodMonths: p?.noticePeriodMonths?.toString() ?? "", escalationPercentage: p?.escalationPercentage?.toString() ?? "", escalationIntervalMonths: p?.escalationIntervalMonths?.toString() ?? "", fitOutPeriodDays: p?.fitOutPeriodDays?.toString() ?? "", camCharge: p?.camCharge?.toString() ?? "", expectedPrice: p?.expectedPrice?.toString() ?? "",
   };
 }
 
@@ -172,6 +193,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
   const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: defaults });
   const listingType = watch("listingType");
   const assetClass = watch("assetClass");
+  const propertyType = watch("propertyType");
+  const isPlot = assetClass === "RESIDENTIAL" && propertyType === "PLOT";
   const amenities = watch("amenities");
   const inventorySource = watch("inventorySource");
   const [partners, setPartners] = useState<{ id: string; name: string; company: string | null }[]>([]);
@@ -204,17 +227,24 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       salePrice: values.salePrice ? Number(values.salePrice) : null,
       pricePerSqft: values.pricePerSqft ? Number(values.pricePerSqft) : null,
       saleBrokeragePct: values.saleBrokeragePct ? Number(values.saleBrokeragePct) : null,
-      bhk: assetClass === "RESIDENTIAL" ? Number(values.bhk) : 0,
-      bathrooms: assetClass === "RESIDENTIAL" ? Number(values.bathrooms) : 0,
+      // PLOT uses the legacy RESIDENTIAL asset class, but BHK/bathrooms are
+      // not meaningful for land. Keep the existing non-nullable DB contract.
+      bhk: assetClass === "RESIDENTIAL" && !isPlot ? Number(values.bhk) : 0,
+      bathrooms: assetClass === "RESIDENTIAL" && !isPlot ? Number(values.bathrooms) : 0,
       balconies: Number(values.balconies),
       floorNumber: values.floorNumber ? Number(values.floorNumber) : null,
       totalFloors: values.totalFloors ? Number(values.totalFloors) : null,
       propertyAgeYears: values.propertyAgeYears ? Number(values.propertyAgeYears) : null,
       builtUpAreaSqft: Number(values.builtUpAreaSqft),
       carpetAreaSqft: values.carpetAreaSqft ? Number(values.carpetAreaSqft) : null,
+      dimension: blankToNull(values.dimension),
+      areaUnit: values.areaUnit || null,
       facing: values.facing || null,
       tenantPreference: values.tenantPreference || null,
       availableFrom: values.availableFrom || null,
+      possessionNotes: blankToNull(values.possessionNotes),
+      possessionStatus: values.possessionStatus || null,
+      parkFacing: values.parkFacing === "true" ? true : values.parkFacing === "false" ? false : null,
       coverImage,
       images: coverImage ? [coverImage] : [],
       videoUrl: blankToNull(values.videoUrl),
@@ -241,7 +271,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       negotiationNotes: blankToNull(values.negotiationNotes),
       hiddenRemarks: blankToNull(values.hiddenRemarks),
       commercialFitOut: assetClass === "COMMERCIAL" ? values.commercialFitOut || null : null,
-      superAreaSqft: values.superAreaSqft ? Number(values.superAreaSqft) : null, frontageFeet: values.frontageFeet ? Number(values.frontageFeet) : null, ceilingHeightFeet: values.ceilingHeightFeet ? Number(values.ceilingHeightFeet) : null, cabins: values.cabins ? Number(values.cabins) : null, workstations: values.workstations ? Number(values.workstations) : null, washrooms: values.washrooms ? Number(values.washrooms) : null, powerLoadKw: values.powerLoadKw ? Number(values.powerLoadKw) : null, suitableForTags: values.suitableForTags, leaseTermMonths: values.leaseTermMonths ? Number(values.leaseTermMonths) : null, lockInPeriodMonths: values.lockInPeriodMonths ? Number(values.lockInPeriodMonths) : null, noticePeriodMonths: values.noticePeriodMonths ? Number(values.noticePeriodMonths) : null, escalationPercentage: values.escalationPercentage ? Number(values.escalationPercentage) : null, camCharge: values.camCharge ? Number(values.camCharge) : null,
+      superAreaSqft: values.superAreaSqft ? Number(values.superAreaSqft) : null, frontageFeet: values.frontageFeet ? Number(values.frontageFeet) : null, ceilingHeightFeet: values.ceilingHeightFeet ? Number(values.ceilingHeightFeet) : null, cabins: values.cabins ? Number(values.cabins) : null, workstations: values.workstations ? Number(values.workstations) : null, washrooms: values.washrooms ? Number(values.washrooms) : null, powerLoadKw: values.powerLoadKw ? Number(values.powerLoadKw) : null, suitableForTags: values.suitableForTags, leaseTermMonths: values.leaseTermMonths ? Number(values.leaseTermMonths) : null, lockInPeriodMonths: values.lockInPeriodMonths ? Number(values.lockInPeriodMonths) : null, noticePeriodMonths: values.noticePeriodMonths ? Number(values.noticePeriodMonths) : null, escalationPercentage: values.escalationPercentage ? Number(values.escalationPercentage) : null, escalationIntervalMonths: values.escalationIntervalMonths ? Number(values.escalationIntervalMonths) : null, fitOutPeriodDays: values.fitOutPeriodDays ? Number(values.fitOutPeriodDays) : null, camCharge: values.camCharge ? Number(values.camCharge) : null, expectedPrice: values.expectedPrice ? Number(values.expectedPrice) : null,
     };
 
     try {
@@ -389,32 +419,59 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           </div>
         )}
         <Checkbox label="Price is negotiable" {...register("negotiable")} />
+        {/* Property Inventory V2 - import provenance, read-only. Only ever populated for
+            properties that came through the inventory import pipeline; never editable here
+            and never required for a manually-created property. */}
+        {isEdit && (property?.priceRaw || property?.lastPrice != null) && (
+          <p className="text-xs text-[#8A94A6]">
+            {property?.priceRaw && <>Imported value: {property.priceRaw}</>}
+            {property?.priceRaw && property?.lastPrice != null && " · "}
+            {property?.lastPrice != null && <>Last quoted: ₹{property.lastPrice.toLocaleString("en-IN")}</>}
+          </p>
+        )}
       </Section>
 
       <Section title="Property Details">
-        {assetClass === "COMMERCIAL" ? <div className="space-y-4"><div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><Field label="Built-up Area (sqft)" required><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required" })} /></Field><Field label="Carpet Area (sqft)"><Input type="number" {...register("carpetAreaSqft")} /></Field><Field label="Super Area (sqft)"><Input type="number" {...register("superAreaSqft")} /></Field><Field label="Fit-out"><Select {...register("commercialFitOut")}><option value="">Not specified</option><option value="FURNISHED">Furnished</option><option value="SEMI_FURNISHED">Semi-Furnished</option><option value="BARE_SHELL">Bare shell</option></Select></Field><Field label="Workstations"><Input type="number" {...register("workstations")} /></Field><Field label="Cabins"><Input type="number" {...register("cabins")} /></Field><Field label="Washrooms"><Input type="number" {...register("washrooms")} /></Field><Field label="Frontage (ft)"><Input type="number" {...register("frontageFeet")} /></Field><Field label="Power Load (kW)"><Input type="number" {...register("powerLoadKw")} /></Field></div><div className="flex flex-wrap gap-4"><Checkbox label="Parking available" {...register("parkingAvailable")} /><Checkbox label="Lift available" {...register("liftAvailable")} /><Checkbox label="Goods lift" {...register("goodsLiftAvailable")} /><Checkbox label="Pantry" {...register("pantryAvailable")} /><Checkbox label="Loading access" {...register("loadingAccessAvailable")} /></div></div> : <>
+        {assetClass === "COMMERCIAL" ? <div className="space-y-4"><div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><Field label="Built-up Area (sqft)" required><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required" })} /></Field><Field label="Area Unit" hint="Only relevant if this listing's area came from a non-sqft source"><Select {...register("areaUnit")}><option value="">Not specified</option>{["SQ_FT", "SQ_YD", "SQ_M", "ACRE", "OTHER"].map((u) => <option key={u} value={u}>{u.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Carpet Area (sqft)"><Input type="number" {...register("carpetAreaSqft")} /></Field><Field label="Super Area (sqft)"><Input type="number" {...register("superAreaSqft")} /></Field><Field label="Dimension"><Input {...register("dimension")} placeholder="e.g. 30x40" /></Field><Field label="Fit-out"><Select {...register("commercialFitOut")}><option value="">Not specified</option><option value="FURNISHED">Furnished</option><option value="SEMI_FURNISHED">Semi-Furnished</option><option value="BARE_SHELL">Bare shell</option></Select></Field><Field label="Workstations"><Input type="number" {...register("workstations")} /></Field><Field label="Cabins"><Input type="number" {...register("cabins")} /></Field><Field label="Washrooms"><Input type="number" {...register("washrooms")} /></Field><Field label="Frontage (ft)"><Input type="number" {...register("frontageFeet")} /></Field><Field label="Power Load (kW)"><Input type="number" {...register("powerLoadKw")} /></Field><Field label="Park Facing"><Select {...register("parkFacing")}><option value="">Not specified</option><option value="true">Yes</option><option value="false">No</option></Select></Field></div><div className="flex flex-wrap gap-4"><Checkbox label="Parking available" {...register("parkingAvailable")} /><Checkbox label="Lift available" {...register("liftAvailable")} /><Checkbox label="Goods lift" {...register("goodsLiftAvailable")} /><Checkbox label="Pantry" {...register("pantryAvailable")} /><Checkbox label="Loading access" {...register("loadingAccessAvailable")} /></div><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Field label="Possession Status"><Select {...register("possessionStatus")}><option value="">Not specified</option>{["READY_TO_MOVE", "UNDER_CONSTRUCTION", "BOOKING", "TENANTED", "UNKNOWN"].map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Possession Notes"><Input {...register("possessionNotes")} placeholder="e.g. Ready by Dec 2026" /></Field><Field label="Available From"><Input type="date" {...register("availableFrom")} /></Field></div></div> : <>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <Field label="BHK" required error={errors.bhk?.message}><Input type="number" {...register("bhk", { required: "BHK is required", min: { value: 0, message: "BHK must be 0-10" }, max: { value: 10, message: "BHK must be 0-10" } })} /></Field>
+          {!isPlot && <><Field label="BHK" required error={errors.bhk?.message}><Input type="number" {...register("bhk", { required: "BHK is required", min: { value: 0, message: "BHK must be 0-10" }, max: { value: 10, message: "BHK must be 0-10" } })} /></Field>
           <Field label="Bathrooms" required error={errors.bathrooms?.message}><Input type="number" {...register("bathrooms", { required: "Bathrooms required", min: { value: 0, message: "Bathrooms must be 0-10" }, max: { value: 10, message: "Bathrooms must be 0-10" } })} /></Field>
           <Field label="Balconies"><Input type="number" {...register("balconies")} /></Field>
           <Field label="Furnishing">
             <Select {...register("furnishing")}>
+              <option value="">Not specified</option>
               <option value="FURNISHED">Furnished</option>
               <option value="SEMI_FURNISHED">Semi-Furnished</option>
               <option value="UNFURNISHED">Unfurnished</option>
             </Select>
-          </Field>
+          </Field></>}
           <Field label="Floor Number"><Input type="number" {...register("floorNumber")} /></Field>
           <Field label="Total Floors"><Input type="number" {...register("totalFloors")} /></Field>
           <Field label="Property Age (years)"><Input type="number" {...register("propertyAgeYears")} /></Field>
           <Field label="Built-up Area (sqft)" required error={errors.builtUpAreaSqft?.message}><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required", min: { value: 1, message: "Built-up area must be greater than 0" } })} /></Field>
+          <Field label="Area Unit" hint="Only relevant if this listing's area came from a non-sqft source">
+            <Select {...register("areaUnit")}>
+              <option value="">Not specified</option>
+              {["SQ_FT", "SQ_YD", "SQ_M", "ACRE", "OTHER"].map((u) => (
+                <option key={u} value={u}>{u.replace(/_/g, " ")}</option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Carpet Area (sqft)"><Input type="number" {...register("carpetAreaSqft")} /></Field>
+          <Field label="Dimension"><Input {...register("dimension")} placeholder="e.g. 30x40" /></Field>
           <Field label="Facing">
             <Select {...register("facing")}>
               <option value="">Not specified</option>
               {["NORTH", "SOUTH", "EAST", "WEST", "NORTH_EAST", "NORTH_WEST", "SOUTH_EAST", "SOUTH_WEST"].map((f) => (
                 <option key={f} value={f}>{f.replace("_", " ")}</option>
               ))}
+            </Select>
+          </Field>
+          <Field label="Park Facing">
+            <Select {...register("parkFacing")}>
+              <option value="">Not specified</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
             </Select>
           </Field>
           <Field label="Tenant Preference">
@@ -425,9 +482,21 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
               ))}
             </Select>
           </Field>
+          <Field label="Possession Status">
+            <Select {...register("possessionStatus")}>
+              <option value="">Not specified</option>
+              {["READY_TO_MOVE", "UNDER_CONSTRUCTION", "BOOKING", "TENANTED", "UNKNOWN"].map((s) => (
+                <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Possession Notes"><Input {...register("possessionNotes")} placeholder="e.g. Ready by Dec 2026" /></Field>
           <Field label="Available From"><Input type="date" {...register("availableFrom")} /></Field>
         </div>
-        <Checkbox label="Parking available" {...register("parkingAvailable")} />
+        <div className="flex flex-wrap gap-4">
+          <Checkbox label="Parking available" {...register("parkingAvailable")} />
+          <Checkbox label="Lift available" {...register("liftAvailable")} />
+        </div>
         </>}
         <Field label="Amenities">
           <div className="flex flex-wrap gap-2">
@@ -446,6 +515,21 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           </div>
         </Field>
       </Section>
+
+      {assetClass === "COMMERCIAL" && listingType === "RENT" && (
+        <Section title="Lease Terms">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <Field label="Lease Term (months)"><Input type="number" {...register("leaseTermMonths")} /></Field>
+            <Field label="Lock-in Period (months)"><Input type="number" {...register("lockInPeriodMonths")} /></Field>
+            <Field label="Notice Period (months)"><Input type="number" {...register("noticePeriodMonths")} /></Field>
+            <Field label="Escalation (%)"><Input type="number" step="0.1" {...register("escalationPercentage")} /></Field>
+            <Field label="Escalation Interval (months)"><Input type="number" {...register("escalationIntervalMonths")} /></Field>
+            <Field label="Fit-out Period (days)"><Input type="number" {...register("fitOutPeriodDays")} /></Field>
+            <Field label="CAM Charge (₹)"><Input type="number" {...register("camCharge")} /></Field>
+            <Field label="Expected Price (₹)"><Input type="number" {...register("expectedPrice")} /></Field>
+          </div>
+        </Section>
+      )}
 
       <Section title="Media">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -521,6 +605,16 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
         <Field label="Internal Notes"><Textarea rows={2} {...register("internalNotes")} /></Field>
         <Field label="Negotiation Notes"><Textarea rows={2} {...register("negotiationNotes")} /></Field>
         <Field label="Hidden Remarks"><Textarea rows={2} {...register("hiddenRemarks")} /></Field>
+        {/* Property Inventory V2 - import provenance/audit only. Read-only text,
+            never an editable input, and only shown when actually populated (imported rows). */}
+        {isEdit && (property?.areaRaw || property?.floorRaw || property?.sourceRaw) && (
+          <div className="space-y-1 border-t border-[#EFF4FF] pt-3 text-xs text-[#8A94A6]">
+            <p className="font-semibold uppercase tracking-wider">Import provenance (read-only)</p>
+            {property?.areaRaw && <p>Raw area: {property.areaRaw}</p>}
+            {property?.floorRaw && <p>Raw floor: {property.floorRaw}</p>}
+            {property?.sourceRaw && <p>Raw source: {property.sourceRaw}</p>}
+          </div>
+        )}
       </Section>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-[#EFF4FF]">

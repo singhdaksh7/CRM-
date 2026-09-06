@@ -34,7 +34,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   // status=ALL → no status predicate (full inventory).
   const statusFilter: PropertyStatus | null =
     sp.status === "ALL" ? null : ((sp.status as PropertyStatus | undefined) ?? "AVAILABLE");
-  const hasCustomFilters = Boolean(sp.q || sp.listingType || sp.assetClass || sp.area || sp.bhk || sp.furnishing || (sp.status && sp.status !== "AVAILABLE") || sp.sort);
+  const hasCustomFilters = Boolean(sp.q || sp.listingType || sp.assetClass || sp.area || sp.bhk || sp.furnishing || sp.possessionStatus || sp.liftAvailable || sp.parkFacing || (sp.status && sp.status !== "AVAILABLE") || sp.sort);
 
   const listResult = await withTiming("propertiesPageQuery", "/properties", () =>
     listAvailablePropertiesPage({
@@ -48,6 +48,9 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
       area: sp.area,
       bhk: sp.bhk ? Number(sp.bhk) : null,
       furnishing: sp.furnishing,
+      possessionStatus: sp.possessionStatus,
+      liftAvailable: sp.liftAvailable ? sp.liftAvailable === "true" : null,
+      parkFacing: sp.parkFacing ? sp.parkFacing === "true" : null,
     })
   );
 
@@ -71,6 +74,9 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   if (sp.area) where.area = sp.area;
   if (sp.bhk) where.bhk = Number(sp.bhk);
   if (sp.furnishing) where.furnishing = sp.furnishing as never;
+  if (sp.possessionStatus) where.possessionStatus = sp.possessionStatus as never;
+  if (sp.liftAvailable) where.liftAvailable = sp.liftAvailable === "true";
+  if (sp.parkFacing) where.parkFacing = sp.parkFacing === "true";
 
   const totalCount = await prisma.property.count({ where });
 

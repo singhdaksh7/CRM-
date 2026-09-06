@@ -118,6 +118,14 @@ describe("scoreDemandCandidate - hard filters", () => {
   });
 });
 
+describe("scoreDemandCandidate - unknown furnishing", () => {
+  it("reports that the property furnishing is unknown, not that the requirement lacks a preference", () => {
+    const result = scoreDemandCandidate(property({ furnishing: null }), requirement({ furnishing: "FURNISHED" }));
+    const furnishing = result?.reasons.find((reason) => reason.label === "Furnishing");
+    expect(furnishing).toMatchObject({ matched: true, detail: "Furnishing not specified for this property" });
+  });
+});
+
 describe("scoreDemandCandidate - commercial isolation (rule 16)", () => {
   it("never sends office space to a residential BHK requirement", () => {
     const officeProperty = property({ assetClass: "COMMERCIAL", propertyType: "COMMERCIAL_OFFICE", listingType: "SALE", salePrice: 5000000, builtUpAreaSqft: 1000 });

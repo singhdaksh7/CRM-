@@ -39,4 +39,11 @@ export const PUBLIC_PROPERTY_SELECT = {
   description: true,
   coverImage: true,
   status: true,
+  // Property Inventory V2 - safe, structured booleans/enums with no PII or
+  // negotiation-sensitive content (audit-confirmed additions). Deliberately
+  // NEVER add sourceRaw/priceRaw/lastPrice/areaRaw/floorRaw/dimension here -
+  // those can carry negotiation notes or broker/person names.
+  possessionStatus: true,
+  liftAvailable: true,
+  parkFacing: true,
 } satisfies Prisma.PropertySelect;

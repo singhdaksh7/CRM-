@@ -127,7 +127,7 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-            <MiniDetail label="Furnishing" value={enumToLabel(property.furnishing)} />
+            <MiniDetail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} />
             <MiniDetail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} />
             <MiniDetail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} />
             <MiniDetail label="Parking" value={property.parkingAvailable ? "Yes" : "No"} />
