@@ -31,6 +31,7 @@ const RELATION_MAP: Record<string, { parentModel: string; fk: string }> = {
   requirementBroadcast: { parentModel: "requirementBroadcast", fk: "requirementBroadcastId" },
   importJob: { parentModel: "importJob", fk: "importJobId" },
   property: { parentModel: "property", fk: "propertyId" },
+  requirement: { parentModel: "leadRequirement", fk: "requirementId" },
 };
 
 function deepCloneState(state: State): State {
@@ -95,7 +96,7 @@ export class FakeResetDb {
     // and the actual prisma/migrations/ directory count - bump both together
     // whenever a new migration is added, or the default-options tests below
     // will fail the real disk-vs-applied preflight check.
-    this.appliedMigrationCount = options.appliedMigrationCount ?? 33;
+    this.appliedMigrationCount = options.appliedMigrationCount ?? 34;
     this.missingCoreTables = options.missingCoreTables ?? [];
     this.failOnDeleteMany = options.failOnDeleteMany;
   }

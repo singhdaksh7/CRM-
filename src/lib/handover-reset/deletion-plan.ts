@@ -65,6 +65,9 @@ export type ResetModelKey =
   | "storageUploadSession"
   | "propertyTimelineEvent"
   | "leadPhone"
+  | "leadRequirementBhk"
+  | "leadRequirementLocality"
+  | "leadRequirement"
   | "customerRequirement"
   | "lead"
   | "customerContact"
@@ -153,6 +156,9 @@ export const DELETION_PLAN: DeletionStep[] = [
 
   // --- Core entities (dependency chain: CustomerRequirement -> Lead -> CustomerContact -> Property) ---
   { model: "leadPhone", where: orgScoped },
+  { model: "leadRequirementBhk", where: (organizationId) => ({ requirement: { organizationId } }) },
+  { model: "leadRequirementLocality", where: (organizationId) => ({ requirement: { organizationId } }) },
+  { model: "leadRequirement", where: orgScoped },
   { model: "customerRequirement", where: orgScoped },
   { model: "lead", where: orgScoped },
   { model: "customerContact", where: orgScoped },

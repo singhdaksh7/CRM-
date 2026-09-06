@@ -72,6 +72,7 @@ interface MatchResult {
   locationMatchKind: "exact" | "nearby" | "none";
   verified: boolean;
   hasImages: boolean;
+  matchedRequirement?: { id: string; localities: Array<{ locality: { name: string } }>; bhkValues: Array<{ bhk: number }> };
 }
 
 interface SectionedMatches {
@@ -861,6 +862,7 @@ function MatchCard({
               {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {p.builtUpAreaSqft} sqft
             </p>
             <p className="text-sm font-bold text-[#3366FF]">{formatPrice(p)}</p>
+            {match.matchedRequirement && <p className="text-[11px] font-semibold text-[#596579]">Matched requirement: {match.matchedRequirement.bhkValues.map((value) => `${value.bhk} BHK`).join(" / ") || "Any BHK"}{match.matchedRequirement.localities.length ? ` · ${match.matchedRequirement.localities.map((value) => value.locality.name).join(" / ")}` : ""}</p>}
           </div>
         </div>
 

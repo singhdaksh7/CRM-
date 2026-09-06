@@ -43,6 +43,8 @@ const RELATION_SEED_FK: Record<string, { fk: string; parentId: string }> = {
   importRecord: { fk: "importJobId", parentId: "job-1" },
   propertyFavorite: { fk: "propertyId", parentId: "prop-1" },
   propertyViewLog: { fk: "propertyId", parentId: "prop-1" },
+  leadRequirementBhk: { fk: "requirementId", parentId: "leadRequirement-1" },
+  leadRequirementLocality: { fk: "requirementId", parentId: "leadRequirement-1" },
 };
 
 /** Seeds every remaining model in DELETION_PLAN with one org-scoped row, so "every table gets deleted" tests have something to check. */

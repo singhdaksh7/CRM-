@@ -6,6 +6,7 @@ import { getOrganizationId } from "@/lib/organization";
 import { getLocalityCentroid } from "@/lib/locality";
 import { haversineDistanceMeters } from "@/lib/geo";
 import { assertLeadAccessible } from "@/lib/lead-access";
+import { matchPropertiesToRequirements } from "@/lib/lead-requirement-matching";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -27,9 +28,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       include: { owner: { select: { verificationStatus: true } } },
     });
 
-    let matches = matchPropertiesToLead(properties, lead, tolerance);
+    const requirements = await prisma.leadRequirement.findMany({
+      where: { organizationId, leadId: lead.id, status: "ACTIVE" },
+      include: { localities: { include: { locality: { select: { id: true, name: true } } } }, bhkValues: true },
+      orderBy: { createdAt: "asc" },
+    });
+    // New normalized requirements are primary. Legacy flat Lead fields remain
+    // a safe fallback for existing leads that have not yet gained a brief.
+    let matches = requirements.length
+      ? matchPropertiesToRequirements(properties, requirements, tolerance).map((match) => ({
+          ...match,
+          aboveBudget: false,
+          overagePct: 0,
+          budgetTier: "Requirement budget",
+          locationMatchKind: match.reasons.some((reason) => reason.label === "Locality" && reason.matched) ? "exact" as const : "none" as const,
+          verified: match.property.owner?.verificationStatus === "VERIFIED",
+          hasImages: Boolean(match.property.coverImage),
+        }))
+      : matchPropertiesToLead(properties, lead, tolerance);
 
-    if (radiusMeters > 0) {
+    if (radiusMeters > 0 && requirements.length === 0) {
       const leadCentroid = getLocalityCentroid(lead.preferredLocation);
       if (leadCentroid) {
         matches = matches.map((m) => {

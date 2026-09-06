@@ -25,6 +25,7 @@ import { PropertyRecommendationHistory } from "@/components/customers/property-r
 import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
 import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
 import { CaptureLocationButton } from "@/components/properties/capture-location-button";
+import { LeadRequirementMatches } from "@/components/properties/lead-requirement-matches";
 
 // Change 15 - Inventory Freshness label tone, distinct from the numeric Property Health score.
 const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
@@ -126,6 +127,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             />
           )}
           <PropertyRecommendationHistory propertyId={property.id} />
+          <LeadRequirementMatches propertyId={property.id} />
 
           {/* Location & Map - a FIELD_EXECUTIVE without a legitimate assigned
               reason (visit or lead catalogue) sees no exact-location panel

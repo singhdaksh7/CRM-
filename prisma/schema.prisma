@@ -764,6 +764,19 @@ enum AutomationActionType {
   MARK_DEAL_CLOSED
 }
 
+enum LeadRequirementStatus {
+  ACTIVE
+  PAUSED
+  FULFILLED
+  CANCELLED
+}
+
+enum RequirementPreference {
+  REQUIRED
+  PREFERRED
+  NO_PREFERENCE
+}
+
 // ---------------------------------------------------------------------------
 // Multi-tenant foundation (Phase 2A)
 //
@@ -788,62 +801,63 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                       User[]
-  properties                  Property[]
-  propertyLocalities          PropertyLocality[]
-  propertyLocalityAliases     PropertyLocalityAlias[]
-  leads                       Lead[]
-  leadPhones                  LeadPhone[]
-  propertyPortalConnections   PropertyPortalConnection[]
-  portalListings              PortalListing[]
-  portalOperations            PortalOperation[]
-  externalLeadEvents          ExternalLeadEvent[]
-  leadTransfers               LeadTransfer[]
-  sharedPropertyLogs          SharedPropertyLog[]
-  visits                      Visit[]
-  visitProperties             VisitProperty[]
-  followUps                   FollowUp[]
-  activities                  Activity[]
-  notifications               Notification[]
-  assignmentRules             LeadAssignmentRule[]
-  employeeServiceAreas        EmployeeServiceArea[]
-  leadScoreHistory            LeadScoreHistory[]
-  whatsappConversations       WhatsAppConversation[]
-  whatsappMessages            WhatsAppMessage[]
-  catalogueShares             CatalogueShare[]
-  catalogueInteractions       CatalogueInteraction[]
+  users                        User[]
+  properties                   Property[]
+  propertyLocalities           PropertyLocality[]
+  propertyLocalityAliases      PropertyLocalityAlias[]
+  leads                        Lead[]
+  leadPhones                   LeadPhone[]
+  propertyPortalConnections    PropertyPortalConnection[]
+  portalListings               PortalListing[]
+  portalOperations             PortalOperation[]
+  externalLeadEvents           ExternalLeadEvent[]
+  leadTransfers                LeadTransfer[]
+  sharedPropertyLogs           SharedPropertyLog[]
+  visits                       Visit[]
+  visitProperties              VisitProperty[]
+  followUps                    FollowUp[]
+  activities                   Activity[]
+  notifications                Notification[]
+  assignmentRules              LeadAssignmentRule[]
+  employeeServiceAreas         EmployeeServiceArea[]
+  leadScoreHistory             LeadScoreHistory[]
+  whatsappConversations        WhatsAppConversation[]
+  whatsappMessages             WhatsAppMessage[]
+  catalogueShares              CatalogueShare[]
+  catalogueInteractions        CatalogueInteraction[]
   cataloguePropertyPreferences CataloguePropertyPreference[]
-  webhookEvents               IntegrationWebhookEvent[]
-  owners                      Owner[]
-  deals                       Deal[]
-  brokerageCalculations       BrokerageCalculation[]
-  payments                    Payment[]
-  documents                   Document[]
-  propertyImages              PropertyImage[]
-  storageUploadSessions       StorageUploadSession[]
-  importJobs                  ImportJob[]
-  importMappingPresets        ImportMappingPreset[]
-  auditLogs                   AuditLog[]
-  backupRecords               BackupRecord[]
-  restoreValidations          RestoreValidation[]
-  savedViews                  SavedView[]
-  systemConfig                SystemConfig?
-  automationRules             AutomationRule[]
-  inventoryPartners           InventoryPartner[]
-  propertyTimelineEvents      PropertyTimelineEvent[]
-  propertyAvailabilityReports PropertyAvailabilityReport[]
-  propertyReports             PropertyReport[]
-  visitFeedback               VisitFeedback[]
-  leadAssignmentHistory       LeadAssignmentHistory[]
-  catalogueVersionEvents      CatalogueVersionEvent[]
-  dealOffers                  DealOffer[]
-  requirementBroadcasts       RequirementBroadcast[]
-  matchRecommendations        MatchRecommendation[]
-  accountSetupTokens          AccountSetupToken[]
-  passwordResetTokens         PasswordResetToken[]
-  customerContacts            CustomerContact[]
-  customerRequirements        CustomerRequirement[]
-  propertyRecommendations     PropertyRecommendation[]
+  webhookEvents                IntegrationWebhookEvent[]
+  owners                       Owner[]
+  deals                        Deal[]
+  brokerageCalculations        BrokerageCalculation[]
+  payments                     Payment[]
+  documents                    Document[]
+  propertyImages               PropertyImage[]
+  storageUploadSessions        StorageUploadSession[]
+  importJobs                   ImportJob[]
+  importMappingPresets         ImportMappingPreset[]
+  auditLogs                    AuditLog[]
+  backupRecords                BackupRecord[]
+  restoreValidations           RestoreValidation[]
+  savedViews                   SavedView[]
+  systemConfig                 SystemConfig?
+  automationRules              AutomationRule[]
+  inventoryPartners            InventoryPartner[]
+  propertyTimelineEvents       PropertyTimelineEvent[]
+  propertyAvailabilityReports  PropertyAvailabilityReport[]
+  propertyReports              PropertyReport[]
+  visitFeedback                VisitFeedback[]
+  leadAssignmentHistory        LeadAssignmentHistory[]
+  catalogueVersionEvents       CatalogueVersionEvent[]
+  dealOffers                   DealOffer[]
+  requirementBroadcasts        RequirementBroadcast[]
+  matchRecommendations         MatchRecommendation[]
+  accountSetupTokens           AccountSetupToken[]
+  passwordResetTokens          PasswordResetToken[]
+  customerContacts             CustomerContact[]
+  customerRequirements         CustomerRequirement[]
+  propertyRecommendations      PropertyRecommendation[]
+  leadRequirements             LeadRequirement[]
 
   @@map("organizations")
 }
@@ -921,32 +935,33 @@ model User {
   automationRulesCreated        AutomationRule[]
 
   // Phase 4 - Field Operations
-  inventoryPartnersCreated        InventoryPartner[]           @relation("InventoryPartnerCreatedBy")
-  propertiesLastVerified          Property[]                   @relation("PropertyLastVerifiedBy")
-  propertiesLocationCaptured      Property[]                   @relation("PropertyLocationCapturedBy")
-  propertyLocalitiesCreated       PropertyLocality[]            @relation("PropertyLocalityCreatedBy")
-  propertyLocalityAliasesCreated  PropertyLocalityAlias[]       @relation("PropertyLocalityAliasCreatedBy")
-  propertyTimelineEventsActed     PropertyTimelineEvent[]      @relation("PropertyTimelineEventActor")
-  availabilityReportsSubmitted    PropertyAvailabilityReport[] @relation("AvailabilityReportedBy")
-  availabilityReportsReviewed     PropertyAvailabilityReport[] @relation("AvailabilityReportReviewedBy")
-  propertyReportsSubmitted        PropertyReport[]             @relation("PropertyReportedBy")
-  propertyReportsResolved         PropertyReport[]             @relation("PropertyReportResolvedBy")
-  visitFeedbackSubmitted          VisitFeedback[]              @relation("VisitFeedbackSubmittedBy")
-  leadPhonesCreated               LeadPhone[]                  @relation("LeadPhoneCreatedBy")
-  leadAssignmentHistoryTo         LeadAssignmentHistory[]      @relation("AssignmentHistoryTo")
-  catalogueExecutiveStatusUpdates CatalogueShareProperty[]     @relation("CatalogueExecutiveStatusUpdatedBy")
-  catalogueVersionEventsActed     CatalogueVersionEvent[]      @relation("CatalogueVersionEventActor")
-  propertyFavorites               PropertyFavorite[]
-  propertyViewLogs                PropertyViewLog[]
-  dealOffers                      DealOffer[]
-  requirementBroadcasts           RequirementBroadcast[]
-  matchRecommendations            MatchRecommendation[]
-  accountSetupTokens              AccountSetupToken[]
-  passwordResetTokens             PasswordResetToken[]
-  customerContactsCreated          CustomerContact[]         @relation("CustomerContactCreatedBy")
-  customerRequirementsCreated      CustomerRequirement[]     @relation("CustomerRequirementCreatedBy")
-  propertyRecommendationsCreated   PropertyRecommendation[]  @relation("PropertyRecommendationCreatedBy")
-  propertyRecommendationsResponded PropertyRecommendation[]  @relation("PropertyRecommendationRespondedBy")
+  inventoryPartnersCreated         InventoryPartner[]           @relation("InventoryPartnerCreatedBy")
+  propertiesLastVerified           Property[]                   @relation("PropertyLastVerifiedBy")
+  propertiesLocationCaptured       Property[]                   @relation("PropertyLocationCapturedBy")
+  propertyLocalitiesCreated        PropertyLocality[]           @relation("PropertyLocalityCreatedBy")
+  propertyLocalityAliasesCreated   PropertyLocalityAlias[]      @relation("PropertyLocalityAliasCreatedBy")
+  propertyTimelineEventsActed      PropertyTimelineEvent[]      @relation("PropertyTimelineEventActor")
+  availabilityReportsSubmitted     PropertyAvailabilityReport[] @relation("AvailabilityReportedBy")
+  availabilityReportsReviewed      PropertyAvailabilityReport[] @relation("AvailabilityReportReviewedBy")
+  propertyReportsSubmitted         PropertyReport[]             @relation("PropertyReportedBy")
+  propertyReportsResolved          PropertyReport[]             @relation("PropertyReportResolvedBy")
+  visitFeedbackSubmitted           VisitFeedback[]              @relation("VisitFeedbackSubmittedBy")
+  leadPhonesCreated                LeadPhone[]                  @relation("LeadPhoneCreatedBy")
+  leadAssignmentHistoryTo          LeadAssignmentHistory[]      @relation("AssignmentHistoryTo")
+  catalogueExecutiveStatusUpdates  CatalogueShareProperty[]     @relation("CatalogueExecutiveStatusUpdatedBy")
+  catalogueVersionEventsActed      CatalogueVersionEvent[]      @relation("CatalogueVersionEventActor")
+  propertyFavorites                PropertyFavorite[]
+  propertyViewLogs                 PropertyViewLog[]
+  dealOffers                       DealOffer[]
+  requirementBroadcasts            RequirementBroadcast[]
+  matchRecommendations             MatchRecommendation[]
+  accountSetupTokens               AccountSetupToken[]
+  passwordResetTokens              PasswordResetToken[]
+  customerContactsCreated          CustomerContact[]            @relation("CustomerContactCreatedBy")
+  customerRequirementsCreated      CustomerRequirement[]        @relation("CustomerRequirementCreatedBy")
+  propertyRecommendationsCreated   PropertyRecommendation[]     @relation("PropertyRecommendationCreatedBy")
+  propertyRecommendationsResponded PropertyRecommendation[]     @relation("PropertyRecommendationRespondedBy")
+  leadRequirementsCreated          LeadRequirement[]            @relation("LeadRequirementCreatedBy")
 
   @@map("users")
 }
@@ -1245,23 +1260,23 @@ model Property {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  sharedIn                 SharedPropertyLog[]
-  visits                   Visit[]
-  visitProperties          VisitProperty[]
-  catalogueShareProperties CatalogueShareProperty[]
-  catalogueInteractions    CatalogueInteraction[]
+  sharedIn                     SharedPropertyLog[]
+  visits                       Visit[]
+  visitProperties              VisitProperty[]
+  catalogueShareProperties     CatalogueShareProperty[]
+  catalogueInteractions        CatalogueInteraction[]
   cataloguePropertyPreferences CataloguePropertyPreference[]
-  deals                    Deal[]
-  documents                Document[]
-  propertyImages           PropertyImage[]
-  timelineEvents           PropertyTimelineEvent[]
-  availabilityReports      PropertyAvailabilityReport[]
-  reports                  PropertyReport[]
-  matchRecommendations     MatchRecommendation[]
-  favoritedBy              PropertyFavorite[]
-  viewLogs                 PropertyViewLog[]
-  portalListings           PortalListing[]
-  demandRecommendations    PropertyRecommendation[]
+  deals                        Deal[]
+  documents                    Document[]
+  propertyImages               PropertyImage[]
+  timelineEvents               PropertyTimelineEvent[]
+  availabilityReports          PropertyAvailabilityReport[]
+  reports                      PropertyReport[]
+  matchRecommendations         MatchRecommendation[]
+  favoritedBy                  PropertyFavorite[]
+  viewLogs                     PropertyViewLog[]
+  portalListings               PortalListing[]
+  demandRecommendations        PropertyRecommendation[]
 
   @@index([ownerId])
   @@index([organizationId, status])
@@ -1304,8 +1319,9 @@ model PropertyLocality {
   createdBy      User?        @relation("PropertyLocalityCreatedBy", fields: [createdById], references: [id])
   createdAt      DateTime     @default(now())
 
-  properties Property[]
-  aliases    PropertyLocalityAlias[]
+  properties                Property[]
+  aliases                   PropertyLocalityAlias[]
+  leadRequirementLocalities LeadRequirementLocality[]
 
   @@unique([organizationId, normalizedName])
   @@index([organizationId, name])
@@ -1320,18 +1336,73 @@ model PropertyLocality {
  * inventory-import-service.ts) so a human only has to resolve an unrecognized
  * spelling once per organization.
  */
+/// Independently matchable property search brief. Legacy Lead preference
+/// fields remain intact as a fallback for leads without an ACTIVE brief.
+model LeadRequirement {
+  id                   String                @id @default(cuid())
+  organizationId       String
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId               String
+  lead                 Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assetClass           AssetClass            @default(RESIDENTIAL)
+  transactionType      TransactionType
+  propertyType         PropertyType?
+  minBudget            Int?
+  maxBudget            Int?
+  minAreaSqft          Int?
+  maxAreaSqft          Int?
+  floorPreference      String?
+  liftPreference       RequirementPreference @default(NO_PREFERENCE)
+  parkingPreference    RequirementPreference @default(NO_PREFERENCE)
+  furnishingPreference FurnishingStatus?
+  possessionPreference String?
+  notes                String?
+  status               LeadRequirementStatus @default(ACTIVE)
+  createdById          String?
+  createdBy            User?                 @relation("LeadRequirementCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  localities LeadRequirementLocality[]
+  bhkValues  LeadRequirementBhk[]
+
+  @@index([organizationId, leadId, status])
+  @@index([organizationId, status, transactionType])
+  @@map("lead_requirements")
+}
+
+model LeadRequirementLocality {
+  requirementId String
+  localityId    String
+  requirement   LeadRequirement  @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  locality      PropertyLocality @relation(fields: [localityId], references: [id], onDelete: Restrict)
+
+  @@id([requirementId, localityId])
+  @@index([localityId])
+  @@map("lead_requirement_localities")
+}
+
+model LeadRequirementBhk {
+  requirementId String
+  bhk           Int
+  requirement   LeadRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@id([requirementId, bhk])
+  @@map("lead_requirement_bhks")
+}
+
 model PropertyLocalityAlias {
-  id               String           @id @default(cuid())
-  organizationId   String
-  organization     Organization     @relation(fields: [organizationId], references: [id])
-  alias            String
-  normalizedAlias  String
-  localityId       String
-  locality         PropertyLocality @relation(fields: [localityId], references: [id])
-  createdById      String?
-  createdBy        User?            @relation("PropertyLocalityAliasCreatedBy", fields: [createdById], references: [id])
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id              String           @id @default(cuid())
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  alias           String
+  normalizedAlias String
+  localityId      String
+  locality        PropertyLocality @relation(fields: [localityId], references: [id])
+  createdById     String?
+  createdBy       User?            @relation("PropertyLocalityAliasCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@unique([organizationId, normalizedAlias])
   @@index([localityId])
@@ -1413,8 +1484,8 @@ model Lead {
   // Demand pool linkage (Phase: Demand Pool + Matching) - when this Lead
   // originated from (or was later linked to) a long-term CustomerContact,
   // never a duplicate identity. See CustomerContact.leads.
-  customerContactId String?
-  customerContact   CustomerContact? @relation("LeadCustomerContact", fields: [customerContactId], references: [id])
+  customerContactId        String?
+  customerContact          CustomerContact?     @relation("LeadCustomerContact", fields: [customerContactId], references: [id])
   // Set only when this Lead was created via [Create Lead from Requirement];
   // the inverse FK lives on CustomerRequirement.convertedLeadId (1:1).
   convertedFromRequirement CustomerRequirement? @relation("LeadFromRequirement")
@@ -1422,26 +1493,27 @@ model Lead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  activities              Activity[]
-  followUps               FollowUp[]
-  visits                  Visit[]
-  sharedProperties        SharedPropertyLog[]
-  transfers               LeadTransfer[]
-  scoreHistory            LeadScoreHistory[]
-  whatsappConversations   WhatsAppConversation[]
-  catalogueShares         CatalogueShare[]
+  activities                   Activity[]
+  followUps                    FollowUp[]
+  visits                       Visit[]
+  sharedProperties             SharedPropertyLog[]
+  transfers                    LeadTransfer[]
+  scoreHistory                 LeadScoreHistory[]
+  whatsappConversations        WhatsAppConversation[]
+  catalogueShares              CatalogueShare[]
   cataloguePropertyPreferences CataloguePropertyPreference[]
-  deals                   Deal[]
-  documents               Document[]
-  assignmentHistory       LeadAssignmentHistory[]
-  requirementBroadcasts   RequirementBroadcast[]
-  matchRecommendations    MatchRecommendation[]
-  externalLeadEvents      ExternalLeadEvent[]
-  propertyRecommendations PropertyRecommendation[] @relation("PropertyRecommendationLead")
+  deals                        Deal[]
+  documents                    Document[]
+  assignmentHistory            LeadAssignmentHistory[]
+  requirementBroadcasts        RequirementBroadcast[]
+  matchRecommendations         MatchRecommendation[]
+  externalLeadEvents           ExternalLeadEvent[]
+  propertyRecommendations      PropertyRecommendation[]      @relation("PropertyRecommendationLead")
+  propertyRequirements         LeadRequirement[]
   // simplified-role-workflow: additional phone numbers beyond the single
   // `phone` field above (which stays the primary/legacy number so every
   // existing query/index against it keeps working unchanged). See LeadPhone.
-  phones                  LeadPhone[]
+  phones                       LeadPhone[]
 
   @@index([organizationId, customerContactId])
   @@index([organizationId, phone])
@@ -1774,8 +1846,8 @@ model Visit {
   createdById      String?
   createdBy        User?           @relation("VisitCreatedBy", fields: [createdById], references: [id])
 
-  startedAt   DateTime?
-  completedAt DateTime?
+  startedAt          DateTime?
+  completedAt        DateTime?
   /// Overall client interest captured on [Complete Visit], 1-5. Raw star value
   /// is the source of truth; any LOW_INTEREST/MAYBE/INTERESTED/HIGHLY_INTERESTED
   /// label is derived for display only (see src/lib/visits.ts).
@@ -1791,7 +1863,7 @@ model Visit {
   properties          VisitProperty[]
   /// The client-side catalogue visit request(s) this visit was confirmed from.
   /// Empty for a visit an Admin created directly rather than from a request.
-  requestInteractions CatalogueInteraction[] @relation("VisitFromCatalogueRequest")
+  requestInteractions CatalogueInteraction[]       @relation("VisitFromCatalogueRequest")
 
   @@index([organizationId, visitDate])
   @@index([organizationId, assignedToId, visitDate])
@@ -1821,12 +1893,12 @@ model VisitProperty {
   reactionRating Int?
   reactionNote   String?
   /// Optional, only meaningful for SKIPPED/UNAVAILABLE.
-  skipReason String?
+  skipReason     String?
   /// Post-visit shortlist. Kept here rather than in a second shortlist system;
   /// CatalogueShareProperty.executiveStatus = SHORTLISTED is mirrored when the
   /// visit came from a catalogue, so the existing catalogue shortlist stays
   /// the single client-facing source of truth.
-  isPreferred Boolean @default(false)
+  isPreferred    Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2017,11 +2089,11 @@ model CatalogueShare {
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
-  properties    CatalogueShareProperty[]
-  interactions  CatalogueInteraction[]
+  properties          CatalogueShareProperty[]
+  interactions        CatalogueInteraction[]
   propertyPreferences CataloguePropertyPreference[]
-  versionEvents CatalogueVersionEvent[]
-  visits        Visit[]
+  versionEvents       CatalogueVersionEvent[]
+  visits              Visit[]
 
   @@index([organizationId, leadId])
   @@map("catalogue_shares")
@@ -2100,10 +2172,10 @@ model CatalogueInteraction {
   // whole transaction (the Visit included), so a double-submit can never
   // produce two Visits for one request.
   scheduledVisitId String?
-  scheduledVisit   Visit?                   @relation("VisitFromCatalogueRequest", fields: [scheduledVisitId], references: [id])
+  scheduledVisit   Visit?    @relation("VisitFromCatalogueRequest", fields: [scheduledVisitId], references: [id])
   scheduledAt      DateTime?
   scheduledById    String?
-  scheduledBy      User?                    @relation("CatalogueRequestScheduledBy", fields: [scheduledById], references: [id])
+  scheduledBy      User?     @relation("CatalogueRequestScheduledBy", fields: [scheduledById], references: [id])
 
   @@index([catalogueShareId, type])
   @@index([organizationId, type, scheduledVisitId])
@@ -2129,20 +2201,20 @@ enum CataloguePropertyPreferenceStatus {
 }
 
 model CataloguePropertyPreference {
-  id               String                             @id @default(cuid())
-  organizationId   String                             @default("org_default")
-  organization     Organization                       @relation(fields: [organizationId], references: [id])
+  id               String                            @id @default(cuid())
+  organizationId   String                            @default("org_default")
+  organization     Organization                      @relation(fields: [organizationId], references: [id])
   catalogueShareId String
-  catalogueShare   CatalogueShare                     @relation(fields: [catalogueShareId], references: [id], onDelete: Cascade)
+  catalogueShare   CatalogueShare                    @relation(fields: [catalogueShareId], references: [id], onDelete: Cascade)
   propertyId       String
-  property         Property                           @relation(fields: [propertyId], references: [id])
+  property         Property                          @relation(fields: [propertyId], references: [id])
   leadId           String
-  lead             Lead                               @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  status           CataloguePropertyPreferenceStatus  @default(UNDECIDED)
+  lead             Lead                              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  status           CataloguePropertyPreferenceStatus @default(UNDECIDED)
   note             String?
   respondedAt      DateTime?
-  createdAt        DateTime                           @default(now())
-  updatedAt        DateTime                           @updatedAt
+  createdAt        DateTime                          @default(now())
+  updatedAt        DateTime                          @updatedAt
 
   @@unique([catalogueShareId, propertyId])
   @@index([organizationId, leadId, status])
@@ -2535,7 +2607,7 @@ model PropertyImage {
   deletedAt    DateTime?
 
   availabilityReports PropertyAvailabilityReport[] // Phase 4 - required evidence photo
-  uploadSession      StorageUploadSession?
+  uploadSession       StorageUploadSession?
 
   @@unique([storageKey])
   @@index([organizationId, propertyId])
@@ -2575,29 +2647,29 @@ enum StorageUploadStatus {
  * session row created server-side.
  */
 model StorageUploadSession {
-  id             String              @id @default(cuid())
-  organizationId String              @default("org_default")
-  organization   Organization        @relation(fields: [organizationId], references: [id])
-  actorId        String
-  objectKey      String
-  mimeType       String
-  sizeBytes      Int?
+  id               String                @id @default(cuid())
+  organizationId   String                @default("org_default")
+  organization     Organization          @relation(fields: [organizationId], references: [id])
+  actorId          String
+  objectKey        String
+  mimeType         String
+  sizeBytes        Int?
   originalFilename String?
-  purpose        String // PROPERTY_IMAGE | DOCUMENT | HEALTH_CHECK
-  entityType     String // PROPERTY | LEAD | OWNER | DEAL | PAYMENT
-  entityId       String
-  imagePurpose   PropertyImagePurpose?
-  visibility     MediaVisibility     @default(PUBLIC)
-  isCover        Boolean             @default(false)
-  caption        String?
-  status         StorageUploadStatus @default(PENDING)
-  expiresAt      DateTime
-  confirmedAt    DateTime?
-  propertyImageId String?            @unique
-  propertyImage   PropertyImage?     @relation(fields: [propertyImageId], references: [id], onDelete: SetNull)
-  documentId     String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  purpose          String // PROPERTY_IMAGE | DOCUMENT | HEALTH_CHECK
+  entityType       String // PROPERTY | LEAD | OWNER | DEAL | PAYMENT
+  entityId         String
+  imagePurpose     PropertyImagePurpose?
+  visibility       MediaVisibility       @default(PUBLIC)
+  isCover          Boolean               @default(false)
+  caption          String?
+  status           StorageUploadStatus   @default(PENDING)
+  expiresAt        DateTime
+  confirmedAt      DateTime?
+  propertyImageId  String?               @unique
+  propertyImage    PropertyImage?        @relation(fields: [propertyImageId], references: [id], onDelete: SetNull)
+  documentId       String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   @@unique([organizationId, objectKey])
   @@index([organizationId, status, expiresAt])
@@ -3030,13 +3102,13 @@ model VisitFeedback {
 
   customerLiked       String? // JSON array of strings
   customerDisliked    String? // JSON array of strings
-  budgetIssue         Boolean @default(false)
-  areaIssue           Boolean @default(false)
-  parkingIssue        Boolean @default(false)
-  familyRejected      Boolean @default(false)
-  ownerRejected       Boolean @default(false)
-  willVisitAgain      Boolean @default(false)
-  negotiationRequired Boolean @default(false)
+  budgetIssue         Boolean  @default(false)
+  areaIssue           Boolean  @default(false)
+  parkingIssue        Boolean  @default(false)
+  familyRejected      Boolean  @default(false)
+  ownerRejected       Boolean  @default(false)
+  willVisitAgain      Boolean  @default(false)
+  negotiationRequired Boolean  @default(false)
   additionalNotes     String?
   // simplified-role-workflow: a `rating Int?` field briefly lived here
   // (spec item 11) before a later review found it duplicated two other,
@@ -3053,10 +3125,10 @@ model VisitFeedback {
   // the other two. Never applied to any database, so removed at the
   // migration source (prisma/migrations/20260822120000_simplified_role_workflow_additive)
   // rather than via a second add/drop pair.
-  submittedById String
-  submittedBy   User     @relation("VisitFeedbackSubmittedBy", fields: [submittedById], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  submittedById       String
+  submittedBy         User     @relation("VisitFeedbackSubmittedBy", fields: [submittedById], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@map("visit_feedback")
 }
@@ -3195,20 +3267,20 @@ enum CustomerRequirementPriority {
 /// requirements never depend on `bhk` (left null), matching the same
 /// convention already established on Property/Lead.
 model CustomerRequirement {
-  id                     String               @id @default(cuid())
-  organizationId         String               @default("org_default")
-  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  customerContactId      String
-  customerContact        CustomerContact      @relation(fields: [customerContactId], references: [id], onDelete: Cascade)
+  id                String          @id @default(cuid())
+  organizationId    String          @default("org_default")
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerContactId String
+  customerContact   CustomerContact @relation(fields: [customerContactId], references: [id], onDelete: Cascade)
 
-  assetClass             AssetClass           @default(RESIDENTIAL)
-  transactionType        TransactionType      @default(RENT)
+  assetClass             AssetClass                  @default(RESIDENTIAL)
+  transactionType        TransactionType             @default(RENT)
   propertyType           PropertyType?
   commercialPropertyType PropertyType?
   // JSON string array of locality names - mirrors Lead.preferredLocation
   // being a single string, but a requirement may legitimately span more
   // than one acceptable locality.
-  preferredLocalities    String               @default("[]")
+  preferredLocalities    String                      @default("[]")
   minBudget              Int?
   maxBudget              Int?
   minArea                Int?
@@ -3223,21 +3295,21 @@ model CustomerRequirement {
   cabins                 Int?
   possession             String?
   notes                  String?
-  active                 Boolean              @default(true)
+  active                 Boolean                     @default(true)
   priority               CustomerRequirementPriority @default(MEDIUM)
   // Bumped by [Mark Requirement Confirmed]; a requirement older than
   // SystemConfig.requirementStaleAfterDays is excluded from automatic
   // matching (still searchable) until re-confirmed. See REQUIREMENT_EXPIRY.
-  lastConfirmedAt        DateTime             @default(now())
+  lastConfirmedAt        DateTime                    @default(now())
   createdById            String?
-  createdBy              User?                @relation("CustomerRequirementCreatedBy", fields: [createdById], references: [id])
+  createdBy              User?                       @relation("CustomerRequirementCreatedBy", fields: [createdById], references: [id])
   // 1:1 - set once this requirement was used to create a Lead via
   // [Create Lead from Requirement]; prevents creating a second Lead from the
   // same requirement.
-  convertedLeadId        String?              @unique
-  convertedLead          Lead?                @relation("LeadFromRequirement", fields: [convertedLeadId], references: [id])
-  createdAt              DateTime             @default(now())
-  updatedAt              DateTime             @updatedAt
+  convertedLeadId        String?                     @unique
+  convertedLead          Lead?                       @relation("LeadFromRequirement", fields: [convertedLeadId], references: [id])
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
 
   recommendations PropertyRecommendation[]
 
@@ -3305,28 +3377,28 @@ model PropertyRecommendation {
   source            DemandCandidateSource
   candidateKey      String
   customerContactId String?
-  customerContact   CustomerContact?     @relation(fields: [customerContactId], references: [id], onDelete: Cascade)
+  customerContact   CustomerContact?      @relation(fields: [customerContactId], references: [id], onDelete: Cascade)
   leadId            String?
-  lead              Lead?                @relation("PropertyRecommendationLead", fields: [leadId], references: [id], onDelete: Cascade)
+  lead              Lead?                 @relation("PropertyRecommendationLead", fields: [leadId], references: [id], onDelete: Cascade)
   requirementId     String?
-  requirement       CustomerRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  requirement       CustomerRequirement?  @relation(fields: [requirementId], references: [id], onDelete: SetNull)
 
   tier    RecommendationTier
   score   Int
-  reasons String             @default("[]") // JSON string array of human-readable explanation lines
+  reasons String               @default("[]") // JSON string array of human-readable explanation lines
   status  RecommendationStatus @default(PENDING)
 
   preparedAt        DateTime?
-  sentAt             DateTime?
-  channel            String? // e.g. "WHATSAPP_CLICK_TO_CHAT", "WHATSAPP_META"
-  providerMessageId  String?
-  createdById        String?
-  createdBy          User?    @relation("PropertyRecommendationCreatedBy", fields: [createdById], references: [id])
+  sentAt            DateTime?
+  channel           String? // e.g. "WHATSAPP_CLICK_TO_CHAT", "WHATSAPP_META"
+  providerMessageId String?
+  createdById       String?
+  createdBy         User?     @relation("PropertyRecommendationCreatedBy", fields: [createdById], references: [id])
 
   responseOutcome CustomerResponseOutcome?
   respondedAt     DateTime?
   respondedById   String?
-  respondedBy     User?     @relation("PropertyRecommendationRespondedBy", fields: [respondedById], references: [id])
+  respondedBy     User?                    @relation("PropertyRecommendationRespondedBy", fields: [respondedById], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

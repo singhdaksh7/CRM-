@@ -22,6 +22,7 @@ import { LeadPhonePicker, type PhoneOption } from "./lead-phone-picker";
 import { ClientPreferencesPanel, type PreferenceCard, type CatalogueResponseSummary } from "./client-preferences-panel";
 import { VisitScheduleWithCandidates } from "./visit-schedule-with-candidates";
 import { HUMAN_FOLLOWUP_TYPES, DEFAULT_FOLLOWUP_TYPE } from "@/lib/follow-up-types";
+import { LeadRequirementsPanel } from "./lead-requirements-panel";
 
 /** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
 type UserSummary = Pick<User, "id" | "name">;
@@ -573,6 +574,7 @@ function OverviewTab({
 
   return (
     <div className="space-y-6">
+      <LeadRequirementsPanel leadId={lead.id} />
       {nextAction ? (
         <div className="rounded-2xl border-2 border-[#3366FF] bg-[#EFF4FF]/30 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

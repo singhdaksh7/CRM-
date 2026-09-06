@@ -23,7 +23,7 @@ export const HANDOVER_ADMIN_EMAIL = "founder@kpproperties.co.in";
  * comparison ever trusts this literal; it exists purely as a
  * documentation/sanity cross-check for a reviewer skimming this file.
  */
-export const EXPECTED_MIGRATION_COUNT_AT_BUILD_TIME = 33;
+export const EXPECTED_MIGRATION_COUNT_AT_BUILD_TIME = 34;
 
 /**
  * Must be passed via `--confirm=<value>` (exact match, case-sensitive) in
