@@ -75,7 +75,7 @@ describe("inventory import preview service", () => {
   it("does not silently create an unknown inventory partner", async () => {
     const row = { ...direct, Source: "IND", Partner: "Unknown Broker", Owner: "", Phone: "" };
     const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY" });
-    expect(result.partnerResolution).toBe("NOT_FOUND"); expect(result.state).toBe("ERROR");
+    expect(result.partnerResolution).toBe("NOT_FOUND"); expect(result.sourceResolution).toBe("REQUIRED"); expect(result.state).toBe("NEEDS_REVIEW");
   });
   it("requires a Data Manager source decision for ambiguous source text", async () => {
     const row = { ...direct, Source: "BAWA SIR NE DIYA HAI", Owner: "", Phone: "" };
@@ -95,11 +95,48 @@ describe("inventory import preview service", () => {
     const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY", resolutions: { "2": { inventorySource: "DIRECT" } } });
     expect(result.sourceResolution).toBe("CONFIRMED"); expect(result.data.inventorySource).toBe("DIRECT"); expect(result.data.partnerId).toBeNull();
   });
+  it("applies one grouped source decision to all whitespace/case-equivalent rows", async () => {
+    db.inventoryPartner.findMany.mockResolvedValue([{ id: "partner-1", name: "Bawa Sir", company: null }]);
+    const rows = [
+      { ...direct, Source: " BAWA   SIR ", Owner: "", Phone: "" },
+      { ...direct, Source: "bawa sir", Owner: "", Phone: "", __spreadsheetRowNumber: "3" },
+    ];
+    const result = await previewInventoryImport({ organizationId: "org-a", rows, mapping, mode: "CREATE_ONLY", sourceResolutions: { "bawa sir": { inventorySource: "INDIRECT", partnerId: "partner-1" } } });
+    expect(result).toHaveLength(2);
+    expect(result.every((row) => row.partnerId === "partner-1" && row.data.inventorySource === "INDIRECT" && row.state !== "NEEDS_REVIEW")).toBe(true);
+  });
+  it("keeps blank and unknown source groups unresolved until a group choice is made", async () => {
+    const rows = [{ ...direct, Source: "", Owner: "", Phone: "" }, { ...direct, Source: "BAWA SIR", Owner: "", Phone: "", __spreadsheetRowNumber: "3" }];
+    const result = await previewInventoryImport({ organizationId: "org-a", rows, mapping, mode: "CREATE_ONLY" });
+    expect(result.map((row) => row.state)).toEqual(["NEEDS_REVIEW", "NEEDS_REVIEW"]);
+    expect(result.every((row) => row.sourceResolution === "REQUIRED")).toBe(true);
+  });
+  it("recalculates grouped rows after a direct source decision", async () => {
+    const row = { ...direct, Source: "BAWA SIR", Owner: "", Phone: "" };
+    const [before] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY" });
+    const [after] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY", sourceResolutions: { "bawa sir": { inventorySource: "DIRECT" } } });
+    expect(before.state).toBe("NEEDS_REVIEW"); expect(after.data.inventorySource).toBe("DIRECT"); expect(after.state).not.toBe("NEEDS_REVIEW");
+  });
+  it("accepts a selected broker only when it belongs to the importing organization", async () => {
+    db.inventoryPartner.findMany.mockResolvedValue([]);
+    const row = { ...direct, Source: "BAWA SIR", Owner: "", Phone: "" };
+    const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY", sourceResolutions: { "bawa sir": { inventorySource: "INDIRECT", partnerId: "partner-from-org-b" } } });
+    expect(result.partnerResolution).toBe("NOT_FOUND"); expect(result.state).toBe("NEEDS_REVIEW");
+    expect(db.inventoryPartner.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-a" }) }));
+  });
   it("allows an authorized explicit existing-partner resolution", async () => {
     db.inventoryPartner.findMany.mockResolvedValue([{ id: "partner-1", name: "Known", company: null }]);
     const row = { ...direct, Source: "IND", Partner: "Unknown Broker", Owner: "", Phone: "", __spreadsheetRowNumber: "57" };
     const [result] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY", resolutions: { "57": { partnerId: "partner-1" } } });
     expect(result.rowNumber).toBe(57); expect(result.partnerResolution).toBe("MATCHED");
+  });
+  it("requires a broker for an exact indirect source until one is selected", async () => {
+    const row = { ...direct, Source: "IND", Partner: "", Owner: "", Phone: "" };
+    const [unresolved] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY" });
+    expect(unresolved.state).toBe("NEEDS_REVIEW");
+    db.inventoryPartner.findMany.mockResolvedValue([{ id: "partner-1", name: "Broker", company: null }]);
+    const [resolved] = await previewInventoryImport({ organizationId: "org-a", rows: [row], mapping, mode: "CREATE_ONLY", sourceResolutions: { "ind": { partnerId: "partner-1" } } });
+    expect(resolved.partnerId).toBe("partner-1"); expect(resolved.state).not.toBe("NEEDS_REVIEW");
   });
   it("safe upsert updates only exact matches", async () => {
     db.property.findMany.mockResolvedValue([{ id: "p1", propertyCode: "X", title: direct.Title, area: direct.Location, address: direct.Address, floorNumber: null, builtUpAreaSqft: 850, monthlyRent: 25000, salePrice: null, bhk: 2, ownerPhone: "919876543210" }]);

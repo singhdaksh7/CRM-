@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyImportFallbackDefaults, applySheetDefaults, classifyDuplicate, defaultImportAction, deriveSheetContext, errorsToCsv, fieldDiff, headerSignature, normalizeMappedRow, parseArea, parseAreaDetailed, parseBoolean,
-  parseFloor, parseFloorDetailed, parseInventorySource, parseMoney, parseParkingLift, parsePriceDetailed, parseSourceDetailed, protectCsvCell, suggestColumnMapping, validateImportedProperty,
+  parseFloor, parseFloorDetailed, parseInventorySource, parseMoney, parseParkingLift, parsePriceDetailed, parseSourceDetailed, protectCsvCell, sourceResolutionKey, suggestColumnMapping, validateImportedProperty,
 } from "./inventory-import-core";
 
 describe("inventory import header mapping", () => {
@@ -175,6 +175,11 @@ describe("parseSourceDetailed", () => {
     expect(result.confident).toBe(false); expect(result.sourceRaw).toBe(raw); expect(result.inventorySource).toBeNull();
   });
   it("treats a whitespace-only cell as an unresolved source", () => expect(parseSourceDetailed("   ")).toEqual({ inventorySource: null, sourceRaw: null, confident: false }));
+  it("groups source values using only trim, whitespace folding, and case", () => {
+    expect(sourceResolutionKey("  BAWA   Sir ")).toBe("bawa sir");
+    expect(sourceResolutionKey("Bawa-Sir")).not.toBe(sourceResolutionKey("Bawa Sir"));
+    expect(sourceResolutionKey("   ")).toBe("");
+  });
 });
 
 describe("parseParkingLift truth table", () => {

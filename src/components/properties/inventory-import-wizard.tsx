@@ -13,15 +13,18 @@ type Partner = { id: string; name: string; company: string | null };
 type Resolution = { action?: ImportActionValue; partnerId?: string; existingPropertyId?: string; inventorySource?: "DIRECT" | "INDIRECT" };
 type Preset = { id: string; name: string; mapping: Record<string, string> };
 type LocalityAliasResolution = { alias: string; localityId: string; name: string };
+type SourceResolution = { partnerId?: string; inventorySource?: "DIRECT" | "INDIRECT" };
 
 const labels: Record<string, string> = { area: "Locality", address: "Specific / complete address", builtUpAreaSqft: "Built-up area (sq ft)", ownerAlternatePhone: "Alternate phone", parkingLift: "Combined parking/lift" };
 const steps = ["Upload", "Sheet", "Headers & mapping", "Preview & validate", "Duplicates", "Confirm", "Result"];
+const sourceKey = (raw: unknown) => String(raw ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 
 export function InventoryImportWizard() {
   const [file, setFile] = useState<File | null>(null); const [parsed, setParsed] = useState<Parsed | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({}); const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [mode, setMode] = useState("CREATE_ONLY"); const [partialPolicy, setPartialPolicy] = useState("REQUIRE_ALL_ROWS_VALID");
   const [allowBlankClear, setAllowBlankClear] = useState(false); const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
+  const [sourceResolutions, setSourceResolutions] = useState<Record<string, SourceResolution>>({});
   // Property Inventory V2 - staff-chosen raw-locality-text -> existing
   // PropertyLocality mappings, keyed by the raw alias text (deduplicated
   // across rows, since many rows commonly share the same unresolved token
@@ -40,6 +43,16 @@ export function InventoryImportWizard() {
     () => [...new Set(preview.filter((row) => row.localityResolution === "NOT_FOUND").map((row) => String(row.data.area ?? "")).filter(Boolean))],
     [preview]
   );
+  const sourceGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; raw: string; rows: PreviewRow[]; indirectOnly: boolean }>();
+    for (const row of preview.filter((item) => item.sourceResolution === "REQUIRED")) {
+      const key = sourceKey(row.data.sourceRaw);
+      const existing = groups.get(key);
+      if (existing) { existing.rows.push(row); existing.indirectOnly &&= row.data.inventorySource === "INDIRECT"; }
+      else groups.set(key, { key, raw: String(row.data.sourceRaw ?? "").trim(), rows: [row], indirectOnly: row.data.inventorySource === "INDIRECT" });
+    }
+    return [...groups.values()];
+  }, [preview]);
 
   async function parse(selectedSheet?: string) {
     if (!file) return; setBusy(true); setError("");
@@ -53,14 +66,14 @@ export function InventoryImportWizard() {
     if (presetResponse.ok) setPresets((await presetResponse.json()).presets);
   }
 
-  async function loadPreview(nextResolutions = resolutions, nextLocalityAliasResolutions = localityAliasResolutions) {
+  async function loadPreview(nextResolutions = resolutions, nextLocalityAliasResolutions = localityAliasResolutions, nextSourceResolutions = sourceResolutions) {
     if (!parsed) return; setBusy(true); setError("");
     const localityAliasResolutionsPayload = Object.values(nextLocalityAliasResolutions).map(({ alias, localityId }) => ({ alias, localityId }));
     // sheetName must match what execute() sends below - otherwise the
     // preview a Data Manager reviews (sheet-derived assetClass/bhk/
     // listingType defaults applied or not) can silently diverge from what
     // actually gets validated/created on confirm.
-    const response = await fetch("/api/properties/import/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: parsed.rows, mapping, mode, allowBlankClear, resolutions: nextResolutions, localityAliasResolutions: localityAliasResolutionsPayload, sheetName: parsed.selectedSheet }) });
+    const response = await fetch("/api/properties/import/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows: parsed.rows, mapping, mode, allowBlankClear, resolutions: nextResolutions, sourceResolutions: nextSourceResolutions, localityAliasResolutions: localityAliasResolutionsPayload, sheetName: parsed.selectedSheet }) });
     const body = await response.json(); setBusy(false); if (!response.ok) return setError(body.error ?? "Preview failed"); setPreview(body.rows);
   }
 
@@ -68,16 +81,21 @@ export function InventoryImportWizard() {
     const next = { ...resolutions, [String(rowNumber)]: { ...resolutions[String(rowNumber)], ...value } }; setResolutions(next); void loadPreview(next);
   }
 
-  async function createPartnerForSource(row: PreviewRow) {
-    const name = window.prompt("Broker / source name", String(row.data.sourceRaw ?? ""));
+  function resolveSourceGroup(key: string, value: SourceResolution) {
+    const next = { ...sourceResolutions, [key]: { ...sourceResolutions[key], ...value } };
+    setSourceResolutions(next); void loadPreview(resolutions, localityAliasResolutions, next);
+  }
+
+  async function createPartnerForSource(key: string, raw: string) {
+    const name = window.prompt("Broker / source name", raw);
     if (!name?.trim()) return;
     const phone = window.prompt("Broker phone (required)");
     if (!phone?.trim()) return setError("A broker phone is required to create an Inventory Partner.");
-    const response = await fetch("/api/inventory-partners", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim(), phone: phone.trim(), localities: [], notes: `Created while resolving spreadsheet source: ${String(row.data.sourceRaw ?? "")}` }) });
+    const response = await fetch("/api/inventory-partners", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim(), phone: phone.trim(), localities: [], notes: `Created while resolving spreadsheet source: ${raw}` }) });
     const body = await response.json();
     if (!response.ok) return setError(body.error ?? "Could not create broker");
     setPartners((current) => [body.inventoryPartner, ...current]);
-    resolve(row.rowNumber, { inventorySource: "INDIRECT", partnerId: body.inventoryPartner.id });
+    resolveSourceGroup(key, { inventorySource: "INDIRECT", partnerId: body.inventoryPartner.id });
   }
 
   /** Maps a raw, unresolved locality token (e.g. "RN") to an existing PropertyLocality, then re-runs the preview live so every row sharing that token updates at once. */
@@ -106,10 +124,10 @@ export function InventoryImportWizard() {
   async function deletePreset(preset: Preset) { if (!window.confirm(`Delete mapping preset “${preset.name}”?`)) return; const response = await fetch(`/api/properties/import/presets/${preset.id}`, { method: "DELETE" }); if (response.ok) setPresets((current) => current.filter((item) => item.id !== preset.id)); }
 
   async function execute() {
-    if (!parsed) return; if (!window.confirm(`Import ${preview.filter((row) => row.action !== "SKIP" && row.state !== "ERROR").length} actionable rows? No spreadsheet row is written until you confirm here.`)) return;
+    if (!parsed) return; if (!window.confirm(`Import ${preview.filter((row) => row.action !== "SKIP" && row.state !== "ERROR" && row.state !== "NEEDS_REVIEW").length} actionable rows? No spreadsheet row is written until you confirm here.`)) return;
     setBusy(true); setError("");
     const localityAliasResolutionsPayload = Object.values(localityAliasResolutions).map(({ alias, localityId }) => ({ alias, localityId }));
-    const response = await fetch("/api/properties/import/execute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: parsed.fileName, fileHash: parsed.fileHash, sheetName: parsed.selectedSheet, rows: parsed.rows, mapping, mode, partialPolicy, allowBlankClear, resolutions, localityAliasResolutions: localityAliasResolutionsPayload }) });
+    const response = await fetch("/api/properties/import/execute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName: parsed.fileName, fileHash: parsed.fileHash, sheetName: parsed.selectedSheet, rows: parsed.rows, mapping, mode, partialPolicy, allowBlankClear, resolutions, sourceResolutions, localityAliasResolutions: localityAliasResolutionsPayload }) });
     const body = await response.json(); setBusy(false); if (!response.ok) return setError(body.error ?? "Import failed"); setResult(body);
   }
 
@@ -125,7 +143,8 @@ export function InventoryImportWizard() {
       <div className="grid gap-2 md:grid-cols-2">{IMPORTABLE_PROPERTY_FIELDS.map((field) => <label key={field} className="grid grid-cols-2 items-center gap-2 text-xs"><span className="font-semibold">{labels[field] ?? field}</span><Select value={mapping[field] ?? ""} onChange={(event) => setMapping((current) => ({ ...current, [field]: event.target.value }))}><option value="">Not mapped</option>{parsed.headers.map((header) => <option key={header}>{header}</option>)}</Select></label>)}</div>
       <div className="grid gap-3 md:grid-cols-3"><label className="text-xs font-semibold">Import mode<Select value={mode} onChange={(event) => setMode(event.target.value)}><option value="CREATE_ONLY">Create only (safest)</option><option value="UPSERT_SAFE">Safe upsert exact matches</option><option value="UPDATE_EXISTING_ONLY">Update existing only</option></Select></label><label className="text-xs font-semibold">Partial policy<Select value={partialPolicy} onChange={(event) => setPartialPolicy(event.target.value)}><option value="REQUIRE_ALL_ROWS_VALID">Require all rows valid</option><option value="IMPORT_VALID_ROWS">Import valid rows only</option></Select></label><Checkbox label="Allow blank cells to clear CRM values" checked={allowBlankClear} onChange={(event) => setAllowBlankClear(event.target.checked)}/></div>
       <Button onClick={() => void loadPreview()} loading={busy}>Build validation preview</Button></section></>}
-    {preview.length > 0 && !result && <section className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold">Preview and duplicate resolution</h2><p className="text-sm text-slate-600">{preview.length} rows · {preview.filter((row) => row.state === "ERROR").length} errors · {preview.filter((row) => row.duplicateClass !== "NEW").length} duplicate candidates</p></div><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={()=>resolveAllExact("SKIP")}>Skip all exact</Button>{mode !== "CREATE_ONLY" && <Button size="sm" variant="secondary" onClick={()=>resolveAllExact("UPDATE_EXISTING")}>Update all exact</Button>}<Select className="w-auto" value={filter} onChange={(event) => { setFilter(event.target.value); setPreviewPage(1); }}><option>ALL</option>{["READY","WARNING","ERROR","DUPLICATE","SKIPPED"].map((value) => <option key={value}>{value}</option>)}</Select></div></div>
+    {preview.length > 0 && !result && <section className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-bold">Preview and duplicate resolution</h2><p className="text-sm text-slate-600">{preview.length} rows · {preview.filter((row) => row.state === "ERROR").length} errors · {preview.filter((row) => row.state === "NEEDS_REVIEW").length} need review · {preview.filter((row) => row.duplicateClass !== "NEW").length} duplicate candidates</p></div><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={()=>resolveAllExact("SKIP")}>Skip all exact</Button>{mode !== "CREATE_ONLY" && <Button size="sm" variant="secondary" onClick={()=>resolveAllExact("UPDATE_EXISTING")}>Update all exact</Button>}<Select className="w-auto" value={filter} onChange={(event) => { setFilter(event.target.value); setPreviewPage(1); }}><option>ALL</option>{["READY","WARNING","NEEDS_REVIEW","ERROR","DUPLICATE","SKIPPED"].map((value) => <option key={value}>{value}</option>)}</Select></div></div>
+      {sourceGroups.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2"><h3 className="text-sm font-bold text-amber-950">Source resolution</h3><div className="grid gap-2 text-xs"><div className="hidden grid-cols-[minmax(9rem,1fr)_4rem_minmax(12rem,1fr)] gap-2 font-semibold text-amber-900 md:grid"><span>Source</span><span>Rows</span><span>Resolution</span></div>{sourceGroups.map((group) => { const value = sourceResolutions[group.key] ?? {}; return <div key={group.key || "__blank__"} className="grid gap-2 rounded-lg bg-white p-2 md:grid-cols-[minmax(9rem,1fr)_4rem_minmax(12rem,1fr)] md:items-center"><span title={group.raw || "Blank source"} className="font-semibold">{group.raw || "(blank)"}</span><span>{group.rows.length}</span><div className="flex flex-wrap gap-2">{group.indirectOnly ? <span className="self-center text-slate-700">Through Broker</span> : <Select className="w-auto" value={value.inventorySource ?? ""} onChange={(event) => resolveSourceGroup(group.key, { inventorySource: event.target.value as "DIRECT" | "INDIRECT", partnerId: event.target.value === "DIRECT" ? undefined : value.partnerId })}><option value="">Choose source…</option><option value="DIRECT">Direct Owner</option><option value="INDIRECT">Through Broker</option></Select>}{(group.indirectOnly || value.inventorySource === "INDIRECT") && <><Select className="w-auto" value={value.partnerId ?? ""} onChange={(event) => resolveSourceGroup(group.key, { inventorySource: "INDIRECT", partnerId: event.target.value })}><option value="">Choose broker…</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.name}{partner.company ? ` · ${partner.company}` : ""}</option>)}</Select><button type="button" className="text-blue-700 underline" onClick={() => void createPartnerForSource(group.key, group.raw)}>+ Create broker</button></>}</div></div>; })}</div></div>}
       {unresolvedLocalities.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
           <p className="text-sm font-semibold text-amber-900">Unresolved localities - {unresolvedLocalities.length} raw value(s) don&apos;t match an existing locality. They&apos;ll still import fine as new localities, but you can map them to an existing one instead (e.g. an abbreviation like &quot;RN&quot; → Rajouri Garden):</p>
@@ -148,7 +167,7 @@ export function InventoryImportWizard() {
           </div>
         </div>
       )}
-      <div className="overflow-x-auto rounded-2xl border bg-white"><table className="min-w-full text-xs"><thead className="bg-slate-50 text-left"><tr>{["Row","Code / title","Location","Source","Price","Owner","State","Duplicate","Action"].map((heading) => <th key={heading} className="p-3">{heading}</th>)}</tr></thead><tbody>{visible.map((row) => <tr key={row.rowNumber} className="border-t align-top"><td className="p-3">{row.rowNumber}</td><td className="p-3">{String(row.data.propertyCode ?? "—")}<br/><strong>{String(row.data.title ?? "—")}</strong></td><td className="p-3">{String(row.data.area ?? "—")}{row.localityResolution === "ALIAS_MATCHED" && <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">resolved via saved alias</span>}<br/>{String(row.data.address ?? "")}</td><td className="p-3">{String(row.data.inventorySource ?? "Needs resolution")}{row.data.sourceRaw ? <p className="text-slate-500">Excel: {String(row.data.sourceRaw)}</p> : null}</td><td className="p-3">{String(row.data.monthlyRent ?? row.data.salePrice ?? "—")}</td><td className="p-3">{String(row.data.ownerName ?? "—")}</td><td className="p-3"><strong>{row.state}</strong>{row.issues.map((issue, i) => <p key={i} className={issue.severity === "ERROR" ? "text-red-700" : "text-amber-700"}>{issue.field}: {issue.message}</p>)}</td><td className="p-3">{row.duplicateClass}{row.matchedProperty && <p>{row.matchedProperty.propertyCode}</p>}{row.diff.map((diff) => <p key={diff.field}>{diff.field}: {String(diff.before ?? "—")} → {String(diff.after ?? "—")}</p>)}</td><td className="p-3 space-y-2"><Select value={row.action} onChange={(event) => resolve(row.rowNumber, { action: event.target.value as ImportActionValue })}><option value="SKIP">Skip</option><option value="CREATE">Create anyway</option><option value="UPDATE_EXISTING">Update existing</option></Select>{row.sourceResolution === "REQUIRED" && <Select value={resolutions[String(row.rowNumber)]?.inventorySource ?? ""} onChange={(event) => resolve(row.rowNumber, { inventorySource: event.target.value as "DIRECT" | "INDIRECT" })}><option value="">Resolve source…</option><option value="DIRECT">Direct Owner</option><option value="INDIRECT">Through Broker</option></Select>}{(row.partnerResolution === "NOT_FOUND" || resolutions[String(row.rowNumber)]?.inventorySource === "INDIRECT") && <><Select value={resolutions[String(row.rowNumber)]?.partnerId ?? ""} onChange={(event) => resolve(row.rowNumber, { partnerId: event.target.value })}><option value="">Choose partner</option>{partners.map((partner) => <option key={partner.id} value={partner.id}>{partner.name}{partner.company ? ` · ${partner.company}` : ""}</option>)}</Select><button type="button" className="text-blue-700 underline" onClick={() => void createPartnerForSource(row)}>+ Create broker</button></>}</td></tr>)}</tbody></table></div>
+      <div className="overflow-x-auto rounded-2xl border bg-white"><table className="min-w-full text-xs"><thead className="bg-slate-50 text-left"><tr>{["Row","Code / title","Location","Source","Price","Owner","State","Duplicate","Action"].map((heading) => <th key={heading} className="p-3">{heading}</th>)}</tr></thead><tbody>{visible.map((row) => <tr key={row.rowNumber} className="border-t align-top"><td className="p-3">{row.rowNumber}</td><td className="p-3">{String(row.data.propertyCode ?? "—")}<br/><strong>{String(row.data.title ?? "—")}</strong></td><td className="p-3">{String(row.data.area ?? "—")}{row.localityResolution === "ALIAS_MATCHED" && <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">resolved via saved alias</span>}<br/>{String(row.data.address ?? "")}</td><td className="p-3">{String(row.data.inventorySource ?? "Needs resolution")}{row.data.sourceRaw ? <p className="text-slate-500">Excel: {String(row.data.sourceRaw)}</p> : null}</td><td className="p-3">{String(row.data.monthlyRent ?? row.data.salePrice ?? "—")}</td><td className="p-3">{String(row.data.ownerName ?? "—")}</td><td className="p-3"><strong>{row.state}</strong>{row.issues.map((issue, i) => <p key={i} className={issue.severity === "ERROR" ? "text-red-700" : "text-amber-700"}>{issue.field}: {issue.message}</p>)}</td><td className="p-3">{row.duplicateClass}{row.matchedProperty && <p>{row.matchedProperty.propertyCode}</p>}{row.diff.map((diff) => <p key={diff.field}>{diff.field}: {String(diff.before ?? "—")} → {String(diff.after ?? "—")}</p>)}</td><td className="p-3"><Select value={row.action} onChange={(event) => resolve(row.rowNumber, { action: event.target.value as ImportActionValue })}><option value="SKIP">Skip</option><option value="CREATE">Create anyway</option><option value="UPDATE_EXISTING">Update existing</option></Select></td></tr>)}</tbody></table></div>
       {filtered.length > 100 && <div className="flex items-center justify-end gap-2 text-xs"><Button size="sm" variant="secondary" disabled={previewPage===1} onClick={()=>setPreviewPage((page)=>page-1)}>Previous</Button><span>Page {previewPage} of {Math.ceil(filtered.length/100)}</span><Button size="sm" variant="secondary" disabled={previewPage>=Math.ceil(filtered.length/100)} onClick={()=>setPreviewPage((page)=>page+1)}>Next</Button></div>}
       <div className="rounded-xl border bg-white p-4"><p className="mb-3 text-sm">Final confirmation will re-run validation and duplicate detection on the server. Blank clearing is <strong>{allowBlankClear ? "enabled" : "disabled"}</strong>.</p><Button onClick={() => void execute()} loading={busy}>Confirm and import</Button></div></section>}
     {result && <section className="rounded-2xl border border-green-200 bg-green-50 p-6"><h2 className="text-lg font-bold text-green-900">Import completed</h2><p className="mt-2 text-sm">Created {result.counts.created}, updated {result.counts.updated}, skipped {result.counts.skipped}, failed {result.counts.failed}.</p><div className="mt-4 flex gap-2"><Link href={`/properties/import/history/${result.job.id}`} className="rounded-xl bg-green-800 px-3 py-2 text-sm font-semibold text-white">View row results</Link><Link href="/properties" className="rounded-xl border px-3 py-2 text-sm font-semibold">Return to inventory</Link></div></section>}

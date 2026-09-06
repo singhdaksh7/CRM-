@@ -197,6 +197,16 @@ export function parseFloorDetailed(raw: unknown): FloorParseDetail {
 export interface SourceParseDetail { inventorySource: "DIRECT" | "INDIRECT" | null; sourceRaw: string | null; confident: boolean }
 
 /**
+ * A deliberately conservative key for grouping spreadsheet source values.
+ * It only trims, folds whitespace and compares case-insensitively: punctuation
+ * and spelling remain significant, so distinct broker names are never merged
+ * by an over-eager name normalizer. An empty value is a valid (blank) group.
+ */
+export function sourceResolutionKey(raw: unknown): string {
+  return String(raw ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
  * Only an exact (case-insensitive, trimmed) literal "direct"/"dir" or
  * "indirect"/"ind" is confident. Anything else (a person's name, a free-text
  * note) is deliberately unresolved. UNKNOWN is an import-resolution state,

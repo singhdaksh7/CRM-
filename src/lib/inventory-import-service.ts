@@ -5,7 +5,7 @@ import { normalizeIndianPhone } from "@/integrations/whatsapp/phone";
 import { recordAudit } from "./audit";
 import { normalize as normalizeLocalityText, resolveOrCreatePropertyLocality } from "./property-locality";
 import {
-  applyImportFallbackDefaults, applySheetDefaults, classifyDuplicate, defaultImportAction, deriveSheetContext, fieldDiff, normalizeHeader, normalizeMappedRow, validateImportedProperty, validateImportedPropertyUpdate,
+  applyImportFallbackDefaults, applySheetDefaults, classifyDuplicate, defaultImportAction, deriveSheetContext, fieldDiff, normalizeMappedRow, sourceResolutionKey, validateImportedProperty, validateImportedPropertyUpdate,
   type DuplicateClassValue, type ExistingPropertyCandidate, type ImportActionValue, type ImportFieldIssue,
 } from "./inventory-import-core";
 
@@ -38,7 +38,7 @@ export interface PreviewRow {
   partnerId: string | null;
   localityResolution: "MATCHED" | "ALIAS_MATCHED" | "NOT_FOUND" | "NOT_REQUIRED";
   localityId: string | null;
-  state: "READY" | "WARNING" | "ERROR" | "DUPLICATE" | "SKIPPED";
+  state: "READY" | "WARNING" | "NEEDS_REVIEW" | "ERROR" | "DUPLICATE" | "SKIPPED";
 }
 
 export interface PreviewInventoryParams {
@@ -48,6 +48,7 @@ export interface PreviewInventoryParams {
   mode: InventoryImportMode;
   allowBlankClear?: boolean;
   resolutions?: Record<string, { action?: ImportActionValue; partnerId?: string; existingPropertyId?: string; inventorySource?: "DIRECT" | "INDIRECT" }>;
+  sourceResolutions?: Record<string, { partnerId?: string; inventorySource?: "DIRECT" | "INDIRECT" }>;
   // Property Inventory V2 - sheet-derived defaults (see deriveSheetContext)
   // and pre-resolved locality aliases (see PropertyLocalityAlias). Both
   // optional so existing callers/tests that don't know about a sheet name or
@@ -65,7 +66,9 @@ function cleanPropertyData(data: Record<string, unknown>): Record<string, unknow
 
 function rowState(row: Pick<PreviewRow, "issues" | "duplicateClass" | "action">): PreviewRow["state"] {
   if (row.action === "SKIP") return "SKIPPED";
-  if (row.issues.some((issue) => issue.severity === "ERROR")) return "ERROR";
+  const errors = row.issues.filter((issue) => issue.severity === "ERROR");
+  if (errors.some((issue) => issue.field !== "inventorySource" && issue.field !== "partnerName" && issue.field !== "partnerId")) return "ERROR";
+  if (errors.length) return "NEEDS_REVIEW";
   if (row.duplicateClass !== "NEW") return "DUPLICATE";
   if (row.issues.length) return "WARNING";
   return "READY";
@@ -81,7 +84,10 @@ export async function previewInventoryImport(params: PreviewInventoryParams): Pr
   const codes = unique(normalized.map((row) => String(row.data.propertyCode ?? "").trim()).filter(Boolean));
   const phones = unique(normalized.map((row) => String(row.data.ownerPhone ?? "").trim()).filter(Boolean));
   const areas = unique(normalized.map((row) => String(row.data.area ?? "").trim()).filter(Boolean));
-  const explicitPartnerIds = unique(Object.values(params.resolutions ?? {}).map((resolution) => resolution.partnerId).filter((id): id is string => !!id));
+  const explicitPartnerIds = unique([
+    ...Object.values(params.resolutions ?? {}).map((resolution) => resolution.partnerId),
+    ...Object.values(params.sourceResolutions ?? {}).map((resolution) => resolution.partnerId),
+  ].filter((id): id is string => !!id));
   const needsPartners = normalized.some((row) => row.data.inventorySource === "INDIRECT" || row.sourceResolutionRequired) || explicitPartnerIds.length > 0;
   const phoneVariants = unique(phones.flatMap((phone) => [phone, phone.slice(-10), `+${phone}`, `0${phone.slice(-10)}`]));
   const normalizedAreaTokens = unique(areas.map(normalizeLocalityText).filter(Boolean));
@@ -100,7 +106,7 @@ export async function previewInventoryImport(params: PreviewInventoryParams): Pr
   ]);
   const partnerByName = new Map<string, string[]>();
   for (const partner of partners) for (const name of [partner.name, partner.company].filter(Boolean)) {
-    const key = normalizeHeader(String(name)); partnerByName.set(key, [...(partnerByName.get(key) ?? []), partner.id]);
+    const key = sourceResolutionKey(name); partnerByName.set(key, [...(partnerByName.get(key) ?? []), partner.id]);
   }
   const localityAliasMap = new Map<string, string>(localityAliases.map((row) => [row.normalizedAlias, row.localityId]));
   for (const resolution of params.localityAliasResolutions ?? []) {
@@ -113,17 +119,18 @@ export async function previewInventoryImport(params: PreviewInventoryParams): Pr
     const issues = [...row.issues];
     if (/^sample\b/i.test(String(row.data.propertyCode ?? ""))) issues.push({ field: "propertyCode", originalValue: String(row.data.propertyCode), message: "Delete the clearly marked SAMPLE template row before importing", severity: "ERROR" });
     const resolution = params.resolutions?.[String(rowNumber)] ?? {};
-    let partnerId: string | null = resolution.partnerId ?? null;
+    const groupResolution = params.sourceResolutions?.[sourceResolutionKey(row.data.sourceRaw)] ?? {};
+    let partnerId: string | null = groupResolution.partnerId ?? resolution.partnerId ?? null;
     let partnerResolution: PreviewRow["partnerResolution"] = "NOT_REQUIRED";
     let sourceResolution: PreviewRow["sourceResolution"] = "CONFIRMED";
     if (row.sourceResolutionRequired) {
-      const sourceMatches = row.data.sourceRaw ? partnerByName.get(normalizeHeader(String(row.data.sourceRaw))) ?? [] : [];
+      const sourceMatches = row.data.sourceRaw ? partnerByName.get(sourceResolutionKey(row.data.sourceRaw)) ?? [] : [];
       if (sourceMatches.length === 1) {
         row.data.inventorySource = "INDIRECT";
         partnerId = partnerId ?? sourceMatches[0];
         sourceResolution = "AUTO_MAPPED_BROKER";
-      } else if (resolution.inventorySource) {
-        row.data.inventorySource = resolution.inventorySource;
+      } else if (groupResolution.inventorySource ?? resolution.inventorySource) {
+        row.data.inventorySource = groupResolution.inventorySource ?? resolution.inventorySource;
       } else {
         sourceResolution = "REQUIRED";
         issues.push({ field: "inventorySource", originalValue: row.data.sourceRaw ? String(row.data.sourceRaw) : undefined, message: "Source classification is required: choose Direct Owner or Through Broker before creating this property", severity: "ERROR" });
@@ -131,10 +138,14 @@ export async function previewInventoryImport(params: PreviewInventoryParams): Pr
     }
     if (row.data.inventorySource === "DIRECT") { row.data.partnerId = null; delete row.data.partnerName; }
     if (row.data.inventorySource === "INDIRECT") {
-      const matches = partnerByName.get(normalizeHeader(String(row.data.partnerName ?? ""))) ?? [];
+      const matches = partnerByName.get(sourceResolutionKey(row.data.partnerName)) ?? [];
       partnerId = partnerId ?? (matches.length === 1 ? matches[0] : null);
       if (partnerId && partners.some((partner) => partner.id === partnerId)) { row.data.partnerId = partnerId; partnerResolution = "MATCHED"; }
-      else { partnerResolution = "NOT_FOUND"; issues.push({ field: "partnerName", originalValue: String(row.data.partnerName ?? ""), message: "Inventory Partner not found; choose an existing partner or skip this row", severity: "ERROR" }); }
+      else {
+        partnerResolution = "NOT_FOUND";
+        sourceResolution = "REQUIRED";
+        issues.push({ field: "partnerName", originalValue: String(row.data.partnerName ?? row.data.sourceRaw ?? ""), message: "Inventory Partner is required for an indirect source; choose an existing partner before creating this property", severity: "ERROR" });
+      }
       delete row.data.partnerName;
     }
     let ownerResolution: PreviewRow["ownerResolution"] = "NONE"; let ownerId: string | null = null;
@@ -234,9 +245,9 @@ export async function executeInventoryImport(params: PreviewInventoryParams & {
     }));
   }
   const preview = await previewInventoryImport(params);
-  const errorRows = preview.filter((row) => row.state === "ERROR");
-  if (params.partialPolicy === "REQUIRE_ALL_ROWS_VALID" && errorRows.length) throw new Error(`${errorRows.length} row(s) contain errors; correct them or explicitly choose Import Valid Rows`);
-  const actionable = preview.filter((row) => row.action !== "SKIP" && row.state !== "ERROR");
+  const errorRows = preview.filter((row) => row.state === "ERROR" || row.state === "NEEDS_REVIEW");
+  if (params.partialPolicy === "REQUIRE_ALL_ROWS_VALID" && errorRows.length) throw new Error(`${errorRows.length} row(s) contain errors or need review; correct them or explicitly choose Import Valid Rows`);
+  const actionable = preview.filter((row) => row.action !== "SKIP" && row.state !== "ERROR" && row.state !== "NEEDS_REVIEW");
   const job = await prisma.importJob.create({ data: {
     organizationId: params.organizationId, entityType: "PROPERTIES", fileName: params.fileName, sheetName: params.sheetName,
     status: "RUNNING", importMode: params.mode, partialPolicy: params.partialPolicy, allowBlankClear: params.allowBlankClear ?? false,
