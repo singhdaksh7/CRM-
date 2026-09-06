@@ -13,6 +13,10 @@ import { executeInventoryImport, previewInventoryImport, rollbackCreatedImportPr
 
 const mapping = { title: "Title", propertyType: "Type", listingType: "Listing", inventorySource: "Source", partnerName: "Partner", area: "Location", address: "Address", monthlyRent: "Rent", bhk: "BHK", bathrooms: "Baths", furnishing: "Furnishing", builtUpAreaSqft: "Sq Ft", ownerName: "Owner", ownerPhone: "Phone" };
 const direct = { Title: "Two bedroom apartment", Type: "APARTMENT", Listing: "RENT", Source: "DIR", Partner: "", Location: "Janakpuri", Address: "F Block near metro", Rent: "25k", BHK: "2", Baths: "2", Furnishing: "SEMI_FURNISHED", "Sq Ft": "850", Owner: "Ravi Kumar", Phone: "9876543210" };
+const directRows = (count: number) => Array.from({ length: count }, (_, index) => ({
+  ...direct, Title: `Two bedroom apartment ${index + 1}`, Location: `Janakpuri ${index + 1}`, Address: `F Block ${index + 1}`,
+  Phone: String(9_876_500_000 + index), __spreadsheetRowNumber: String(index + 2),
+}));
 
 beforeEach(() => {
   vi.clearAllMocks(); db.property.findMany.mockResolvedValue([]); db.owner.findMany.mockResolvedValue([]); db.inventoryPartner.findMany.mockResolvedValue([]);
@@ -67,6 +71,43 @@ describe("inventory import execution policies", () => {
     db.importJob.findFirst.mockResolvedValue({ id: "prior", status: "COMPLETED" });
     await expect(executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "same.csv", fileHash: "a".repeat(64), rows: [direct], mapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID" })).rejects.toThrow(/already has import job/);
     expect(db.importJob.create).not.toHaveBeenCalled();
+  });
+  it("keeps a one-row import in one atomic transaction", async () => {
+    const result = await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "one.csv", rows: directRows(1), mapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID" });
+    expect(result.counts).toMatchObject({ created: 1, failed: 0 });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+  });
+  it("keeps a three-row import together in one atomic transaction", async () => {
+    const result = await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "three.csv", rows: directRows(3), mapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID" });
+    expect(result.counts).toMatchObject({ created: 3, failed: 0 });
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+  });
+  it("splits a 20-row import into bounded three-row transactions", async () => {
+    const result = await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "twenty.csv", rows: directRows(20), mapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID" });
+    expect(result.counts).toMatchObject({ created: 20, failed: 0 });
+    expect(db.$transaction).toHaveBeenCalledTimes(7);
+  });
+  it("terminalizes a failed later batch and a retry creates no duplicates", async () => {
+    let transactionCall = 0;
+    db.$transaction.mockImplementation(async (callback: (client: typeof db) => Promise<unknown>) => {
+      transactionCall++;
+      if (transactionCall === 2) throw new Error("simulated later batch failure");
+      return callback(db);
+    });
+    const rows = directRows(6);
+    await expect(executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "retry.csv", rows, mapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID" })).rejects.toThrow("simulated later batch failure");
+    expect(db.property.create).toHaveBeenCalledTimes(3);
+    expect(db.importJob.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED", createdRows: 3 }) }));
+
+    db.property.findMany.mockResolvedValue(rows.slice(0, 3).map((row, index) => ({
+      id: `existing-${index}`, propertyCode: `PROP-IMP-job-${index + 2}`, title: row.Title, area: row.Location,
+      address: row.Address, floorNumber: null, builtUpAreaSqft: 850, monthlyRent: 25_000, salePrice: null,
+      bhk: 2, ownerPhone: `91${row.Phone}`,
+    })));
+    db.$transaction.mockImplementation(async (callback: (client: typeof db) => Promise<unknown>) => callback(db));
+    const retry = await executeInventoryImport({ organizationId: "org-a", actorId: "u1", fileName: "retry.csv", rows, mapping, mode: "CREATE_ONLY", partialPolicy: "REQUIRE_ALL_ROWS_VALID" });
+    expect(retry.counts).toMatchObject({ created: 0, skipped: 6, failed: 0 });
+    expect(db.property.create).toHaveBeenCalledTimes(3);
   });
 });
 
