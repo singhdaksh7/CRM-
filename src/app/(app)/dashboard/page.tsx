@@ -19,7 +19,7 @@ import { getManagerVisitBoard } from "@/lib/visit-analytics-data";
 import { ManagerVisitBoard } from "@/components/dashboard/manager-visit-board";
 import { DemandAnalyticsPanel, DemandPoolDashboardCards } from "@/components/customers/demand-dashboard-cards";
 import { DataManagerDashboard } from "@/components/dashboard/data-manager-dashboard";
-import { getDataManagerDashboardData } from "@/lib/dm-dashboard-data";
+import { getDataManagerQueues } from "@/lib/dm-queues";
 import { getOrganizationId } from "@/lib/organization";
 
 export default async function DashboardPage() {
@@ -31,8 +31,8 @@ export default async function DashboardPage() {
   // operational "Today's Work" dashboard instead of the founder-oriented
   // KPI/analytics one below - ADMIN's dashboard is completely unchanged.
   if (session.user.role === "DATA_MANAGER") {
-    const dmData = await getDataManagerDashboardData(getOrganizationId(session.user), session.user);
-    return <DataManagerDashboard data={dmData} firstName={firstName} />;
+    const queues = await getDataManagerQueues(getOrganizationId(session.user), session.user);
+    return <DataManagerDashboard queues={queues} firstName={firstName} />;
   }
 
   const data = await getDashboardCriticalData(session.user.role, session.user.id);

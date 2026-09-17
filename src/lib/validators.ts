@@ -333,6 +333,36 @@ export const leadInteractionSchema = z.object({
   notes: z.string().trim().max(4000).optional().nullable(),
 });
 
+/**
+ * simplified-data-manager-workflow - the compact "Record Call" popup body.
+ * Cross-field rules (callback date/time required for some outcomes, a
+ * lost reason required for NOT_INTERESTED, a note required for OTHER) are
+ * enforced in src/lib/record-call.ts, not here - see dm-call-outcomes.ts
+ * for the single source of truth on which outcome needs what.
+ */
+export const recordCallSchema = z.object({
+  spokeWithCustomer: z.boolean(),
+  outcome: z.enum([
+    "DIDNT_ANSWER",
+    "BUSY",
+    "SWITCHED_OFF",
+    "WRONG_NUMBER",
+    "CALL_AGAIN_LATER",
+    "INTERESTED",
+    "NEEDS_TIME",
+    "WANTS_MORE_PROPERTIES",
+    "VISIT_REQUIRED",
+    "WILL_VISIT_COME",
+    "NOT_INTERESTED",
+    "OTHER",
+  ]),
+  callbackDate: z.string().optional().nullable(),
+  callbackTime: z.string().optional().nullable(),
+  note: z.string().trim().max(2000).optional().nullable(),
+  lostReasonCategory: z.enum(["PRICE", "LOCATION", "COMPETITION", "BUDGET", "LOAN_REJECTED", "OWNER_ISSUE", "CLIENT_NOT_INTERESTED", "OTHER"]).optional().nullable(),
+  lostReasonDetail: z.string().max(500).optional().nullable(),
+});
+
 export const employeeSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
