@@ -28,7 +28,8 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   const organizationId = getOrganizationId(session!.user);
   const sp = await searchParams;
   const view = sp.view === "table" ? "table" : "card";
-  const canCreate = session?.user?.role === "ADMIN" || session?.user?.role === "DATA_MANAGER";
+  const canManage = session?.user?.role === "ADMIN" || session?.user?.role === "DATA_MANAGER";
+  const canCreate = canManage || session?.user?.role === "FIELD_EXECUTIVE";
 
   // Explicit status in the URL wins. Missing status → AVAILABLE (operational default).
   // status=ALL → no status predicate (full inventory).
@@ -101,12 +102,14 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
         </div>
         {canCreate && (
           <div className="flex flex-wrap gap-2">
-            <LinkButton href="/properties/import/history" variant="secondary">
-              <History className="h-4 w-4" /> Import history
-            </LinkButton>
-            <LinkButton href="/properties/import" variant="secondary">
-              <Upload className="h-4 w-4" /> Import Excel/CSV
-            </LinkButton>
+            {canManage && <>
+              <LinkButton href="/properties/import/history" variant="secondary">
+                <History className="h-4 w-4" /> Import history
+              </LinkButton>
+              <LinkButton href="/properties/import" variant="secondary">
+                <Upload className="h-4 w-4" /> Import Excel/CSV
+              </LinkButton>
+            </>}
             <LinkButton href="/properties/new">
               <Plus className="h-4 w-4" /> Add Property
             </LinkButton>
@@ -126,7 +129,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
           ))}
         </div>
       ) : (
-        <PropertiesTable properties={properties as never} canManage={canCreate} />
+        <PropertiesTable properties={properties as never} canManage={canManage} />
       )}
 
       {seeMoreHref && (

@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
+    const session = await requireSession(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"]);
     const body = await req.json();
     const data = createPropertySchema.parse(body);
     const organizationId = getOrganizationId(session.user);

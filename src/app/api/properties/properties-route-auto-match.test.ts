@@ -16,6 +16,7 @@ const propertyCreate = vi.fn();
 const propertyCount = vi.fn();
 const propertyFindFirst = vi.fn();
 const propertyUpdate = vi.fn();
+const requireSession = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -38,7 +39,7 @@ vi.mock("@/lib/api-auth", async () => {
         this.status = status;
       }
     },
-    requireSession: async () => ({ user: { id: "admin1", role: "ADMIN" } }),
+    requireSession: (...args: unknown[]) => requireSession(...args),
     handleApiError: (err: { status?: number; message: string }) => NextResponse.json({ error: err.message }, { status: err.status ?? 500 }),
   };
 });
@@ -79,12 +80,38 @@ function params(id: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  requireSession.mockResolvedValue({ user: { id: "admin1", role: "ADMIN" } });
   propertyCount.mockResolvedValue(0);
   propertyCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "prop1", updatedAt: new Date(), ...data }));
   recomputeMatchesForProperty.mockResolvedValue({ created: 2, updated: 0 });
 });
 
 describe("POST /api/properties - automatic match recompute (Feature 1)", () => {
+  it.each(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"])("allows %s to create a property", async (role) => {
+    requireSession.mockResolvedValueOnce({ user: { id: "creator-1", role } });
+
+    const res = await POST(createReq({ title: "2BHK", area: "Kirti Nagar" }));
+
+    expect(res.status).toBe(201);
+    expect(requireSession).toHaveBeenCalledWith(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"]);
+  });
+
+  it("takes organizationId and createdById from the session, ignoring a malicious payload value", async () => {
+    const res = await POST(createReq({ title: "2BHK", area: "Kirti Nagar", organizationId: "other-org", createdById: "other-user" }));
+
+    expect(res.status).toBe(201);
+    expect(propertyCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ organizationId: "org_default", createdById: "admin1" }) }));
+  });
+
+  it("does not create a property when the caller is unauthenticated", async () => {
+    requireSession.mockRejectedValueOnce(Object.assign(new Error("Unauthorized"), { status: 401 }));
+
+    const res = await POST(createReq({ title: "2BHK", area: "Kirti Nagar" }));
+
+    expect(res.status).toBe(401);
+    expect(propertyCreate).not.toHaveBeenCalled();
+  });
+
   it("calls recomputeMatchesForProperty for the new property after it is saved", async () => {
     const res = await POST(createReq({ title: "2BHK", area: "Kirti Nagar", listingType: "RENT", assetClass: "RESIDENTIAL" }));
     expect(res.status).toBe(201);
