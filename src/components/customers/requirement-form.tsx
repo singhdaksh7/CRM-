@@ -5,6 +5,7 @@ import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import type { CustomerRequirement, CustomerRequirementInput } from "@/lib/demand-pool/types";
 import { parseLocalities } from "@/lib/demand-pool/format";
+import { allowedUnitsForListingType, fromINR, pickDefaultUnit, toINR, UNIT_LABELS, type MoneyUnit } from "@/lib/money";
 
 const RESIDENTIAL_TYPES = ["APARTMENT", "BUILDER_FLOOR", "INDEPENDENT_HOUSE", "VILLA", "STUDIO", "FARM_HOUSE", "PLOT", "PG", "OTHER"];
 const COMMERCIAL_TYPES = ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL"];
@@ -60,8 +61,29 @@ export function RequirementForm({
   const [value, setValue] = useState<CustomerRequirementInput>(() => toInput(initial));
   const commercial = value.assetClass === "COMMERCIAL";
 
+  // Client-only display units for the budget fields (see src/lib/money.ts) -
+  // value.minBudget/maxBudget always stay plain INR Ints; these only affect
+  // how that raw amount is displayed/entered as Thousand/Lakh/Crore.
+  const [minBudgetUnit, setMinBudgetUnit] = useState<MoneyUnit>(() =>
+    pickDefaultUnit(initial?.minBudget ?? null, allowedUnitsForListingType(initial?.transactionType ?? "RENT"))
+  );
+  const [maxBudgetUnit, setMaxBudgetUnit] = useState<MoneyUnit>(() =>
+    pickDefaultUnit(initial?.maxBudget ?? null, allowedUnitsForListingType(initial?.transactionType ?? "RENT"))
+  );
+
   function set<K extends keyof CustomerRequirementInput>(key: K, next: CustomerRequirementInput[K]) {
     setValue((current) => ({ ...current, [key]: next }));
+  }
+
+  function setTransactionType(next: CustomerRequirementInput["transactionType"]) {
+    // RENT uses Thousand/Lakh, SALE uses Lakh/Crore - switching between them
+    // can't safely reinterpret an already-typed budget under the new unit
+    // set (e.g. "1.5" Crore silently becoming "1.5" Thousand), so the budget
+    // fields are cleared and re-entered under the correct units instead.
+    const allowedUnits = allowedUnitsForListingType(next);
+    setValue((current) => ({ ...current, transactionType: next, minBudget: null, maxBudget: null }));
+    setMinBudgetUnit(allowedUnits[0]);
+    setMaxBudgetUnit(allowedUnits[0]);
   }
 
   return (
@@ -99,7 +121,7 @@ export function RequirementForm({
           <Select
             aria-label="Rent / Sale"
             value={value.transactionType}
-            onChange={(e) => set("transactionType", e.target.value as CustomerRequirementInput["transactionType"])}
+            onChange={(e) => setTransactionType(e.target.value as CustomerRequirementInput["transactionType"])}
           >
             <option value="RENT">Rent</option>
             <option value="SALE">Sale</option>
@@ -166,10 +188,42 @@ export function RequirementForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Min budget">
-          <Input aria-label="Minimum budget" type="number" min={0} value={value.minBudget ?? ""} onChange={(e) => set("minBudget", e.target.value ? Number(e.target.value) : null)} />
+          <div className="flex gap-2">
+            <Input
+              aria-label="Minimum budget"
+              type="number"
+              step="any"
+              min={0}
+              className="flex-1"
+              value={value.minBudget != null ? fromINR(value.minBudget, minBudgetUnit) : ""}
+              onChange={(e) => set("minBudget", e.target.value ? toINR(Number(e.target.value), minBudgetUnit) : null)}
+            />
+            <Select aria-label="Minimum budget unit" className="w-32" value={minBudgetUnit} onChange={(e) => setMinBudgetUnit(e.target.value as MoneyUnit)}>
+              {allowedUnitsForListingType(value.transactionType).map((u) => (
+                <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+              ))}
+            </Select>
+          </div>
+          {value.minBudget != null && <p className="mt-1 text-xs text-slate-500">= ₹{value.minBudget.toLocaleString("en-IN")}</p>}
         </Field>
         <Field label="Max budget">
-          <Input aria-label="Maximum budget" type="number" min={0} value={value.maxBudget ?? ""} onChange={(e) => set("maxBudget", e.target.value ? Number(e.target.value) : null)} />
+          <div className="flex gap-2">
+            <Input
+              aria-label="Maximum budget"
+              type="number"
+              step="any"
+              min={0}
+              className="flex-1"
+              value={value.maxBudget != null ? fromINR(value.maxBudget, maxBudgetUnit) : ""}
+              onChange={(e) => set("maxBudget", e.target.value ? toINR(Number(e.target.value), maxBudgetUnit) : null)}
+            />
+            <Select aria-label="Maximum budget unit" className="w-32" value={maxBudgetUnit} onChange={(e) => setMaxBudgetUnit(e.target.value as MoneyUnit)}>
+              {allowedUnitsForListingType(value.transactionType).map((u) => (
+                <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+              ))}
+            </Select>
+          </div>
+          {value.maxBudget != null && <p className="mt-1 text-xs text-slate-500">= ₹{value.maxBudget.toLocaleString("en-IN")}</p>}
         </Field>
         <Field label="Min area (sq ft)">
           <Input aria-label="Minimum area" type="number" min={0} value={value.minArea ?? ""} onChange={(e) => set("minArea", e.target.value ? Number(e.target.value) : null)} />
