@@ -902,3 +902,75 @@ describe("client request -> admin confirmation", () => {
     expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({ userId: SAGAR.id, type: "VISIT_SCHEDULED" }));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Admin as visit assignee (feature/kp-admin-visits)
+//
+// The business owner (Admin) may personally go on a visit, not only a
+// FIELD_EXECUTIVE. This is deliberately NOT a parallel workflow: the same
+// scheduleVisit/startVisit/recordVisitPropertyOutcome/completeVisit
+// functions are exercised with ADMIN as both the assignee and the acting
+// actor, proving no code path silently assumes "assignee == FIELD_EXECUTIVE".
+// ---------------------------------------------------------------------------
+
+describe("Admin as visit assignee", () => {
+  async function seedAdminAssignedVisit(organizationId = ORG) {
+    seedCatalogue(["propF", "propM"], organizationId);
+    return scheduleVisitFromCatalogue({
+      catalogueShareId: "cat1",
+      organizationId,
+      propertyIds: ["propF", "propM"],
+      assignedToId: ADMIN.id,
+      visitDate: TOMORROW_11AM_IST,
+      visitTime: "11:00",
+      createdById: ADMIN.id,
+    });
+  }
+
+  it("can be scheduled as the visit assignee like a Field Executive", async () => {
+    const visit = await seedAdminAssignedVisit();
+    expect(db.visits[0].assignedToId).toBe(ADMIN.id);
+    expect(visit.assignedToId).toBe(ADMIN.id);
+  });
+
+  it("appears in the Admin's own assigned-visit view (assignedToId-scoped query), not just the org-wide view", async () => {
+    const visit = await seedAdminAssignedVisit();
+    const myVisits = await prisma.visit.findMany({ where: upcomingVisitsWhere(ORG, NOW_LATE_IST, ADMIN.id) });
+    expect(myVisits.map((v) => v.id)).toContain(visit.id);
+  });
+
+  it("lets the assigned Admin open the visit via loadVisitForActor", async () => {
+    const visit = await seedAdminAssignedVisit();
+    await expect(loadVisitForActor(visit.id, ORG, ADMIN)).resolves.toMatchObject({ id: visit.id, assignedToId: ADMIN.id });
+  });
+
+  it("lets the assigned Admin start the visit, record per-property outcomes, and complete it - the same flow a Field Executive uses", async () => {
+    const visit = await seedAdminAssignedVisit();
+
+    await startVisit(visit.id, ORG, ADMIN);
+    expect(db.visits[0].status).toBe("IN_PROGRESS");
+
+    await recordVisitPropertyOutcome(visit.id, "propF", ORG, ADMIN, { status: "VISITED", reactionRating: 5, reactionNote: "Loved it" });
+    await recordVisitPropertyOutcome(visit.id, "propM", ORG, ADMIN, { status: "SKIPPED", skipReason: "Ran out of time" });
+
+    const visitedProp = db.visitProperties.find((r) => r.propertyId === "propF")!;
+    expect(visitedProp.status).toBe("VISITED");
+    expect(visitedProp.visitedById).toBe(ADMIN.id);
+    expect(visitedProp.reactionNote).toBe("Loved it");
+
+    await completeVisit(visit.id, ORG, ADMIN, { overallRating: 5, summary: "Client very interested." });
+    expect(db.visits[0].status).toBe("COMPLETED");
+    expect(db.visits[0].completionSummary).toBe("Client very interested.");
+  });
+
+  it("denies cross-org access to an Admin-assigned visit - an Admin in another org gets 404, not the visit", async () => {
+    const visit = await seedAdminAssignedVisit(ORG);
+    await expect(loadVisitForActor(visit.id, OTHER_ORG, ADMIN)).rejects.toThrow(/Visit not found/);
+
+    const otherOrgAdmin = { id: "admin_other_org", role: "ADMIN" as const };
+    await expect(loadVisitForActor(visit.id, OTHER_ORG, otherOrgAdmin)).rejects.toThrow(/Visit not found/);
+    // And it must not surface in that other org's assigned-visit query either.
+    const otherOrgVisits = await prisma.visit.findMany({ where: upcomingVisitsWhere(OTHER_ORG, NOW_LATE_IST) });
+    expect(otherOrgVisits.map((v) => v.id)).not.toContain(visit.id);
+  });
+});

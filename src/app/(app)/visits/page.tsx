@@ -73,7 +73,11 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       // them were, so the Schedule Visit modal could offer another org's data.
       canManage ? prisma.lead.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 100 }) : Promise.resolve([]),
       canManage ? prisma.property.findMany({ where: { organizationId, status: "AVAILABLE" }, take: 200 }) : Promise.resolve([]),
-      canManage ? prisma.user.findMany({ where: { organizationId, role: "FIELD_EXECUTIVE", status: "ACTIVE" }, select: assignedToSelect }) : Promise.resolve([]),
+      // Admin may personally perform a visit (the business owner often does),
+      // so the assignee pool is FIELD_EXECUTIVE + ADMIN, not FIELD_EXECUTIVE
+      // alone. DATA_MANAGER is deliberately excluded - it was never eligible
+      // before this change and this task does not widen that.
+      canManage ? prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "ADMIN"] }, status: "ACTIVE" }, select: assignedToSelect }) : Promise.resolve([]),
     ])
   );
 
