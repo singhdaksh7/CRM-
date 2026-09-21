@@ -48,6 +48,8 @@ type FormValues = {
   floorNumber: string;
   totalFloors: string;
   propertyAgeYears: string;
+  propertyAgeMinYears: string;
+  propertyAgeMaxYears: string;
   builtUpAreaSqft: string;
   carpetAreaSqft: string;
   dimension: string;
@@ -136,6 +138,11 @@ function toFormValues(p?: Property): FormValues {
     floorNumber: p?.floorNumber?.toString() ?? "",
     totalFloors: p?.totalFloors?.toString() ?? "",
     propertyAgeYears: p?.propertyAgeYears?.toString() ?? "",
+    // Prefer the range fields; fall back to the legacy single value for a
+    // property that predates this feature and hasn't been backfilled yet
+    // (defense-in-depth alongside the DB backfill migration).
+    propertyAgeMinYears: p?.propertyAgeMinYears?.toString() ?? p?.propertyAgeYears?.toString() ?? "",
+    propertyAgeMaxYears: p?.propertyAgeMaxYears?.toString() ?? p?.propertyAgeYears?.toString() ?? "",
     builtUpAreaSqft: p?.builtUpAreaSqft?.toString() ?? "",
     carpetAreaSqft: p?.carpetAreaSqft?.toString() ?? "",
     dimension: p?.dimension ?? "",
@@ -234,7 +241,16 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       balconies: Number(values.balconies),
       floorNumber: values.floorNumber ? Number(values.floorNumber) : null,
       totalFloors: values.totalFloors ? Number(values.totalFloors) : null,
-      propertyAgeYears: values.propertyAgeYears ? Number(values.propertyAgeYears) : null,
+      // The min/max range is the source of truth going forward; the legacy
+      // single-value column is derived from it (min == max case) so older
+      // code paths that still read propertyAgeYears keep working. When the
+      // two differ (a real range), the legacy column is left null - it was
+      // never able to represent a range in the first place.
+      propertyAgeMinYears: values.propertyAgeMinYears ? Number(values.propertyAgeMinYears) : null,
+      propertyAgeMaxYears: values.propertyAgeMaxYears ? Number(values.propertyAgeMaxYears) : null,
+      propertyAgeYears: values.propertyAgeMinYears && values.propertyAgeMaxYears && values.propertyAgeMinYears === values.propertyAgeMaxYears
+        ? Number(values.propertyAgeMinYears)
+        : null,
       builtUpAreaSqft: Number(values.builtUpAreaSqft),
       carpetAreaSqft: values.carpetAreaSqft ? Number(values.carpetAreaSqft) : null,
       dimension: blankToNull(values.dimension),
@@ -447,7 +463,22 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           </Field></>}
           <Field label="Floor Number"><Input type="number" {...register("floorNumber")} /></Field>
           <Field label="Total Floors"><Input type="number" {...register("totalFloors")} /></Field>
-          <Field label="Property Age (years)"><Input type="number" {...register("propertyAgeYears")} /></Field>
+          <Field label="Property Age - Minimum (years)" error={errors.propertyAgeMinYears?.message}>
+            <Input type="number" min={0} max={100} {...register("propertyAgeMinYears", {
+              min: { value: 0, message: "Minimum age cannot be negative" },
+              max: { value: 100, message: "Minimum age must be 100 years or less" },
+            })} />
+          </Field>
+          <Field label="Property Age - Maximum (years)" error={errors.propertyAgeMaxYears?.message}>
+            <Input type="number" min={0} max={100} {...register("propertyAgeMaxYears", {
+              min: { value: 0, message: "Maximum age cannot be negative" },
+              max: { value: 100, message: "Maximum age must be 100 years or less" },
+              validate: (value, formValues) => {
+                if (!value || !formValues.propertyAgeMinYears) return true;
+                return Number(value) >= Number(formValues.propertyAgeMinYears) || "Maximum age cannot be less than minimum age";
+              },
+            })} />
+          </Field>
           <Field label="Built-up Area (sqft)" required error={errors.builtUpAreaSqft?.message}><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required", min: { value: 1, message: "Built-up area must be greater than 0" } })} /></Field>
           <Field label="Area Unit" hint="Only relevant if this listing's area came from a non-sqft source">
             <Select {...register("areaUnit")}>

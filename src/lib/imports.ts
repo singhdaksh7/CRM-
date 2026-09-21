@@ -12,7 +12,7 @@ const NUMERIC_FIELDS: Record<ImportEntityType, string[]> = {
   PROPERTIES: [
     "monthlyRent", "securityDeposit", "maintenanceCharge", "rentBrokerage", "salePrice", "pricePerSqft",
     "saleBrokeragePct", "saleBrokerageAmount", "bhk", "bathrooms", "balconies", "floorNumber", "totalFloors",
-    "propertyAgeYears", "builtUpAreaSqft", "carpetAreaSqft", "latitude", "longitude",
+    "propertyAgeYears", "propertyAgeMinYears", "propertyAgeMaxYears", "builtUpAreaSqft", "carpetAreaSqft", "latitude", "longitude",
   ],
   LEADS: ["minBudget", "maxBudget", "preferredBhk"],
   OWNERS: [],

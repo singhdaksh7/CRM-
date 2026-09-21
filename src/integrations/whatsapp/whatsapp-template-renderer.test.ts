@@ -34,6 +34,8 @@ function property(overrides: Partial<Property> = {}): Property {
     floorNumber: 2,
     totalFloors: 5,
     propertyAgeYears: 5,
+    propertyAgeMinYears: 5,
+    propertyAgeMaxYears: 5,
     builtUpAreaSqft: 900,
     carpetAreaSqft: 750,
     facing: "NORTH",
