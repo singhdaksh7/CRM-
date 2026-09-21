@@ -31,10 +31,10 @@ export function LocalityCombobox({
   onChange: (name: string) => void;
   /**
    * Optional - fires with the full { id, name } record whenever an existing
-   * locality is picked from the dropdown (not on free typing, and not on
-   * "+ Add" since that creates a locality with no id known client-side yet).
-   * Additive: existing callers that only need the name (property-form,
-   * property-filters) are unaffected by omitting it.
+   * locality is picked from the dropdown, AND when "+ Add" successfully
+   * creates a new one (the create round-trip returns its id). Never fires on
+   * free typing alone. Additive: existing callers that only need the name
+   * (property-form, property-filters) are unaffected by omitting it.
    */
   onSelectLocality?: (locality: Locality) => void;
   allowCreate?: boolean;
@@ -96,6 +96,11 @@ export function LocalityCombobox({
       if (res.ok) {
         const { locality } = await res.json();
         select(locality.name);
+        // Unlike a picked existing option, the id wasn't known until the
+        // create round-trip resolved - fire it now so an id-based caller
+        // (e.g. the lead requirement locality chip-list) can wire it up
+        // without a second lookup.
+        onSelectLocality?.(locality);
       } else {
         // Server-side save still auto-creates from the typed area text even
         // if this convenience call failed (e.g. a non-privileged viewer) -
