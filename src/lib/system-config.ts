@@ -58,6 +58,8 @@ const SYSTEM_CONFIG_CACHE_TTL_SECONDS = 60;
  * -------------------------------------------------------------------------
  */
 export interface SystemConfigValues {
+  /** Display-only label for the /employees directory. */
+  employeeDirectoryLabel: string;
   /** ACTIVE - Lead score at/above which a lead is treated as HOT (src/lib/scoring.ts). */
   hotLeadThreshold: number;
   /** FUTURE - matching.ts's WEIGHTS constant matches this shape but is not wired to it yet. */
@@ -119,6 +121,7 @@ export const INACTIVE_CONFIG_KEYS: readonly (keyof SystemConfigValues)[] = [
 ];
 
 export const DEFAULT_SYSTEM_CONFIG: SystemConfigValues = {
+  employeeDirectoryLabel: "Team",
   hotLeadThreshold: 70,
   healthScoreWeights: {
     location: 25,

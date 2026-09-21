@@ -10,12 +10,14 @@ import { withTiming } from "@/lib/perf";
 import { cached } from "@/lib/cache";
 import { formatLastLogin } from "@/lib/last-login";
 import { auth } from "@/lib/auth";
+import { getSystemConfig } from "@/lib/system-config";
 
 export default async function EmployeesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const page = parsePage(sp.page);
   const session = await auth();
   const organizationId = getOrganizationId(session!.user);
+  const { employeeDirectoryLabel } = await getSystemConfig(organizationId);
 
   const { employees, totalCount } = await withTiming("employeesPageQuery", "/employees", () =>
     cached(`employees:list:${organizationId}:${page}`, 30, () =>
@@ -43,7 +45,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Team & Operations Directory</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">{employeeDirectoryLabel} & Operations Directory</h1>
           <p className="mt-1 text-sm text-[#596579]">{totalCount} team members in NCR brokerage network</p>
         </div>
         <AddEmployeeModal />

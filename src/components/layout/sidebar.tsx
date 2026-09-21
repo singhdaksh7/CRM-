@@ -50,7 +50,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/settings": Settings,
 };
 
-export function Sidebar({ role, mobile, onNavigate }: { role: Role; mobile?: boolean; onNavigate?: () => void }) {
+export function Sidebar({ role, employeeDirectoryLabel = "Team", mobile, onNavigate }: { role: Role; employeeDirectoryLabel?: string; mobile?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -68,7 +68,7 @@ export function Sidebar({ role, mobile, onNavigate }: { role: Role; mobile?: boo
         { href: "/catalogues", label: "Catalogues", icon: BookOpen },
         { href: "/customers", label: "Demand", icon: ContactRound },
         { href: "/deals", label: "Deals", icon: Briefcase },
-        { href: "/employees", label: "Team", icon: UserCog },
+        { href: "/employees", label: employeeDirectoryLabel, icon: UserCog },
         { href: "/reports", label: "Reports", icon: BarChart3 },
         { href: "/notifications", label: "Notifications", icon: Bell },
       ],

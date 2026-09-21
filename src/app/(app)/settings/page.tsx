@@ -11,6 +11,7 @@ import { AutomationRulesPanel } from "@/components/settings/automation-rules-pan
 import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config";
 import { listWhatsAppTemplates } from "@/integrations/whatsapp/whatsapp-templates";
 import { getMapsCapabilitiesDTO } from "@/lib/maps-capabilities";
+import { EmployeeDirectoryLabelSettings } from "@/components/settings/employee-directory-label-settings";
 
 export default async function SettingsPage() {
   const [propertyCount, leadCount, userCount, session] = await Promise.all([
@@ -35,6 +36,7 @@ export default async function SettingsPage() {
         <Row label="Brokerage Name" value="KP Properties" />
         <Row label="City / Region" value="Delhi-NCR, India" />
         <Row label="Currency Format" value="Indian Rupee (₹) with Lakh/Crore notation" />
+        {isAdmin && <EmployeeDirectoryLabelSettings />}
       </SettingsSection>
 
       <SettingsSection icon={MessageCircle} title="WhatsApp Integration Engine">

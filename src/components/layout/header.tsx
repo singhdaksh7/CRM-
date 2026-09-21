@@ -12,8 +12,10 @@ import Link from "next/link";
 
 export function Header({
   user,
+  employeeDirectoryLabel,
 }: {
   user: { name: string; role: Role };
+  employeeDirectoryLabel: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -104,7 +106,7 @@ export function Header({
             <button className="absolute right-3 top-4 text-[#596579] hover:text-[#1B2430]" onClick={() => setMobileOpen(false)} aria-label="Close menu">
               <X className="h-6 w-6" />
             </button>
-            <Sidebar role={user.role} mobile onNavigate={() => setMobileOpen(false)} />
+            <Sidebar role={user.role} employeeDirectoryLabel={employeeDirectoryLabel} mobile onNavigate={() => setMobileOpen(false)} />
           </div>
         </div>
       )}

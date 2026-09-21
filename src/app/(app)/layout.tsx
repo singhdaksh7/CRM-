@@ -8,6 +8,7 @@ import { runThrottledSweep } from "@/lib/notifications";
 import { getOrganizationId } from "@/lib/organization";
 import { withTiming } from "@/lib/perf";
 import { logger } from "@/lib/logger";
+import { getSystemConfig } from "@/lib/system-config";
 
 const LAZY_SWEEP_THROTTLE_SECONDS = 600; // at most once every 10 minutes
 
@@ -17,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const { role } = session.user;
   const organizationId = getOrganizationId(session.user);
+  const { employeeDirectoryLabel } = await getSystemConfig(organizationId);
 
   after(() => {
     runThrottledSweep(organizationId, LAZY_SWEEP_THROTTLE_SECONDS).catch((err) => {
@@ -26,9 +28,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FAFBFC] text-[#1B2430]">
-      <Sidebar role={role} />
+      <Sidebar role={role} employeeDirectoryLabel={employeeDirectoryLabel} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header user={{ name: session.user.name, role }} />
+        <Header user={{ name: session.user.name, role }} employeeDirectoryLabel={employeeDirectoryLabel} />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-20 lg:pb-6">{children}</main>
         <MobileNavigation role={role} />
       </div>

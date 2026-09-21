@@ -34,6 +34,14 @@ beforeEach(() => {
 });
 
 describe("mergeSystemConfig", () => {
+  it("uses Team as the employee directory label for organizations without an override", () => {
+    expect(mergeSystemConfig(null).employeeDirectoryLabel).toBe("Team");
+  });
+
+  it("keeps each organization label in its own stored override", () => {
+    expect(mergeSystemConfig({ employeeDirectoryLabel: "Employees" }).employeeDirectoryLabel).toBe("Employees");
+    expect(mergeSystemConfig({ employeeDirectoryLabel: "Sales Team" }).employeeDirectoryLabel).toBe("Sales Team");
+  });
   it("returns the defaults untouched when there are no overrides", () => {
     expect(mergeSystemConfig(null)).toEqual(DEFAULT_SYSTEM_CONFIG);
     expect(mergeSystemConfig(undefined)).toEqual(DEFAULT_SYSTEM_CONFIG);
