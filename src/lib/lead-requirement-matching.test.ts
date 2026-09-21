@@ -38,4 +38,17 @@ describe("Lead Requirement V2 matching", () => {
     const result = matchPropertyToRequirement(property({ localityId: "kn" }), requirement());
     expect(result?.reasons).toContainEqual(expect.objectContaining({ label: "Locality", matched: false }));
   });
+  it("matches a property in ANY of 3+ selected localities (B out of A/B/C), and rejects a property in an unselected locality (D)", () => {
+    const threeLocalities = [
+      { localityId: "a", locality: { id: "a", name: "Locality A" } },
+      { localityId: "b", locality: { id: "b", name: "Locality B" } },
+      { localityId: "c", locality: { id: "c", name: "Locality C" } },
+    ];
+    const inB = matchPropertyToRequirement(property({ localityId: "b", area: "Locality B" }), requirement({ localities: threeLocalities }));
+    expect(inB).not.toBeNull();
+    expect(inB?.reasons).toContainEqual(expect.objectContaining({ label: "Locality", matched: true, detail: expect.stringContaining("Locality B") }));
+
+    const inD = matchPropertyToRequirement(property({ localityId: "d", area: "Locality D" }), requirement({ localities: threeLocalities }));
+    expect(inD?.reasons).toContainEqual(expect.objectContaining({ label: "Locality", matched: false }));
+  });
 });
