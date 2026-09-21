@@ -28,6 +28,45 @@ describe("catalogue WhatsApp fallback", () => {
     })).toBeNull();
   });
 
+  it("returns null (never crashes) for a missing phone number", () => {
+    expect(prepareCatalogueWhatsAppFallback({
+      recipientPhone: "",
+      clientFirstName: "Rahul",
+      cataloguePublicUrl: "https://crm.example/share/catalogue/tok",
+    })).toBeNull();
+  });
+
+  it("accepts +91 and bare 91 prefixed numbers, and spaced/dashed numbers, without double-prefixing", () => {
+    for (const raw of ["+919876543210", "919876543210", "+91 98765-43210", "98765 43210"]) {
+      const prepared = prepareCatalogueWhatsAppFallback({
+        recipientPhone: raw,
+        clientFirstName: "Rahul",
+        cataloguePublicUrl: "https://crm.example/share/catalogue/tok",
+      });
+      expect(prepared?.recipientPhoneNormalized).toBe("919876543210");
+      expect(prepared?.waMeUrl.startsWith("https://wa.me/919876543210?text=")).toBe(true);
+    }
+  });
+
+  it("correctly encodeURIComponent's a message with spaces, & and unicode characters", () => {
+    const prepared = prepareCatalogueWhatsAppFallback({
+      recipientPhone: "9876543210",
+      clientFirstName: "Ritu & Sons — मकान",
+      cataloguePublicUrl: "https://crm.example/share/catalogue/tok?ref=a&b=c",
+    });
+    expect(prepared).not.toBeNull();
+    const [base, query] = prepared!.waMeUrl.split("?text=");
+    expect(base).toBe("https://wa.me/919876543210");
+    // The encoded query must be a valid URL component: re-decoding it must
+    // round-trip to exactly the original message, and it must not contain
+    // raw unencoded spaces, &, or non-ASCII characters that would break the
+    // wa.me URL.
+    expect(query).not.toMatch(/[ &\u0080-￿]/);
+    expect(decodeURIComponent(query)).toBe(prepared!.message);
+    expect(prepared!.message).toContain("Ritu & Sons — मकान");
+    expect(prepared!.message).toContain("https://crm.example/share/catalogue/tok?ref=a&b=c");
+  });
+
   it("never auto-sends and does not claim delivery", () => {
     expect(CATALOGUE_WHATSAPP_FALLBACK_SENDS_AUTOMATICALLY).toBe(false);
     const message = buildCatalogueShareMessage({

@@ -19,6 +19,11 @@ describe("normalizeIndianPhone", () => {
     expect(normalizeIndianPhone("09876543210")).toBe("919876543210");
   });
 
+  it("normalizes a number already prefixed with bare 91 without duplicating it", () => {
+    expect(normalizeIndianPhone("919876543210")).toBe("919876543210");
+    expect(normalizeIndianPhone("919876543210")).not.toBe("91919876543210");
+  });
+
   it("returns null for a number that is too short", () => {
     expect(normalizeIndianPhone("98765")).toBeNull();
   });
