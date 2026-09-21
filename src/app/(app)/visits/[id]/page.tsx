@@ -61,10 +61,12 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
   );
   const likedIds = new Set(likedPreferences.liked.map((p) => p.propertyId));
 
-  // Executives available for reassignment - only loaded for managers.
+  // Executives available for reassignment - only loaded for managers. Admin
+  // is included alongside Field Executive since the business owner may
+  // personally take a visit; Data Manager stays excluded as before.
   const employees = dto.can.manage
     ? await prisma.user.findMany({
-        where: { organizationId: getOrganizationId(session.user), role: "FIELD_EXECUTIVE", status: "ACTIVE" },
+        where: { organizationId: getOrganizationId(session.user), role: { in: ["FIELD_EXECUTIVE", "ADMIN"] }, status: "ACTIVE" },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       })
