@@ -23,10 +23,6 @@ export const NAV_ITEMS = [
   { href: "/requirements", label: "Requirements", roles: ["ADMIN"] as Role[] },
   { href: "/deals", label: "Deals", roles: ["ADMIN"] as Role[] },
   { href: "/leads", label: "Leads", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
-  // Demand pool (CustomerContact + requirements) — distinct from Leads.
-  // Trimmed off the DATA_MANAGER/FIELD_EXECUTIVE sidebar per the simplified
-  // work-tool flow (spec item 1); still fully available to ADMIN.
-  { href: "/customers", label: "Customers", roles: ["ADMIN"] as Role[] },
   { href: "/catalogues", label: "Catalogues", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },
   { href: "/whatsapp", label: "WhatsApp", roles: ["ADMIN"] as Role[] },
   { href: "/visits", label: "Visits", roles: ["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"] as Role[] },

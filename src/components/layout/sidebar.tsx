@@ -23,7 +23,6 @@ import {
   Handshake,
   ShieldAlert,
   MessageCircle,
-  ContactRound,
   BookOpen,
   Plug,
 } from "lucide-react";
@@ -37,7 +36,6 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "/inventory-partners": Handshake,
   "/admin/property-issues": ShieldAlert,
   "/leads": Users,
-  "/customers": ContactRound,
   "/whatsapp": MessageCircle,
   "/catalogues": BookOpen,
   "/integrations": Plug,
@@ -66,7 +64,6 @@ export function Sidebar({ role, employeeDirectoryLabel = "Team", mobile, onNavig
       ],
       more: [
         { href: "/catalogues", label: "Catalogues", icon: BookOpen },
-        { href: "/customers", label: "Demand", icon: ContactRound },
         { href: "/deals", label: "Deals", icon: Briefcase },
         { href: "/employees", label: employeeDirectoryLabel, icon: UserCog },
         { href: "/reports", label: "Reports", icon: BarChart3 },

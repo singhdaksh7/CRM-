@@ -11,7 +11,6 @@ import type { Role } from "@prisma/client";
 
 const daily = ["/dashboard", "/executive-dashboard", "/leads", "/visits", "/catalogues", "/notifications"];
 const adminOnlyForStaff = [
-  "/customers",
   "/whatsapp",
   "/documents",
   "/deals",
@@ -90,5 +89,9 @@ describe("simplified nav - ADMIN keeps everything", () => {
     for (const item of NAV_ITEMS) {
       expect(item.roles as Role[]).toContain("ADMIN");
     }
+  });
+
+  it("does not expose the retired Demand Pool route", () => {
+    expect(NAV_ITEMS.some((item) => item.href === "/customers")).toBe(false);
   });
 });

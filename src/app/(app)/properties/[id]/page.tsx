@@ -20,8 +20,6 @@ import { getOrganizationId } from "@/lib/organization";
 import { PROPERTY_PORTAL_PROVIDERS, propertyPortalRegistry } from "@/integrations/property-portals/registry";
 import { portalPayloadPreview } from "@/integrations/property-portals/listing-lifecycle";
 import { DistributionPanel, type ProviderRow } from "@/components/property-portals/distribution-panel";
-import { MatchedCustomersPanel } from "@/components/customers/matched-customers-panel";
-import { PropertyRecommendationHistory } from "@/components/customers/property-recommendation-history";
 import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
 import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
 import { CaptureLocationButton } from "@/components/properties/capture-location-button";
@@ -85,8 +83,6 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   });
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
-  const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
-
   return (
     <div className="space-y-6">
       {/* Header section */}
@@ -117,16 +113,6 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           {/* Gallery */}
           <PropertyGallery propertyId={property.id} propertyTitle={property.title} legacyCoverImage={property.coverImage} />
 
-          {session && (
-            <MatchedCustomersPanel
-              propertyId={property.id}
-              propertyTitle={property.title}
-              propertyMeta={[property.area, price].filter(Boolean).join(" · ")}
-              propertyPrice={property.listingType === "RENT" ? property.monthlyRent : property.salePrice}
-              role={session.user.role}
-            />
-          )}
-          <PropertyRecommendationHistory propertyId={property.id} />
           <LeadRequirementMatches propertyId={property.id} />
 
           {/* Location & Map - a FIELD_EXECUTIVE without a legitimate assigned

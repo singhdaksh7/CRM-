@@ -16,9 +16,7 @@ export type SearchEntityType =
   | "DEAL"
   | "PAYMENT"
   | "CATALOGUE"
-  | "NOTIFICATION"
-  | "CONTACT"
-  | "REQUIREMENT";
+  | "NOTIFICATION";
 
 export const ALL_SEARCH_ENTITY_TYPES: SearchEntityType[] = [
   "LEAD",
@@ -30,8 +28,6 @@ export const ALL_SEARCH_ENTITY_TYPES: SearchEntityType[] = [
   "DOCUMENT",
   "DEAL",
   "PAYMENT",
-  "CONTACT",
-  "REQUIREMENT",
   "CATALOGUE",
   "NOTIFICATION",
 ];

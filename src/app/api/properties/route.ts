@@ -6,10 +6,8 @@ import { generateCode } from "@/lib/utils";
 import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
 import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
-import { recomputeMatchesForProperty } from "@/lib/demand-recommendations";
 import { readTake, readSkip } from "@/lib/pagination";
 import { resolveOrCreatePropertyLocality } from "@/lib/property-locality";
-import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   try {
@@ -117,24 +115,6 @@ export async function POST(req: NextRequest) {
     });
     // Recommendations are internal and idempotent; never share or message a client here.
     void recommendPropertyToWaitingLeads(property.id, `created:${property.id}:${property.updatedAt.toISOString()}`);
-
-    // Feature 1 (daily-ops hardening): populate the real PropertyRecommendation
-    // candidates the Matched Customers panel reads from, so a freshly created
-    // property doesn't sit empty until someone remembers to click Recalculate.
-    // Reuses the same bounded/idempotent recompute the manual POST
-    // /api/properties/[id]/matches route already calls - no new matching
-    // logic. The property write above has already succeeded; a recompute
-    // failure here must never make the create request fail or the property
-    // disappear - just log and leave the manual Recalculate button as fallback.
-    try {
-      await recomputeMatchesForProperty(property.id, organizationId);
-    } catch (err) {
-      logger.error("property_recommendation_recompute_failed", {
-        propertyId: property.id,
-        stage: "create",
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
 
     return NextResponse.json({ property }, { status: 201 });
   } catch (err) {

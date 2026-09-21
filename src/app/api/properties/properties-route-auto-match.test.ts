@@ -2,14 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // ---------------------------------------------------------------------------
-// Feature 1 (daily-ops hardening): a freshly created or materially edited
-// property should have its PropertyRecommendation candidates (the Matched
-// Customers panel's real data source) populated automatically, without a
-// broker having to remember to click [Recalculate Matches]. These tests
-// exercise the route-level wiring: recomputeMatchesForProperty is called on
-// create and on a material update, a recompute failure never fails the
-// property write, and no WhatsApp/provider send is ever triggered from this
-// path (ZERO AUTO-SEND).
+// Property writes retain the lead-facing recommendation trigger while the
+// retired Demand Pool customer recommendation trigger stays disconnected.
 // ---------------------------------------------------------------------------
 
 const propertyCreate = vi.fn();
@@ -46,7 +40,8 @@ vi.mock("@/lib/api-auth", async () => {
 
 vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org_default" }));
 vi.mock("@/lib/property-timeline", () => ({ appendPropertyTimelineEvent: vi.fn() }));
-vi.mock("@/lib/match-recommendations", () => ({ recommendPropertyToWaitingLeads: vi.fn() }));
+const recommendPropertyToWaitingLeads = vi.fn();
+vi.mock("@/lib/match-recommendations", () => ({ recommendPropertyToWaitingLeads }));
 vi.mock("@/lib/property-share-alerts", () => ({ notifyAffectedCataloguesOfPropertyChange: vi.fn() }));
 vi.mock("@/lib/property-access", () => ({ fieldExecutiveHasPropertyAccess: vi.fn() }));
 vi.mock("@/lib/property-detail-dto", () => ({ toFieldExecutivePropertyDTO: (p: unknown) => p }));
@@ -58,9 +53,6 @@ vi.mock("@/lib/property-locality", () => ({ resolveOrCreatePropertyLocality: vi.
 
 const logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn() };
 vi.mock("@/lib/logger", () => ({ logger }));
-
-const recomputeMatchesForProperty = vi.fn();
-vi.mock("@/lib/demand-recommendations", () => ({ recomputeMatchesForProperty: (...a: unknown[]) => recomputeMatchesForProperty(...a) }));
 
 const shouldRematchProperty = vi.fn();
 vi.mock("@/lib/property-rematch", () => ({ shouldRematchProperty: (...a: unknown[]) => shouldRematchProperty(...a) }));
@@ -83,10 +75,9 @@ beforeEach(() => {
   requireSession.mockResolvedValue({ user: { id: "admin1", role: "ADMIN" } });
   propertyCount.mockResolvedValue(0);
   propertyCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "prop1", updatedAt: new Date(), ...data }));
-  recomputeMatchesForProperty.mockResolvedValue({ created: 2, updated: 0 });
 });
 
-describe("POST /api/properties - automatic match recompute (Feature 1)", () => {
+describe("POST /api/properties - lead matching trigger", () => {
   it.each(["ADMIN", "DATA_MANAGER", "FIELD_EXECUTIVE"])("allows %s to create a property", async (role) => {
     requireSession.mockResolvedValueOnce({ user: { id: "creator-1", role } });
 
@@ -112,19 +103,10 @@ describe("POST /api/properties - automatic match recompute (Feature 1)", () => {
     expect(propertyCreate).not.toHaveBeenCalled();
   });
 
-  it("calls recomputeMatchesForProperty for the new property after it is saved", async () => {
+  it("keeps the lead-facing recommendation trigger after save", async () => {
     const res = await POST(createReq({ title: "2BHK", area: "Kirti Nagar", listingType: "RENT", assetClass: "RESIDENTIAL" }));
     expect(res.status).toBe(201);
-    expect(recomputeMatchesForProperty).toHaveBeenCalledWith("prop1", "org_default");
-  });
-
-  it("still returns 201 with the created property when recompute throws", async () => {
-    recomputeMatchesForProperty.mockRejectedValue(new Error("boom"));
-    const res = await POST(createReq({ title: "2BHK", area: "Kirti Nagar" }));
-    const body = await res.json();
-    expect(res.status).toBe(201);
-    expect(body.property.id).toBe("prop1");
-    expect(logger.error).toHaveBeenCalledWith("property_recommendation_recompute_failed", expect.objectContaining({ propertyId: "prop1", stage: "create" }));
+    expect(recommendPropertyToWaitingLeads).toHaveBeenCalledWith("prop1", expect.stringContaining("created:prop1:"));
   });
 });
 
@@ -134,25 +116,17 @@ describe("PATCH /api/properties/[id] - automatic match recompute (Feature 1)", (
     propertyUpdate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "p1", updatedAt: new Date(), ...data }));
   });
 
-  it("recomputes matches when the edit is material (shouldRematchProperty=true)", async () => {
+  it("keeps the lead-facing recommendation trigger for a material edit", async () => {
     shouldRematchProperty.mockReturnValue(true);
     const res = await PATCH(patchReq({ monthlyRent: 35000 }), params("p1"));
     expect(res.status).toBe(200);
-    expect(recomputeMatchesForProperty).toHaveBeenCalledWith("p1", "org_default");
+    expect(recommendPropertyToWaitingLeads).toHaveBeenCalledWith("p1", expect.stringContaining("property:p1:"));
   });
 
-  it("skips recompute for a non-material edit (shouldRematchProperty=false)", async () => {
+  it("skips lead matching for a non-material edit (shouldRematchProperty=false)", async () => {
     shouldRematchProperty.mockReturnValue(false);
     const res = await PATCH(patchReq({ title: "Renamed" }), params("p1"));
     expect(res.status).toBe(200);
-    expect(recomputeMatchesForProperty).not.toHaveBeenCalled();
-  });
-
-  it("still returns 200 with the updated property when recompute throws", async () => {
-    shouldRematchProperty.mockReturnValue(true);
-    recomputeMatchesForProperty.mockRejectedValue(new Error("boom"));
-    const res = await PATCH(patchReq({ monthlyRent: 35000 }), params("p1"));
-    expect(res.status).toBe(200);
-    expect(logger.error).toHaveBeenCalledWith("property_recommendation_recompute_failed", expect.objectContaining({ propertyId: "p1", stage: "update" }));
+    expect(recommendPropertyToWaitingLeads).not.toHaveBeenCalled();
   });
 });
