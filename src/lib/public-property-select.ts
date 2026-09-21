@@ -34,6 +34,10 @@ export const PUBLIC_PROPERTY_SELECT = {
   totalFloors: true,
   facing: true,
   parkingAvailable: true,
+  // Parking TYPE is not sensitive info - safe to surface on the public
+  // catalogue alongside the existing parkingAvailable boolean.
+  hasOpenParking: true,
+  hasStiltParking: true,
   tenantPreference: true,
   amenities: true,
   description: true,

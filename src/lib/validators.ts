@@ -49,7 +49,16 @@ export const propertySchema = z.object({
   dimension: z.string().max(80).optional().nullable(),
   possessionNotes: z.string().max(200).optional().nullable(),
   facing: z.enum(["NORTH", "SOUTH", "EAST", "WEST", "NORTH_EAST", "NORTH_WEST", "SOUTH_EAST", "SOUTH_WEST"]).optional().nullable(),
+  // Kept for backward compatibility with every existing reader (matching,
+  // catalogue/public DTOs, imports). Server-synced from
+  // hasOpenParking || hasStiltParking on every manual create/edit (see
+  // POST/PATCH /api/properties) - a client-supplied value here is not
+  // trusted directly for that path.
   parkingAvailable: z.boolean().default(false),
+  // OPEN and STILT parking are independently selectable - a property can
+  // have both (e.g. some open spaces plus a covered stilt spot).
+  hasOpenParking: z.boolean().default(false),
+  hasStiltParking: z.boolean().default(false),
   liftAvailable: z.boolean().default(false),
   tenantPreference: z.enum(["FAMILY", "BACHELOR_MALE", "BACHELOR_FEMALE", "COMPANY", "ANY"]).optional().nullable(),
   availableFrom: z.string().optional().nullable(),

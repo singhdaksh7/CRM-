@@ -172,4 +172,27 @@ describe("propertySchema", () => {
     const rejected = propertySchema.safeParse(baseRentPayload({ furnishing: "Semi-Furnished" }));
     expect(rejected.success).toBe(false);
   });
+
+  it("accepts independent OPEN and STILT parking selections, both together, and defaults both to false when omitted", () => {
+    const both = propertySchema.safeParse(baseRentPayload({ hasOpenParking: true, hasStiltParking: true }));
+    expect(both.success).toBe(true);
+    if (both.success) {
+      expect(both.data.hasOpenParking).toBe(true);
+      expect(both.data.hasStiltParking).toBe(true);
+    }
+
+    const openOnly = propertySchema.safeParse(baseRentPayload({ hasOpenParking: true, hasStiltParking: false }));
+    expect(openOnly.success).toBe(true);
+    if (openOnly.success) {
+      expect(openOnly.data.hasOpenParking).toBe(true);
+      expect(openOnly.data.hasStiltParking).toBe(false);
+    }
+
+    const neitherSupplied = propertySchema.safeParse(baseRentPayload());
+    expect(neitherSupplied.success).toBe(true);
+    if (neitherSupplied.success) {
+      expect(neitherSupplied.data.hasOpenParking).toBe(false);
+      expect(neitherSupplied.data.hasStiltParking).toBe(false);
+    }
+  });
 });

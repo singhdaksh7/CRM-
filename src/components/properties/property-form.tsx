@@ -54,6 +54,8 @@ type FormValues = {
   areaUnit: string;
   facing: string;
   parkingAvailable: boolean;
+  hasOpenParking: boolean;
+  hasStiltParking: boolean;
   liftAvailable: boolean;
   tenantPreference: string;
   availableFrom: string;
@@ -145,6 +147,8 @@ function toFormValues(p?: Property): FormValues {
     areaUnit: p?.areaUnit ?? (p ? "" : "SQ_FT"),
     facing: p?.facing ?? "",
     parkingAvailable: p?.parkingAvailable ?? false,
+    hasOpenParking: p?.hasOpenParking ?? false,
+    hasStiltParking: p?.hasStiltParking ?? false,
     liftAvailable: p?.liftAvailable ?? false,
     tenantPreference: p?.tenantPreference ?? "",
     availableFrom: p?.availableFrom ? new Date(p.availableFrom).toISOString().slice(0, 10) : "",
@@ -217,6 +221,10 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
     const coverImage = blankToNull(values.coverImage);
     const payload = {
       ...values,
+      // Server (POST/PATCH /api/properties) recomputes this authoritatively
+      // from hasOpenParking/hasStiltParking - kept in sync here too so the
+      // payload itself is never internally inconsistent.
+      parkingAvailable: values.hasOpenParking || values.hasStiltParking,
       title: values.title.trim(),
       description: values.description.trim(),
       address: values.address.trim(),
@@ -494,7 +502,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           <Field label="Available From"><Input type="date" {...register("availableFrom")} /></Field>
         </div>
         <div className="flex flex-wrap gap-4">
-          <Checkbox label="Parking available" {...register("parkingAvailable")} />
+          <Checkbox label="Open Parking" {...register("hasOpenParking")} />
+          <Checkbox label="Stilt Parking" {...register("hasStiltParking")} />
           <Checkbox label="Lift available" {...register("liftAvailable")} />
         </div>
         </>}

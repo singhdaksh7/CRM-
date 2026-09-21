@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
-import { formatINR, enumToLabel } from "@/lib/utils";
+import { formatINR, enumToLabel, parkingTypeLabel } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { getCoverImageUrls, getPublicOrderedImageUrls } from "@/lib/property-images";
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage";
@@ -130,7 +130,7 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
             <MiniDetail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} />
             <MiniDetail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} />
             <MiniDetail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} />
-            <MiniDetail label="Parking" value={property.parkingAvailable ? "Yes" : "No"} />
+            <MiniDetail label="Parking" value={parkingTypeLabel(property.hasOpenParking, property.hasStiltParking)} />
             {property.listingType === "RENT" && <MiniDetail label="Tenant Pref." value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} />}
           </div>
 

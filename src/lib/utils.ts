@@ -71,6 +71,12 @@ export function enumToLabel(value: string | null | undefined): string {
     .join(" ");
 }
 
+/** Human-readable parking type from the independent Open/Stilt flags - shared by the internal property detail view and the public /p/[id] page. */
+export function parkingTypeLabel(hasOpenParking: boolean | null | undefined, hasStiltParking: boolean | null | undefined): string {
+  const types = [hasOpenParking ? "Open" : null, hasStiltParking ? "Stilt" : null].filter((t): t is string => t !== null);
+  return types.length ? types.join(" + ") : "No";
+}
+
 export function generateCode(prefix: string, num: number): string {
   return `${prefix}-${String(num).padStart(5, "0")}`;
 }

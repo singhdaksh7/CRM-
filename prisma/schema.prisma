@@ -1152,7 +1152,17 @@ model Property {
   dimension        String?
   possessionNotes  String?
   facing           Facing?
+  // Kept for backward compatibility with every existing reader (matching,
+  // catalogue/public DTOs, imports) - now derived/synced server-side from
+  // hasOpenParking || hasStiltParking on every manual create/edit (see
+  // POST/PATCH /api/properties). Never written to directly by new UI.
   parkingAvailable Boolean           @default(false)
+  // OPEN and STILT parking are independently selectable (a property can
+  // have both, e.g. some open spaces plus a covered stilt spot). Additive -
+  // see prisma/manual-migrations/2026-09-21-property-parking-types.sql for
+  // the backfill decision on existing rows.
+  hasOpenParking   Boolean           @default(false)
+  hasStiltParking  Boolean           @default(false)
   liftAvailable    Boolean           @default(false)
   tenantPreference TenantPreference?
   availableFrom    DateTime?

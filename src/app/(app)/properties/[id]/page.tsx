@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
-import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
+import { formatINR, formatDate, enumToLabel, parkingTypeLabel } from "@/lib/utils";
 import { PropertyActions } from "@/components/properties/property-actions";
 import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyMapPanel } from "@/components/properties/property-map-panel";
@@ -186,7 +186,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <Detail label="Floor" value={property.floorNumber !== null ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} />
                 <Detail label="Workstations" value={property.workstations ?? "-"} />
                 <Detail label="Cabins" value={property.cabins ?? "-"} />
-                <Detail label="Parking" value={property.parkingAvailable ? "Available" : "Not available"} />
+                <Detail label="Parking" value={parkingTypeLabel(property.hasOpenParking, property.hasStiltParking)} />
                 <Detail label="Lift / Goods lift" value={`${property.liftAvailable ? "Yes" : "No"} / ${property.goodsLiftAvailable ? "Yes" : "No"}`} />
                 <Detail label="Available From" value={formatDate(property.availableFrom)} />
               </> : <>
