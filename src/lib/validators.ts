@@ -603,7 +603,22 @@ export const inventoryPartnerSchema = z.object({
   company: z.string().optional().nullable(),
   phone: z.string().min(8),
   alternatePhone: z.string().optional().nullable(),
-  localities: z.array(z.string()).default([]),
+  localities: z
+    .array(z.string())
+    .default([])
+    .transform((values) => {
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const raw of values) {
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push(trimmed);
+      }
+      return result;
+    }),
   notes: z.string().optional().nullable(),
   commissionSplitPct: z.number().min(0).max(100).optional().nullable(),
   isActive: z.boolean().default(true),

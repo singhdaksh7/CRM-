@@ -127,4 +127,22 @@ describe("POST /api/inventory-partners", () => {
     const res = await POST(postRequest({ name: "Sharma Dealers" }));
     expect(res.status).toBe(400);
   });
+
+  it("stores all manually entered localities without silent truncation", async () => {
+    inventoryPartnerCreate.mockResolvedValue({ id: "p1", name: "Sharma Real Estate Dealers", partnerCode: "PTR-00001" });
+
+    await POST(postRequest({ ...VALID_BODY, localities: ["Janakpuri", "Dwarka", "Rajouri Garden"] }));
+
+    const createCall = inventoryPartnerCreate.mock.calls[0][0];
+    expect(JSON.parse(createCall.data.localities)).toEqual(["Janakpuri", "Dwarka", "Rajouri Garden"]);
+  });
+
+  it("trims whitespace and drops case-insensitive duplicates before saving", async () => {
+    inventoryPartnerCreate.mockResolvedValue({ id: "p1", name: "Sharma Real Estate Dealers", partnerCode: "PTR-00001" });
+
+    await POST(postRequest({ ...VALID_BODY, localities: ["  Rajouri Garden  ", "rajouri garden", "Dwarka"] }));
+
+    const createCall = inventoryPartnerCreate.mock.calls[0][0];
+    expect(JSON.parse(createCall.data.localities)).toEqual(["Rajouri Garden", "Dwarka"]);
+  });
 });
