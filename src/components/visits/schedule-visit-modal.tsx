@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/form";
+import { enumToLabel } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 import type { Lead, Property, User } from "@prisma/client";
 
@@ -17,7 +18,7 @@ export function ScheduleVisitModal({
 }: {
   leads: Lead[];
   properties: Property[];
-  employees: Pick<User, "id" | "name">[];
+  employees: Pick<User, "id" | "name" | "role">[];
   /** Deep-linked from the Demand Pool "Schedule Visit" bridge (VISIT_REQUESTED response) - opens this modal pre-filled instead of auto-creating a visit. */
   initialLeadId?: string;
   initialPropertyId?: string;
@@ -70,10 +71,10 @@ export function ScheduleVisitModal({
                   {properties.map((p) => (<option key={p.id} value={p.id}>{p.title}</option>))}
                 </Select>
               </Field>
-              <Field label="Assign Field Executive">
+              <Field label="Assigned To">
                 <Select value={form.assignedToId} onChange={(e) => setForm({ ...form, assignedToId: e.target.value })}>
                   <option value="">Unassigned</option>
-                  {employees.map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
+                  {employees.map((e) => (<option key={e.id} value={e.id}>{e.name} — {enumToLabel(e.role)}</option>))}
                 </Select>
               </Field>
               <div className="grid grid-cols-2 gap-3">

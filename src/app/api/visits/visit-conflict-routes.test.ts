@@ -10,6 +10,11 @@ const leadFindFirst = vi.fn();
 // first checks every selected property belongs to the organization. That is
 // the only additional prisma surface this route reaches.
 const propertyFindMany = vi.fn();
+// scheduleVisit/PATCH now both validate the assignee via
+// assertEligibleVisitAssignee (org + role check) before writing. Defaults to
+// an eligible user so every pre-existing test in this file - none of which
+// are about assignee eligibility - keeps passing unchanged.
+const userFindFirst = vi.fn();
 
 vi.mock("@/lib/prisma", () => {
   const prisma = {
@@ -20,6 +25,7 @@ vi.mock("@/lib/prisma", () => {
     },
     lead: { update: (...a: unknown[]) => leadUpdate(...a), findFirst: (...a: unknown[]) => leadFindFirst(...a) },
     property: { findMany: (...a: unknown[]) => propertyFindMany(...a) },
+    user: { findFirst: (...a: unknown[]) => userFindFirst(...a) },
     // scheduleVisit now creates the visit and claims any originating client
     // visit request inside ONE transaction. This route passes no request ids,
     // so the claim never runs - the interactive callback just needs a client
@@ -89,6 +95,7 @@ beforeEach(() => {
   // The single selected property exists in this organization.
   propertyFindMany.mockResolvedValue([{ id: "prop1", title: "Flat", area: "Janakpuri" }]);
   leadFindFirst.mockResolvedValue({ id: "lead1" });
+  userFindFirst.mockResolvedValue({ id: "emp1" });
   visitCreate.mockResolvedValue({ id: "v1", assignedToId: "emp1", leadId: "lead1", visitDate: new Date("2026-02-10T05:30:00Z"), lead: { clientName: "Rahul" }, assignedTo: { name: "Sagar" }, properties: [] });
 });
 
@@ -131,6 +138,16 @@ describe("POST /api/visits - conflict handling", () => {
   it("skips the conflict check entirely when no employee is assigned", async () => {
     const res = await POST(jsonRequest({ ...VALID_BODY, assignedToId: undefined }));
     expect(res.status).toBe(201);
+    expect(checkVisitConflict).not.toHaveBeenCalled();
+  });
+
+  it("rejects an ineligible/cross-org assignedToId (assertEligibleVisitAssignee finds no matching active FE/Admin) before ever checking for a scheduling conflict", async () => {
+    userFindFirst.mockResolvedValue(null);
+    const res = await POST(jsonRequest(VALID_BODY));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/active Field Executive or Admin/);
+    expect(visitCreate).not.toHaveBeenCalled();
     expect(checkVisitConflict).not.toHaveBeenCalled();
   });
 
@@ -181,6 +198,29 @@ describe("PATCH /api/visits/[id] - conflict handling on reschedule", () => {
     const res = await PATCH(patchRequest({ visitTime: "10:15", overrideConflict: true, overrideReason: "client requested" }), { params: Promise.resolve({ id: "v1" }) });
     expect(res.status).toBe(200);
     expect(visitUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ conflictStatus: "OVERRIDDEN" }) }));
+  });
+
+  it("rejects reassigning to an ineligible/cross-org user - no update, no conflict check", async () => {
+    visitFindFirst.mockResolvedValue({ id: "v1", organizationId: "org_default", assignedToId: "emp1", leadId: "lead1", status: "SCHEDULED", visitDate: new Date(), visitTime: "10:00", propertyId: "prop1" });
+    userFindFirst.mockResolvedValue(null);
+
+    const res = await PATCH(patchRequest({ assignedToId: "someone_else" }), { params: Promise.resolve({ id: "v1" }) });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/active Field Executive or Admin/);
+    expect(visitUpdate).not.toHaveBeenCalled();
+    expect(checkVisitConflict).not.toHaveBeenCalled();
+  });
+
+  it("does not re-validate the assignee when assignedToId is unchanged from the existing visit", async () => {
+    visitFindFirst.mockResolvedValue({ id: "v1", organizationId: "org_default", assignedToId: "emp1", leadId: "lead1", status: "SCHEDULED", visitDate: new Date(), visitTime: "10:00", propertyId: "prop1" });
+    checkVisitConflict.mockResolvedValue({ status: "NONE", detail: null, travelDurationMinutes: null, travelDistanceMeters: null, routeSource: "NONE" });
+    visitUpdate.mockResolvedValue({ id: "v1" });
+    userFindFirst.mockClear();
+
+    const res = await PATCH(patchRequest({ assignedToId: "emp1", visitTime: "10:15" }), { params: Promise.resolve({ id: "v1" }) });
+    expect(res.status).toBe(200);
+    expect(userFindFirst).not.toHaveBeenCalled();
   });
 });
 

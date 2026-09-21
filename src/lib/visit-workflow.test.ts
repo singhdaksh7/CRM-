@@ -31,6 +31,7 @@ const db = {
   /** VISIT_REQUESTED rows are the client's visit REQUESTS - never bookings. */
   catalogueInteractions: [] as Row[],
   leads: [] as Row[],
+  users: [] as Row[],
 };
 
 let idCounter = 0;
@@ -107,6 +108,9 @@ vi.mock("./prisma", () => {
       findMany: vi.fn(async ({ where }: { where?: Row } = {}) => db.visitProperties.filter((r) => matches(r, where))),
     },
     property: { findMany: vi.fn(async ({ where }: { where: Row }) => db.properties.filter((p) => matches(p, where))) },
+    user: {
+      findFirst: vi.fn(async ({ where }: { where: Row }) => db.users.find((u) => matches(u, where)) ?? null),
+    },
     catalogueShare: {
       findFirst: vi.fn(async ({ where }: { where: Row }) => {
         const c = db.catalogueShares.find((r) => matches(r, where));
@@ -181,6 +185,7 @@ const {
   loadVisitForActor,
   rescheduleVisit,
   cancelVisit,
+  assertEligibleVisitAssignee,
 } = await import("./visits");
 const { upcomingVisitsWhere, visitRoleScopeWhere, computeVisitProgress } = await import("./visit-progress");
 const { prisma } = await import("./prisma");
@@ -212,6 +217,14 @@ beforeEach(() => {
     { id: "propForeign", organizationId: OTHER_ORG, title: "Other Org Flat", area: "Noida", status: "AVAILABLE" },
   ];
   db.leads = [{ id: "lead_rahul", organizationId: ORG, clientName: "Rahul Sharma", leadCode: "LEAD-0001", phone: "+919876543210" }];
+  db.users = [
+    { id: ADMIN.id, organizationId: ORG, role: "ADMIN", status: "ACTIVE" },
+    { id: SAGAR.id, organizationId: ORG, role: "FIELD_EXECUTIVE", status: "ACTIVE" },
+    { id: OTHER_EXEC.id, organizationId: ORG, role: "FIELD_EXECUTIVE", status: "ACTIVE" },
+    { id: "dm1", organizationId: ORG, role: "DATA_MANAGER", status: "ACTIVE" },
+    { id: "admin_other_org", organizationId: OTHER_ORG, role: "ADMIN", status: "ACTIVE" },
+    { id: "fe_other_org", organizationId: OTHER_ORG, role: "FIELD_EXECUTIVE", status: "ACTIVE" },
+  ];
 });
 
 function seedCatalogue(propertyIds: string[], organizationId = ORG) {
@@ -972,5 +985,82 @@ describe("Admin as visit assignee", () => {
     // And it must not surface in that other org's assigned-visit query either.
     const otherOrgVisits = await prisma.visit.findMany({ where: upcomingVisitsWhere(OTHER_ORG, NOW_LATE_IST) });
     expect(otherOrgVisits.map((v) => v.id)).not.toContain(visit.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Visit assignee eligibility (PR #21 completion fix)
+//
+// The dropdown-level fix (a separate FIELD_EXECUTIVE+ADMIN query feeding the
+// Lead page's "Schedule Visit" form, instead of reusing the FE+DATA_MANAGER
+// lead-assignment list) lives in src/app/(app)/leads/[id]/page.tsx and has no
+// unit-test surface (no .tsx component tests exist in this repo). This block
+// covers the backend half: assertEligibleVisitAssignee, and that every
+// write path which can set/change a Visit's assignee (create, reschedule)
+// actually calls it, so a same-org Field Executive or Admin is accepted and
+// a cross-org user, a Data Manager, or a nonexistent id is rejected.
+// ---------------------------------------------------------------------------
+
+describe("assertEligibleVisitAssignee", () => {
+  it("allows an active, same-org Field Executive", async () => {
+    await expect(assertEligibleVisitAssignee(SAGAR.id, ORG)).resolves.toBeUndefined();
+  });
+
+  it("allows an active, same-org Admin", async () => {
+    await expect(assertEligibleVisitAssignee(ADMIN.id, ORG)).resolves.toBeUndefined();
+  });
+
+  it("rejects a same-org Data Manager - not an eligible visit-assignee role", async () => {
+    await expect(assertEligibleVisitAssignee("dm1", ORG)).rejects.toThrow(/active Field Executive or Admin/);
+  });
+
+  it("rejects a Field Executive from another organization", async () => {
+    await expect(assertEligibleVisitAssignee("fe_other_org", ORG)).rejects.toThrow(/active Field Executive or Admin/);
+  });
+
+  it("rejects an Admin from another organization", async () => {
+    await expect(assertEligibleVisitAssignee("admin_other_org", ORG)).rejects.toThrow(/active Field Executive or Admin/);
+  });
+
+  it("rejects a nonexistent user id", async () => {
+    await expect(assertEligibleVisitAssignee("no_such_user", ORG)).rejects.toThrow(/active Field Executive or Admin/);
+  });
+
+  it("is a no-op for null/undefined (unassigning, or not touching the assignee)", async () => {
+    await expect(assertEligibleVisitAssignee(null, ORG)).resolves.toBeUndefined();
+    await expect(assertEligibleVisitAssignee(undefined, ORG)).resolves.toBeUndefined();
+  });
+});
+
+describe("visit assignee eligibility is enforced on every write path", () => {
+  it("scheduleVisit rejects assigning a same-org Data Manager", async () => {
+    await expect(
+      scheduleVisit({ organizationId: ORG, leadId: "lead_rahul", propertyIds: ["propF"], assignedToId: "dm1", visitDate: TOMORROW_11AM_IST, visitTime: "11:00", createdById: ADMIN.id })
+    ).rejects.toThrow(/active Field Executive or Admin/);
+    expect(db.visits).toHaveLength(0);
+  });
+
+  it("scheduleVisit rejects assigning a cross-org Field Executive", async () => {
+    await expect(
+      scheduleVisit({ organizationId: ORG, leadId: "lead_rahul", propertyIds: ["propF"], assignedToId: "fe_other_org", visitDate: TOMORROW_11AM_IST, visitTime: "11:00", createdById: ADMIN.id })
+    ).rejects.toThrow(/active Field Executive or Admin/);
+    expect(db.visits).toHaveLength(0);
+  });
+
+  it("scheduleVisit accepts a same-org Admin as assignee (the exact production-like case)", async () => {
+    const visit = await scheduleVisit({ organizationId: ORG, leadId: "lead_rahul", propertyIds: ["propF"], assignedToId: ADMIN.id, visitDate: TOMORROW_11AM_IST, visitTime: "11:00", createdById: ADMIN.id });
+    expect(visit.assignedToId).toBe(ADMIN.id);
+  });
+
+  it("rescheduleVisit rejects reassigning to a same-org Data Manager", async () => {
+    const visit = await scheduleVisit({ organizationId: ORG, leadId: "lead_rahul", propertyIds: ["propF"], assignedToId: SAGAR.id, visitDate: TOMORROW_11AM_IST, visitTime: "11:00", createdById: ADMIN.id });
+    await expect(rescheduleVisit(visit.id, ORG, ADMIN, { assignedToId: "dm1" })).rejects.toThrow(/active Field Executive or Admin/);
+    expect(db.visits[0].assignedToId).toBe(SAGAR.id);
+  });
+
+  it("rescheduleVisit accepts reassigning to a same-org Admin", async () => {
+    const visit = await scheduleVisit({ organizationId: ORG, leadId: "lead_rahul", propertyIds: ["propF"], assignedToId: SAGAR.id, visitDate: TOMORROW_11AM_IST, visitTime: "11:00", createdById: ADMIN.id });
+    await rescheduleVisit(visit.id, ORG, ADMIN, { assignedToId: ADMIN.id });
+    expect(db.visits[0].assignedToId).toBe(ADMIN.id);
   });
 });
