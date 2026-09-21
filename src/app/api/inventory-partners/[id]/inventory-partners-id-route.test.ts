@@ -115,4 +115,24 @@ describe("PATCH /api/inventory-partners/[id]", () => {
     await PATCH(patchRequest({ name: "New Name" }), params("p1"));
     expect(activityCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ type: "INVENTORY_PARTNER_UPDATED" }) }));
   });
+
+  it("preserves all localities on update without silent truncation", async () => {
+    inventoryPartnerFindFirst.mockResolvedValue({ id: "p1", name: "Old Name", localities: JSON.stringify(["Janakpuri"]) });
+    inventoryPartnerUpdate.mockResolvedValue({ id: "p1", name: "Old Name" });
+
+    await PATCH(patchRequest({ localities: ["Janakpuri", "Dwarka", "Rajouri Garden"] }), params("p1"));
+
+    const updateCall = inventoryPartnerUpdate.mock.calls[0][0];
+    expect(JSON.parse(updateCall.data.localities)).toEqual(["Janakpuri", "Dwarka", "Rajouri Garden"]);
+  });
+
+  it("trims whitespace and drops case-insensitive duplicates on update", async () => {
+    inventoryPartnerFindFirst.mockResolvedValue({ id: "p1", name: "Old Name", localities: JSON.stringify([]) });
+    inventoryPartnerUpdate.mockResolvedValue({ id: "p1", name: "Old Name" });
+
+    await PATCH(patchRequest({ localities: ["Saket", "  saket  ", "Vasant Kunj"] }), params("p1"));
+
+    const updateCall = inventoryPartnerUpdate.mock.calls[0][0];
+    expect(JSON.parse(updateCall.data.localities)).toEqual(["Saket", "Vasant Kunj"]);
+  });
 });

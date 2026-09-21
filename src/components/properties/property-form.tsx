@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyAddressSearch, type AppliedLocation } from "@/components/properties/property-address-search";
 import { LocalityCombobox } from "@/components/properties/locality-combobox";
+import { allowedUnitsForListingType, fromINR, pickDefaultUnit, toINR, UNIT_LABELS, type MoneyUnit } from "@/lib/money";
 
 const AMENITIES_POOL = ["Lift", "Power Backup", "24x7 Security", "Swimming Pool", "Gym", "Club House", "Children's Play Area", "Covered Parking", "CCTV", "Park Facing", "Modular Kitchen", "Water Storage"];
 
@@ -34,10 +35,12 @@ type FormValues = {
   address: string;
   landmark: string;
   monthlyRent: string;
+  monthlyRentUnit: MoneyUnit;
   securityDeposit: string;
   maintenanceCharge: string;
   rentBrokerage: string;
   salePrice: string;
+  salePriceUnit: MoneyUnit;
   pricePerSqft: string;
   saleBrokeragePct: string;
   negotiable: boolean;
@@ -48,12 +51,16 @@ type FormValues = {
   floorNumber: string;
   totalFloors: string;
   propertyAgeYears: string;
+  propertyAgeMinYears: string;
+  propertyAgeMaxYears: string;
   builtUpAreaSqft: string;
   carpetAreaSqft: string;
   dimension: string;
   areaUnit: string;
   facing: string;
   parkingAvailable: boolean;
+  hasOpenParking: boolean;
+  hasStiltParking: boolean;
   liftAvailable: boolean;
   tenantPreference: string;
   availableFrom: string;
@@ -107,6 +114,8 @@ type FormValues = {
 };
 
 function toFormValues(p?: Property): FormValues {
+  const monthlyRentUnit = pickDefaultUnit(p?.monthlyRent, allowedUnitsForListingType("RENT"));
+  const salePriceUnit = pickDefaultUnit(p?.salePrice, allowedUnitsForListingType("SALE"));
   return {
     assetClass: p?.assetClass ?? "RESIDENTIAL",
     title: p?.title ?? "",
@@ -117,11 +126,13 @@ function toFormValues(p?: Property): FormValues {
     area: p?.area ?? "",
     address: p?.address ?? "",
     landmark: p?.landmark ?? "",
-    monthlyRent: p?.monthlyRent?.toString() ?? "",
+    monthlyRent: p?.monthlyRent != null ? String(fromINR(p.monthlyRent, monthlyRentUnit)) : "",
+    monthlyRentUnit,
     securityDeposit: p?.securityDeposit?.toString() ?? "",
     maintenanceCharge: p?.maintenanceCharge?.toString() ?? "",
     rentBrokerage: p?.rentBrokerage?.toString() ?? "",
-    salePrice: p?.salePrice?.toString() ?? "",
+    salePrice: p?.salePrice != null ? String(fromINR(p.salePrice, salePriceUnit)) : "",
+    salePriceUnit,
     pricePerSqft: p?.pricePerSqft?.toString() ?? "",
     saleBrokeragePct: p?.saleBrokeragePct?.toString() ?? "",
     negotiable: p?.negotiable ?? false,
@@ -136,6 +147,11 @@ function toFormValues(p?: Property): FormValues {
     floorNumber: p?.floorNumber?.toString() ?? "",
     totalFloors: p?.totalFloors?.toString() ?? "",
     propertyAgeYears: p?.propertyAgeYears?.toString() ?? "",
+    // Prefer the range fields; fall back to the legacy single value for a
+    // property that predates this feature and hasn't been backfilled yet
+    // (defense-in-depth alongside the DB backfill migration).
+    propertyAgeMinYears: p?.propertyAgeMinYears?.toString() ?? p?.propertyAgeYears?.toString() ?? "",
+    propertyAgeMaxYears: p?.propertyAgeMaxYears?.toString() ?? p?.propertyAgeYears?.toString() ?? "",
     builtUpAreaSqft: p?.builtUpAreaSqft?.toString() ?? "",
     carpetAreaSqft: p?.carpetAreaSqft?.toString() ?? "",
     dimension: p?.dimension ?? "",
@@ -145,6 +161,8 @@ function toFormValues(p?: Property): FormValues {
     areaUnit: p?.areaUnit ?? (p ? "" : "SQ_FT"),
     facing: p?.facing ?? "",
     parkingAvailable: p?.parkingAvailable ?? false,
+    hasOpenParking: p?.hasOpenParking ?? false,
+    hasStiltParking: p?.hasStiltParking ?? false,
     liftAvailable: p?.liftAvailable ?? false,
     tenantPreference: p?.tenantPreference ?? "",
     availableFrom: p?.availableFrom ? new Date(p.availableFrom).toISOString().slice(0, 10) : "",
@@ -192,6 +210,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
   }
   const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: defaults });
   const listingType = watch("listingType");
+  const monthlyRentUnit = watch("monthlyRentUnit");
+  const salePriceUnit = watch("salePriceUnit");
   const assetClass = watch("assetClass");
   const propertyType = watch("propertyType");
   const isPlot = assetClass === "RESIDENTIAL" && propertyType === "PLOT";
@@ -207,6 +227,23 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       .catch(() => {});
   }, [inventorySource]);
 
+  // RENT uses Thousand/Lakh units, SALE uses Lakh/Crore - the unit sets
+  // don't overlap cleanly (a "1.5" Crore rent value would silently become
+  // "1.5" Thousand if we just relabeled the dropdown). Rather than risk
+  // reinterpreting an already-entered amount under a different unit when
+  // Listing Type changes, clear the amount and unit so the user re-enters
+  // it under the new listing type's units. Skipped on initial mount so
+  // loading an existing property for edit doesn't blank its price.
+  const prevListingTypeRef = useRef(listingType);
+  useEffect(() => {
+    if (prevListingTypeRef.current === listingType) return;
+    prevListingTypeRef.current = listingType;
+    setValue("monthlyRent", "");
+    setValue("salePrice", "");
+    setValue("monthlyRentUnit", allowedUnitsForListingType("RENT")[0]);
+    setValue("salePriceUnit", allowedUnitsForListingType("SALE")[0]);
+  }, [listingType, setValue]);
+
   function toggleAmenity(a: string) {
     setValue("amenities", amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a]);
   }
@@ -217,14 +254,18 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
     const coverImage = blankToNull(values.coverImage);
     const payload = {
       ...values,
+      // Server (POST/PATCH /api/properties) recomputes this authoritatively
+      // from hasOpenParking/hasStiltParking - kept in sync here too so the
+      // payload itself is never internally inconsistent.
+      parkingAvailable: values.hasOpenParking || values.hasStiltParking,
       title: values.title.trim(),
       description: values.description.trim(),
       address: values.address.trim(),
-      monthlyRent: values.monthlyRent ? Number(values.monthlyRent) : null,
+      monthlyRent: values.monthlyRent ? toINR(Number(values.monthlyRent), values.monthlyRentUnit) : null,
       securityDeposit: values.securityDeposit ? Number(values.securityDeposit) : null,
       maintenanceCharge: values.maintenanceCharge ? Number(values.maintenanceCharge) : null,
       rentBrokerage: values.rentBrokerage ? Number(values.rentBrokerage) : null,
-      salePrice: values.salePrice ? Number(values.salePrice) : null,
+      salePrice: values.salePrice ? toINR(Number(values.salePrice), values.salePriceUnit) : null,
       pricePerSqft: values.pricePerSqft ? Number(values.pricePerSqft) : null,
       saleBrokeragePct: values.saleBrokeragePct ? Number(values.saleBrokeragePct) : null,
       // PLOT uses the legacy RESIDENTIAL asset class, but BHK/bathrooms are
@@ -234,7 +275,16 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       balconies: Number(values.balconies),
       floorNumber: values.floorNumber ? Number(values.floorNumber) : null,
       totalFloors: values.totalFloors ? Number(values.totalFloors) : null,
-      propertyAgeYears: values.propertyAgeYears ? Number(values.propertyAgeYears) : null,
+      // The min/max range is the source of truth going forward; the legacy
+      // single-value column is derived from it (min == max case) so older
+      // code paths that still read propertyAgeYears keep working. When the
+      // two differ (a real range), the legacy column is left null - it was
+      // never able to represent a range in the first place.
+      propertyAgeMinYears: values.propertyAgeMinYears ? Number(values.propertyAgeMinYears) : null,
+      propertyAgeMaxYears: values.propertyAgeMaxYears ? Number(values.propertyAgeMaxYears) : null,
+      propertyAgeYears: values.propertyAgeMinYears && values.propertyAgeMaxYears && values.propertyAgeMinYears === values.propertyAgeMaxYears
+        ? Number(values.propertyAgeMinYears)
+        : null,
       builtUpAreaSqft: Number(values.builtUpAreaSqft),
       carpetAreaSqft: values.carpetAreaSqft ? Number(values.carpetAreaSqft) : null,
       dimension: blankToNull(values.dimension),
@@ -392,8 +442,18 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       <Section title="Pricing">
         {listingType === "RENT" ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Monthly Rent (₹)" required error={errors.monthlyRent?.message}>
-              <Input type="number" {...register("monthlyRent", { required: "Rent amount is required", min: { value: 1, message: "Rent must be greater than 0" } })} />
+            <Field label="Monthly Rent" required error={errors.monthlyRent?.message}>
+              <div className="flex gap-2">
+                <Input type="number" step="any" className="flex-1" {...register("monthlyRent", { required: "Rent amount is required", min: { value: 0.001, message: "Rent must be greater than 0" } })} />
+                <Select className="w-32" {...register("monthlyRentUnit")}>
+                  {allowedUnitsForListingType("RENT").map((u) => (
+                    <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+                  ))}
+                </Select>
+              </div>
+              {watch("monthlyRent") && (
+                <p className="mt-1 text-xs text-slate-500">= ₹{toINR(Number(watch("monthlyRent")) || 0, monthlyRentUnit).toLocaleString("en-IN")}</p>
+              )}
             </Field>
             <Field label="Security Deposit (₹)">
               <Input type="number" {...register("securityDeposit")} />
@@ -407,8 +467,18 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Sale Price (₹)" required error={errors.salePrice?.message}>
-              <Input type="number" {...register("salePrice", { required: "Sale price is required", min: { value: 1, message: "Sale price must be greater than 0" } })} />
+            <Field label="Sale Price" required error={errors.salePrice?.message}>
+              <div className="flex gap-2">
+                <Input type="number" step="any" className="flex-1" {...register("salePrice", { required: "Sale price is required", min: { value: 0.001, message: "Sale price must be greater than 0" } })} />
+                <Select className="w-32" {...register("salePriceUnit")}>
+                  {allowedUnitsForListingType("SALE").map((u) => (
+                    <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+                  ))}
+                </Select>
+              </div>
+              {watch("salePrice") && (
+                <p className="mt-1 text-xs text-slate-500">= ₹{toINR(Number(watch("salePrice")) || 0, salePriceUnit).toLocaleString("en-IN")}</p>
+              )}
             </Field>
             <Field label="Price per Sqft (₹)">
               <Input type="number" {...register("pricePerSqft")} />
@@ -447,7 +517,22 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           </Field></>}
           <Field label="Floor Number"><Input type="number" {...register("floorNumber")} /></Field>
           <Field label="Total Floors"><Input type="number" {...register("totalFloors")} /></Field>
-          <Field label="Property Age (years)"><Input type="number" {...register("propertyAgeYears")} /></Field>
+          <Field label="Property Age - Minimum (years)" error={errors.propertyAgeMinYears?.message}>
+            <Input type="number" min={0} max={100} {...register("propertyAgeMinYears", {
+              min: { value: 0, message: "Minimum age cannot be negative" },
+              max: { value: 100, message: "Minimum age must be 100 years or less" },
+            })} />
+          </Field>
+          <Field label="Property Age - Maximum (years)" error={errors.propertyAgeMaxYears?.message}>
+            <Input type="number" min={0} max={100} {...register("propertyAgeMaxYears", {
+              min: { value: 0, message: "Maximum age cannot be negative" },
+              max: { value: 100, message: "Maximum age must be 100 years or less" },
+              validate: (value, formValues) => {
+                if (!value || !formValues.propertyAgeMinYears) return true;
+                return Number(value) >= Number(formValues.propertyAgeMinYears) || "Maximum age cannot be less than minimum age";
+              },
+            })} />
+          </Field>
           <Field label="Built-up Area (sqft)" required error={errors.builtUpAreaSqft?.message}><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required", min: { value: 1, message: "Built-up area must be greater than 0" } })} /></Field>
           <Field label="Area Unit" hint="Only relevant if this listing's area came from a non-sqft source">
             <Select {...register("areaUnit")}>
@@ -494,7 +579,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           <Field label="Available From"><Input type="date" {...register("availableFrom")} /></Field>
         </div>
         <div className="flex flex-wrap gap-4">
-          <Checkbox label="Parking available" {...register("parkingAvailable")} />
+          <Checkbox label="Open Parking" {...register("hasOpenParking")} />
+          <Checkbox label="Stilt Parking" {...register("hasStiltParking")} />
           <Checkbox label="Lift available" {...register("liftAvailable")} />
         </div>
         </>}

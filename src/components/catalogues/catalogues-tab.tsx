@@ -172,21 +172,35 @@ function CatalogueShareDialog({ catalogue, method, leadId, clientName, phoneOpti
   const [recipient, setRecipient] = useState(usable.length === 1 ? usable[0]?.number ?? "" : "");
   const [busy, setBusy] = useState(false);
   const selected = usable.find((p) => p.number === recipient);
-  async function proceed() {
+  function proceed() {
     if (!recipient) return toast.error("Select a WhatsApp number");
     setBusy(true);
-    const url = method === "crm" ? `/api/leads/${leadId}/catalogues/${catalogue.id}/send` : `/api/leads/${leadId}/catalogues/${catalogue.id}/whatsapp-link`;
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipientPhone: recipient }) });
-    setBusy(false);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return toast.error(data.error ?? "Could not share catalogue");
-    if (method === "open") {
-      window.open(data.waMeUrl, "_blank", "noopener,noreferrer");
-      toast.success("WhatsApp opened — review and press Send yourself.");
-    } else if (data.message?.status === "FAILED") {
-      toast.error("CRM WhatsApp send failed. You can still open WhatsApp manually.");
-    } else toast.success("Catalogue sent from CRM");
-    onSent(); onClose();
+    // Open the tab synchronously, inside the click handler, before any
+    // asynchronous work runs - browsers only allow window.open() without
+    // popup-blocking when it is a direct result of the user gesture. We
+    // fill in the real wa.me URL once the fetch resolves below.
+    // `opener = null` gives the same protection as "noopener" while still
+    // letting us keep the handle to navigate later.
+    const waWindow = method === "open" ? window.open("", "_blank") : null;
+    if (waWindow) waWindow.opener = null;
+    void (async () => {
+      const url = method === "crm" ? `/api/leads/${leadId}/catalogues/${catalogue.id}/send` : `/api/leads/${leadId}/catalogues/${catalogue.id}/whatsapp-link`;
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipientPhone: recipient }) });
+      setBusy(false);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        waWindow?.close();
+        return toast.error(data.error ?? "Could not share catalogue");
+      }
+      if (method === "open") {
+        if (waWindow) waWindow.location.href = data.waMeUrl;
+        else window.open(data.waMeUrl, "_blank", "noopener,noreferrer");
+        toast.success("WhatsApp opened — review and press Send yourself.");
+      } else if (data.message?.status === "FAILED") {
+        toast.error("CRM WhatsApp send failed. You can still open WhatsApp manually.");
+      } else toast.success("Catalogue sent from CRM");
+      onSent(); onClose();
+    })();
   }
   return <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label="Share catalogue"><div className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-slate-900">{method === "crm" ? "Send Catalogue" : "Open Catalogue in WhatsApp"}</h2><button onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button></div><div className="mt-5 space-y-4"><div><p className="text-sm font-medium text-slate-900">Customer</p><p className="text-sm text-slate-600">{clientName}</p></div><fieldset><legend className="text-sm font-medium text-slate-900">Select WhatsApp number</legend><div className="mt-2 space-y-2">{usable.length === 0 ? <p className="text-sm text-rose-700">No valid phone number is available for this lead.</p> : usable.map((p) => <label key={p.number} className="flex min-h-11 items-center gap-3 rounded-lg border p-3 text-sm"><input type="radio" name="recipient" checked={recipient === p.number} onChange={() => setRecipient(p.number)} /><span>{p.number}</span><span className="ml-auto text-xs text-slate-500">{p.label}</span></label>)}</div></fieldset>{selected && <div className="rounded-lg bg-slate-50 p-3 text-sm"><p>To: {clientName} · {selected.number}</p><p>Catalogue: {catalogue.properties.length} properties</p><p>From: {method === "crm" ? "KP Properties (configured CRM sender)" : "Your WhatsApp"}</p></div>}{method === "open" && <p className="text-xs text-slate-500">WhatsApp will open with a prepared message. Review it and press Send yourself.</p>}<div className="flex gap-2"><Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button><Button onClick={() => void proceed()} disabled={!recipient} loading={busy}>{method === "crm" ? "Send" : "Open WhatsApp"}</Button></div></div></div></div>;
 }

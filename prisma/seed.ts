@@ -136,6 +136,8 @@ async function main() {
       floorNumber: 1 + (i % 12),
       totalFloors: 4 + (i % 10),
       propertyAgeYears: i % 15,
+      propertyAgeMinYears: i % 15,
+      propertyAgeMaxYears: i % 15,
       builtUpAreaSqft: builtUp,
       carpetAreaSqft: Math.round(builtUp * 0.85),
       facing: pick(Object.values(Facing), i),

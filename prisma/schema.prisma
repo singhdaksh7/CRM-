@@ -1136,26 +1136,47 @@ model Property {
   negotiable Boolean @default(false)
 
   // Property details
-  bhk              Int
-  bathrooms        Int
-  balconies        Int               @default(0)
+  bhk                 Int
+  bathrooms           Int
+  balconies           Int               @default(0)
   // Nullable (Property Inventory V2): manual create/edit still requires this
   // via createPropertySchema's Zod validation - only import rows without a
   // furnishing signal in the source workbook are allowed to leave it unset
   // (null = genuinely unknown, never guessed) via importCreatePropertySchema.
-  furnishing       FurnishingStatus?
-  floorNumber      Int?
-  totalFloors      Int?
-  propertyAgeYears Int?
-  builtUpAreaSqft  Int
-  carpetAreaSqft   Int?
-  dimension        String?
-  possessionNotes  String?
-  facing           Facing?
-  parkingAvailable Boolean           @default(false)
-  liftAvailable    Boolean           @default(false)
-  tenantPreference TenantPreference?
-  availableFrom    DateTime?
+  furnishing          FurnishingStatus?
+  floorNumber         Int?
+  totalFloors         Int?
+  // Legacy single-value age column - kept for backward compatibility, no
+  // longer written by the property form (see propertyAgeMinYears/MaxYears
+  // below). Existing rows are backfilled into the min/max pair by the
+  // 2026-09-21-property-age-range manual migration; never dropped so no
+  // historical data is lost.
+  propertyAgeYears    Int?
+  // Property age range (additive, Property Age Range feature). Manual
+  // create/edit via createPropertySchema always writes both together
+  // (min == max for an exact age). Backfilled from propertyAgeYears for
+  // existing rows - see prisma/manual-migrations/2026-09-21-property-age-range.sql.
+  propertyAgeMinYears Int?
+  propertyAgeMaxYears Int?
+  builtUpAreaSqft     Int
+  carpetAreaSqft      Int?
+  dimension           String?
+  possessionNotes     String?
+  facing              Facing?
+  // Kept for backward compatibility with every existing reader (matching,
+  // catalogue/public DTOs, imports) - now derived/synced server-side from
+  // hasOpenParking || hasStiltParking on every manual create/edit (see
+  // POST/PATCH /api/properties). Never written to directly by new UI.
+  parkingAvailable    Boolean           @default(false)
+  // OPEN and STILT parking are independently selectable (a property can
+  // have both, e.g. some open spaces plus a covered stilt spot). Additive -
+  // see prisma/manual-migrations/2026-09-21-property-parking-types.sql for
+  // the backfill decision on existing rows.
+  hasOpenParking      Boolean           @default(false)
+  hasStiltParking     Boolean           @default(false)
+  liftAvailable       Boolean           @default(false)
+  tenantPreference    TenantPreference?
+  availableFrom       DateTime?
 
   // Property Inventory V2 - additive import provenance/parsing fields. All
   // nullable and populated only for imported rows (never defaulted for
@@ -1570,7 +1591,6 @@ enum LeadPhoneType {
  * child table, unique per (organizationId, leadId, phone) to prevent the
  * same number being added twice to one lead (@@unique below - Prisma-schema
  * expressible, so declared normally), and at most one PRIMARY row per lead.
- *
  * The PRIMARY invariant is NOT expressed here - Prisma's schema DSL has no
  * way to declare a partial (WHERE-qualified) unique index in this Prisma
  * version, so `@@unique([organizationId, leadId])` would incorrectly also
@@ -1583,7 +1603,6 @@ enum LeadPhoneType {
  * reduces the *frequency* of a race but is not itself sufficient under
  * READ COMMITTED - the partial unique index is the real backstop, and
  * addLeadPhone() turns a P2002 against it into a clean 409.
- *
  * Deliberately NOT a dedicated Customer/CustomerContact merge: adding a
  * number to a Lead never merges it with another Lead that already has that
  * number (see dedupe check in src/lib/lead-phones.ts) - multiple Leads may
@@ -2184,12 +2203,10 @@ model CatalogueInteraction {
 
 /**
  * Mutable client preference for one property inside one catalogue share.
- *
  * CatalogueInteraction remains the append-only event log (views, questions,
  * visit requests, historical INTERESTED/NOT_INTERESTED clicks). This table
  * is the authoritative current state for visit planning and preference
  * summaries: UNDECIDED / LIKED / NOT_INTERESTED, updatable by the client.
- *
  * organizationId and leadId are always derived server-side from the
  * CatalogueShare resolved via opaque token - never accepted from the
  * public request body.
@@ -2571,7 +2588,6 @@ model Document {
  * Structured property media. Additive alongside Property.images/coverImage/
  * floorPlanImage (legacy JSON-array-of-URLs). This table is the provider-
  * backed source of truth for gallery/cover/catalogue/public pages.
- *
  * Single-cover invariant is also enforced in application code and via a
  * partial unique index in the SQL migration (one ACTIVE isCover=true per
  * property). Prisma cannot express partial unique indexes natively.

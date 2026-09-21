@@ -51,11 +51,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // every unrelated edit).
     const localityId = data.area !== undefined && data.area !== existing.area ? await resolveOrCreatePropertyLocality(patchOrganizationId, data.area, session.user.id) : undefined;
 
+    // Derived, never trusted from the client directly - keeps the legacy
+    // `parkingAvailable` boolean (every existing matching/catalogue reader)
+    // in sync with the OPEN/STILT checkboxes. Only recomputed when this
+    // PATCH actually touches one of the two new fields (this is a partial
+    // update); falls back to the existing stored value for whichever one
+    // wasn't included in this request.
+    const parkingAvailable =
+      data.hasOpenParking !== undefined || data.hasStiltParking !== undefined
+        ? (data.hasOpenParking ?? existing.hasOpenParking) || (data.hasStiltParking ?? existing.hasStiltParking)
+        : undefined;
+
     const property = await prisma.property.update({
       where: { id },
       data: {
         ...data,
         ...(localityId !== undefined ? { localityId } : {}),
+        ...(parkingAvailable !== undefined ? { parkingAvailable } : {}),
         ...(amenities ? { amenities: JSON.stringify(amenities) } : {}),
         ...(images ? { images: JSON.stringify(images) } : {}),
         ...(suitableForTags ? { suitableForTags: JSON.stringify(suitableForTags) } : {}),

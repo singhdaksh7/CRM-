@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { matchPropertyToLead, matchPropertiesToLead, applyProximityBonus, sectionizeMatches, type MatchResult } from "./matching";
+import { toINR } from "./money";
 import type { Property, Lead } from "@prisma/client";
 
 function property(overrides: Partial<Property> = {}): Property {
@@ -34,6 +35,8 @@ function property(overrides: Partial<Property> = {}): Property {
     floorNumber: 2,
     totalFloors: 5,
     propertyAgeYears: 5,
+    propertyAgeMinYears: 5,
+    propertyAgeMaxYears: 5,
     builtUpAreaSqft: 900,
     carpetAreaSqft: 750,
     facing: "NORTH",
@@ -180,6 +183,44 @@ describe("matchPropertyToLead - budget tolerance", () => {
   it("respects a stricter tolerance when the caller passes 0 (exact budget only)", () => {
     const result = matchPropertyToLead(property({ monthlyRent: 20500 }), lead({ minBudget: 15000, maxBudget: 20000 }), 0);
     expect(result).toBeNull();
+  });
+});
+
+describe("matchPropertyToLead - Indian money unit boundary cases", () => {
+  // Regression coverage for src/lib/money.ts: values entered as Lakh/Crore/
+  // Thousand must normalize to the same plain-rupee Int the DB stores, and
+  // budget comparisons must operate on those normalized integers correctly.
+  it("treats a property at 1.25 Crore as within a 1.5 Crore max budget", () => {
+    const result = matchPropertyToLead(
+      property({ listingType: "SALE", salePrice: toINR(1.25, "crore") }),
+      lead({ requirementType: "BUY", minBudget: toINR(50, "lakh"), maxBudget: toINR(1.5, "crore") }),
+    );
+    expect(result).not.toBeNull();
+    expect(result!.aboveBudget).toBe(false);
+    expect(result!.property.salePrice).toBe(12_500_000);
+  });
+
+  it("flags a property at 1.75 Crore as outside a 1.5 Crore max budget", () => {
+    const result = matchPropertyToLead(
+      property({ listingType: "SALE", salePrice: toINR(1.75, "crore") }),
+      lead({ requirementType: "BUY", minBudget: toINR(50, "lakh"), maxBudget: toINR(1.5, "crore") }),
+    );
+    // 1.75cr vs a 1.5cr max is ~16.7% over - within the default 20%
+    // tolerance, so it's still surfaced as a match, but must be flagged as
+    // above the stated maximum rather than silently treated as in-budget.
+    expect(result).not.toBeNull();
+    expect(result!.aboveBudget).toBe(true);
+    expect(result!.overagePct).toBeCloseTo((17_500_000 - 15_000_000) / 15_000_000, 6);
+  });
+
+  it("matches a property renting at 40 Thousand against a 30-50 Thousand lead range", () => {
+    const result = matchPropertyToLead(
+      property({ listingType: "RENT", monthlyRent: toINR(40, "thousand") }),
+      lead({ requirementType: "RENT", minBudget: toINR(30, "thousand"), maxBudget: toINR(50, "thousand") }),
+    );
+    expect(result).not.toBeNull();
+    expect(result!.aboveBudget).toBe(false);
+    expect(result!.property.monthlyRent).toBe(40_000);
   });
 });
 

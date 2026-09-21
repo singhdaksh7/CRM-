@@ -43,13 +43,27 @@ export const propertySchema = z.object({
   furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]),
   floorNumber: z.number().int().optional().nullable(),
   totalFloors: z.number().int().optional().nullable(),
+  // Legacy single-value age - kept for backward compatibility, no longer
+  // written by the property form. See propertyAgeMinYears/propertyAgeMaxYears
+  // below and the cross-field refine on createPropertySchema.
   propertyAgeYears: z.number().int().optional().nullable(),
+  propertyAgeMinYears: z.number().int().min(0, "Minimum age cannot be negative").max(100, "Minimum age must be 100 years or less").optional().nullable(),
+  propertyAgeMaxYears: z.number().int().min(0, "Maximum age cannot be negative").max(100, "Maximum age must be 100 years or less").optional().nullable(),
   builtUpAreaSqft: z.number().int().positive(),
   carpetAreaSqft: z.number().int().positive().optional().nullable(),
   dimension: z.string().max(80).optional().nullable(),
   possessionNotes: z.string().max(200).optional().nullable(),
   facing: z.enum(["NORTH", "SOUTH", "EAST", "WEST", "NORTH_EAST", "NORTH_WEST", "SOUTH_EAST", "SOUTH_WEST"]).optional().nullable(),
+  // Kept for backward compatibility with every existing reader (matching,
+  // catalogue/public DTOs, imports). Server-synced from
+  // hasOpenParking || hasStiltParking on every manual create/edit (see
+  // POST/PATCH /api/properties) - a client-supplied value here is not
+  // trusted directly for that path.
   parkingAvailable: z.boolean().default(false),
+  // OPEN and STILT parking are independently selectable - a property can
+  // have both (e.g. some open spaces plus a covered stilt spot).
+  hasOpenParking: z.boolean().default(false),
+  hasStiltParking: z.boolean().default(false),
   liftAvailable: z.boolean().default(false),
   tenantPreference: z.enum(["FAMILY", "BACHELOR_MALE", "BACHELOR_FEMALE", "COMPANY", "ANY"]).optional().nullable(),
   availableFrom: z.string().optional().nullable(),
@@ -131,6 +145,9 @@ export const createPropertySchema = propertySchema.refine(
 ).refine(
   (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
   { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
+).refine(
+  (data) => data.propertyAgeMinYears == null || data.propertyAgeMaxYears == null || data.propertyAgeMinYears <= data.propertyAgeMaxYears,
+  { message: "Maximum age cannot be less than minimum age", path: ["propertyAgeMaxYears"] }
 );
 
 // Property Inventory V2 - import-only variant of createPropertySchema.
@@ -168,6 +185,10 @@ export const importCreatePropertySchema = propertySchema
   .refine(
     (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
     { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
+  )
+  .refine(
+    (data) => data.propertyAgeMinYears == null || data.propertyAgeMaxYears == null || data.propertyAgeMinYears <= data.propertyAgeMaxYears,
+    { message: "Maximum age cannot be less than minimum age", path: ["propertyAgeMaxYears"] }
   );
 
 export const leadSchema = z.object({
@@ -603,7 +624,22 @@ export const inventoryPartnerSchema = z.object({
   company: z.string().optional().nullable(),
   phone: z.string().min(8),
   alternatePhone: z.string().optional().nullable(),
-  localities: z.array(z.string()).default([]),
+  localities: z
+    .array(z.string())
+    .default([])
+    .transform((values) => {
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const raw of values) {
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push(trimmed);
+      }
+      return result;
+    }),
   notes: z.string().optional().nullable(),
   commissionSplitPct: z.number().min(0).max(100).optional().nullable(),
   isActive: z.boolean().default(true),

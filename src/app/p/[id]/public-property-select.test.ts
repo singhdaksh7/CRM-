@@ -80,4 +80,10 @@ describe("PUBLIC_PROPERTY_SELECT - safe at the data boundary (A2)", () => {
       expect(PUBLIC_PROPERTY_SELECT).toHaveProperty(field, true);
     }
   });
+
+  it("selects the OPEN/STILT parking type fields - parking type is not sensitive info", () => {
+    for (const field of ["parkingAvailable", "hasOpenParking", "hasStiltParking"]) {
+      expect(PUBLIC_PROPERTY_SELECT).toHaveProperty(field, true);
+    }
+  });
 });

@@ -96,7 +96,7 @@ export class FakeResetDb {
     // and the actual prisma/migrations/ directory count - bump both together
     // whenever a new migration is added, or the default-options tests below
     // will fail the real disk-vs-applied preflight check.
-    this.appliedMigrationCount = options.appliedMigrationCount ?? 34;
+    this.appliedMigrationCount = options.appliedMigrationCount ?? 36;
     this.missingCoreTables = options.missingCoreTables ?? [];
     this.failOnDeleteMany = options.failOnDeleteMany;
   }

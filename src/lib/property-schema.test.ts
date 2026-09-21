@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { propertySchema } from "./validators";
+import { propertySchema, createPropertySchema } from "./validators";
 
 function baseRentPayload(overrides: Record<string, unknown> = {}) {
   return {
@@ -23,6 +23,8 @@ function baseRentPayload(overrides: Record<string, unknown> = {}) {
     floorNumber: null,
     totalFloors: null,
     propertyAgeYears: null,
+    propertyAgeMinYears: null,
+    propertyAgeMaxYears: null,
     builtUpAreaSqft: 727,
     carpetAreaSqft: null,
     facing: null,
@@ -171,5 +173,71 @@ describe("propertySchema", () => {
     expect(result.success).toBe(true);
     const rejected = propertySchema.safeParse(baseRentPayload({ furnishing: "Semi-Furnished" }));
     expect(rejected.success).toBe(false);
+  });
+
+  it("accepts independent OPEN and STILT parking selections, both together, and defaults both to false when omitted", () => {
+    const both = propertySchema.safeParse(baseRentPayload({ hasOpenParking: true, hasStiltParking: true }));
+    expect(both.success).toBe(true);
+    if (both.success) {
+      expect(both.data.hasOpenParking).toBe(true);
+      expect(both.data.hasStiltParking).toBe(true);
+    }
+
+    const openOnly = propertySchema.safeParse(baseRentPayload({ hasOpenParking: true, hasStiltParking: false }));
+    expect(openOnly.success).toBe(true);
+    if (openOnly.success) {
+      expect(openOnly.data.hasOpenParking).toBe(true);
+      expect(openOnly.data.hasStiltParking).toBe(false);
+    }
+
+    const neitherSupplied = propertySchema.safeParse(baseRentPayload());
+    expect(neitherSupplied.success).toBe(true);
+    if (neitherSupplied.success) {
+      expect(neitherSupplied.data.hasOpenParking).toBe(false);
+      expect(neitherSupplied.data.hasStiltParking).toBe(false);
+    }
+  });
+
+  describe("propertyAgeMinYears / propertyAgeMaxYears (age range)", () => {
+    it("accepts a valid age range (min < max)", () => {
+      const result = createPropertySchema.safeParse(baseRentPayload({ propertyAgeMinYears: 10, propertyAgeMaxYears: 15 }));
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts an exact age (min === max)", () => {
+      const result = createPropertySchema.safeParse(baseRentPayload({ propertyAgeMinYears: 5, propertyAgeMaxYears: 5 }));
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts both min and max left blank (null)", () => {
+      const result = createPropertySchema.safeParse(baseRentPayload({ propertyAgeMinYears: null, propertyAgeMaxYears: null }));
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects a negative minimum age", () => {
+      const result = createPropertySchema.safeParse(baseRentPayload({ propertyAgeMinYears: -1, propertyAgeMaxYears: 5 }));
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some((i) => i.path.includes("propertyAgeMinYears"))).toBe(true);
+      }
+    });
+
+    it("rejects a negative maximum age", () => {
+      const result = createPropertySchema.safeParse(baseRentPayload({ propertyAgeMinYears: 0, propertyAgeMaxYears: -1 }));
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects max less than min", () => {
+      const result = createPropertySchema.safeParse(baseRentPayload({ propertyAgeMinYears: 15, propertyAgeMaxYears: 10 }));
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues.some((i) => i.path.includes("propertyAgeMaxYears"))).toBe(true);
+      }
+    });
+
+    it("rejects an age above the 100-year upper bound", () => {
+      const result = createPropertySchema.safeParse(baseRentPayload({ propertyAgeMinYears: 0, propertyAgeMaxYears: 101 }));
+      expect(result.success).toBe(false);
+    });
   });
 });

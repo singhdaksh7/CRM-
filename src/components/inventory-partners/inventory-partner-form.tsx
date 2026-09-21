@@ -8,8 +8,6 @@ import type { InventoryPartner } from "@prisma/client";
 import { Field, Input, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 
-const LOCALITIES_POOL = ["Janakpuri", "Dwarka", "Rajouri Garden", "Uttam Nagar", "Rohini", "Pitampura", "Vasant Kunj", "Saket", "Greater Kailash", "Lajpat Nagar", "Karol Bagh", "Paschim Vihar"];
-
 type FormValues = {
   name: string;
   company: string;
@@ -40,9 +38,29 @@ export function InventoryPartnerForm({ partner }: { partner?: InventoryPartner }
   const [submitting, setSubmitting] = useState(false);
   const { register, handleSubmit, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({ defaultValues: toFormValues(partner) });
   const localities = watch("localities");
+  const [localityInput, setLocalityInput] = useState("");
 
-  function toggleLocality(l: string) {
-    setValue("localities", localities.includes(l) ? localities.filter((x) => x !== l) : [...localities, l]);
+  function addLocality() {
+    const trimmed = localityInput.trim();
+    if (!trimmed) return;
+    const alreadyPresent = localities.some((l) => l.toLowerCase() === trimmed.toLowerCase());
+    if (alreadyPresent) {
+      setLocalityInput("");
+      return;
+    }
+    setValue("localities", [...localities, trimmed]);
+    setLocalityInput("");
+  }
+
+  function removeLocality(l: string) {
+    setValue("localities", localities.filter((x) => x !== l));
+  }
+
+  function onLocalityInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addLocality();
+    }
   }
 
   async function onSubmit(values: FormValues) {
@@ -115,19 +133,38 @@ export function InventoryPartnerForm({ partner }: { partner?: InventoryPartner }
         </div>
 
         <Field label="Localities Covered">
-          <div className="flex flex-wrap gap-2">
-            {LOCALITIES_POOL.map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => toggleLocality(l)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  localities.includes(l) ? "border-[#3366FF] bg-[#3366FF]/10 text-[#3366FF]" : "border-[#E7ECF2] text-[#596579] hover:border-[#3366FF]/40"
-                }`}
-              >
-                {l}
-              </button>
-            ))}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={localityInput}
+                onChange={(e) => setLocalityInput(e.target.value)}
+                onKeyDown={onLocalityInputKeyDown}
+                placeholder="Type a locality and press Enter"
+              />
+              <Button type="button" variant="secondary" onClick={addLocality}>
+                + Add Locality
+              </Button>
+            </div>
+            {localities.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {localities.map((l) => (
+                  <span
+                    key={l}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#3366FF] bg-[#3366FF]/10 px-3 py-1.5 text-xs font-medium text-[#3366FF]"
+                  >
+                    {l}
+                    <button
+                      type="button"
+                      onClick={() => removeLocality(l)}
+                      aria-label={`Remove ${l}`}
+                      className="text-[#3366FF]/70 hover:text-[#3366FF]"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </Field>
 

@@ -98,6 +98,10 @@ export async function POST(req: NextRequest) {
         images: JSON.stringify(data.images),
         availableFrom: data.availableFrom ? new Date(data.availableFrom) : null,
         createdById: session.user.id,
+        // Derived, never trusted from the client directly - keeps the
+        // legacy `parkingAvailable` boolean (every existing matching/
+        // catalogue reader) in sync with the new OPEN/STILT checkboxes.
+        parkingAvailable: data.hasOpenParking || data.hasStiltParking,
         // A coordinate submitted alongside a placeId came from the address
         // search's confirmed geocode result (see property-address-search.tsx)
         // - record it the same way the dedicated /geocode route would.

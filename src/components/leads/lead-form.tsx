@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { LocalityCombobox } from "@/components/properties/locality-combobox";
+import { allowedUnitsForListingType, toINR, UNIT_LABELS, type MoneyUnit } from "@/lib/money";
 
 type FormValues = {
   clientName: string;
@@ -18,7 +19,9 @@ type FormValues = {
   requirementType: "RENT" | "BUY";
   preferredLocation: string;
   minBudget: string;
+  minBudgetUnit: MoneyUnit;
   maxBudget: string;
+  maxBudgetUnit: MoneyUnit;
   preferredBhk: string;
   furnishingPref: string;
   moveInDate: string;
@@ -52,9 +55,28 @@ export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
       priority: "WARM",
       furnishingPref: "",
       assignedToId: "",
+      minBudgetUnit: allowedUnitsForListingType("RENT")[0],
+      maxBudgetUnit: allowedUnitsForListingType("RENT")[0],
     },
   });
   const assetClass = watch("assetClass");
+  const transactionType = watch("transactionType");
+  const minBudgetUnit = watch("minBudgetUnit");
+  const maxBudgetUnit = watch("maxBudgetUnit");
+
+  // Rent uses Thousand/Lakh, Sale uses Lakh/Crore - switching Rent<->Sale
+  // can't safely reinterpret an already-typed budget under the new unit set
+  // (e.g. "1.5" Crore silently becoming "1.5" Thousand), so the budget
+  // fields are cleared and re-entered under the correct units instead.
+  const prevTransactionTypeRef = useRef(transactionType);
+  useEffect(() => {
+    if (prevTransactionTypeRef.current === transactionType) return;
+    prevTransactionTypeRef.current = transactionType;
+    setValue("minBudget", "");
+    setValue("maxBudget", "");
+    setValue("minBudgetUnit", allowedUnitsForListingType(transactionType)[0]);
+    setValue("maxBudgetUnit", allowedUnitsForListingType(transactionType)[0]);
+  }, [transactionType, setValue]);
 
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
@@ -65,8 +87,8 @@ export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
         body: JSON.stringify({
           ...values,
           requirementType: values.transactionType === "RENT" ? "RENT" : "BUY",
-          minBudget: Number(values.minBudget),
-          maxBudget: Number(values.maxBudget),
+          minBudget: toINR(Number(values.minBudget), values.minBudgetUnit),
+          maxBudget: toINR(Number(values.maxBudget), values.maxBudgetUnit),
           preferredBhk: values.preferredBhk ? Number(values.preferredBhk) : null,
           furnishingPref: values.furnishingPref || null,
           moveInDate: values.moveInDate || null,
@@ -132,8 +154,32 @@ export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
               {[1, 2, 3, 4, 5].map((b) => (<option key={b} value={b}>{b} BHK</option>))}
             </Select>
           </Field>}
-          <Field label="Minimum Budget (₹)" required><Input type="number" {...register("minBudget", { required: true })} /></Field>
-          <Field label="Maximum Budget (₹)" required><Input type="number" {...register("maxBudget", { required: true })} /></Field>
+          <Field label="Minimum Budget" required>
+            <div className="flex gap-2">
+              <Input type="number" step="any" className="flex-1" {...register("minBudget", { required: true, min: { value: 0.001, message: "Minimum budget must be greater than 0" } })} />
+              <Select className="w-32" {...register("minBudgetUnit")}>
+                {allowedUnitsForListingType(transactionType).map((u) => (
+                  <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+                ))}
+              </Select>
+            </div>
+            {watch("minBudget") && (
+              <p className="mt-1 text-xs text-slate-500">= ₹{toINR(Number(watch("minBudget")) || 0, minBudgetUnit).toLocaleString("en-IN")}</p>
+            )}
+          </Field>
+          <Field label="Maximum Budget" required>
+            <div className="flex gap-2">
+              <Input type="number" step="any" className="flex-1" {...register("maxBudget", { required: true, min: { value: 0.001, message: "Maximum budget must be greater than 0" } })} />
+              <Select className="w-32" {...register("maxBudgetUnit")}>
+                {allowedUnitsForListingType(transactionType).map((u) => (
+                  <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+                ))}
+              </Select>
+            </div>
+            {watch("maxBudget") && (
+              <p className="mt-1 text-xs text-slate-500">= ₹{toINR(Number(watch("maxBudget")) || 0, maxBudgetUnit).toLocaleString("en-IN")}</p>
+            )}
+          </Field>
           <Field label="Furnishing Preference">
             <Select {...register("furnishingPref")}>
               <option value="">Any</option>
