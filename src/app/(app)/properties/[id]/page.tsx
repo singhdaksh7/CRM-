@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
-import { formatINR, formatDate, enumToLabel, parkingTypeLabel } from "@/lib/utils";
+import { formatINR, formatDate, enumToLabel, parkingTypeLabel, formatPropertyAgeRange } from "@/lib/utils";
 import { PropertyActions } from "@/components/properties/property-actions";
 import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyMapPanel } from "@/components/properties/property-map-panel";
@@ -190,7 +190,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <Detail label="Lift / Goods lift" value={`${property.liftAvailable ? "Yes" : "No"} / ${property.goodsLiftAvailable ? "Yes" : "No"}`} />
                 <Detail label="Available From" value={formatDate(property.availableFrom)} />
               </> : <>
-                <Detail label="BHK" value={`${property.bhk} BHK`} /><Detail label="Bathrooms" value={property.bathrooms} /><Detail label="Balconies" value={property.balconies} /><Detail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} /><Detail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} /><Detail label="Age" value={property.propertyAgeYears !== null ? `${property.propertyAgeYears} yrs` : "-"} /><Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} /><Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} /><Detail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} /><Detail label="Parking" value={property.parkingAvailable ? "Available" : "Not available"} /><Detail label="Tenant Preference" value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} /><Detail label="Available From" value={formatDate(property.availableFrom)} />
+                <Detail label="BHK" value={`${property.bhk} BHK`} /><Detail label="Bathrooms" value={property.bathrooms} /><Detail label="Balconies" value={property.balconies} /><Detail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} /><Detail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} /><Detail label="Age" value={formatPropertyAgeRange(property.propertyAgeMinYears, property.propertyAgeMaxYears)} /><Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} /><Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} /><Detail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} /><Detail label="Parking" value={parkingTypeLabel(property.hasOpenParking, property.hasStiltParking)} /><Detail label="Tenant Preference" value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} /><Detail label="Available From" value={formatDate(property.availableFrom)} />
               </>}
             </div>
           </div>

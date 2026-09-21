@@ -77,6 +77,23 @@ export function parkingTypeLabel(hasOpenParking: boolean | null | undefined, has
   return types.length ? types.join(" + ") : "No";
 }
 
+/**
+ * Formats a property's age range for display:
+ * - both null -> "-" (age not specified)
+ * - only one of min/max set -> that single value, e.g. "10 years" (should
+ *   not normally happen since the form always writes both together, but a
+ *   legacy/imported row could have only one set)
+ * - min === max -> "10 years" (an exact age, not a range)
+ * - min !== max -> "10-15 years"
+ */
+export function formatPropertyAgeRange(min: number | null | undefined, max: number | null | undefined): string {
+  if (min == null && max == null) return "-";
+  if (min == null) return `${max} year${max === 1 ? "" : "s"}`;
+  if (max == null) return `${min} year${min === 1 ? "" : "s"}`;
+  if (min === max) return `${min} year${min === 1 ? "" : "s"}`;
+  return `${min}–${max} years`;
+}
+
 export function generateCode(prefix: string, num: number): string {
   return `${prefix}-${String(num).padStart(5, "0")}`;
 }

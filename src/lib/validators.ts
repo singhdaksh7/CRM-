@@ -43,7 +43,12 @@ export const propertySchema = z.object({
   furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]),
   floorNumber: z.number().int().optional().nullable(),
   totalFloors: z.number().int().optional().nullable(),
+  // Legacy single-value age - kept for backward compatibility, no longer
+  // written by the property form. See propertyAgeMinYears/propertyAgeMaxYears
+  // below and the cross-field refine on createPropertySchema.
   propertyAgeYears: z.number().int().optional().nullable(),
+  propertyAgeMinYears: z.number().int().min(0, "Minimum age cannot be negative").max(100, "Minimum age must be 100 years or less").optional().nullable(),
+  propertyAgeMaxYears: z.number().int().min(0, "Maximum age cannot be negative").max(100, "Maximum age must be 100 years or less").optional().nullable(),
   builtUpAreaSqft: z.number().int().positive(),
   carpetAreaSqft: z.number().int().positive().optional().nullable(),
   dimension: z.string().max(80).optional().nullable(),
@@ -140,6 +145,9 @@ export const createPropertySchema = propertySchema.refine(
 ).refine(
   (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
   { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
+).refine(
+  (data) => data.propertyAgeMinYears == null || data.propertyAgeMaxYears == null || data.propertyAgeMinYears <= data.propertyAgeMaxYears,
+  { message: "Maximum age cannot be less than minimum age", path: ["propertyAgeMaxYears"] }
 );
 
 // Property Inventory V2 - import-only variant of createPropertySchema.
@@ -177,6 +185,10 @@ export const importCreatePropertySchema = propertySchema
   .refine(
     (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
     { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
+  )
+  .refine(
+    (data) => data.propertyAgeMinYears == null || data.propertyAgeMaxYears == null || data.propertyAgeMinYears <= data.propertyAgeMaxYears,
+    { message: "Maximum age cannot be less than minimum age", path: ["propertyAgeMaxYears"] }
   );
 
 export const leadSchema = z.object({

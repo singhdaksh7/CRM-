@@ -129,6 +129,7 @@ export function buildPropertyData(
   const isIndirectScenario = partners.length > 0 && i % 3 === 0;
   const partner = isIndirectScenario ? partners[(i * 5 + 3) % partners.length] : null;
 
+  const ageMin = rng.int(0, 20);
   const data: Prisma.PropertyUncheckedCreateInput = {
     id: demoId("prop", i),
     organizationId: DEMO_ORGANIZATION_ID,
@@ -163,7 +164,9 @@ export function buildPropertyData(
     furnishing: rng.pick(FURNISHING),
     floorNumber: rng.int(0, 12),
     totalFloors: rng.int(4, 15),
-    propertyAgeYears: rng.int(0, 20),
+    propertyAgeYears: ageMin,
+    propertyAgeMinYears: ageMin,
+    propertyAgeMaxYears: ageMin + rng.int(0, 5),
     builtUpAreaSqft: builtUp,
     carpetAreaSqft: Math.round(builtUp * 0.85),
     facing: rng.pick(FACINGS),
