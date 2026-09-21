@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/form";
+import { enumToLabel } from "@/lib/utils";
 import { CalendarClock, XCircle } from "lucide-react";
 
 /**
@@ -24,7 +25,7 @@ export function VisitManageActions({
   visitDate: string;
   visitTime: string;
   assignedToId: string;
-  employees: { id: string; name: string }[];
+  employees: { id: string; name: string; role: string }[];
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"none" | "reschedule" | "cancel">("none");
@@ -84,11 +85,11 @@ export function VisitManageActions({
               <Input type="time" value={form.visitTime} onChange={(e) => setForm({ ...form, visitTime: e.target.value })} />
             </Field>
           </div>
-          <Field label="Field Executive">
+          <Field label="Assigned To">
             <Select value={form.assignedToId} onChange={(e) => setForm({ ...form, assignedToId: e.target.value })}>
               <option value="">Unassigned</option>
               {employees.map((e) => (
-                <option key={e.id} value={e.id}>{e.name}</option>
+                <option key={e.id} value={e.id}>{e.name} — {enumToLabel(e.role)}</option>
               ))}
             </Select>
           </Field>

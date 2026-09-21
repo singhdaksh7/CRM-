@@ -5,7 +5,7 @@ import { visitSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
 import { checkVisitConflict } from "@/lib/visit-conflict";
 import { recordAudit } from "@/lib/audit";
-import { needsVisitOutcomeWhere, scheduleVisit, visitRoleScopeWhere, upcomingVisitsWhere, todaysVisitsWhere } from "@/lib/visits";
+import { needsVisitOutcomeWhere, scheduleVisit, visitRoleScopeWhere, upcomingVisitsWhere, todaysVisitsWhere, assertEligibleVisitAssignee } from "@/lib/visits";
 import { startOfIstDay, endOfIstDay } from "@/lib/ist-date";
 import { assignedToSelect } from "@/lib/user-select";
 import type { Prisma } from "@prisma/client";
@@ -71,6 +71,11 @@ export async function POST(req: NextRequest) {
     // property callers are unchanged; `propertyIds` (when sent) is the full
     // ordered selection for a multi-property visit.
     const selectedPropertyIds = propertyIds && propertyIds.length > 0 ? [...new Set([data.propertyId, ...propertyIds])] : [data.propertyId];
+
+    // Validate the assignee before doing anything else with it - no point
+    // running a (Maps-API-backed) conflict check against an id that turns
+    // out to be another org's user or an ineligible role.
+    await assertEligibleVisitAssignee(data.assignedToId, organizationId);
 
     let conflict: Awaited<ReturnType<typeof checkVisitConflict>> = { status: "NONE", detail: null, travelDurationMinutes: null, travelDistanceMeters: null, routeSource: "NONE" };
     if (data.assignedToId) {

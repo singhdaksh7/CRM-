@@ -77,7 +77,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       // so the assignee pool is FIELD_EXECUTIVE + ADMIN, not FIELD_EXECUTIVE
       // alone. DATA_MANAGER is deliberately excluded - it was never eligible
       // before this change and this task does not widen that.
-      canManage ? prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "ADMIN"] }, status: "ACTIVE" }, select: assignedToSelect }) : Promise.resolve([]),
+      canManage ? prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "ADMIN"] }, status: "ACTIVE" }, select: { id: true, name: true, role: true } }) : Promise.resolve([]),
     ])
   );
 

@@ -47,12 +47,24 @@ export default async function LeadDetailPage({
   // exact same predicate assertLeadAccessible uses.
   if (!isLeadAccessibleToUser(lead, session!.user)) notFound();
 
-  // Only id/name are ever rendered from this list (assignment dropdowns) - see
-  // src/lib/user-select.ts for why this excludes passwordHash and other
-  // account fields that used to be serialized into the RSC payload here.
+  // Only id/name are ever rendered from this list (lead-assignment dropdown)
+  // - see src/lib/user-select.ts for why this excludes passwordHash and
+  // other account fields that used to be serialized into the RSC payload
+  // here. FIELD_EXECUTIVE + DATA_MANAGER is who a LEAD can be assigned to -
+  // deliberately NOT the same list as visit assignment below.
   const employees = await prisma.user.findMany({
     where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" },
     select: assignedToSelect,
+  });
+  // Who a VISIT can be assigned to: Field Executive + Admin (the business
+  // owner may personally take a visit), never Data Manager - matches the
+  // role filter already used on the /visits pages. This is a separate list
+  // from `employees` above; reusing that one here was the bug that made
+  // Admin never appear in this page's "Schedule Visit" form.
+  const visitAssignees = await prisma.user.findMany({
+    where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "ADMIN"] }, status: "ACTIVE" },
+    select: { id: true, name: true, role: true },
+    orderBy: { name: "asc" },
   });
   const canManage = session!.user.role === "ADMIN" || session!.user.role === "DATA_MANAGER";
   const [health, suggestions] = await Promise.all([getLeadHealth(lead.id, organizationId), getLeadSuggestions(lead.id, canManage)]);
@@ -117,6 +129,7 @@ export default async function LeadDetailPage({
       <LeadWorkspace
         lead={lead}
         employees={employees}
+        visitAssignees={visitAssignees}
         role={session!.user.role}
         health={health}
         suggestions={suggestions}

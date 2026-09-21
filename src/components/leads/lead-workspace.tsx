@@ -27,6 +27,9 @@ import { LeadRequirementsPanel } from "./lead-requirements-panel";
 /** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
 type UserSummary = Pick<User, "id" | "name">;
 
+/** Candidates for the visit "Assigned To" dropdown - includes role so the option can read "Name — Role" (e.g. "Abhishek — Admin"). */
+type VisitAssigneeSummary = Pick<User, "id" | "name" | "role">;
+
 interface ScoreFactor {
   label: string;
   delta: number;
@@ -195,6 +198,7 @@ function ProgressTracker({
 export function LeadWorkspace({
   lead,
   employees,
+  visitAssignees,
   role,
   health,
   suggestions,
@@ -207,6 +211,7 @@ export function LeadWorkspace({
 }: {
   lead: LeadWithRelations;
   employees: UserSummary[];
+  visitAssignees: VisitAssigneeSummary[];
   role: string;
   health: HealthScoreResult | null;
   suggestions: Suggestion[];
@@ -297,7 +302,7 @@ export function LeadWorkspace({
           canManage={canManage}
           visitSuggestions={visitSuggestions}
           onTabAction={(t) => setTab(t as LeadTab)}
-          employees={employees}
+          visitAssignees={visitAssignees}
           preselectedPropertyId={preselectedPropertyId}
           outcomeOverrideVisitId={outcomeOverrideVisitId}
         />
@@ -987,7 +992,7 @@ function VisitsTab({
   canManage,
   visitSuggestions,
   onTabAction,
-  employees,
+  visitAssignees,
   preselectedPropertyId,
   outcomeOverrideVisitId,
 }: {
@@ -996,7 +1001,7 @@ function VisitsTab({
   canManage: boolean;
   visitSuggestions: Record<string, Suggestion[]>;
   onTabAction: (target: string) => void;
-  employees: UserSummary[];
+  visitAssignees: VisitAssigneeSummary[];
   preselectedPropertyId?: string | null;
   outcomeOverrideVisitId?: string | null;
 }) {
@@ -1033,7 +1038,7 @@ function VisitsTab({
 
       {canManage && showScheduleForm && (
         <div className="mb-4">
-          <VisitScheduleWithCandidates leadId={leadId} employees={employees} preselectedPropertyId={preselectedPropertyId} />
+          <VisitScheduleWithCandidates leadId={leadId} visitAssignees={visitAssignees} preselectedPropertyId={preselectedPropertyId} />
         </div>
       )}
 

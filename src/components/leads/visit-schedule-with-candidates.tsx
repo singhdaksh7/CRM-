@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, Input, Field } from "@/components/ui/form";
-import { formatINR } from "@/lib/utils";
+import { formatINR, enumToLabel } from "@/lib/utils";
 import { Heart, Search } from "lucide-react";
 
 type Candidate = {
@@ -22,7 +22,8 @@ type Candidate = {
   source: "liked" | "shared" | "manual";
 };
 
-type Employee = { id: string; name: string };
+/** Field Executive or Admin only - who a visit can actually be assigned to. */
+type VisitAssignee = { id: string; name: string; role: string };
 
 /**
  * DM/Admin visit scheduling with Liked / Shared / Manual groups.
@@ -30,11 +31,11 @@ type Employee = { id: string; name: string };
  */
 export function VisitScheduleWithCandidates({
   leadId,
-  employees,
+  visitAssignees,
   preselectedPropertyId,
 }: {
   leadId: string;
-  employees: Employee[];
+  visitAssignees: VisitAssignee[];
   preselectedPropertyId?: string | null;
 }) {
   const router = useRouter();
@@ -154,12 +155,12 @@ export function VisitScheduleWithCandidates({
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Assign to field executive">
+        <Field label="Assigned To">
           <Select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)}>
             <option value="">Unassigned</option>
-            {employees.map((e) => (
+            {visitAssignees.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name}
+                {e.name} — {enumToLabel(e.role)}
               </option>
             ))}
           </Select>

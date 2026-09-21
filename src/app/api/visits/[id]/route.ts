@@ -10,6 +10,7 @@ import { checkVisitConflict } from "@/lib/visit-conflict";
 import { recordAudit } from "@/lib/audit";
 import { runAutomationRules } from "@/lib/automation-rules";
 import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
+import { assertEligibleVisitAssignee } from "@/lib/visits";
 import type { LeadStatus, VisitOutcome } from "@prisma/client";
 
 // Visit outcome -> lead status mapping (a small, low-risk slice of the
@@ -52,6 +53,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (data.propertyId) {
       const prop = await prisma.property.findFirst({ where: { id: data.propertyId, organizationId }, select: { id: true } });
       if (!prop) throw new ApiError(404, "Property not found");
+    }
+
+    if (data.assignedToId !== undefined && data.assignedToId !== existing.assignedToId) {
+      await assertEligibleVisitAssignee(data.assignedToId, organizationId);
     }
 
     const reschedule = data.visitDate !== undefined || data.visitTime !== undefined || data.assignedToId !== undefined || data.propertyId !== undefined;

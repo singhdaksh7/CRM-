@@ -84,6 +84,31 @@ export interface VisitActor {
 }
 
 /**
+ * Roles eligible to be the assignee on a field/property visit. Admin is
+ * included alongside Field Executive since the business owner may
+ * personally take a visit; Data Manager stays excluded (unchanged from
+ * before) unless a future business rule explicitly adds it.
+ */
+export const ELIGIBLE_VISIT_ASSIGNEE_ROLES = ["FIELD_EXECUTIVE", "ADMIN"] as const satisfies readonly Role[];
+
+/**
+ * Throws if `assignedToId` is set but doesn't resolve to an active,
+ * same-organization user with an eligible visit-assignee role. Every write
+ * path that can set/change a Visit's assignee (create, PATCH, reschedule)
+ * must call this - without it a caller could staple another org's user, a
+ * non-existent id, or an ineligible role (e.g. Data Manager) onto a visit
+ * just by submitting that id in the request body.
+ */
+export async function assertEligibleVisitAssignee(assignedToId: string | null | undefined, organizationId: string): Promise<void> {
+  if (!assignedToId) return;
+  const assignee = await prisma.user.findFirst({
+    where: { id: assignedToId, organizationId, role: { in: ELIGIBLE_VISIT_ASSIGNEE_ROLES as unknown as Role[] }, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (!assignee) throw new ApiError(400, "Assignee must be an active Field Executive or Admin in this organization");
+}
+
+/**
  * Loads a visit and enforces org + role access in one place. Cross-org is a
  * 404, not a 403, so an outsider cannot probe for the existence of an ID.
  */
@@ -174,6 +199,8 @@ export interface VisitConflictFields {
 export async function scheduleVisit(input: ScheduleVisitInput) {
   const propertyIds = dedupePreservingOrder(input.propertyIds);
   if (propertyIds.length === 0) throw new ApiError(400, "Select at least one property for the visit");
+
+  await assertEligibleVisitAssignee(input.assignedToId, input.organizationId);
 
   // Every property must exist in this organization. Prevents a caller
   // stapling another org's property onto a visit.
@@ -673,6 +700,7 @@ export async function rescheduleVisit(
   const nextTime = input.visitTime ?? visit.visitTime;
   const nextAssignee = input.assignedToId !== undefined ? input.assignedToId : visit.assignedToId;
   const assigneeChanged = nextAssignee !== visit.assignedToId;
+  if (assigneeChanged) await assertEligibleVisitAssignee(nextAssignee, organizationId);
 
   await prisma.visit.update({
     where: { id: visit.id },

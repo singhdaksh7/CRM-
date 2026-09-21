@@ -67,7 +67,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
   const employees = dto.can.manage
     ? await prisma.user.findMany({
         where: { organizationId: getOrganizationId(session.user), role: { in: ["FIELD_EXECUTIVE", "ADMIN"] }, status: "ACTIVE" },
-        select: { id: true, name: true },
+        select: { id: true, name: true, role: true },
         orderBy: { name: "asc" },
       })
     : [];
