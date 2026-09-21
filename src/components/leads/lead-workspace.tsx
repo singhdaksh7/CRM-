@@ -480,6 +480,7 @@ function OverviewTab({
   const [note, setNote] = useState("");
   const [transferTo, setTransferTo] = useState("");
   const [saving, setSaving] = useState(false);
+  const [assignment, setAssignment] = useState({ id: lead.assignedToId, user: lead.assignedTo });
   // The API rejects a status change to CLOSED_LOST/NOT_INTERESTED without a
   // lostReasonCategory (see PATCH /api/leads/[id]) - without this, picking
   // either option here silently failed (generic "Failed to update status"
@@ -561,16 +562,27 @@ function OverviewTab({
 
   async function assign(employeeId: string) {
     setSaving(true);
-    const res = await fetch(`/api/leads/${lead.id}/assign`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assignedToId: employeeId }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      toast.success("Lead assigned");
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedToId: employeeId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success || !data.lead?.assignedTo) {
+        toast.error(data.error ?? "Assignment failed");
+        return;
+      }
+      setAssignment({ id: data.lead.assignedToId, user: data.lead.assignedTo });
+      toast.success(`Lead assigned to ${data.lead.assignedTo.name}`);
+      // Revalidation is intentionally post-success: a transient refresh
+      // problem must never replace a committed assignment with a failure toast.
       router.refresh();
-    } else toast.error("Assignment failed");
+    } catch {
+      toast.error("Assignment failed");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function runAutoAssign() {
@@ -740,7 +752,7 @@ function OverviewTab({
               <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
                 <UserIcon className="h-4 w-4 text-[#3366FF]" /> Assignment Details
               </h3>
-              <p className="text-sm text-[#596579]">Currently: <span className="font-bold text-[#1B2430]">{lead.assignedTo?.name ?? "Unassigned"}</span></p>
+              <p className="text-sm text-[#596579]">Currently: <span className="font-bold text-[#1B2430]">{assignment.user?.name ?? "Unassigned"}</span></p>
               {lead.assignmentReason && (
                 <p className="rounded-xl bg-[#FAFBFC] p-3 text-xs text-[#596579] border border-[#E7ECF2]">
                   {lead.assignmentStrategy && <Badge tone="indigo" className="mr-1.5 mb-1">{enumToLabel(lead.assignmentStrategy)}</Badge>}
@@ -748,7 +760,7 @@ function OverviewTab({
                   {lead.autoAssignedAt && <span className="mt-1 block text-[#8A94A6]">{formatDateTime(lead.autoAssignedAt)}</span>}
                 </p>
               )}
-              {!lead.assignedToId && (
+              {!assignment.id && (
                 <Button size="sm" variant="secondary" className="w-full justify-center" onClick={runAutoAssign} loading={saving}>
                   <Zap className="h-3.5 w-3.5" /> Run Auto Assignment
                 </Button>
@@ -761,13 +773,13 @@ function OverviewTab({
                   ))}
                 </Select>
               </Field>
-              {lead.assignedToId && (
+              {assignment.id && (
                 <div className="border-t border-[#EFF4FF] pt-3">
                   <Field label="Transfer to executive">
                     <div className="flex gap-2">
                       <Select value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
                         <option value="">Select executive...</option>
-                        {employees.filter((e) => e.id !== lead.assignedToId).map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
+                        {employees.filter((e) => e.id !== assignment.id).map((e) => (<option key={e.id} value={e.id}>{e.name}</option>))}
                       </Select>
                       <Button size="sm" variant="secondary" onClick={transfer} loading={saving}>
                         <ArrowRightLeft className="h-3.5 w-3.5" />
