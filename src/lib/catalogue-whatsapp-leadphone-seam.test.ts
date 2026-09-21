@@ -25,4 +25,19 @@ describe("LeadPhone → catalogue WhatsApp fallback seam", () => {
     expect(source).not.toContain('fetch("/api/catalogues/whatsapp-fallback"');
     expect(source).not.toMatch(/sendOutboundMessage|sendCatalogueMessage|META_CLOUD/);
   });
+
+  it("opens the WhatsApp tab synchronously (no await before window.open) so browsers don't block it as a popup", () => {
+    // Regression test: window.open() must run as a direct, synchronous result
+    // of the click handler. Calling it after an awaited fetch/json() gets
+    // silently popup-blocked by Chrome/Safari/Firefox - see proceed() in
+    // catalogues-tab.tsx.
+    const source = readFileSync(join(__dirname, "../components/catalogues/catalogues-tab.tsx"), "utf8");
+    const proceedStart = source.indexOf("function proceed()");
+    expect(proceedStart).toBeGreaterThan(-1);
+    const openIndex = source.indexOf("window.open(", proceedStart);
+    const firstAwaitIndex = source.indexOf("await ", proceedStart);
+    expect(openIndex).toBeGreaterThan(-1);
+    expect(firstAwaitIndex).toBeGreaterThan(-1);
+    expect(openIndex).toBeLessThan(firstAwaitIndex);
+  });
 });
