@@ -101,17 +101,17 @@ export function SavedViewsBar({ entityType }: { entityType: "LEAD" | "PROPERTY" 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {views.map((v) => (
-        <div key={v.id} className="group flex items-center gap-1 rounded-full border border-[#E7ECF2] bg-white pl-3 pr-1.5 py-1 text-xs font-semibold text-[#596579] hover:border-[#3366FF] hover:text-[#1B2430] transition-colors">
+        <div key={v.id} className="group flex items-center gap-1 rounded-full border border-[#E4E4E7] bg-white pl-3 pr-1.5 py-1 text-xs font-semibold text-[#52525B] hover:border-[#0A0A0A] hover:text-[#09090B] transition-colors">
           <button onClick={() => applyView(v)} className="flex items-center gap-1.5">
-            <Bookmark className="h-3 w-3 text-[#3366FF]" /> {v.name}
+            <Bookmark className="h-3 w-3 text-[#09090B]" /> {v.name}
           </button>
-          <button onClick={() => deleteView(v.id)} aria-label={`Delete ${v.name}`} className="rounded-full p-0.5 text-[#8A94A6] opacity-0 hover:bg-[#FFECEC] hover:text-[#E5484D] group-hover:opacity-100">
+          <button onClick={() => deleteView(v.id)} aria-label={`Delete ${v.name}`} className="rounded-full p-0.5 text-[#71717A] opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100">
             <X className="h-3 w-3" />
           </button>
         </div>
       ))}
 
-      <button onClick={() => setSaveOpen(true)} className="flex items-center gap-1 rounded-full border border-dashed border-[#E7ECF2] px-3 py-1 text-xs font-semibold text-[#8A94A6] hover:border-[#3366FF] hover:text-[#3366FF] transition-colors">
+      <button onClick={() => setSaveOpen(true)} className="flex items-center gap-1 rounded-full border border-dashed border-[#E4E4E7] px-3 py-1 text-xs font-semibold text-[#71717A] hover:border-[#0A0A0A] hover:text-[#09090B] transition-colors">
         <Plus className="h-3 w-3" /> Save view
       </button>
 

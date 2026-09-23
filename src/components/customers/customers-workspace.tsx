@@ -80,14 +80,14 @@ function CustomersWorkspaceInner({ role }: { role: Role }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 border-b border-[#E7ECF2] pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-[#E4E4E7] pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1B2430]">Customers</h1>
-          <p className="mt-1 text-sm text-[#596579]">Demand pool workspace · {total} contacts</p>
+          <h1 className="text-2xl font-bold text-[#09090B]">Customers</h1>
+          <p className="mt-1 text-sm text-[#52525B]">Customer directory & requirements · {total} contacts</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canImportCustomers(role) && (
-            <Link href="/customers/import" className="inline-flex items-center rounded-xl border border-[#E7ECF2] px-3 py-2 text-sm font-semibold">
+            <Link href="/customers/import" className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-3.5 py-2 text-sm font-semibold text-[#09090B] hover:bg-[#F4F4F5] transition-colors">
               Import
             </Link>
           )}

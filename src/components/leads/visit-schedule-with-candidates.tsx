@@ -116,10 +116,10 @@ export function VisitScheduleWithCandidates({
     (c) => !manualQuery || c.title.toLowerCase().includes(manualQuery.toLowerCase()) || c.location.toLowerCase().includes(manualQuery.toLowerCase())
   );
 
-  if (!loaded) return <p className="text-sm text-[#8A94A6]">Loading property candidates…</p>;
+  if (!loaded) return <p className="text-sm text-zinc-400">Loading property candidates…</p>;
 
   return (
-    <div className="space-y-4 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
+    <div className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
       <CandidateGroup
         title="Liked by Client"
         badge="❤️ Liked by Client"
@@ -129,23 +129,23 @@ export function VisitScheduleWithCandidates({
       />
       <CandidateGroup title="Shared with Client" items={shared} selected={selected} onToggle={toggle} />
       <div className="space-y-2">
-        <p className="text-xs font-bold uppercase tracking-wide text-[#8A94A6]">Add Manually</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Add Manually</p>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8A94A6]" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
           <Input value={manualQuery} onChange={(e) => setManualQuery(e.target.value)} placeholder="Search available properties…" className="pl-8 text-xs" />
         </div>
         <CandidateGroup title="" items={filteredManual.slice(0, 12)} selected={selected} onToggle={toggle} compact />
       </div>
 
       {selected.length > 0 && (
-        <div className="space-y-1 rounded-xl border border-[#C2D1FF] bg-[#EFF4FF] p-3">
-          <p className="text-xs font-bold text-[#3366FF]">Selected ({selected.length})</p>
+        <div className="space-y-1 rounded-xl border border-zinc-900/10 bg-zinc-900/[0.04] p-3">
+          <p className="text-xs font-bold text-zinc-900">Selected ({selected.length})</p>
           {selected.map((id) => {
             const c = allById.get(id);
             return (
-              <div key={id} className="flex items-center justify-between text-xs text-[#1B2430]">
+              <div key={id} className="flex items-center justify-between text-xs text-zinc-900">
                 <span className="truncate">{c?.title ?? id}</span>
-                <button type="button" className="font-semibold text-[#E5484D]" onClick={() => remove(id)}>
+                <button type="button" className="font-semibold text-rose-600 hover:underline" onClick={() => remove(id)}>
                   Remove
                 </button>
               </div>
@@ -201,45 +201,45 @@ function CandidateGroup({
   compact?: boolean;
 }) {
   if (items.length === 0 && !compact) {
-    return title ? <p className="text-xs text-[#8A94A6]">{title}: none yet</p> : null;
+    return title ? <p className="text-xs text-zinc-400">{title}: none yet</p> : null;
   }
   return (
     <div className="space-y-2">
-      {title && <p className="text-xs font-bold uppercase tracking-wide text-[#8A94A6]">{title}</p>}
+      {title && <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">{title}</p>}
       {items.map((c) => {
         const price = c.listingType === "RENT" ? formatINR(c.price, { suffix: "month" }) : formatINR(c.price, { compact: true });
         const checked = selected.includes(c.propertyId);
         return (
           <label
             key={c.propertyId}
-            className={`flex cursor-pointer gap-3 rounded-xl border bg-white p-2.5 ${c.available ? "border-[#E7ECF2]" : "border-[#FFC7C9] opacity-75"}`}
+            className={`flex cursor-pointer gap-3 rounded-xl border bg-white p-2.5 transition-colors ${c.available ? "border-zinc-200 hover:border-zinc-300" : "border-rose-200 opacity-75"}`}
           >
             <input
               type="checkbox"
-              className="mt-1"
+              className="mt-1 accent-zinc-900"
               checked={checked}
               disabled={!c.available}
               onChange={() => onToggle(c.propertyId, c.available)}
             />
-            <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-[#F5F7FA]">
+            <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
               {c.thumbnailUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={c.thumbnailUrl} alt="" className="h-full w-full object-cover" />
               ) : null}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-[#1B2430]">{c.title}</p>
-              <p className="text-xs text-[#596579]">
+              <p className="truncate text-sm font-semibold text-zinc-900">{c.title}</p>
+              <p className="text-xs text-zinc-500">
                 {c.location} · {c.bhk} BHK · {price}
               </p>
               <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10px] font-semibold">
                 {badge && c.source === "liked" && (
-                  <span className="inline-flex items-center gap-0.5 text-[#E5484D]">
+                  <span className="inline-flex items-center gap-0.5 text-rose-600">
                     <Heart className="h-3 w-3" /> {badge}
                   </span>
                 )}
-                {!c.available && <span className="text-[#E5484D]">Unavailable</span>}
-                {c.catalogueTitle && <span className="text-[#8A94A6]">{c.catalogueTitle}</span>}
+                {!c.available && <span className="text-rose-600">Unavailable</span>}
+                {c.catalogueTitle && <span className="text-zinc-400">{c.catalogueTitle}</span>}
               </div>
             </div>
           </label>

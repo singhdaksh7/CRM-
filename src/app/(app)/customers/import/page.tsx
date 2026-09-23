@@ -9,8 +9,8 @@ export default async function CustomersImportPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-[#1B2430]">Import Customers</h1>
-        <p className="text-sm text-[#596579]">
+        <h1 className="text-2xl font-bold text-zinc-900">Import Customers</h1>
+        <p className="text-sm text-zinc-500">
           Upload → map → preview → validate → duplicates → confirm. No contact or requirement is written before confirmation.
         </p>
       </div>

@@ -68,29 +68,41 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[#1B2430]">Follow-ups</h1>
-          <p className="text-sm text-[#596579]">Stay on top of client follow-ups</p>
+          <h1 className="text-2xl font-bold text-[#09090B]">Follow-ups</h1>
+          <p className="mt-1 text-sm text-[#52525B]">Stay on top of client conversations and action items</p>
         </div>
         <AddFollowUpModal leads={leads} employees={employees} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Link href="/follow-ups?bucket=overdue"><KpiCard label="Overdue" value={overdueCount} icon={AlertTriangle} tone="red" /></Link>
-        <Link href="/follow-ups?bucket=today"><KpiCard label="Due Today" value={todayCount} icon={CalendarClock} tone="amber" /></Link>
-        <Link href="/follow-ups?bucket=upcoming"><KpiCard label="Upcoming" value={upcomingCount} icon={CalendarDays} tone="blue" /></Link>
+        <Link href="/follow-ups?bucket=overdue" className="block transition-transform hover:-translate-y-0.5">
+          <KpiCard label="Overdue" value={overdueCount} icon={AlertTriangle} tone="red" />
+        </Link>
+        <Link href="/follow-ups?bucket=today" className="block transition-transform hover:-translate-y-0.5">
+          <KpiCard label="Due Today" value={todayCount} icon={CalendarClock} tone="amber" />
+        </Link>
+        <Link href="/follow-ups?bucket=upcoming" className="block transition-transform hover:-translate-y-0.5">
+          <KpiCard label="Upcoming" value={upcomingCount} icon={CalendarDays} tone="slate" />
+        </Link>
       </div>
 
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-        <h3 className="mb-2 text-sm font-bold capitalize text-[#1B2430]">{bucket} Follow-ups ({followUpsTotal})</h3>
+      <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#71717A]">
+          {bucket} Follow-ups ({followUpsTotal})
+        </h3>
         {followUps.length === 0 ? (
           <EmptyState title="No follow-ups in this bucket" />
         ) : (
-          <div>
+          <div className="divide-y divide-[#E4E4E7]">
             {followUps.map((f) => (
-              <FollowUpRow key={f.id} followUp={{ ...f, lead: f.lead! }} previousContext={previousCustomerContext(f.lead?.activities ?? [])} />
+              <FollowUpRow
+                key={f.id}
+                followUp={{ ...f, lead: f.lead! }}
+                previousContext={previousCustomerContext(f.lead?.activities ?? [])}
+              />
             ))}
           </div>
         )}

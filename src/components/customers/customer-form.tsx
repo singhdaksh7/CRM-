@@ -121,8 +121,8 @@ export function CustomerForm({
         <Textarea aria-label="Notes" rows={3} value={value.notes ?? ""} onChange={(e) => setValue((v) => ({ ...v, notes: e.target.value }))} />
       </Field>
 
-      <div className="rounded-xl border border-[#E7ECF2] bg-[#F8FAFC] p-3 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#596579]">Contact preferences</p>
+      <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Contact preferences</p>
         <Checkbox
           label="WhatsApp allowed"
           checked={!value.whatsAppOptOut}

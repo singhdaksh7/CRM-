@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#3366FF",
+          background: "#0A0A0A",
           borderRadius: maskable ? 0 : size * 0.22,
           color: "white",
           fontSize,

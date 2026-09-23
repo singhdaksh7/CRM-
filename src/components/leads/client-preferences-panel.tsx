@@ -49,14 +49,14 @@ export function ClientPreferencesPanel({
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Client Feedback</h3>
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs space-y-4">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Client Feedback</h3>
 
       {catalogueSummaries.length > 0 && (
         <div className="space-y-2">
           {catalogueSummaries.map((s) => (
-            <div key={s.catalogueShareId} className="rounded-xl border border-[#EFF4FF] bg-[#FAFBFC] px-3 py-2 text-xs text-[#596579]">
-              <p className="font-semibold text-[#1B2430]">{s.title}</p>
+            <div key={s.catalogueShareId} className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+              <p className="font-semibold text-zinc-900">{s.title}</p>
               <p>
                 {s.totalProperties} properties · {s.likedCount} liked · {s.notInterestedCount} not interested · {s.noResponseCount} no response
               </p>
@@ -66,10 +66,10 @@ export function ClientPreferencesPanel({
       )}
 
       {liked.length > 0 && (
-        <PreferenceGroup title="Liked" icon={<Heart className="h-3.5 w-3.5 text-[#E5484D]" />} items={liked} liked onScheduleVisit={onScheduleVisit} />
+        <PreferenceGroup title="Liked" icon={<Heart className="h-3.5 w-3.5 text-rose-500" />} items={liked} liked onScheduleVisit={onScheduleVisit} />
       )}
       {notInterested.length > 0 && (
-        <PreferenceGroup title="Not Interested" icon={<ThumbsDown className="h-3.5 w-3.5 text-[#8A94A6]" />} items={notInterested} />
+        <PreferenceGroup title="Not Interested" icon={<ThumbsDown className="h-3.5 w-3.5 text-zinc-400" />} items={notInterested} />
       )}
     </div>
   );
@@ -90,7 +90,7 @@ function PreferenceGroup({
 }) {
   return (
     <div className="space-y-2">
-      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#8A94A6]">
+      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
         {icon} {title}
       </p>
       <div className="space-y-2">
@@ -100,34 +100,34 @@ function PreferenceGroup({
               ? formatINR(item.property.monthlyRent, { suffix: "month" })
               : formatINR(item.property.salePrice, { compact: true });
           return (
-            <div key={`${item.catalogueTitle}-${item.propertyId}`} className="flex gap-3 rounded-xl border border-[#E7ECF2] p-2.5">
-              <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F5F7FA]">
+            <div key={`${item.catalogueTitle}-${item.propertyId}`} className="flex gap-3 rounded-xl border border-zinc-200 p-2.5">
+              <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
                 {item.property.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={item.property.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-[10px] text-[#8A94A6]">No photo</div>
+                  <div className="flex h-full items-center justify-center text-[10px] text-zinc-400">No photo</div>
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-[#1B2430]">{item.property.title}</p>
-                <p className="text-xs text-[#596579]">
+                <p className="truncate text-sm font-semibold text-zinc-900">{item.property.title}</p>
+                <p className="text-xs text-zinc-500">
                   {item.property.area} · {item.property.bhk} BHK · {price}
                 </p>
-                <p className="text-[11px] text-[#8A94A6]">
+                <p className="text-[11px] text-zinc-400">
                   {liked ? "Liked" : "Not interested"} from: {item.catalogueTitle}
                   {!item.available && " · Unavailable"}
                 </p>
               </div>
               <div className="flex flex-col gap-2 justify-center items-end shrink-0">
-                <Link href={`/properties/${item.property.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:underline">
+                <Link href={`/properties/${item.property.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 hover:underline">
                   <ExternalLink className="h-3.5 w-3.5" /> Open
                 </Link>
                 {liked && onScheduleVisit && item.available && (
                   <button
                     type="button"
                     onClick={() => onScheduleVisit(item.property.id)}
-                    className="inline-flex items-center gap-1 rounded-xl bg-[#3366FF] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#2952CC] transition-colors shadow-xs"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#0A0A0A] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-zinc-800 transition-colors shadow-xs"
                   >
                     Schedule Visit
                   </button>

@@ -13,19 +13,19 @@ export default async function ActivityAnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-[#1B2430]">Activity Analytics</h1>
-        <p className="text-sm text-[#596579]">Response speed, success rates, and workload</p>
+        <h1 className="text-2xl font-bold text-[#09090B]">Activity Analytics</h1>
+        <p className="mt-1 text-sm text-[#52525B]">Response speed, success rates, and team workload</p>
       </div>
 
       <ReportsTabs />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <KpiCard label="Avg Response Time" value={data.avgResponseTimeHours !== null ? `${data.avgResponseTimeHours}h` : "—"} icon={Clock} tone="blue" />
-        <KpiCard label="Avg Closing Time" value={data.avgClosingTimeDays !== null ? `${data.avgClosingTimeDays}d` : "—"} icon={CalendarClock} tone="indigo" />
-        <KpiCard label="Visit Success %" value={data.visitSuccessPct !== null ? `${data.visitSuccessPct}%` : "Insufficient data"} icon={CheckCircle2} tone="green" />
-        <KpiCard label="Match Success %" value={data.propertyMatchSuccessPct !== null ? `${data.propertyMatchSuccessPct}%` : "Insufficient data"} icon={Target} tone="purple" />
+        <KpiCard label="Avg Response" value={data.avgResponseTimeHours !== null ? `${data.avgResponseTimeHours}h` : "—"} icon={Clock} tone="slate" />
+        <KpiCard label="Avg Closing" value={data.avgClosingTimeDays !== null ? `${data.avgClosingTimeDays}d` : "—"} icon={CalendarClock} tone="slate" />
+        <KpiCard label="Visit Success %" value={data.visitSuccessPct !== null ? `${data.visitSuccessPct}%` : "No data"} icon={CheckCircle2} tone="green" />
+        <KpiCard label="Match Success %" value={data.propertyMatchSuccessPct !== null ? `${data.propertyMatchSuccessPct}%` : "No data"} icon={Target} tone="slate" />
         <KpiCard label="Open Follow-ups" value={data.openFollowUps} icon={ClipboardList} tone="amber" />
-        <KpiCard label="Ageing Leads (30+d)" value={data.ageingLeads.find((b) => b.bucket === "30+ days")?.count ?? 0} icon={Hourglass} tone="red" />
+        <KpiCard label="Ageing (30+d)" value={data.ageingLeads.find((b) => b.bucket === "30+ days")?.count ?? 0} icon={Hourglass} tone="red" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -22,8 +22,8 @@ export function DemandPoolDashboardCards() {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">Demand Pool</h2>
-        <Link href="/customers" className="text-xs font-semibold text-[#3366FF]">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Demand Pool</h2>
+        <Link href="/customers" className="text-xs font-semibold text-zinc-900 hover:underline">
           Open customers
         </Link>
       </div>
@@ -56,16 +56,16 @@ export function DemandAnalyticsPanel() {
   if (error || !rows) return null;
 
   return (
-    <section className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
+    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-[#1B2430]">Demand analytics</h2>
-        <Link href="/reports/demand" className="text-xs font-semibold text-[#3366FF]">
+        <h2 className="font-semibold text-zinc-900">Demand analytics</h2>
+        <Link href="/reports/demand" className="text-xs font-semibold text-zinc-900 hover:underline">
           Full report
         </Link>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="text-left text-xs uppercase tracking-wider text-[#8A94A6]">
+          <thead className="text-left text-xs uppercase tracking-wider text-zinc-400">
             <tr>
               <th className="py-2 pr-3">Locality</th>
               <th className="py-2 pr-3">Need</th>
@@ -75,16 +75,16 @@ export function DemandAnalyticsPanel() {
           </thead>
           <tbody>
             {rows.slice(0, 12).map((row, index) => (
-              <tr key={`${row.locality}-${index}`} className="border-t border-[#E7ECF2]">
-                <td className="py-2 pr-3 font-medium">{row.locality}</td>
-                <td className="py-2 pr-3 text-[#596579]">
+              <tr key={`${row.locality}-${index}`} className="border-t border-zinc-100">
+                <td className="py-2 pr-3 font-medium text-zinc-900">{row.locality}</td>
+                <td className="py-2 pr-3 text-zinc-500">
                   {row.assetClass === "RESIDENTIAL" && row.bhk != null ? `${row.bhk} BHK ` : ""}
                   {row.commercialSubtype ? `${row.commercialSubtype.replace(/_/g, " ")} ` : ""}
                   {row.transactionType}
                   {row.budgetBand ? ` · ${row.budgetBand}` : ""}
                 </td>
-                <td className="py-2 pr-3">{row.demand}</td>
-                <td className="py-2">{row.available}</td>
+                <td className="py-2 pr-3 text-zinc-900 font-medium">{row.demand}</td>
+                <td className="py-2 text-zinc-900 font-medium">{row.available}</td>
               </tr>
             ))}
           </tbody>

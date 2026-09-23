@@ -96,10 +96,10 @@ export function CustomerDetailWorkspace({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-[#E7ECF2] pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-zinc-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1B2430]">{contact.name}</h1>
-          <p className="mt-1 text-sm text-[#596579]">
+          <h1 className="text-2xl font-bold text-zinc-900">{contact.name}</h1>
+          <p className="mt-1 text-sm text-zinc-500">
             {contact.phone}
             {contact.email ? ` · ${contact.email}` : ""} · {contact.source.replace(/_/g, " ")}
           </p>
@@ -132,18 +132,18 @@ export function CustomerDetailWorkspace({
       )}
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-2 lg:col-span-1">
-          <h2 className="font-semibold text-[#1B2430]">Contact</h2>
-          <p className="text-sm text-[#596579]">Source: {contact.source.replace(/_/g, " ")}</p>
-          <p className="text-sm text-[#596579]">Last contacted: {lastContactedLabel(contact.lastContactedAt)}</p>
-          <p className="text-sm text-[#596579]">Last property sent: {contact.lastPropertySentAt ? formatDate(contact.lastPropertySentAt) : "—"}</p>
-          {contact.notes && <p className="text-sm text-[#596579] whitespace-pre-wrap">{contact.notes}</p>}
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-2 lg:col-span-1">
+          <h2 className="font-semibold text-zinc-900">Contact</h2>
+          <p className="text-sm text-zinc-500">Source: {contact.source.replace(/_/g, " ")}</p>
+          <p className="text-sm text-zinc-500">Last contacted: {lastContactedLabel(contact.lastContactedAt)}</p>
+          <p className="text-sm text-zinc-500">Last property sent: {contact.lastPropertySentAt ? formatDate(contact.lastPropertySentAt) : "—"}</p>
+          {contact.notes && <p className="text-sm text-zinc-500 whitespace-pre-wrap">{contact.notes}</p>}
         </div>
 
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3 lg:col-span-2">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3 lg:col-span-2">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-[#1B2430]">Requirements</h2>
-            <span className="text-xs text-[#8A94A6]">{requirements.filter((r) => r.active).length} active</span>
+            <h2 className="font-semibold text-zinc-900">Requirements</h2>
+            <span className="text-xs text-zinc-400">{requirements.filter((r) => r.active).length} active</span>
           </div>
           {requirements.length === 0 ? (
             <EmptyState title="No requirements" description="Add a residential or commercial requirement to start matching." />
@@ -172,53 +172,53 @@ export function CustomerDetailWorkspace({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
-        <h2 className="font-semibold text-[#1B2430]">Linked Leads</h2>
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3">
+        <h2 className="font-semibold text-zinc-900">Linked Leads</h2>
         {(contact.leads ?? []).length === 0 ? (
-          <p className="text-sm text-[#8A94A6]">No linked CRM leads yet.</p>
+          <p className="text-sm text-zinc-400">No linked CRM leads yet.</p>
         ) : (
           <ul className="space-y-2">
             {(contact.leads ?? []).map((lead) => (
               <li key={lead.id}>
-                <Link className="font-semibold text-[#3366FF]" href={`/leads/${lead.id}`}>
+                <Link className="font-semibold text-zinc-900 hover:underline" href={`/leads/${lead.id}`}>
                   {lead.leadCode}
                 </Link>{" "}
-                <span className="text-xs text-[#8A94A6]">{lead.status}</span>
+                <span className="text-xs text-zinc-400">{lead.status}</span>
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <section className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
-        <h2 className="font-semibold text-[#1B2430]">Property History</h2>
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3">
+        <h2 className="font-semibold text-zinc-900">Property History</h2>
         {(contact.recommendations ?? []).length === 0 ? (
           <EmptyState title="No recommendations yet" description="Property recommendations sent to this customer will appear here." />
         ) : (
           <ul className="space-y-3">
             {(contact.recommendations ?? []).map((rec) => (
-              <li key={rec.id} className="rounded-xl border border-[#E7ECF2] p-3 space-y-2">
+              <li key={rec.id} className="rounded-xl border border-zinc-200 p-3 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-[#8A94A6]">{formatDate(rec.sentAt ?? rec.createdAt)}</span>
+                  <span className="text-xs text-zinc-400">{formatDate(rec.sentAt ?? rec.createdAt)}</span>
                   <MatchTierBadge tier={rec.tier} />
                   <Badge tone="slate">{rec.status}</Badge>
-                  {rec.responseOutcome && <Badge tone="blue">{rec.responseOutcome.replace(/_/g, " ")}</Badge>}
+                  {rec.responseOutcome && <Badge tone="slate">{rec.responseOutcome.replace(/_/g, " ")}</Badge>}
                 </div>
-                <p className="text-sm font-semibold text-[#1B2430]">
+                <p className="text-sm font-semibold text-zinc-900">
                   {rec.property ? `${rec.property.title} · ${rec.property.area}` : "Property"}
                 </p>
                 <MatchExplanation tier={rec.tier} score={rec.score} reasons={rec.reasons} />
                 {canManage && rec.responseOutcome === "VISIT_REQUESTED" && (contact.leads ?? []).length > 0 && (
                   <Link
                     href={`/visits?leadId=${contact.leads![0].id}&propertyId=${rec.propertyId}`}
-                    className="inline-flex w-fit items-center rounded-lg bg-[#3366FF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2952CC]"
+                    className="inline-flex w-fit items-center rounded-lg bg-[#0A0A0A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 transition-colors"
                   >
                     Schedule Visit
                   </Link>
                 )}
                 {canManage && rec.status === "SENT" && !rec.responseOutcome && (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <label className="flex-1 text-xs font-semibold uppercase tracking-wider text-[#596579]">
+                    <label className="flex-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
                       Record response
                       <Select
                         aria-label="Customer response"
@@ -259,9 +259,9 @@ export function CustomerDetailWorkspace({
       </section>
 
       {matchRows && (
-        <section className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
+        <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-[#1B2430]">Matching Properties</h2>
+            <h2 className="font-semibold text-zinc-900">Matching Properties</h2>
             <Button size="sm" variant="ghost" onClick={() => setMatchRows(null)}>
               Close
             </Button>
@@ -273,15 +273,15 @@ export function CustomerDetailWorkspace({
               {matchRows
                 .filter((r) => r.tier !== "LOW")
                 .map((row) => (
-                  <article key={row.id} className="rounded-xl border border-[#E7ECF2] p-3 space-y-2">
+                  <article key={row.id} className="rounded-xl border border-zinc-200 p-3 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link className="font-semibold text-[#3366FF]" href={`/properties/${row.propertyId}`}>
+                      <Link className="font-semibold text-zinc-900 hover:underline" href={`/properties/${row.propertyId}`}>
                         {row.property?.title ?? "Property"}
                       </Link>
                       <MatchTierBadge tier={row.tier} />
-                      <span className="text-xs text-[#596579]">{row.score}%</span>
+                      <span className="text-xs text-zinc-500">{row.score}%</span>
                     </div>
-                    <p className="text-xs text-[#8A94A6]">
+                    <p className="text-xs text-zinc-400">
                       {row.property?.area} · {row.property?.propertyCode}
                     </p>
                     <MatchExplanation tier={row.tier} score={row.score} reasons={row.reasons} />

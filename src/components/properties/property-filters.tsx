@@ -28,11 +28,11 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-3.5 shadow-xs space-y-3">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-3.5 shadow-xs space-y-3">
       {/* Primary Row */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <Input
             placeholder="Search title, area, code..."
             defaultValue={sp.get("q") ?? ""}
@@ -59,11 +59,11 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
           <SlidersHorizontal className="h-3.5 w-3.5" />
           {showMore ? "Hide Filters" : "More Filters"}
         </Button>
-        <div className="sm:ml-auto flex items-center gap-1 rounded-xl bg-[#FAFBFC] border border-[#E7ECF2] p-1 self-start sm:self-auto">
-          <button onClick={() => setView("card")} className={cn("rounded-lg p-1.5 transition-colors", view === "card" ? "bg-[#3366FF] text-white shadow-xs" : "text-[#8A94A6] hover:text-[#1B2430]")} aria-label="Card view">
+        <div className="sm:ml-auto flex items-center gap-1 rounded-xl bg-zinc-100/80 border border-zinc-200 p-1 self-start sm:self-auto">
+          <button onClick={() => setView("card")} className={cn("rounded-lg p-1.5 transition-colors", view === "card" ? "bg-[#0A0A0A] text-white shadow-xs" : "text-zinc-500 hover:text-zinc-900")} aria-label="Card view">
             <LayoutGrid className="h-4 w-4" />
           </button>
-          <button onClick={() => setView("table")} className={cn("rounded-lg p-1.5 transition-colors", view === "table" ? "bg-[#3366FF] text-white shadow-xs" : "text-[#8A94A6] hover:text-[#1B2430]")} aria-label="Table view">
+          <button onClick={() => setView("table")} className={cn("rounded-lg p-1.5 transition-colors", view === "table" ? "bg-[#0A0A0A] text-white shadow-xs" : "text-zinc-500 hover:text-zinc-900")} aria-label="Table view">
             <List className="h-4 w-4" />
           </button>
         </div>

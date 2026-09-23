@@ -38,11 +38,6 @@ interface BulkResult {
   results: { id: string; success: boolean; error?: string }[];
 }
 
-/**
- * Table-view rendering with checkbox selection + a bulk action toolbar,
- * extracted from the properties list page - card view is unaffected
- * (bulk selection is table-view only in this pass; see completion report).
- */
 export function PropertiesTable({ properties, canManage }: { properties: PropertyRow[]; canManage: boolean }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -119,9 +114,9 @@ export function PropertiesTable({ properties, canManage }: { properties: Propert
   return (
     <div className="space-y-3">
       {canManage && selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#CCE0FF] bg-[#EFF4FF] p-3">
-          <span className="text-xs font-bold text-[#1B2430]">{selected.size} selected</span>
-          <Select value={action} onChange={(e) => void chooseAction(e.target.value as BulkAction)} className="w-auto text-xs font-semibold">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] p-3 shadow-2xs">
+          <span className="text-xs font-semibold text-[#09090B]">{selected.size} selected</span>
+          <Select value={action} onChange={(e) => void chooseAction(e.target.value as BulkAction)} className="w-auto text-xs">
             <option value="">Bulk action...</option>
             <option value="AVAILABILITY">Change Availability</option>
             <option value="VERIFY">Verify Owner</option>
@@ -132,7 +127,7 @@ export function PropertiesTable({ properties, canManage }: { properties: Propert
             <option value="PRICE">Bulk Price Adjustment</option>
           </Select>
           {action === "AVAILABILITY" && (
-            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto text-xs font-semibold">
+            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto text-xs">
               {PROPERTY_STATUSES.map((s) => (
                 <option key={s} value={s}>{enumToLabel(s)}</option>
               ))}
@@ -154,49 +149,49 @@ export function PropertiesTable({ properties, canManage }: { properties: Propert
       )}
 
       {!canManage && selected.size > 0 && (
-        <div className="flex items-center gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3">
-          <span className="text-xs font-bold text-[#1B2430]">{selected.size} selected</span>
+        <div className="flex items-center gap-2 rounded-xl border border-[#E4E4E7] bg-white p-3 shadow-2xs">
+          <span className="text-xs font-semibold text-[#09090B]">{selected.size} selected</span>
           <Button size="sm" variant="secondary" onClick={exportSelected}>
             <Download className="h-3.5 w-3.5" /> Export selected
           </Button>
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
-        <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
-          <thead className="bg-[#F8F9FF] text-left text-xs font-semibold uppercase tracking-wider text-[#596579]">
+      <div className="overflow-x-auto rounded-xl border border-[#E4E4E7] bg-white shadow-2xs">
+        <table className="min-w-full divide-y divide-[#E4E4E7] text-sm">
+          <thead className="bg-[#FAFAFA] text-left text-xs font-semibold uppercase tracking-wider text-[#71717A]">
             <tr>
-              <th className="px-4 py-3.5 w-8">
-                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" />
+              <th className="px-4 py-3 w-8">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" className="h-4 w-4 rounded border-[#E4E4E7] text-[#0A0A0A] focus:ring-[#0A0A0A]" />
               </th>
-              <th className="px-4 py-3.5">Code</th>
-              <th className="px-4 py-3.5">Title</th>
-              <th className="px-4 py-3.5">Location</th>
-              <th className="px-4 py-3.5">Type</th>
-              <th className="px-4 py-3.5">BHK</th>
-              <th className="px-4 py-3.5">Price</th>
-              <th className="px-4 py-3.5">Status</th>
-              <th className="px-4 py-3.5">Added</th>
+              <th className="px-4 py-3">Code</th>
+              <th className="px-4 py-3">Title</th>
+              <th className="px-4 py-3">Location</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">BHK</th>
+              <th className="px-4 py-3">Price</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Added</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#EFF4FF] text-[#1B2430]">
+          <tbody className="divide-y divide-[#E4E4E7] text-[#09090B]">
             {properties.map((p) => (
-              <tr key={p.id} className={`hover:bg-[#F3F6FA] transition-colors ${selected.has(p.id) ? "bg-[#EFF4FF]" : ""}`}>
-                <td className="px-4 py-3.5">
-                  <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} aria-label={`Select ${p.title}`} />
+              <tr key={p.id} className={`hover:bg-[#FAFAFA] transition-colors ${selected.has(p.id) ? "bg-[#F4F4F5]" : ""}`}>
+                <td className="px-4 py-3">
+                  <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} aria-label={`Select ${p.title}`} className="h-4 w-4 rounded border-[#E4E4E7] text-[#0A0A0A] focus:ring-[#0A0A0A]" />
                 </td>
-                <td className="px-4 py-3.5 font-mono text-xs text-[#8A94A6]">{p.propertyCode}</td>
-                <td className="px-4 py-3.5 font-semibold text-[#1B2430]">
-                  <Link href={`/properties/${p.id}`} className="hover:text-[#3366FF] transition-colors">{p.title}</Link>
+                <td className="px-4 py-3 font-mono text-xs text-[#71717A]">{p.propertyCode}</td>
+                <td className="px-4 py-3 font-semibold text-[#09090B]">
+                  <Link href={`/properties/${p.id}`} className="hover:underline transition-colors">{p.title}</Link>
                 </td>
-                <td className="px-4 py-3.5">{p.area}</td>
-                <td className="px-4 py-3.5">{p.listingType === "RENT" ? "Rent" : "Sale"}</td>
-                <td className="px-4 py-3.5">{p.bhk} BHK</td>
-                <td className="px-4 py-3.5 font-bold text-[#3366FF]">
+                <td className="px-4 py-3 text-[#52525B]">{p.area}</td>
+                <td className="px-4 py-3 text-[#52525B]">{p.listingType === "RENT" ? "Rent" : "Sale"}</td>
+                <td className="px-4 py-3 text-[#52525B]">{p.bhk} BHK</td>
+                <td className="px-4 py-3 font-semibold text-[#09090B]">
                   {p.listingType === "RENT" ? formatINR(p.monthlyRent, { suffix: "month" }) : formatINR(p.salePrice, { compact: true })}
                 </td>
-                <td className="px-4 py-3.5"><Badge tone={PROPERTY_STATUS_TONE[p.status]}>{enumToLabel(p.status)}</Badge></td>
-                <td className="px-4 py-3.5 text-xs text-[#8A94A6]">{formatDate(p.createdAt)}</td>
+                <td className="px-4 py-3"><Badge tone={PROPERTY_STATUS_TONE[p.status]}>{enumToLabel(p.status)}</Badge></td>
+                <td className="px-4 py-3 text-xs text-[#71717A]">{formatDate(p.createdAt)}</td>
               </tr>
             ))}
           </tbody>
@@ -205,9 +200,9 @@ export function PropertiesTable({ properties, canManage }: { properties: Propert
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm bulk action" description={`This will update ${selected.size} propert${selected.size > 1 ? "ies" : "y"}.`}>
         <div className="space-y-4">
-          <p className="text-sm text-[#596579]">Partial failures will be reported individually.</p>
-          {pricePreview.length > 0 && <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900"><strong>Price preview</strong>{pricePreview.map((line)=><p key={line}>{line}</p>)}{selected.size > pricePreview.length && <p>…and {selected.size-pricePreview.length} more</p>}</div>}
-          <div className="flex justify-end gap-2">
+          <p className="text-sm text-[#52525B]">Partial failures will be reported individually.</p>
+          {pricePreview.length > 0 && <div className="rounded-lg bg-[#FFFBEB] border border-[#FDE68A] p-3 text-xs text-[#B45309]"><strong>Price preview:</strong>{pricePreview.map((line)=><p key={line}>{line}</p>)}{selected.size > pricePreview.length && <p>…and {selected.size-pricePreview.length} more</p>}</div>}
+          <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
             <Button size="sm" onClick={runAction} loading={running}>Confirm</Button>
           </div>
@@ -219,9 +214,9 @@ export function PropertiesTable({ properties, canManage }: { properties: Propert
           <div className="max-h-80 space-y-1.5 overflow-y-auto">
             {result.results.map((r) => (
               <div key={r.id} className="flex items-center gap-2 text-xs">
-                {r.success ? <CheckCircle2 className="h-3.5 w-3.5 text-[#1FA971]" /> : <XCircle className="h-3.5 w-3.5 text-[#E5484D]" />}
-                <span className="font-mono text-[#8A94A6]">{r.id}</span>
-                {r.error && <span className="text-[#E5484D]">{r.error}</span>}
+                {r.success ? <CheckCircle2 className="h-3.5 w-3.5 text-[#16A34A]" /> : <XCircle className="h-3.5 w-3.5 text-[#DC2626]" />}
+                <span className="font-mono text-[#71717A]">{r.id}</span>
+                {r.error && <span className="text-[#DC2626]">{r.error}</span>}
               </div>
             ))}
           </div>

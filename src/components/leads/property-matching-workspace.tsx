@@ -4,13 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Field, Input, Textarea, Checkbox, Select } from "@/components/ui/form";
 import { Dialog } from "@/components/ui/dialog";
 import { LoadingState, EmptyState } from "@/components/ui/states";
 import { PropertyPickerDialog, type PickerProperty } from "@/components/properties/property-picker-dialog";
-import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
+import { formatINR, enumToLabel } from "@/lib/utils";
 import {
   Sparkles,
   Copy,
@@ -503,22 +502,22 @@ export function PropertyMatchingWorkspace({
   if (created) {
     return (
       <div className="mx-auto max-w-xl space-y-4">
-        <div className="rounded-2xl border border-[#B3EBD3] bg-[#E6F7F0] p-5 text-center shadow-xs">
-          <Sparkles className="mx-auto h-8 w-8 text-[#1FA971]" />
-          <p className="mt-2 text-sm font-semibold text-[#1FA971]">Catalogue created</p>
-          <p className="text-xs text-[#596579]">Share it now, or copy the link/message for later.</p>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-6 text-center shadow-xs">
+          <Sparkles className="mx-auto h-8 w-8 text-emerald-600" />
+          <p className="mt-2 text-sm font-semibold text-emerald-900">Catalogue created successfully</p>
+          <p className="text-xs text-emerald-700">Share it now, or copy the link/message for later.</p>
         </div>
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-          <p className="mb-2 text-xs font-medium text-[#596579]">Message Preview</p>
-          <pre className="whitespace-pre-wrap rounded-xl bg-[#F8F9FF] p-3 font-mono text-xs text-[#1B2430] border border-[#E7ECF2]">{created.previewMessage}</pre>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard.writeText(created.publicUrl); toast.success("Link copied"); }}>
+        <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
+          <p className="mb-2 text-xs font-semibold text-[#52525B] uppercase tracking-wider">Message Preview</p>
+          <pre className="whitespace-pre-wrap rounded-lg bg-[#FAFAFA] p-3.5 font-mono text-xs text-[#09090B] border border-[#E4E4E7]">{created.previewMessage}</pre>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={() => { void navigator.clipboard.writeText(created.publicUrl); toast.success("Link copied"); }}>
               <Copy className="h-3.5 w-3.5" /> Copy Link
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard.writeText(created.previewMessage); toast.success("Message copied"); }}>
+            <Button size="sm" variant="secondary" onClick={() => { void navigator.clipboard.writeText(created.previewMessage); toast.success("Message copied"); }}>
               <Copy className="h-3.5 w-3.5" /> Copy Message
             </Button>
-            <a href={created.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-xl bg-white px-2.5 py-1.5 text-xs font-medium text-[#596579] border border-[#E7ECF2] hover:bg-[#F3F6FA]">
+            <a href={created.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#09090B] border border-[#E4E4E7] hover:bg-[#F4F4F5] transition-colors">
               <ExternalLink className="h-3.5 w-3.5" /> Preview Public Page
             </a>
           </div>
@@ -536,39 +535,41 @@ export function PropertyMatchingWorkspace({
   return (
     <div className="space-y-4 pb-24 lg:pb-4">
       {/* Header */}
-      <div className="space-y-3 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+      <div className="space-y-3 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-[#1B2430]">{lead.clientName}</h2>
-            <p className="mt-0.5 text-xs text-[#596579]">
+            <h2 className="text-base font-semibold text-[#09090B]">{lead.clientName}</h2>
+            <p className="mt-0.5 text-xs text-[#52525B]">
               {lead.phone} &middot; {lead.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {lead.preferredBhk ? `${lead.preferredBhk} BHK` : "Any BHK"} &middot; {lead.preferredLocation} &middot;{" "}
               {formatINR(lead.minBudget, { compact: true })} - {formatINR(lead.maxBudget, { compact: true })}
             </p>
           </div>
-          <Badge tone="indigo">{loading ? "..." : totalMatchCount} match{totalMatchCount === 1 ? "" : "es"}</Badge>
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#F4F4F5] border border-[#E4E4E7] text-[#09090B]">
+            {loading ? "..." : totalMatchCount} match{totalMatchCount === 1 ? "" : "es"}
+          </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#596579]">
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#F4F4F5]">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-[#52525B]">
             Budget tolerance
-            <Select value={tolerance} onChange={(e) => setTolerance(e.target.value)} className="w-auto text-xs font-semibold">
+            <Select value={tolerance} onChange={(e) => setTolerance(e.target.value)} className="w-auto text-xs py-1">
               <option value="0">Strict (0%)</option>
               <option value="0.1">±10%</option>
               <option value="0.2">±20%</option>
               <option value="0.3">±30%</option>
             </Select>
           </label>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#596579]">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-[#52525B]">
             Locality radius
-            <Select value={radius} onChange={(e) => setRadius(e.target.value)} className="w-auto text-xs font-semibold">
+            <Select value={radius} onChange={(e) => setRadius(e.target.value)} className="w-auto text-xs py-1">
               <option value="0">Exact only</option>
               <option value="3000">+3km</option>
               <option value="5000">+5km</option>
               <option value="10000">+10km</option>
             </Select>
           </label>
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#596579]">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-[#52525B]">
             Sort
-            <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-auto text-xs font-semibold">
+            <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-auto text-xs py-1">
               <option value="score">Best match</option>
               <option value="price_asc">Price: Low to High</option>
               <option value="price_desc">Price: High to Low</option>
@@ -586,30 +587,30 @@ export function PropertyMatchingWorkspace({
 
       {/* Filter bar */}
       {!loading && sections && !allEmpty && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E4E7] bg-white p-3.5 shadow-xs">
           <Checkbox label="Exact locality only" checked={exactLocalityOnly} onChange={(e) => setExactLocalityOnly(e.target.checked)} />
           <Checkbox label="Include nearby localities" checked={includeNearby} onChange={(e) => setIncludeNearby(e.target.checked)} />
           <Checkbox label="Verified only" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} />
           <Checkbox label="Has photos" checked={imagesOnly} onChange={(e) => setImagesOnly(e.target.checked)} />
           <Checkbox label="Immediately available" checked={immediateOnly} onChange={(e) => setImmediateOnly(e.target.checked)} />
-          <Select value={bhkFilter} onChange={(e) => setBhkFilter(e.target.value)} className="w-auto text-xs">
+          <Select value={bhkFilter} onChange={(e) => setBhkFilter(e.target.value)} className="w-auto text-xs py-1">
             <option value="">Any BHK</option>
             {[1, 2, 3, 4, 5].map((b) => (<option key={b} value={b}>{b} BHK</option>))}
           </Select>
-          <Select value={furnishingFilter} onChange={(e) => setFurnishingFilter(e.target.value)} className="w-auto text-xs">
+          <Select value={furnishingFilter} onChange={(e) => setFurnishingFilter(e.target.value)} className="w-auto text-xs py-1">
             <option value="">Any Furnishing</option>
             <option value="FURNISHED">Furnished</option>
             <option value="SEMI_FURNISHED">Semi-Furnished</option>
             <option value="UNFURNISHED">Unfurnished</option>
           </Select>
-          <Select value={propertyTypeFilter} onChange={(e) => setPropertyTypeFilter(e.target.value)} className="w-auto text-xs">
+          <Select value={propertyTypeFilter} onChange={(e) => setPropertyTypeFilter(e.target.value)} className="w-auto text-xs py-1">
             <option value="">Any Type</option>
             {["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG"].map((t) => (
               <option key={t} value={t}>{enumToLabel(t)}</option>
             ))}
           </Select>
-          <Input type="number" placeholder="Min price" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="w-28 text-xs" />
-          <Input type="number" placeholder="Max price" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-28 text-xs" />
+          <Input type="number" placeholder="Min price" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="w-28 text-xs py-1" />
+          <Input type="number" placeholder="Max price" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-28 text-xs py-1" />
           {availableAmenities.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
               {availableAmenities.slice(0, 12).map((a) => {
@@ -626,7 +627,7 @@ export function PropertyMatchingWorkspace({
                         return next;
                       })
                     }
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${active ? "bg-[#3366FF] text-white border-[#3366FF]" : "bg-[#FAFBFC] text-[#596579] border-[#E7ECF2] hover:bg-[#F3F6FA]"}`}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border transition-colors ${active ? "bg-[#0A0A0A] text-white border-[#0A0A0A]" : "bg-white text-[#52525B] border-[#E4E4E7] hover:bg-[#F4F4F5]"}`}
                   >
                     {a}
                   </button>
@@ -639,19 +640,6 @@ export function PropertyMatchingWorkspace({
 
       {loading && <LoadingState label="Computing property match scores..." />}
 
-      {/* The shortlist/review panel must stay reachable even when automatic
-          matching found nothing (allEmpty) - a broker can still use "Add More
-          Properties" to manually shortlist an out-of-criteria property, and
-          previously had no way to reach "Review & Create Catalogue" for it on
-          desktop because this whole grid (including ShortlistPanel) was gated
-          on `!allEmpty`. The manually-added property sits in this component's
-          in-memory `shortlist` state only, so if the panel needed to reach it
-          never renders, that property never gets submitted to
-          POST /api/leads/[id]/catalogues and no CatalogueShareProperty row is
-          ever created for it - matching the "added to shortlist but never
-          shows in the catalogue" report. Only the left match-list column is
-          conditional on `!allEmpty` now; the right ShortlistPanel column
-          always renders once matches have loaded. */}
       {!loading && sections && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="space-y-3 lg:col-span-2">
@@ -665,20 +653,20 @@ export function PropertyMatchingWorkspace({
                 const list = filteredSections?.[meta.key] ?? [];
                 const isOpen = openSections.has(meta.key);
                 return (
-                  <div key={meta.key} className="overflow-hidden rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
-                    <button type="button" onClick={() => toggleSection(meta.key)} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left">
+                  <div key={meta.key} className="overflow-hidden rounded-xl border border-[#E4E4E7] bg-white shadow-xs">
+                    <button type="button" onClick={() => toggleSection(meta.key)} className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-[#FAFAFA] transition-colors">
                       <div>
-                        <p className="flex items-center gap-2 text-sm font-bold text-[#1B2430]">
-                          {meta.label} <Badge tone="slate">{list.length}</Badge>
+                        <p className="flex items-center gap-2 text-sm font-semibold text-[#09090B]">
+                          {meta.label} <span className="rounded-full bg-[#F4F4F5] border border-[#E4E4E7] px-2 py-0.2 text-xs text-[#52525B]">{list.length}</span>
                         </p>
-                        <p className="text-xs text-[#596579]">{meta.hint}</p>
+                        <p className="text-xs text-[#71717A]">{meta.hint}</p>
                       </div>
-                      {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-[#8A94A6]" /> : <ChevronDown className="h-4 w-4 shrink-0 text-[#8A94A6]" />}
+                      {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-[#71717A]" /> : <ChevronDown className="h-4 w-4 shrink-0 text-[#71717A]" />}
                     </button>
                     {isOpen && (
-                      <div className="space-y-3 border-t border-[#EFF4FF] p-3">
+                      <div className="space-y-3 border-t border-[#F4F4F5] p-3.5">
                         {list.length === 0 ? (
-                          <p className="py-4 text-center text-xs text-[#8A94A6]">No properties in this section{sections[meta.key].length > 0 ? " match the current filters" : ""}.</p>
+                          <p className="py-4 text-center text-xs text-[#71717A]">No properties in this section{sections[meta.key].length > 0 ? " match the current filters" : ""}.</p>
                         ) : (
                           list.map((m) => (
                             <MatchCard
@@ -733,7 +721,7 @@ export function PropertyMatchingWorkspace({
       )}
 
       {shortlist.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7ECF2] bg-white p-3 shadow-lg lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E4E4E7] bg-white p-3 shadow-lg lg:hidden">
           <Button className="w-full justify-center" onClick={() => setReviewOpen(true)}>
             Review Shortlist ({shortlist.length})
           </Button>
@@ -744,7 +732,7 @@ export function PropertyMatchingWorkspace({
 
       <Dialog open={compareOpen} onClose={() => setCompareOpen(false)} title="Compare Properties" wide>
         {comparedMatches.length === 0 ? (
-          <p className="text-sm text-[#8A94A6]">No properties selected for comparison.</p>
+          <p className="text-sm text-[#71717A]">No properties selected for comparison.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] text-left text-xs">
@@ -763,45 +751,45 @@ export function PropertyMatchingWorkspace({
       </Dialog>
 
       <Dialog open={reviewOpen} onClose={() => setReviewOpen(false)} title="Shortlist Review" description={`For ${lead.clientName} · ${lead.phone}`} wide>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {shortlist.length === 0 ? (
-            <p className="text-sm text-[#8A94A6]">No properties in the shortlist yet.</p>
+            <p className="text-sm text-[#71717A]">No properties in the shortlist yet.</p>
           ) : (
             <>
               {validShortlistCount === 0 && (
-                <div className="flex items-start gap-2 rounded-xl border border-[#FFC7C9] bg-[#FFECEC] p-3 text-xs text-[#E5484D]">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   All shortlisted properties are unavailable. Remove them or add at least one active property before creating a catalogue.
                 </div>
               )}
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {shortlist.map((s) => {
                   const warnings = warningsFor(s);
                   return (
-                    <div key={s.propertyId} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-3">
+                    <div key={s.propertyId} className="rounded-lg border border-[#E4E4E7] bg-white p-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-[#F5F7FA]">
+                        <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md bg-[#F4F4F5]">
                           {s.property.coverImage ? (
                             <Image src={s.property.coverImage} alt={s.property.title} fill className="object-cover" unoptimized />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[#8A94A6]"><ImageOff className="h-4 w-4" /></div>
+                            <div className="flex h-full w-full items-center justify-center text-[#A1A1AA]"><ImageOff className="h-4 w-4" /></div>
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1.5 truncate text-sm font-medium text-[#1B2430]">
-                            {s.isTopPick && <Star className="h-3.5 w-3.5 shrink-0 fill-[#E6A23C] text-[#E6A23C]" />}
+                          <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-[#09090B]">
+                            {s.isTopPick && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-500 text-amber-500" />}
                             {s.property.title}
                           </p>
-                          <p className="truncate text-xs text-[#596579]">
+                          <p className="truncate text-xs text-[#52525B]">
                             {s.property.area} &middot; {includePrice ? formatPrice(s.property) : "Price hidden"} &middot; {includeAddress && s.addressVisible ? s.property.address ?? "No address on file" : "Location only"}
                           </p>
-                          {s.customNote && <p className="mt-0.5 text-xs italic text-[#596579]">&ldquo;{s.customNote}&rdquo;</p>}
+                          {s.customNote && <p className="mt-0.5 text-xs italic text-[#71717A]">&ldquo;{s.customNote}&rdquo;</p>}
                         </div>
                       </div>
                       {warnings.length > 0 && (
-                        <ul className="mt-2 space-y-0.5 border-t border-[#EFF4FF] pt-2">
+                        <ul className="mt-2 space-y-0.5 border-t border-[#F4F4F5] pt-2">
                           {warnings.map((w, i) => (
-                            <li key={i} className="flex items-center gap-1.5 text-[11px] text-[#E6A23C]"><AlertTriangle className="h-3 w-3 shrink-0" /> {w}</li>
+                            <li key={i} className="flex items-center gap-1.5 text-[11px] text-amber-700"><AlertTriangle className="h-3 w-3 shrink-0" /> {w}</li>
                           ))}
                         </ul>
                       )}
@@ -809,7 +797,7 @@ export function PropertyMatchingWorkspace({
                   );
                 })}
               </div>
-              <div className="flex justify-end gap-2 border-t border-[#E7ECF2] pt-3">
+              <div className="flex justify-end gap-2 border-t border-[#E4E4E7] pt-4">
                 <Button variant="secondary" onClick={() => setReviewOpen(false)}>Back to Workspace</Button>
                 <Button onClick={createCatalogue} loading={creating} disabled={validShortlistCount === 0}>Create & Share Catalogue</Button>
               </div>
@@ -846,17 +834,17 @@ function MatchCard({
   }, [p.images]);
 
   return (
-    <div className={`rounded-xl border p-3.5 transition-all ${inShortlist ? "border-[#3366FF] bg-[#EFF4FF]" : "border-[#E7ECF2] bg-white hover:border-[#C3C5D8]"}`}>
+    <div className={`rounded-lg border p-4 transition-colors ${inShortlist ? "border-[#0A0A0A] bg-[#FAFAFA]" : "border-[#E4E4E7] bg-white hover:border-[#D4D4D8]"}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-3">
-          <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-xl bg-[#F5F7FA]">
+        <div className="flex gap-3.5">
+          <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg bg-[#F4F4F5]">
             {p.coverImage ? (
               <Image src={p.coverImage} alt={p.title} fill className="object-cover" unoptimized />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[#8A94A6]"><ImageOff className="h-5 w-5" /></div>
+              <div className="flex h-full w-full items-center justify-center text-[#A1A1AA]"><ImageOff className="h-5 w-5" /></div>
             )}
             {imageCount > 0 && (
-              <span className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold text-white">
+              <span className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-semibold text-white">
                 <Camera className="h-2.5 w-2.5" /> {imageCount}
               </span>
             )}
@@ -864,25 +852,30 @@ function MatchCard({
 
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-bold text-[#1B2430] text-sm">{p.title}</span>
+              <span className="font-semibold text-[#09090B] text-sm">{p.title}</span>
               {match.verified && (
-                <span className="inline-flex items-center gap-0.5 rounded bg-[#E6F7F0] px-1.5 py-0.5 text-[10px] font-semibold text-[#1FA971]">
+                <span className="inline-flex items-center gap-0.5 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
                   <ShieldCheck className="h-3 w-3" /> Verified
                 </span>
               )}
             </div>
-            <p className="text-xs text-[#596579]">
+            <p className="text-xs text-[#52525B]">
               {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {p.builtUpAreaSqft} sqft
             </p>
-            <p className="text-sm font-bold text-[#3366FF]">{formatPrice(p)}</p>
-            {match.matchedRequirement && <p className="text-[11px] font-semibold text-[#596579]">Matched requirement: {match.matchedRequirement.bhkValues.map((value) => `${value.bhk} BHK`).join(" / ") || "Any BHK"}{match.matchedRequirement.localities.length ? ` · ${match.matchedRequirement.localities.map((value) => value.locality.name).join(" / ")}` : ""}</p>}
+            <p className="text-sm font-semibold text-[#09090B]">{formatPrice(p)}</p>
+            {match.matchedRequirement && (
+              <p className="text-[11px] font-medium text-[#71717A]">
+                Matched requirement: {match.matchedRequirement.bhkValues.map((value) => `${value.bhk} BHK`).join(" / ") || "Any BHK"}
+                {match.matchedRequirement.localities.length ? ` · ${match.matchedRequirement.localities.map((value) => value.locality.name).join(" / ")}` : ""}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="flex flex-row sm:flex-col items-end justify-between sm:justify-start gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-[#596579]">Score</span>
-            <span className="rounded-xl bg-[#3366FF] px-2.5 py-1 text-xs font-bold text-white shadow-xs">{match.score}%</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[#71717A]">Score</span>
+            <span className="rounded-md bg-[#0A0A0A] px-2 py-0.5 text-xs font-semibold text-white">{match.score}%</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant={inShortlist ? "primary" : "secondary"} onClick={onToggleShortlist}>
@@ -892,19 +885,19 @@ function MatchCard({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between border-t border-[#EFF4FF] pt-2 text-xs">
-        <button type="button" onClick={() => setReasonsOpen((v) => !v)} className="flex items-center gap-1 font-semibold text-[#596579] hover:text-[#3366FF]">
+      <div className="mt-3 flex items-center justify-between border-t border-[#F4F4F5] pt-2.5 text-xs">
+        <button type="button" onClick={() => setReasonsOpen((v) => !v)} className="flex items-center gap-1 font-medium text-[#52525B] hover:text-[#09090B] transition-colors">
           {reasonsOpen ? "Hide match breakdown" : "Why it matched"} {reasonsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
         <Checkbox label="Compare" checked={compareChecked} onChange={onToggleCompare} />
       </div>
 
       {reasonsOpen && (
-        <div className="mt-2 space-y-1 rounded-xl bg-[#FAFBFC] p-2.5 text-xs border border-[#E7ECF2]">
+        <div className="mt-2.5 space-y-1.5 rounded-lg bg-[#FAFAFA] p-3 text-xs border border-[#E4E4E7]">
           {match.reasons.map((r, i) => (
             <div key={i} className="flex items-center justify-between">
-              <span className={r.matched ? "text-[#1B2430]" : "text-[#8A94A6]"}>{r.label}</span>
-              <span className={`font-semibold ${r.matched ? "text-[#1FA971]" : "text-[#E5484D]"}`}>{r.detail}</span>
+              <span className={r.matched ? "text-[#09090B]" : "text-[#71717A]"}>{r.label}</span>
+              <span className={`font-semibold ${r.matched ? "text-emerald-600" : "text-red-600"}`}>{r.detail}</span>
             </div>
           ))}
         </div>
@@ -929,8 +922,6 @@ function ShortlistPanel({
   setIncludeAddress,
   includeBrokerage,
   setIncludeBrokerage,
-  expiresAt,
-  setExpiresAt,
   onReview,
 }: {
   shortlist: ShortlistEntry[];
@@ -953,14 +944,16 @@ function ShortlistPanel({
   onReview: () => void;
 }) {
   return (
-    <div className="space-y-3 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+    <div className="space-y-4 rounded-xl border border-[#E4E4E7] bg-white p-4 shadow-xs">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-[#1B2430]">Selected Shortlist</h3>
-        <Badge tone="blue">{shortlist.length}</Badge>
+        <h3 className="text-sm font-semibold text-[#09090B]">Selected Shortlist</h3>
+        <span className="rounded-full bg-[#F4F4F5] border border-[#E4E4E7] px-2 py-0.5 text-xs font-semibold text-[#09090B]">
+          {shortlist.length}
+        </span>
       </div>
 
       {shortlist.length === 0 ? (
-        <p className="py-6 text-center text-xs text-[#8A94A6]">No properties shortlisted yet. Click &ldquo;+ Shortlist&rdquo; on any property card.</p>
+        <p className="py-6 text-center text-xs text-[#71717A]">No properties shortlisted yet. Click &ldquo;+ Shortlist&rdquo; on any property card.</p>
       ) : (
         <div className="space-y-3">
           <Field label="Catalogue Title">
@@ -970,22 +963,22 @@ function ShortlistPanel({
             <Textarea rows={2} placeholder="Add a custom message..." value={introMessage} onChange={(e) => setIntroMessage(e.target.value)} />
           </Field>
 
-          <div className="space-y-2 border-t border-[#EFF4FF] pt-2">
+          <div className="space-y-2 border-t border-[#F4F4F5] pt-3">
             {shortlist.map((s, idx) => (
-              <div key={s.propertyId} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-2.5 space-y-2">
+              <div key={s.propertyId} className="rounded-lg border border-[#E4E4E7] bg-[#FAFAFA] p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-xs font-bold text-[#1B2430]">{s.property.title}</span>
+                  <span className="truncate text-xs font-semibold text-[#09090B]">{s.property.title}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button type="button" onClick={() => toggleTopPick(s.propertyId)} className={`p-1 rounded ${s.isTopPick ? "text-[#E6A23C]" : "text-[#8A94A6] hover:text-[#1B2430]"}`}>
+                    <button type="button" onClick={() => toggleTopPick(s.propertyId)} className={`p-1 rounded ${s.isTopPick ? "text-amber-500" : "text-[#A1A1AA] hover:text-[#09090B]"}`}>
                       <Star className="h-3.5 w-3.5 fill-current" />
                     </button>
-                    <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1 text-[#8A94A6] hover:text-[#1B2430] disabled:opacity-30">
+                    <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1 text-[#A1A1AA] hover:text-[#09090B] disabled:opacity-30">
                       <ArrowUp className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => move(idx, 1)} disabled={idx === shortlist.length - 1} className="p-1 text-[#8A94A6] hover:text-[#1B2430] disabled:opacity-30">
+                    <button type="button" onClick={() => move(idx, 1)} disabled={idx === shortlist.length - 1} className="p-1 text-[#A1A1AA] hover:text-[#09090B] disabled:opacity-30">
                       <ArrowDown className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => remove(s.propertyId)} className="p-1 text-[#E5484D] hover:text-[#c93b40]">
+                    <button type="button" onClick={() => remove(s.propertyId)} className="p-1 text-[#A1A1AA] hover:text-red-600">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -1000,7 +993,7 @@ function ShortlistPanel({
             ))}
           </div>
 
-          <div className="space-y-1.5 border-t border-[#EFF4FF] pt-2 text-xs">
+          <div className="space-y-2 border-t border-[#F4F4F5] pt-3 text-xs">
             <Checkbox label="Show prices" checked={includePrice} onChange={(e) => setIncludePrice(e.target.checked)} />
             <Checkbox label="Show address" checked={includeAddress} onChange={(e) => setIncludeAddress(e.target.checked)} />
             <Checkbox label="Show brokerage" checked={includeBrokerage} onChange={(e) => setIncludeBrokerage(e.target.checked)} />
@@ -1017,10 +1010,10 @@ function ShortlistPanel({
 
 function CompareRow({ label, cells, bold }: { label: string; cells: React.ReactNode[]; bold?: boolean }) {
   return (
-    <tr className="border-b border-[#EFF4FF]">
-      <td className="py-2.5 pr-4 font-medium text-[#8A94A6]">{label}</td>
+    <tr className="border-b border-[#F4F4F5]">
+      <td className="py-2.5 pr-4 font-medium text-[#71717A]">{label}</td>
       {cells.map((cell, i) => (
-        <td key={i} className={`py-2.5 px-4 text-[#1B2430] ${bold ? "font-bold" : ""}`}>
+        <td key={i} className={`py-2.5 px-4 text-[#09090B] ${bold ? "font-semibold" : ""}`}>
           {cell}
         </td>
       ))}

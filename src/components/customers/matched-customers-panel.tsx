@@ -122,10 +122,6 @@ export function MatchedCustomersPanel({
     if (ids.length === 0) return;
     setBusy(true);
     try {
-      // Every selected recommendation must reach PREPARED (mark-sent only
-      // accepts prepared, currently-contactable rows) - prepare each one,
-      // but only the first supplies the editable template shown in the
-      // preview modal.
       const results = await Promise.all(ids.map((id) => demandPoolApi.prepareRecommendation(id)));
       setPrepared(results[0]);
       setPreviewOpen(true);
@@ -139,13 +135,13 @@ export function MatchedCustomersPanel({
   const selectedRows = visible.filter((r) => selected.has(r.id));
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+    <section className="space-y-4 rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-[#1B2430]">Matched Customers</h2>
+          <h2 className="text-base font-semibold text-[#09090B]">Best Matching Leads</h2>
           {summary && (
-            <p className="mt-1 text-sm text-[#596579]">
-              Potential Matches: <strong>{summary.total}</strong> · Exact: {summary.exact} · Strong: {summary.strong} · Stretch: {summary.stretch}
+            <p className="mt-1 text-xs text-[#71717A]">
+              Potential Matches: <strong className="text-[#09090B]">{summary.total}</strong> · Exact: {summary.exact} · Strong: {summary.strong} · Stretch: {summary.stretch}
             </p>
           )}
         </div>
@@ -155,7 +151,7 @@ export function MatchedCustomersPanel({
               Recalculate
             </Button>
           )}
-          <Link href={`/properties/${propertyId}/matches`} className="inline-flex items-center rounded-xl border border-[#E7ECF2] px-2.5 py-1.5 text-xs font-semibold">
+          <Link href={`/properties/${propertyId}/matches`} className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-3 py-1.5 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5] transition-colors">
             Open full matches
           </Link>
         </div>
@@ -187,11 +183,11 @@ export function MatchedCustomersPanel({
       {!loading && !error && visible.length > 0 && (
         <>
           {canBulkRecommend(role) && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-[#F8FAFC] p-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#FAFAFA] border border-[#E4E4E7] p-3 text-xs">
               <Button size="sm" variant="secondary" onClick={() => selectTier("EXACT")}>Select all Exact</Button>
               <Button size="sm" variant="secondary" onClick={() => selectTier("STRONG")}>Select all Strong</Button>
               {includeStretch && <Button size="sm" variant="secondary" onClick={() => selectTier("STRETCH")}>Select visible Stretch</Button>}
-              <span className="font-semibold text-[#1B2430]">{selected.size} Customers Selected</span>
+              <span className="font-semibold text-[#09090B] ml-auto mr-2">{selected.size} Selected</span>
               <Button size="sm" disabled={selected.size === 0} loading={busy} onClick={() => void prepareSelected()}>
                 Prepare Recommendation
               </Button>
@@ -217,7 +213,7 @@ export function MatchedCustomersPanel({
                 stretchThresholdPct,
               });
               return (
-                <article key={row.id} className={`rounded-xl border p-3 ${blocked ? "border-red-200 bg-red-50/40 opacity-80" : "border-[#E7ECF2]"}`}>
+                <article key={row.id} className={`rounded-lg border p-4 bg-white transition-colors hover:border-[#D4D4D8] ${blocked ? "border-red-200 bg-red-50/40 opacity-80" : "border-[#E4E4E7]"}`}>
                   <div className="flex flex-wrap items-start gap-3">
                     {canBulkRecommend(role) && (
                       <Checkbox
@@ -229,16 +225,16 @@ export function MatchedCustomersPanel({
                     )}
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-[#1B2430]">{name}</p>
+                        <p className="font-semibold text-sm text-[#09090B]">{name}</p>
                         <MatchTierBadge tier={row.tier} />
                         <MatchHistoryBadge status={row.matchHistoryStatus} />
-                        <span className="text-xs font-semibold text-[#8A94A6]">{row.source}</span>
-                        <span className="text-xs text-[#596579]" aria-label={`Match score ${row.score} percent`}>
-                          {row.score}%
+                        <span className="text-xs font-medium text-[#71717A]">{row.source}</span>
+                        <span className="text-xs font-semibold text-[#09090B]" aria-label={`Match score ${row.score} percent`}>
+                          {row.score}% match
                         </span>
                       </div>
                       {row.requirement && (
-                        <p className="text-xs text-[#596579]">
+                        <p className="text-xs text-[#52525B]">
                           {summarizeRequirement({
                             assetClass: row.requirement.assetClass ?? "RESIDENTIAL",
                             transactionType: row.requirement.transactionType ?? "RENT",
@@ -250,14 +246,14 @@ export function MatchedCustomersPanel({
                           })}
                         </p>
                       )}
-                      <p className="text-xs text-[#8A94A6]">
+                      <p className="text-xs text-[#71717A]">
                         Budget {formatINR(budget, { compact: true })} · Localities {parseLocalities(row.requirement?.preferredLocalities).join(", ") || "—"} · Last contacted {lastContactedLabel(row.customerContact?.lastContactedAt ?? row.lead?.lastContactedAt)} · Last property sent {row.customerContact?.lastPropertySentAt ? lastContactedLabel(row.customerContact.lastPropertySentAt) : "—"}
                       </p>
                       {!stretch.withinThreshold && (
-                        <p className="text-xs font-medium text-[#E5484D]">Budget stretch warning: {stretch.label}</p>
+                        <p className="text-xs font-medium text-red-600">Budget stretch warning: {stretch.label}</p>
                       )}
                       {warnings.length > 0 && (
-                        <p className="text-xs font-medium text-[#E6A23C]">{warnings.join(" · ")}</p>
+                        <p className="text-xs font-medium text-amber-600">{warnings.join(" · ")}</p>
                       )}
                       <MatchExplanation tier={row.tier} score={row.score} reasons={row.reasons} />
                     </div>

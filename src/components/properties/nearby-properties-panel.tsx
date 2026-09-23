@@ -41,12 +41,12 @@ export function NearbyPropertiesPanel({ propertyId }: { propertyId: string }) {
   }, [propertyId, radius]);
 
   return (
-    <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-5 shadow-sm">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-[#94A3B8]">
-          <MapPin className="h-4 w-4 text-[#4F8CFF]" /> Nearby Properties
+        <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          <MapPin className="h-4 w-4 text-zinc-700" /> Nearby Properties
         </h3>
-        <Select value={radius} onChange={(e) => setRadius(Number(e.target.value))} className="w-auto text-xs" aria-label="Search radius">
+        <Select value={radius} onChange={(e) => setRadius(Number(e.target.value))} className="w-auto text-xs font-semibold" aria-label="Search radius">
           {RADIUS_OPTIONS.map((r) => (
             <option key={r.value} value={r.value}>Within {r.label}</option>
           ))}
@@ -54,16 +54,16 @@ export function NearbyPropertiesPanel({ propertyId }: { propertyId: string }) {
       </div>
 
       {loading && <LoadingState label="Finding nearby properties..." />}
-      {!loading && reason && <p className="text-xs text-[#94A3B8]">{reason}</p>}
-      {!loading && !reason && results?.length === 0 && <p className="text-xs text-[#94A3B8]">No other properties found within this radius.</p>}
+      {!loading && reason && <p className="text-xs text-zinc-500">{reason}</p>}
+      {!loading && !reason && results?.length === 0 && <p className="text-xs text-zinc-500">No other properties found within this radius.</p>}
       {!loading && results && results.length > 0 && (
         <ul className="space-y-2">
           {results.map((r) => (
             <li key={r.property.id}>
-              <Link href={`/properties/${r.property.id}`} className="flex items-center justify-between gap-2 rounded-lg border border-[rgba(255,255,255,0.06)] px-3 py-2 text-xs hover:bg-[#1E2533]">
+              <Link href={`/properties/${r.property.id}`} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-xs shadow-2xs transition-colors hover:bg-zinc-50/60">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-[#F8FAFC]">{r.property.title}</p>
-                  <p className="text-[#94A3B8]">
+                  <p className="truncate font-semibold text-zinc-900">{r.property.title}</p>
+                  <p className="text-zinc-500">
                     {r.property.area} · {(r.distanceMeters / 1000).toFixed(1)} km away ·{" "}
                     {r.property.listingType === "RENT" ? formatINR(r.property.monthlyRent, { suffix: "month" }) : formatINR(r.property.salePrice, { compact: true })}
                   </p>

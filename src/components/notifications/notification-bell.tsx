@@ -7,26 +7,13 @@ import { timeAgo } from "@/lib/utils";
 import { NOTIFICATION_ICONS, notificationHref } from "./notification-meta";
 import type { Notification } from "@prisma/client";
 
-// Widened from 30s: the bell already refreshes on window focus, so a
-// backgrounded/inactive tab doesn't need a tight interval to still feel
-// live the moment the user comes back to it. Paired with the
-// visibilitychange handling below (pause entirely while the tab is
-// hidden) so a user with many tabs open isn't polling from all of them
-// at once in the background.
 const UNREAD_COUNT_POLL_MS = 45_000;
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  // Starts at 0 and is filled in by the first client-side fetch below - the
-  // shell (sidebar/header) renders immediately without waiting on a
-  // database round trip; see (app)/layout.tsx for why the server no longer
-  // computes this before render.
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[] | null>(null);
   const [loading, setLoading] = useState(false);
-  // Guards against overlapping requests - a slow response plus a focus
-  // event (or the interval firing again) should never fire a second
-  // concurrent /unread-count request.
   const inFlight = useRef(false);
 
   async function loadCount() {
@@ -55,7 +42,6 @@ export function NotificationBell() {
   }
 
   useEffect(() => {
-    // Initial fetch of the unread count once the shell has already rendered.
     loadCount();
 
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -69,10 +55,6 @@ export function NotificationBell() {
       interval = null;
     };
 
-    // Backgrounded tabs (switched away, minimized, other-tab-focused)
-    // shouldn't keep polling a database every 45s for a count nobody is
-    // looking at - pause while hidden, catch up with one fetch + resume
-    // polling the moment the tab is visible again.
     const onVisibilityChange = () => {
       if (document.hidden) {
         stopPolling();
@@ -115,12 +97,12 @@ export function NotificationBell() {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-full p-2 text-slate-500 hover:bg-slate-100"
+        className="relative rounded-lg p-2 text-[#71717A] hover:bg-[#F4F4F5] hover:text-[#09090B] transition-colors cursor-pointer"
         aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+          <span className="absolute 1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#DC2626] px-1 text-[10px] font-semibold text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -129,26 +111,26 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-40 mt-2 w-80 rounded-xl border border-slate-200 bg-white shadow-lg">
-            <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-              <p className="text-sm font-semibold text-slate-800">Notifications</p>
-              <button onClick={markAllRead} className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
+          <div className="absolute right-0 z-40 mt-2 w-80 rounded-xl border border-[#E4E4E7] bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#E4E4E7] px-3.5 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#09090B]">Notifications</p>
+              <button onClick={markAllRead} className="flex items-center gap-1 text-xs font-medium text-[#71717A] hover:text-[#09090B] cursor-pointer transition-colors">
                 <CheckCheck className="h-3.5 w-3.5" /> Mark all read
               </button>
             </div>
             <div className="max-h-96 overflow-y-auto">
-              {loading && <p className="p-4 text-center text-sm text-slate-400">Loading...</p>}
-              {!loading && notifications?.length === 0 && <p className="p-4 text-center text-sm text-slate-400">No notifications yet.</p>}
+              {loading && <p className="p-4 text-center text-xs text-[#71717A]">Loading...</p>}
+              {!loading && notifications?.length === 0 && <p className="p-4 text-center text-xs text-[#71717A]">No notifications yet.</p>}
               {notifications?.map((n) => {
-                const Icon = NOTIFICATION_ICONS[n.type];
+                const Icon = NOTIFICATION_ICONS[n.type] || Bell;
                 const href = notificationHref(n);
                 const content = (
-                  <div className={`flex gap-2.5 border-b border-slate-50 px-3 py-2.5 last:border-0 hover:bg-slate-50 ${!n.isRead ? "bg-indigo-50/40" : ""}`}>
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+                  <div className={`flex gap-2.5 border-b border-[#E4E4E7] px-3.5 py-2.5 last:border-0 hover:bg-[#F4F4F5] transition-colors ${!n.isRead ? "bg-[#FAFAFA]" : ""}`}>
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#09090B]" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-slate-800">{n.title}</p>
-                      <p className="truncate text-xs text-slate-500">{n.message}</p>
-                      <p className="mt-0.5 text-[11px] text-slate-400">{timeAgo(n.createdAt)}</p>
+                      <p className="text-xs font-semibold text-[#09090B]">{n.title}</p>
+                      <p className="truncate text-xs text-[#52525B]">{n.message}</p>
+                      <p className="mt-0.5 text-[11px] text-[#A1A1AA]">{timeAgo(n.createdAt)}</p>
                     </div>
                     {!n.isRead && (
                       <button
@@ -156,7 +138,7 @@ export function NotificationBell() {
                           e.preventDefault();
                           markRead(n.id);
                         }}
-                        className="shrink-0 self-start text-slate-300 hover:text-emerald-600"
+                        className="shrink-0 self-start text-[#A1A1AA] hover:text-[#16A34A] cursor-pointer"
                         title="Mark read"
                       >
                         <Check className="h-3.5 w-3.5" />
@@ -173,7 +155,7 @@ export function NotificationBell() {
                 );
               })}
             </div>
-            <Link href="/notifications" onClick={() => setOpen(false)} className="block border-t border-slate-100 px-3 py-2 text-center text-xs font-medium text-indigo-600 hover:bg-slate-50">
+            <Link href="/notifications" onClick={() => setOpen(false)} className="block border-t border-[#E4E4E7] px-3 py-2.5 text-center text-xs font-medium text-[#09090B] hover:bg-[#F4F4F5] transition-colors">
               View all notifications
             </Link>
           </div>

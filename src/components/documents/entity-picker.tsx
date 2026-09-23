@@ -61,16 +61,16 @@ export function EntityPicker({ entityType, value, onChange }: { entityType: Docu
         placeholder={`Search ${entityType.toLowerCase()}s...`}
         aria-label={`Search and select a ${entityType.toLowerCase()}`}
       />
-      {value && !open && <p className="mt-1 text-xs text-[#22C55E]">Selected: {query}</p>}
+      {value && !open && <p className="mt-1 text-xs font-medium text-emerald-700">Selected: {query}</p>}
       {open && (
-        <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-[rgba(255,255,255,0.1)] bg-[#11151F] shadow-lg">
-          {loading && <p className="px-3 py-2 text-xs text-[#94A3B8]">Searching...</p>}
-          {!loading && options.length === 0 && <p className="px-3 py-2 text-xs text-[#94A3B8]">No matches</p>}
+        <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
+          {loading && <p className="px-3.5 py-2 text-xs text-zinc-500">Searching...</p>}
+          {!loading && options.length === 0 && <p className="px-3.5 py-2 text-xs text-zinc-500">No matches</p>}
           {options.map((opt) => (
             <button
               key={opt.id}
               type="button"
-              className="block w-full truncate px-3 py-2 text-left text-xs text-[#CBD5E1] hover:bg-[#1E2533]"
+              className="block w-full truncate px-3.5 py-2.5 text-left text-xs text-zinc-800 hover:bg-zinc-50"
               onClick={() => {
                 onChange(opt.id, opt.label);
                 setQuery(opt.label);

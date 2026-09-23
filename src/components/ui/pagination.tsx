@@ -41,20 +41,20 @@ export function Pagination({
   const to = Math.min(page * pageSize, totalCount);
 
   return (
-    <div className="flex flex-col items-center justify-between gap-3 border-t border-[rgba(255,255,255,0.08)] px-4 py-3 text-sm sm:flex-row">
-      <p className="text-xs text-[#94A3B8]">
-        Showing <span className="font-semibold text-[#CBD5E1]">{from}-{to}</span> of{" "}
-        <span className="font-semibold text-[#CBD5E1]">{totalCount}</span>
+    <div className="flex flex-col items-center justify-between gap-3 border-t border-[#E4E4E7] px-4 py-3 text-sm sm:flex-row bg-white">
+      <p className="text-xs text-[#71717A]">
+        Showing <span className="font-semibold text-[#09090B]">{from}-{to}</span> of{" "}
+        <span className="font-semibold text-[#09090B]">{totalCount}</span>
       </p>
       <div className="flex items-center gap-2">
         <PageLink href={pageHref(basePath, currentParams, page - 1)} disabled={page <= 1} label="Previous">
-          <ChevronLeft className="h-4 w-4" /> Previous
+          <ChevronLeft className="h-3.5 w-3.5" /> Previous
         </PageLink>
-        <span className="text-xs text-[#64748B]">
+        <span className="text-xs text-[#71717A] px-1">
           Page {page} of {totalPages}
         </span>
         <PageLink href={pageHref(basePath, currentParams, page + 1)} disabled={page >= totalPages} label="Next">
-          Next <ChevronRight className="h-4 w-4" />
+          Next <ChevronRight className="h-3.5 w-3.5" />
         </PageLink>
       </div>
     </div>
@@ -64,7 +64,7 @@ export function Pagination({
 function PageLink({ href, disabled, label, children }: { href: string; disabled: boolean; label: string; children: React.ReactNode }) {
   if (disabled) {
     return (
-      <span aria-disabled className="flex cursor-not-allowed items-center gap-1 rounded-lg border border-[rgba(255,255,255,0.08)] px-2.5 py-1.5 text-xs font-medium text-[#475569]">
+      <span aria-disabled className="flex cursor-not-allowed items-center gap-1 rounded-lg border border-[#E4E4E7] bg-[#FAFAFA] px-2.5 py-1.5 text-xs font-medium text-[#A1A1AA]">
         {children}
       </span>
     );
@@ -73,7 +73,7 @@ function PageLink({ href, disabled, label, children }: { href: string; disabled:
     <Link
       href={href}
       aria-label={label}
-      className="flex items-center gap-1 rounded-lg border border-[rgba(255,255,255,0.08)] px-2.5 py-1.5 text-xs font-medium text-[#CBD5E1] hover:bg-[#1E2533] hover:text-white transition-colors"
+      className="flex items-center gap-1 rounded-lg border border-[#E4E4E7] bg-white px-2.5 py-1.5 text-xs font-medium text-[#09090B] hover:bg-[#F4F4F5] hover:border-[#D4D4D8] transition-colors"
     >
       {children}
     </Link>

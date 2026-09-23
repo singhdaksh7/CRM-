@@ -65,11 +65,11 @@ export function RecommendationPreviewModal({
       <Dialog open={open} onClose={onClose} title="Property recommendation">
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-[#1B2430]">{propertyLabel}</p>
-            <p className="text-xs text-[#596579]">{propertyMeta}</p>
+            <p className="text-sm font-semibold text-zinc-900">{propertyLabel}</p>
+            <p className="text-xs text-zinc-500">{propertyMeta}</p>
           </div>
-          <p className="text-sm text-[#596579]">
-            Recipients: <strong className="text-[#1B2430]">{recipients.length}</strong>
+          <p className="text-sm text-zinc-600">
+            Recipients: <strong className="text-zinc-900">{recipients.length}</strong>
           </p>
           <div className="flex flex-wrap gap-2 text-xs">
             <MatchTierBadge tier="EXACT" /> <span>{tierCounts.EXACT}</span>
@@ -77,7 +77,7 @@ export function RecommendationPreviewModal({
             <MatchTierBadge tier="STRETCH" /> <span>{tierCounts.STRETCH}</span>
           </div>
           <label className="block space-y-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#596579]">Message</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Message</span>
             <Textarea
               aria-label="Recommendation message"
               rows={8}
@@ -86,9 +86,9 @@ export function RecommendationPreviewModal({
             />
           </label>
           {prepared?.publicUrl && (
-            <p className="text-xs text-[#596579]">
+            <p className="text-xs text-zinc-500">
               Safe property link:{" "}
-              <a className="font-semibold text-[#3366FF]" href={prepared.publicUrl} target="_blank" rel="noreferrer">
+              <a className="font-semibold text-zinc-900 underline hover:text-black" href={prepared.publicUrl} target="_blank" rel="noreferrer">
                 {prepared.publicUrl}
               </a>
             </p>
@@ -133,9 +133,9 @@ export function RecommendationPreviewModal({
       </Dialog>
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm send">
-        <div className="space-y-3 text-sm text-[#596579]">
+        <div className="space-y-3 text-sm text-zinc-600">
           <p>
-            You are about to send this property recommendation to <strong className="text-[#1B2430]">{recipients.length}</strong> customers.
+            You are about to send this property recommendation to <strong className="text-zinc-900">{recipients.length}</strong> customers.
           </p>
           <ul className="space-y-1 text-xs">
             <li>Exact: {tierCounts.EXACT}</li>

@@ -28,7 +28,7 @@ function QuickActionButton({ href, icon: Icon, label, tone = "default", onActiva
       onClick={onActivate}
       className={cn(
         "flex min-h-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-[11px] font-semibold transition active:scale-95",
-        tone === "whatsapp" ? "border-[#25D366]/30 bg-[#25D366]/10 text-[#1a9c4d] hover:bg-[#25D366]/20" : "border-[#E7ECF2] bg-white text-[#1B2430] hover:border-[#3366FF]/40 hover:bg-[#3366FF]/5"
+        tone === "whatsapp" ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" : "border-[#E4E4E7] bg-white text-[#09090B] hover:border-zinc-400 hover:bg-zinc-50"
       )}
     >
       <Icon className="h-5 w-5" />

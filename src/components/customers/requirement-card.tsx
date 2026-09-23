@@ -37,31 +37,31 @@ export function RequirementCard({
   const canManage = canManageDemandPool(role);
 
   return (
-    <article className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
+    <article className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5">
             <AssetClassBadge assetClass={requirement.assetClass} />
             <TransactionBadge transactionType={requirement.transactionType} />
             <RequirementLifecycleBadge status={status} />
-            <span className="inline-flex items-center rounded-full border border-[#E7ECF2] px-2.5 py-0.5 text-xs font-semibold text-[#596579]">
+            <span className="inline-flex items-center rounded-full border border-zinc-200 px-2.5 py-0.5 text-xs font-semibold text-zinc-600">
               {requirement.priority}
             </span>
           </div>
-          <p className="text-sm font-semibold text-[#1B2430]">{summarizeRequirement(requirement)}</p>
+          <p className="text-sm font-semibold text-zinc-900">{summarizeRequirement(requirement)}</p>
           {status === "STALE" && (
-            <p className="text-xs font-medium text-[#E6A23C]">Last confirmed {days} days ago</p>
+            <p className="text-xs font-medium text-amber-600">Last confirmed {days} days ago</p>
           )}
           {status === "ACTIVE" && (
-            <p className="text-xs text-[#8A94A6]">Last confirmed {days === 0 ? "today" : `${days} days ago`}</p>
+            <p className="text-xs text-zinc-400">Last confirmed {days === 0 ? "today" : `${days} days ago`}</p>
           )}
         </div>
       </div>
 
       {requirement.convertedLeadId && requirement.convertedLead && (
-        <p className="text-xs text-[#596579]">
+        <p className="text-xs text-zinc-500">
           Linked lead:{" "}
-          <Link className="font-semibold text-[#3366FF]" href={`/leads/${requirement.convertedLead.id}`}>
+          <Link className="font-semibold text-zinc-900 hover:underline" href={`/leads/${requirement.convertedLead.id}`}>
             {requirement.convertedLead.leadCode}
           </Link>
         </p>
@@ -91,7 +91,7 @@ export function RequirementCard({
         {requirement.convertedLeadId && requirement.convertedLead && (
           <Link
             href={`/leads/${requirement.convertedLead.id}`}
-            className="inline-flex items-center rounded-xl border border-[#E7ECF2] px-2.5 py-1.5 text-xs font-semibold text-[#1B2430]"
+            className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-50 transition-colors"
           >
             View Lead
           </Link>

@@ -17,7 +17,7 @@ export function CustomerList({ contacts }: { contacts: CustomerContact[] }) {
   if (contacts.length === 0) {
     return (
       <EmptyState
-        title="No customers in the demand pool"
+        title="No customers in the database"
         description="Import a spreadsheet or add a customer to start matching inventory against requirements."
       />
     );
@@ -25,9 +25,9 @@ export function CustomerList({ contacts }: { contacts: CustomerContact[] }) {
 
   return (
     <>
-      <div className="hidden md:block overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-[#E4E4E7] bg-white shadow-xs">
         <table className="min-w-full text-sm">
-          <thead className="bg-[#F8FAFC] text-left text-xs uppercase tracking-wider text-[#8A94A6]">
+          <thead className="bg-[#FAFAFA] border-b border-[#E4E4E7] text-left text-xs uppercase tracking-wider text-[#71717A]">
             <tr>
               {["Customer", "Contact", "Requirements", "Budget / Localities", "Lead", "Last contact", "Status"].map((h) => (
                 <th key={h} className="px-4 py-3 font-semibold">
@@ -42,9 +42,9 @@ export function CustomerList({ contacts }: { contacts: CustomerContact[] }) {
               const primary = active[0];
               const localities = primary ? parseLocalities(primary.preferredLocalities) : [];
               return (
-                <tr key={contact.id} className="border-t border-[#E7ECF2] align-top hover:bg-[#F8FAFC]">
+                <tr key={contact.id} className="border-t border-[#E4E4E7] align-top hover:bg-[#FAFAFA] transition-colors">
                   <td className="px-4 py-3">
-                    <Link href={`/customers/${contact.id}`} className="font-semibold text-[#3366FF]">
+                    <Link href={`/customers/${contact.id}`} className="font-semibold text-[#09090B] hover:underline">
                       {contact.name}
                     </Link>
                     <div className="mt-1 flex flex-wrap gap-1">
@@ -55,29 +55,29 @@ export function CustomerList({ contacts }: { contacts: CustomerContact[] }) {
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[#596579]">
+                  <td className="px-4 py-3 text-[#52525B]">
                     <div>{contact.phone}</div>
-                    <div className="text-xs">{contact.email || "—"}</div>
+                    <div className="text-xs text-[#71717A]">{contact.email || "—"}</div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-[#1B2430]">{active.length} active</div>
+                    <div className="font-medium text-[#09090B]">{active.length} active</div>
                     {primary && (
                       <div className="mt-1 space-y-1">
                         <div className="flex flex-wrap gap-1">
                           <AssetClassBadge assetClass={primary.assetClass} />
                           <TransactionBadge transactionType={primary.transactionType} />
                         </div>
-                        <p className="text-xs text-[#596579]">{summarizeRequirement(primary)}</p>
+                        <p className="text-xs text-[#52525B]">{summarizeRequirement(primary)}</p>
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[#596579]">
+                  <td className="px-4 py-3 text-xs text-[#52525B]">
                     {primary ? (
                       <>
-                        <div>
+                        <div className="font-medium text-[#09090B]">
                           {formatINR(primary.minBudget, { compact: true })}–{formatINR(primary.maxBudget, { compact: true })}
                         </div>
-                        <div>{localities.join(", ") || "—"}</div>
+                        <div className="text-[#71717A]">{localities.join(", ") || "—"}</div>
                       </>
                     ) : (
                       "—"
@@ -85,16 +85,16 @@ export function CustomerList({ contacts }: { contacts: CustomerContact[] }) {
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {(contact.leads ?? []).length > 0 ? (
-                      <Link className="font-semibold text-[#3366FF]" href={`/leads/${contact.leads![0].id}`}>
+                      <Link className="font-semibold text-[#09090B] hover:underline" href={`/leads/${contact.leads![0].id}`}>
                         {contact.leads![0].leadCode}
                       </Link>
                     ) : (
-                      <span className="text-[#8A94A6]">No lead</span>
+                      <span className="text-[#71717A]">No lead</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[#596579]">
+                  <td className="px-4 py-3 text-xs text-[#52525B]">
                     <div>{lastContactedLabel(contact.lastContactedAt)}</div>
-                    <div>Sent: {contact.lastPropertySentAt ? formatDate(contact.lastPropertySentAt) : "—"}</div>
+                    <div className="text-[#71717A]">Sent: {contact.lastPropertySentAt ? formatDate(contact.lastPropertySentAt) : "—"}</div>
                   </td>
                   <td className="px-4 py-3">
                     <Badge tone={contact.doNotContact || contact.status === "DO_NOT_CONTACT" ? "red" : contact.whatsAppOptOut ? "amber" : "green"}>
@@ -113,11 +113,11 @@ export function CustomerList({ contacts }: { contacts: CustomerContact[] }) {
           const active = (contact.requirements ?? []).filter((r) => r.active);
           const primary = active[0];
           return (
-            <Link key={contact.id} href={`/customers/${contact.id}`} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs block">
+            <Link key={contact.id} href={`/customers/${contact.id}`} className="rounded-xl border border-[#E4E4E7] bg-white p-4 shadow-xs block hover:border-[#D4D4D8] transition-colors">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-[#1B2430]">{contact.name}</p>
-                  <p className="text-sm text-[#596579]">{contact.phone}</p>
+                  <p className="font-semibold text-[#09090B]">{contact.name}</p>
+                  <p className="text-sm text-[#52525B]">{contact.phone}</p>
                 </div>
                 <Badge tone={contact.doNotContact ? "red" : "green"}>{contact.status}</Badge>
               </div>
@@ -127,8 +127,8 @@ export function CustomerList({ contacts }: { contacts: CustomerContact[] }) {
                     <AssetClassBadge assetClass={primary.assetClass} />
                     <TransactionBadge transactionType={primary.transactionType} />
                   </div>
-                  <p className="text-xs text-[#596579]">{summarizeRequirement(primary)}</p>
-                  <p className="text-xs text-[#8A94A6]">{active.length} active · {lastContactedLabel(contact.lastContactedAt)}</p>
+                  <p className="text-xs text-[#52525B]">{summarizeRequirement(primary)}</p>
+                  <p className="text-xs text-[#71717A]">{active.length} active · {lastContactedLabel(contact.lastContactedAt)}</p>
                 </div>
               )}
             </Link>

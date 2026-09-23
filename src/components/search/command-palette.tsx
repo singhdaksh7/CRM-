@@ -28,13 +28,6 @@ const STATIC_ACTIONS: StaticAction[] = [
 
 const DEBOUNCE_MS = 200;
 
-/**
- * Global Cmd+K / Ctrl+K command palette. Keyboard-first: arrow keys move the
- * selection, Enter navigates, Escape closes (handled by the shared Dialog).
- * Static actions are always shown (filtered by a simple substring match on
- * their keywords); live search results come from the deterministic
- * GET /api/search endpoint (src/lib/search) once 2+ characters are typed.
- */
 export function CommandPalette({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -73,23 +66,14 @@ export function CommandPalette({ role }: { role: Role }) {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 2) {
-      // A query shrinking back below the minimum (backspace) should cancel
-      // whatever the previous, longer query still had in flight - otherwise
-      // its response can land after we've already cleared the list and
-      // repopulate it with stale results.
       abortRef.current?.abort();
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale results once the query drops below the minimum length
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale results once query drops below min length
       setResults([]);
       setChips([]);
       return;
     }
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
-      // Cancel any still-in-flight request from a previous keystroke before
-      // starting a new one - without this, a fast typer can have an older
-      // request's response resolve after a newer one and overwrite the
-      // current results with stale data (in addition to the wasted DB work
-      // of a query nobody will see the result of).
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -142,20 +126,20 @@ export function CommandPalette({ role }: { role: Role }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="relative hidden w-full max-w-md items-center rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] py-2 pl-9 pr-3 text-left text-sm text-[#8A94A6] hover:border-[#3366FF] transition-colors sm:flex"
+        className="relative hidden w-full max-w-md items-center rounded-lg border border-[#E4E4E7] bg-[#FAFAFA] py-2 pl-9 pr-3 text-left text-sm text-[#71717A] hover:border-[#09090B] transition-colors sm:flex cursor-pointer"
       >
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
         Search everything...
-        <kbd className="ml-auto rounded border border-[#E7ECF2] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#8A94A6]">Ctrl K</kbd>
+        <kbd className="ml-auto rounded border border-[#E4E4E7] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#71717A]">Ctrl K</kbd>
       </button>
-      <button onClick={() => setOpen(true)} className="text-[#596579] hover:text-[#1B2430] sm:hidden" aria-label="Search">
+      <button onClick={() => setOpen(true)} className="text-[#52525B] hover:text-[#09090B] sm:hidden cursor-pointer" aria-label="Search">
         <Search className="h-5 w-5" />
       </button>
 
       <Dialog open={open} onClose={closePalette} title="Search everything" wide>
         <div onKeyDown={onKeyDown}>
           <div className="relative mb-3">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
             <input
               ref={inputRef}
               value={query}
@@ -164,14 +148,14 @@ export function CommandPalette({ role }: { role: Role }) {
                 setActiveIndex(0);
               }}
               placeholder="Try: Rahul, 2 bhk Rajouri Garden under 35000, followups today, employee rohit..."
-              className="w-full rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] py-2.5 pl-9 pr-3 text-sm text-[#1B2430] placeholder:text-[#8A94A6] focus:border-[#3366FF] focus:outline-none focus:ring-1 focus:ring-[#3366FF]"
+              className="w-full rounded-lg border border-[#E4E4E7] bg-[#FAFAFA] py-2.5 pl-9 pr-3 text-sm text-[#09090B] placeholder:text-[#A1A1AA] focus:border-[#0A0A0A] focus:outline-none focus:ring-1 focus:ring-[#0A0A0A]"
             />
           </div>
 
           {chips.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-1.5">
               {chips.map((c, i) => (
-                <Badge key={`${c.key}-${i}`} tone="blue">
+                <Badge key={`${c.key}-${i}`} tone="slate">
                   {c.label}
                 </Badge>
               ))}
@@ -180,11 +164,11 @@ export function CommandPalette({ role }: { role: Role }) {
 
           <div className="max-h-[50vh] space-y-1 overflow-y-auto">
             {items.length === 0 && !loading && (
-              <p className="px-2 py-6 text-center text-sm text-[#8A94A6]">{query.trim().length >= 2 ? "No matches found." : "Type at least 2 characters to search."}</p>
+              <p className="px-2 py-6 text-center text-xs text-[#71717A]">{query.trim().length >= 2 ? "No matches found." : "Type at least 2 characters to search."}</p>
             )}
 
             {filteredActions.length > 0 && (
-              <p className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Actions</p>
+              <p className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">Actions</p>
             )}
             {filteredActions.map((action) => {
               const index = items.findIndex((i) => i.kind === "action" && i.action?.id === action.id);
@@ -194,16 +178,16 @@ export function CommandPalette({ role }: { role: Role }) {
                   key={action.id}
                   onClick={() => go(action.href)}
                   onMouseEnter={() => setActiveIndex(index)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors ${activeIndex === index ? "bg-[#EFF4FF] text-[#1B2430]" : "text-[#596579] hover:bg-[#F3F6FA]"}`}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors cursor-pointer ${activeIndex === index ? "bg-[#F4F4F5] text-[#09090B] font-medium" : "text-[#52525B] hover:bg-[#F4F4F5]"}`}
                 >
-                  <Icon className="h-4 w-4 text-[#3366FF]" />
+                  <Icon className="h-4 w-4 text-[#09090B]" />
                   {action.label}
-                  {activeIndex === index && <CornerDownLeft className="ml-auto h-3.5 w-3.5 text-[#8A94A6]" />}
+                  {activeIndex === index && <CornerDownLeft className="ml-auto h-3.5 w-3.5 text-[#71717A]" />}
                 </button>
               );
             })}
 
-            {results.length > 0 && <p className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Results</p>}
+            {results.length > 0 && <p className="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">Results</p>}
             {results.map((result) => {
               const index = items.findIndex((i) => i.kind === "result" && i.result?.id === result.id && i.result?.entity === result.entity);
               return (
@@ -211,15 +195,15 @@ export function CommandPalette({ role }: { role: Role }) {
                   key={`${result.entity}-${result.id}`}
                   onClick={() => go(result.href)}
                   onMouseEnter={() => setActiveIndex(index)}
-                  className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors ${activeIndex === index ? "bg-[#EFF4FF]" : "hover:bg-[#F3F6FA]"}`}
+                  className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors cursor-pointer ${activeIndex === index ? "bg-[#F4F4F5] font-medium" : "hover:bg-[#F4F4F5]"}`}
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-[#1B2430]">{result.title}</p>
-                    <p className="truncate text-xs text-[#8A94A6]">{result.subtitle}</p>
+                    <p className="truncate font-medium text-[#09090B]">{result.title}</p>
+                    <p className="truncate text-xs text-[#71717A]">{result.subtitle}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {result.badge && <Badge tone="slate">{result.badge.replace(/_/g, " ")}</Badge>}
-                    <span className="text-[10px] font-semibold uppercase text-[#8A94A6]">{result.entity.replace(/_/g, " ")}</span>
+                    <span className="text-[10px] font-semibold uppercase text-[#71717A]">{result.entity.replace(/_/g, " ")}</span>
                   </div>
                 </button>
               );

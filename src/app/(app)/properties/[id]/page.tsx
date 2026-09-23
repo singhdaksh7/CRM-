@@ -8,7 +8,6 @@ import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyMapPanel } from "@/components/properties/property-map-panel";
 import { NearbyPropertiesPanel } from "@/components/properties/nearby-properties-panel";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
-import { PropertyReportPanel } from "@/components/properties/property-report-panel";
 import { PropertyTimelinePanel } from "@/components/properties/property-timeline-panel";
 import { getPropertyTimeline } from "@/lib/property-timeline";
 import { HealthCard } from "@/components/rules/health-card";
@@ -24,8 +23,8 @@ import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
 import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
 import { CaptureLocationButton } from "@/components/properties/capture-location-button";
 import { LeadRequirementMatches } from "@/components/properties/lead-requirement-matches";
+import { PropertyReportPanel } from "@/components/properties/property-report-panel";
 
-// Change 15 - Inventory Freshness label tone, distinct from the numeric Property Health score.
 const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
   FRESH: "green",
   VERIFIED: "blue",
@@ -35,25 +34,12 @@ const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  // (app)/layout.tsx already redirects to /login when there is no session,
-  // so this is always present here - resolved before the property lookup
-  // so the lookup itself can be organization-scoped, not just used for
-  // downstream reads/permission checks.
-  // (app)/layout.tsx already redirects to /login when there is no session,
-  // so this is always present here - resolved before the property lookup
-  // so the lookup itself can be organization-scoped, not just used for
-  // downstream reads/permission checks.
   const session = await auth();
   const organizationId = getOrganizationId(session!.user);
   const property = await prisma.property.findFirst({ where: { id, organizationId }, include: { partner: true } });
   if (!property) notFound();
   const canEditDistribution = ["ADMIN", "DATA_MANAGER"].includes(session!.user.role);
 
-  // A FIELD_EXECUTIVE viewing this page directly (not through their visit
-  // detail screen) must see the same redaction visit-detail-dto.ts already
-  // applies: exact address/GPS/owner-or-partner contact only when they have
-  // a legitimate assigned-visit or assigned-lead-catalogue reason to need
-  // it, and commercial notes never at all.
   const isFieldExecutive = session!.user.role === "FIELD_EXECUTIVE";
   const hasFieldAccess = isFieldExecutive ? await fieldExecutiveHasPropertyAccess(property.id, session!.user.id, organizationId) : true;
   const displayProperty = isFieldExecutive ? toFieldExecutivePropertyDTO(property, hasFieldAccess) : property;
@@ -83,22 +69,24 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   });
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
+  const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
+
   return (
     <div className="space-y-6">
       {/* Header section */}
-      <div className="flex flex-col justify-between gap-4 border-b border-[#E7ECF2] pb-4 sm:flex-row sm:items-start">
+      <div className="flex flex-col justify-between gap-4 border-b border-[#E4E4E7] pb-5 sm:flex-row sm:items-start">
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs text-[#8A94A6]">{property.propertyCode}</span>
+            <span className="font-mono text-xs text-[#71717A]">{property.propertyCode}</span>
             <Badge tone={property.listingType === "RENT" ? "blue" : "purple"}>{property.listingType === "RENT" ? "For Rent" : "For Sale"}</Badge>
             <Badge tone={PROPERTY_STATUS_TONE[property.status]}>{enumToLabel(property.status)}</Badge>
             <Badge tone={property.inventorySource === "DIRECT" ? "indigo" : "orange"}>{property.inventorySource === "DIRECT" ? "Direct" : "Indirect"}</Badge>
             {property.pendingVerification && <Badge tone="amber">Pending Verification</Badge>}
             {freshness && <Badge tone={FRESHNESS_TONE[freshness]}>{freshness.replace(/_/g, " ")}</Badge>}
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">{property.title}</h1>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-[#596579]">
-            <MapPin className="h-4 w-4 text-[#3366FF] shrink-0" />
+          <h1 className="text-2xl font-bold tracking-tight text-[#09090B]">{property.title}</h1>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-[#52525B]">
+            <MapPin className="h-3.5 w-3.5 text-[#71717A] shrink-0" />
             {displayProperty.address ? `${displayProperty.address}, ` : ""}
             {property.area}, Delhi
             {displayProperty.landmark && ` · ${displayProperty.landmark}`}
@@ -113,11 +101,10 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           {/* Gallery */}
           <PropertyGallery propertyId={property.id} propertyTitle={property.title} legacyCoverImage={property.coverImage} />
 
+          {/* Best Matching Leads Section */}
           <LeadRequirementMatches propertyId={property.id} />
 
-          {/* Location & Map - a FIELD_EXECUTIVE without a legitimate assigned
-              reason (visit or lead catalogue) sees no exact-location panel
-              at all, matching the address redaction above. */}
+          {/* Location & Map */}
           {(!isFieldExecutive || hasFieldAccess) && (
             <PropertyMapPanel
               propertyId={property.id}
@@ -134,26 +121,22 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             />
           )}
 
-          {/* A7 - Field GPS capture. FIELD_EXECUTIVE only (ADMIN/DATA_MANAGER
-              already have manual location editing in the map panel above);
-              shown only alongside the map panel, i.e. only when this
-              executive has a legitimate assigned reason to be here. */}
           {isFieldExecutive && hasFieldAccess && <CaptureLocationButton propertyId={property.id} />}
 
           {/* Description */}
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">Description</h3>
-            <p className="text-sm leading-relaxed text-[#596579]">{property.description}</p>
+          <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#09090B]">Description</h3>
+            <p className="text-sm leading-relaxed text-[#52525B]">{property.description}</p>
           </div>
 
           {/* Verification Panel */}
-          <div className="rounded-2xl border border-[#B8F3D1] bg-[#E6F9EE] p-5 shadow-xs">
-            <div className="flex items-center gap-2 mb-2 text-[#1FA971]">
-              <ShieldCheck className="h-5 w-5" />
-              <h3 className="text-sm font-bold uppercase tracking-wider">NCR Verification Status</h3>
+          <div className="rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] p-5 shadow-2xs">
+            <div className="flex items-center gap-2 mb-2 text-[#15803D]">
+              <ShieldCheck className="h-4 w-4" />
+              <h3 className="text-xs font-bold uppercase tracking-wider">NCR Verification Status</h3>
             </div>
-            <p className="text-xs text-[#596579]">Property address and owner identity verified by the KP Properties team.</p>
-            <div className="mt-3 flex flex-wrap gap-4 text-xs font-semibold text-[#1FA971]">
+            <p className="text-xs text-[#52525B]">Property address and owner identity verified by the KP Properties team.</p>
+            <div className="mt-3 flex flex-wrap gap-4 text-xs font-semibold text-[#15803D]">
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Address Checked</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Owner Phone Active</span>
               <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Clear Title Info</span>
@@ -161,8 +144,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </div>
 
           {/* Property Specifications */}
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">Property Specifications</h3>
+          <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[#09090B]">Property Specifications</h3>
             <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
               {property.assetClass === "COMMERCIAL" ? <>
                 <Detail label="Commercial Type" value={enumToLabel(property.propertyType)} />
@@ -183,11 +166,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
           {/* Amenities */}
           {amenities.length > 0 && (
-            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">Amenities & Facilities</h3>
+            <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#09090B]">Amenities & Facilities</h3>
               <div className="flex flex-wrap gap-2">
                 {amenities.map((a) => (
-                  <Badge key={a} tone="blue">{a}</Badge>
+                  <Badge key={a} tone="slate">{a}</Badge>
                 ))}
               </div>
             </div>
@@ -199,7 +182,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           {/* Documents */}
           <EntityDocumentPanel entityType="PROPERTY" entityId={property.id} title="Property Documents" />
 
-          {/* Portal distribution - CRM-side state only, no external network calls */}
+          {/* Portal distribution */}
           {session && session.user.role !== "FIELD_EXECUTIVE" && (
             <DistributionPanel propertyId={property.id} rows={distributionRows} preview={preview} canEdit={canEditDistribution} />
           )}
@@ -211,11 +194,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           <SuggestionList suggestions={suggestions} />
 
           {/* Pricing Panel */}
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#8A94A6]">{property.listingType === "RENT" ? "Monthly Rent" : "Sale Price"}</p>
-            <p className="mt-1 text-3xl font-bold text-[#3366FF]">{price}</p>
+          <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#71717A]">{property.listingType === "RENT" ? "Monthly Rent" : "Sale Price"}</p>
+            <p className="mt-1 text-2xl font-bold text-[#09090B]">{price}</p>
             {property.negotiable && <Badge tone="amber" className="mt-2">Price Negotiable</Badge>}
-            <div className="mt-4 space-y-2 border-t border-[#EFF4FF] pt-3 text-sm text-[#596579]">
+            <div className="mt-4 space-y-2 border-t border-[#E4E4E7] pt-3 text-xs text-[#52525B]">
               {property.listingType === "RENT" ? (
                 <>
                   <Row label="Security Deposit" value={formatINR(property.securityDeposit)} />
@@ -231,46 +214,41 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             </div>
           </div>
 
-          {/* Objective 2 - Direct shows Owner Details, Indirect shows Inventory
-              Partner Details. A FIELD_EXECUTIVE without a legitimate assigned
-              reason sees neither - contact detail is exactly as sensitive as
-              the exact address above. */}
+          {/* Owner / Partner Details */}
           {(!isFieldExecutive || hasFieldAccess) && (property.inventorySource === "DIRECT" ? (
-            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-                <Phone className="h-4 w-4 text-[#3366FF]" /> Owner Information
+            <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#09090B]">
+                <Phone className="h-3.5 w-3.5 text-[#71717A]" /> Owner Information
               </h3>
-              <div className="space-y-2 text-sm text-[#596579]">
+              <div className="space-y-2 text-xs text-[#52525B]">
                 <Row label="Name" value={property.ownerName} />
                 <Row label="Phone" value={property.ownerPhone} />
                 {!isFieldExecutive && property.ownerAlternatePhone && <Row label="Alternate" value={property.ownerAlternatePhone} />}
                 {!isFieldExecutive && property.ownerNotes && <Row label="Notes" value={property.ownerNotes} />}
               </div>
-              <p className="mt-3 text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
+              <p className="mt-3 text-[11px] text-[#71717A] border-t border-[#E4E4E7] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
             </div>
           ) : (
-            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-                <Phone className="h-4 w-4 text-[#3366FF]" /> Inventory Partner
+            <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs">
+              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#09090B]">
+                <Phone className="h-3.5 w-3.5 text-[#71717A]" /> Inventory Partner
               </h3>
               {property.partner ? (
-                <div className="space-y-2 text-sm text-[#596579]">
+                <div className="space-y-2 text-xs text-[#52525B]">
                   <Row label="Name" value={property.partner.name} />
                   {property.partner.company && <Row label="Company" value={property.partner.company} />}
                   <Row label="Phone" value={property.partner.phone} />
-                  {!isFieldExecutive && <Link href={`/inventory-partners/${property.partner.id}`} className="mt-2 inline-block text-xs font-semibold text-[#3366FF] hover:underline">View partner profile →</Link>}
+                  {!isFieldExecutive && <Link href={`/inventory-partners/${property.partner.id}`} className="mt-2 inline-block text-xs font-semibold text-[#09090B] hover:underline">View partner profile &rarr;</Link>}
                 </div>
               ) : (
-                <p className="text-sm text-[#596579]">No inventory partner linked - edit this property to link one.</p>
+                <p className="text-xs text-[#71717A]">No inventory partner linked.</p>
               )}
-              <p className="mt-3 text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
+              <p className="mt-3 text-[11px] text-[#71717A] border-t border-[#E4E4E7] pt-2.5">🔒 Internal record. Never displayed on public shared catalogues.</p>
             </div>
           ))}
 
-          {/* Objectives 7 & 10 - executive-facing issue/unavailability reporting */}
           <PropertyReportPanel propertyId={property.id} />
 
-          {/* Objective 8 & Change 11 - complete property history + last verified */}
           <PropertyTimelinePanel
             propertyId={property.id}
             lastVerifiedAt={property.lastVerifiedAt?.toISOString() ?? null}
@@ -286,11 +264,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           />
 
           {/* Meta Details */}
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-              <Home className="h-4 w-4 text-[#8A94A6]" /> System Metadata
+          <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs">
+            <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#09090B]">
+              <Home className="h-3.5 w-3.5 text-[#71717A]" /> System Metadata
             </h3>
-            <div className="space-y-2 text-sm text-[#596579]">
+            <div className="space-y-2 text-xs text-[#52525B]">
               <Row label="Property Code" value={property.propertyCode} />
               <Row label="Added on" value={formatDate(property.createdAt)} />
               <Row label="Last updated" value={formatDate(property.updatedAt)} />
@@ -305,8 +283,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-medium text-[#8A94A6]">{label}</p>
-      <p className="mt-0.5 font-semibold text-[#1B2430]">{value}</p>
+      <p className="text-[11px] font-medium text-[#71717A] uppercase tracking-wider">{label}</p>
+      <p className="mt-0.5 font-semibold text-[#09090B]">{value}</p>
     </div>
   );
 }
@@ -314,8 +292,8 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="text-[#8A94A6]">{label}</span>
-      <span className="text-right font-semibold text-[#1B2430]">{value}</span>
+      <span className="text-[#71717A]">{label}</span>
+      <span className="text-right font-semibold text-[#09090B]">{value}</span>
     </div>
   );
 }

@@ -15,7 +15,7 @@ import type { PropertyType } from "@prisma/client";
  */
 
 const PROPERTY_TYPE_COLORS: Partial<Record<PropertyType, string>> = {
-  APARTMENT: "#3366FF",
+  APARTMENT: "#18181B",
   INDEPENDENT_HOUSE: "#1FA971",
   VILLA: "#B37FEB",
   BUILDER_FLOOR: "#FF9F40",
@@ -60,7 +60,7 @@ export function ensureDemoPropertyAssets(): Record<PropertyType, string[]> {
       const fileName = `${type.toLowerCase()}-${v}.svg`;
       const filePath = path.join(ASSET_DIR, fileName);
       if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, svgFor(PROPERTY_TYPE_LABELS[type] ?? type, PROPERTY_TYPE_COLORS[type] ?? "#3366FF", v), "utf-8");
+        fs.writeFileSync(filePath, svgFor(PROPERTY_TYPE_LABELS[type] ?? type, PROPERTY_TYPE_COLORS[type] ?? "#18181B", v), "utf-8");
       }
       urls.push(`/demo-assets/properties/${fileName}`);
     }
@@ -73,10 +73,10 @@ const DOCUMENT_ASSET_DIR = path.join(process.cwd(), "public", "demo-assets", "do
 
 function documentSvg(label: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="850" height="1100" viewBox="0 0 850 1100">
-  <rect width="850" height="1100" fill="#FAFBFC"/>
-  <rect x="20" y="20" width="810" height="1060" fill="none" stroke="#E7ECF2" stroke-width="4"/>
-  <text x="425" y="540" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#596579" text-anchor="middle">${label}</text>
-  <text x="425" y="590" font-family="Arial, sans-serif" font-size="22" fill="#8A94A6" text-anchor="middle">Demo document placeholder - not a real document</text>
+  <rect width="850" height="1100" fill="#FAFAFA"/>
+  <rect x="20" y="20" width="810" height="1060" fill="none" stroke="#E4E4E7" stroke-width="4"/>
+  <text x="425" y="540" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#18181B" text-anchor="middle">${label}</text>
+  <text x="425" y="590" font-family="Arial, sans-serif" font-size="22" fill="#71717A" text-anchor="middle">Demo document placeholder - not a real document</text>
 </svg>`;
 }
 
@@ -95,7 +95,7 @@ export function ensureDemoAvailabilityReportAsset(): string {
   const filePath = path.join(AVAILABILITY_REPORT_ASSET_DIR, fileName);
   if (!fs.existsSync(filePath)) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
-  <rect width="1200" height="800" fill="#596579"/>
+  <rect width="1200" height="800" fill="#27272A"/>
   <text x="600" y="380" font-family="Arial, sans-serif" font-size="52" font-weight="700" fill="#ffffff" text-anchor="middle">Availability Report Photo</text>
   <text x="600" y="440" font-family="Arial, sans-serif" font-size="26" fill="rgba(255,255,255,0.85)" text-anchor="middle">Demo evidence placeholder - not a real photo</text>
 </svg>`;

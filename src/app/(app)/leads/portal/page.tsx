@@ -30,18 +30,65 @@ export default async function PortalLeadsPage({ searchParams }: { searchParams: 
   const events = await prisma.externalLeadEvent.findMany({ where: { organizationId, ...(params.provider ? { provider: params.provider as never } : {}), ...(params.status ? { ingestionStatus: params.status as never } : {}) }, include: { lead: { select: { leadCode: true, clientName: true, assignedToId: true } } }, orderBy: { receivedAt: "desc" }, take: 200 });
   const visible = session!.user.role === "FIELD_EXECUTIVE" ? events.filter((event) => event.lead?.assignedToId === session!.user.id) : events;
   const canAct = session!.user.role === "ADMIN" || session!.user.role === "DATA_MANAGER";
-  return <div className="space-y-6"><div><h1 className="text-2xl font-bold text-[#1B2430]">Portal Leads</h1><p className="mt-1 text-sm text-[#596579]">Authorized portal enquiries only. Raw provider payloads and credentials are never displayed.</p></div>{visible.length === 0 ? <EmptyState title="No portal leads" description="New authorized feeds will appear here for safe review and assignment." /> : <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white"><table className="w-full text-sm"><thead className="bg-[#F8FAFC] text-left text-xs text-[#596579]"><tr><th className="p-3">Provider</th><th className="p-3">Contact</th><th className="p-3">Project / Locality</th><th className="p-3">Budget</th><th className="p-3">CRM lead</th><th className="p-3">Received</th><th className="p-3">Status</th>{canAct && <th className="p-3">Action</th>}</tr></thead><tbody>{visible.map((event) => {
-    const snapshot = parseSnapshot(event.leadSnapshot);
-    const budget = snapshot ? formatBudget(snapshot.minBudget, snapshot.maxBudget) : null;
-    return <tr className="border-t border-[#E7ECF2] align-top" key={event.id}>
-      <td className="p-3">{event.provider.replaceAll("_", " ")}</td>
-      <td className="p-3"><div>{(snapshot?.leadName as string) ?? "—"}</div><div className="text-xs text-[#596579]">{(snapshot?.leadPhone as string) ?? "—"}</div><div className="text-xs text-[#596579]">{(snapshot?.leadEmail as string) ?? "—"}</div></td>
-      <td className="p-3"><div>{(snapshot?.projectName as string) ?? "—"}</div><div className="text-xs text-[#596579]">{[snapshot?.localityName, snapshot?.cityName].filter(Boolean).join(", ") || "—"}</div></td>
-      <td className="p-3">{budget ?? "—"}</td>
-      <td className="p-3">{event.lead ? `${event.lead.leadCode} · ${event.lead.clientName}` : "Needs review"}</td>
-      <td className="p-3">{event.receivedAt.toLocaleString("en-IN")}</td>
-      <td className="p-3"><Badge tone={event.ingestionStatus === "FAILED" || event.ingestionStatus === "AMBIGUOUS" ? "red" : "blue"}>{event.ingestionStatus.replaceAll("_", " ")}</Badge></td>
-      {canAct && <td className="p-3"><PortalLeadActions eventId={event.id} status={event.ingestionStatus} alreadyLinked={Boolean(event.leadId)} /></td>}
-    </tr>;
-  })}</tbody></table></div>}</div>;
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-zinc-900">Portal Leads</h1>
+        <p className="mt-1 text-sm text-zinc-500">Authorized portal enquiries only. Raw provider payloads and credentials are never displayed.</p>
+      </div>
+      {visible.length === 0 ? (
+        <EmptyState title="No portal leads" description="New authorized feeds will appear here for safe review and assignment." />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wider text-zinc-500">
+              <tr>
+                <th className="p-3">Provider</th>
+                <th className="p-3">Contact</th>
+                <th className="p-3">Project / Locality</th>
+                <th className="p-3">Budget</th>
+                <th className="p-3">CRM lead</th>
+                <th className="p-3">Received</th>
+                <th className="p-3">Status</th>
+                {canAct && <th className="p-3">Action</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((event) => {
+                const snapshot = parseSnapshot(event.leadSnapshot);
+                const budget = snapshot ? formatBudget(snapshot.minBudget, snapshot.maxBudget) : null;
+                return (
+                  <tr className="border-t border-zinc-100 align-top" key={event.id}>
+                    <td className="p-3 font-medium text-zinc-900">{event.provider.replaceAll("_", " ")}</td>
+                    <td className="p-3">
+                      <div className="font-semibold text-zinc-900">{(snapshot?.leadName as string) ?? "—"}</div>
+                      <div className="text-xs text-zinc-500">{(snapshot?.leadPhone as string) ?? "—"}</div>
+                      <div className="text-xs text-zinc-400">{(snapshot?.leadEmail as string) ?? "—"}</div>
+                    </td>
+                    <td className="p-3">
+                      <div className="font-medium text-zinc-900">{(snapshot?.projectName as string) ?? "—"}</div>
+                      <div className="text-xs text-zinc-500">{[snapshot?.localityName, snapshot?.cityName].filter(Boolean).join(", ") || "—"}</div>
+                    </td>
+                    <td className="p-3 text-zinc-900">{budget ?? "—"}</td>
+                    <td className="p-3 text-zinc-900">{event.lead ? `${event.lead.leadCode} · ${event.lead.clientName}` : "Needs review"}</td>
+                    <td className="p-3 text-xs text-zinc-500">{event.receivedAt.toLocaleString("en-IN")}</td>
+                    <td className="p-3">
+                      <Badge tone={event.ingestionStatus === "FAILED" || event.ingestionStatus === "AMBIGUOUS" ? "red" : "slate"}>
+                        {event.ingestionStatus.replaceAll("_", " ")}
+                      </Badge>
+                    </td>
+                    {canAct && (
+                      <td className="p-3">
+                        <PortalLeadActions eventId={event.id} status={event.ingestionStatus} alreadyLinked={Boolean(event.leadId)} />
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }

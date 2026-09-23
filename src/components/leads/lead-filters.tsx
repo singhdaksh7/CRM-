@@ -21,11 +21,11 @@ export function LeadFilters({ employees }: { employees: Pick<User, "id" | "name"
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-3.5 shadow-xs space-y-3">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-3.5 shadow-xs space-y-3">
       {/* Primary Row */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <Input placeholder="Search name, phone, code..." defaultValue={sp.get("q") ?? ""} onChange={(e) => update("q", e.target.value)} className="pl-9" />
         </div>
         <Select defaultValue={sp.get("status") ?? ""} onChange={(e) => update("status", e.target.value)} className="w-auto text-xs font-semibold">

@@ -27,11 +27,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   });
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#FAFBFC] text-[#1B2430]">
-      <Sidebar role={role} employeeDirectoryLabel={employeeDirectoryLabel} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#FAFAFA] text-[#09090B]">
+      <Sidebar role={role} employeeDirectoryLabel={employeeDirectoryLabel} user={{ name: session.user.name, role }} />
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <Header user={{ name: session.user.name, role }} employeeDirectoryLabel={employeeDirectoryLabel} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-20 lg:pb-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-20 lg:pb-6 bg-[#FAFAFA]">{children}</main>
         <MobileNavigation role={role} />
       </div>
     </div>

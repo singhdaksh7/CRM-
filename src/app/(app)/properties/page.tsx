@@ -17,12 +17,6 @@ import { Plus, Upload, History } from "lucide-react";
 import Link from "next/link";
 import type { Prisma, PropertyStatus } from "@prisma/client";
 
-/**
- * Operational property inventory.
- * Default: latest 10 AVAILABLE properties for the current organization,
- * newest-first by Property.createdAt (no separate listedAt column exists).
- * See More uses real server cursor pagination via `cursor` query param.
- */
 export default async function PropertiesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const session = await auth();
   const organizationId = getOrganizationId(session!.user);
@@ -31,8 +25,6 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   const canManage = session?.user?.role === "ADMIN" || session?.user?.role === "DATA_MANAGER";
   const canCreate = canManage || session?.user?.role === "FIELD_EXECUTIVE";
 
-  // Explicit status in the URL wins. Missing status → AVAILABLE (operational default).
-  // status=ALL → no status predicate (full inventory).
   const statusFilter: PropertyStatus | null =
     sp.status === "ALL" ? null : ((sp.status as PropertyStatus | undefined) ?? "AVAILABLE");
   const hasCustomFilters = Boolean(sp.q || sp.listingType || sp.assetClass || sp.area || sp.bhk || sp.furnishing || sp.possessionStatus || sp.liftAvailable || sp.parkFacing || (sp.status && sp.status !== "AVAILABLE") || sp.sort);
@@ -57,7 +49,6 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
 
   const { properties, coverImageUrls, nextCursor, listedTimestampField } = listResult;
 
-  // Table view still needs a count for the header when filters are applied.
   const where: Prisma.PropertyWhereInput = {
     organizationId,
     ...(statusFilter ? { status: statusFilter } : {}),
@@ -92,16 +83,16 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E4E4E7] pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Property Inventory</h1>
-          <p className="mt-1 text-sm text-[#596579]">
+          <h1 className="text-2xl font-bold tracking-tight text-[#09090B]">Property Inventory</h1>
+          <p className="mt-1 text-xs text-[#71717A]">
             {totalCount} {statusFilter === "AVAILABLE" && !hasCustomFilters ? "available" : "matching"} listings
-            {" · "}sorted by {listedTimestampField === PROPERTY_LIST_SORT_TIMESTAMP ? "listed date (createdAt)" : listedTimestampField}
+            {" · "}sorted by {listedTimestampField === PROPERTY_LIST_SORT_TIMESTAMP ? "listed date" : listedTimestampField}
           </p>
         </div>
         {canCreate && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canManage && <>
               <LinkButton href="/properties/import/history" variant="secondary">
                 <History className="h-4 w-4" /> Import history
@@ -136,7 +127,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
         <div className="flex justify-center pt-2">
           <Link
             href={seeMoreHref}
-            className="inline-flex items-center rounded-xl border border-[#E7ECF2] bg-white px-4 py-2 text-sm font-semibold text-[#1B2430] shadow-xs hover:bg-[#F3F6FA]"
+            className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-4 py-2 text-xs font-semibold text-[#09090B] shadow-2xs hover:bg-[#F4F4F5] hover:border-[#D4D4D8] transition-colors"
           >
             See More
           </Link>

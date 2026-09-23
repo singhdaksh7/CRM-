@@ -1,11 +1,11 @@
 export default function LeadsLoading() {
   return (
     <div className="animate-pulse space-y-6">
-      <div className="h-14 rounded-lg border-b border-[rgba(255,255,255,0.08)] bg-[#181E2A]/60" />
-      <div className="h-12 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#181E2A]" />
-      <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181E2A] p-4 space-y-3">
+      <div className="h-14 rounded-xl border border-zinc-200 bg-zinc-100" />
+      <div className="h-12 rounded-xl border border-zinc-200 bg-white" />
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-10 rounded-lg bg-[#1E2533]" />
+          <div key={i} className="h-12 rounded-lg bg-zinc-100" />
         ))}
       </div>
     </div>

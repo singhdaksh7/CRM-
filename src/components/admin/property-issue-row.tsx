@@ -67,20 +67,20 @@ export function PropertyIssueRow({ issue }: { issue: PropertyIssueRowData }) {
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <Link href={`/properties/${issue.property.id}`} className="font-semibold text-[#1B2430] hover:text-[#3366FF]">{issue.property.title}</Link>
-          <p className="text-xs text-[#596579] mt-0.5">{issue.property.area} - {issue.property.propertyCode}</p>
+          <Link href={`/properties/${issue.property.id}`} className="font-semibold text-zinc-900 hover:underline">{issue.property.title}</Link>
+          <p className="text-xs text-zinc-500 mt-0.5">{issue.property.area} - {issue.property.propertyCode}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Badge tone={issue.issueType === "AVAILABILITY" ? (REASON_TONE[issue.label] ?? "amber") : "blue"}>{enumToLabel(issue.label)}</Badge>
-          <span className="text-[10px] uppercase tracking-wide text-[#8A94A6]">{issue.issueType === "AVAILABILITY" ? "Availability" : "Data Quality"}</span>
+          <Badge tone={issue.issueType === "AVAILABILITY" ? (REASON_TONE[issue.label] ?? "amber") : "slate"}>{enumToLabel(issue.label)}</Badge>
+          <span className="text-[10px] uppercase tracking-wider text-zinc-400">{issue.issueType === "AVAILABILITY" ? "Availability" : "Data Quality"}</span>
         </div>
       </div>
-      {issue.note && <p className="text-xs text-[#596579] bg-[#F5F7FA] rounded-lg p-2">{issue.note}</p>}
-      <p className="text-xs text-[#8A94A6]">Reported by {issue.reportedBy?.name ?? "Unknown"} on {formatDate(issue.createdAt)}</p>
-      <div className="flex gap-2 pt-2 border-t border-[#EFF4FF]">
+      {issue.note && <p className="text-xs text-zinc-600 bg-zinc-50 rounded-lg p-2 border border-zinc-200">{issue.note}</p>}
+      <p className="text-xs text-zinc-400">Reported by {issue.reportedBy?.name ?? "Unknown"} on {formatDate(issue.createdAt)}</p>
+      <div className="flex gap-2 pt-2 border-t border-zinc-100">
         {issue.issueType === "AVAILABILITY" ? (
           <>
             <Button size="sm" variant="primary" disabled={submitting} onClick={() => reviewAvailability("APPROVE")}>Approve</Button>

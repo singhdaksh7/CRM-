@@ -116,7 +116,7 @@ export function DocumentUploadDialog({
               aria-label="Choose a document file"
               accept={capabilities.documents.allowedMimeTypes.join(",")}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block w-full rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#11151F] py-2 px-3 text-sm text-[#F8FAFC]"
+              className="block w-full rounded-xl border border-zinc-200 bg-white py-2 px-3 text-sm text-zinc-900 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-zinc-800 hover:file:bg-zinc-200"
             />
           </Field>
 
@@ -142,10 +142,10 @@ export function DocumentUploadDialog({
           </Field>
 
           {SENSITIVE_CATEGORIES.has(category) && (
-            <div className="flex items-start gap-2 rounded-lg border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.06)] p-3 text-xs text-[#FCA5A5]">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
+            <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
               <div>
-                <p className="font-semibold text-[#EF4444]">Private document</p>
+                <p className="font-semibold text-red-700">Private document</p>
                 <p className="mt-0.5">This file contains sensitive information and will never be included in a public property catalogue.</p>
               </div>
             </div>
@@ -154,9 +154,9 @@ export function DocumentUploadDialog({
           <Field label="Expiry Date"><Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} /></Field>
 
           {stage !== "idle" && <StageProgress stage={stage} />}
-          {error && <p className="text-xs font-medium text-[#EF4444]" role="alert">{error}</p>}
+          {error && <p className="text-xs font-medium text-red-700" role="alert">{error}</p>}
 
-          <div className="flex justify-end gap-3 border-t border-[rgba(255,255,255,0.08)] pt-3">
+          <div className="flex justify-end gap-3 border-t border-zinc-200 pt-3">
             <Button type="button" variant="secondary" onClick={() => { onClose(); reset(); }}>Cancel</Button>
             <Button type="submit" loading={stage === "preparing" || stage === "uploading" || stage === "verifying"}>Upload</Button>
           </div>

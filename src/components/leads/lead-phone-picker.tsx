@@ -57,9 +57,9 @@ export function LeadPhonePicker({
   function entryFor(phone: PhoneOption) {
     if (isWhatsApp && phone.isPrimary) {
       return (
-        <button type="button" onClick={() => { setOpen(false); onOpenWhatsAppPanel(); }} className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-[#F3F6FA]">
-          <span className="font-semibold text-[#1B2430]">{phone.label}</span>
-          <span className="text-xs text-[#8A94A6]">{phone.number}</span>
+        <button type="button" onClick={() => { setOpen(false); onOpenWhatsAppPanel(); }} className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-zinc-100 transition-colors">
+          <span className="font-semibold text-zinc-900">{phone.label}</span>
+          <span className="text-xs text-zinc-400">{phone.number}</span>
         </button>
       );
     }
@@ -70,10 +70,10 @@ export function LeadPhonePicker({
         target={isWhatsApp ? "_blank" : undefined}
         rel={isWhatsApp ? "noreferrer" : undefined}
         onClick={() => { setOpen(false); if (!isWhatsApp) onCall(phone.number); }}
-        className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-[#F3F6FA]"
+        className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-zinc-100 transition-colors"
       >
-        <span className="font-semibold text-[#1B2430]">{phone.label}</span>
-        <span className="text-xs text-[#8A94A6]">{phone.number}</span>
+        <span className="font-semibold text-zinc-900">{phone.label}</span>
+        <span className="text-xs text-zinc-400">{phone.number}</span>
       </a>
     );
   }
@@ -110,7 +110,7 @@ export function LeadPhonePicker({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-xl border border-[#E7ECF2] bg-white p-1.5 shadow-lg">
+          <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg">
             {phones.map((p) => <div key={p.number}>{entryFor(p)}</div>)}
           </div>
         </>

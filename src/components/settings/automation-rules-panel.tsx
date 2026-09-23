@@ -112,48 +112,48 @@ export function AutomationRulesPanel() {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        {rules.length === 0 && <p className="text-sm text-[#8A94A6]">No automation rules yet.</p>}
+        {rules.length === 0 && <p className="text-sm text-zinc-400">No automation rules yet.</p>}
         {rules.map((r) => (
-          <div key={r.id} className="rounded-lg border border-[#EFF4FF]">
+          <div key={r.id} className="rounded-lg border border-zinc-200">
             <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
               <div>
-                <p className="text-sm font-medium text-[#1B2430]">{r.name}</p>
-                <p className="text-xs text-[#8A94A6]">
+                <p className="text-sm font-medium text-zinc-900">{r.name}</p>
+                <p className="text-xs text-zinc-400">
                   {TRIGGERS.find((t) => t.value === r.trigger)?.label ?? enumToLabel(r.trigger)} → {enumToLabel(r.actionType)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => testRule(r.id)} className="flex items-center gap-1 rounded-md border border-[#E7ECF2] px-2 py-1 text-xs font-medium text-[#596579] hover:bg-[#F3F6FA]" title="Preview impact - zero writes">
+                <button onClick={() => testRule(r.id)} className="flex items-center gap-1 rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50" title="Preview impact - zero writes">
                   <FlaskConical className="h-3.5 w-3.5" /> Test rule
                 </button>
                 <button onClick={() => toggleActive(r)}>
                   <Badge tone={r.isActive ? "green" : "slate"}>{r.isActive ? "Active" : "Inactive"}</Badge>
                 </button>
-                <button onClick={() => removeRule(r.id)} className="text-[#8A94A6] hover:text-[#E5484D]" aria-label="Delete rule">
+                <button onClick={() => removeRule(r.id)} className="text-zinc-400 hover:text-rose-600" aria-label="Delete rule">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
             {previewingId === r.id && (
-              <div className="border-t border-[#EFF4FF] bg-[#FAFBFC] p-3">
+              <div className="border-t border-zinc-200 bg-zinc-50 p-3">
                 {!preview ? (
-                  <p className="text-xs text-[#8A94A6]">Running preview (zero writes)...</p>
+                  <p className="text-xs text-zinc-400">Running preview (zero writes)...</p>
                 ) : (
                   <>
                     <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs font-semibold text-[#1B2430]">
+                      <p className="text-xs font-semibold text-zinc-900">
                         Preview: {preview.matchedCount} would fire · {preview.skippedCount} skipped · sampled {preview.sampleSize} record(s)
                       </p>
-                      <button onClick={() => { setPreviewingId(null); setPreview(null); }} className="text-xs text-[#8A94A6] hover:text-[#1B2430]">Close</button>
+                      <button onClick={() => { setPreviewingId(null); setPreview(null); }} className="text-xs text-zinc-400 hover:text-zinc-900">Close</button>
                     </div>
                     {preview.sampleSize === 0 ? (
-                      <p className="text-xs text-[#8A94A6]">No matching records found to sample yet - nothing to preview.</p>
+                      <p className="text-xs text-zinc-400">No matching records found to sample yet - nothing to preview.</p>
                     ) : (
                       <div className="space-y-1">
                         {preview.rows.map((row) => (
                           <div key={row.recordId} className="flex items-center justify-between gap-2 text-xs">
-                            <span className="text-[#596579]">{row.label}</span>
-                            <span className={row.wouldExecute ? "text-[#1FA971]" : "text-[#8A94A6]"}>{row.wouldExecute ? "✓ Would fire" : "Skipped"} - {row.reason}</span>
+                            <span className="text-zinc-600">{row.label}</span>
+                            <span className={row.wouldExecute ? "text-emerald-600 font-medium" : "text-zinc-400"}>{row.wouldExecute ? "✓ Would fire" : "Skipped"} - {row.reason}</span>
                           </div>
                         ))}
                       </div>
@@ -166,8 +166,8 @@ export function AutomationRulesPanel() {
         ))}
       </div>
 
-      <div className="rounded-lg border border-dashed border-[#E7ECF2] p-4">
-        <p className="mb-3 text-sm font-medium text-[#1B2430]">Add automation rule</p>
+      <div className="rounded-lg border border-dashed border-zinc-200 p-4">
+        <p className="mb-3 text-sm font-medium text-zinc-900">Add automation rule</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Name">
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Auto-assign new leads" />

@@ -58,8 +58,8 @@ export function WhatsAppDiagnosticsPanel() {
   }
 
   return (
-    <div className="mt-3 space-y-3 border-t border-[rgba(255,255,255,0.06)] pt-3">
-      <div className="flex flex-wrap gap-2">
+    <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={testConnection} loading={checking}>
           <Wifi className="h-3.5 w-3.5" /> Test Connection
         </Button>
@@ -68,12 +68,12 @@ export function WhatsAppDiagnosticsPanel() {
             <Send className="h-3.5 w-3.5" /> Send Test Message
           </Button>
         ) : (
-          <div className="flex items-center gap-2 rounded-lg border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.08)] px-3 py-1.5">
-            <span className="text-xs text-[#F59E0B]">This sends a real message to the configured test recipient. Confirm?</span>
+          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5">
+            <span className="text-xs text-amber-800 font-medium">This sends a real message to the configured test recipient. Confirm?</span>
             <Button size="sm" variant="danger" onClick={sendTest} loading={sending}>
               Confirm
             </Button>
-            <button onClick={() => setConfirmingSend(false)} className="text-xs text-[#94A3B8] hover:text-white">
+            <button onClick={() => setConfirmingSend(false)} className="text-xs font-semibold text-zinc-600 hover:text-zinc-900">
               Cancel
             </button>
           </div>
@@ -83,18 +83,18 @@ export function WhatsAppDiagnosticsPanel() {
       {result && (
         <div className="space-y-2 text-xs">
           <p className="flex items-center gap-2">
-            <span className="text-[#94A3B8]">Result:</span>
+            <span className="text-zinc-500">Result:</span>
             <Badge tone={result.ok ? "green" : "red"}>{result.ok ? "Connected" : "Problem detected"}</Badge>
             <Badge tone={result.webhookEnabled ? "green" : "slate"}>{result.webhookEnabled ? "Webhook enabled" : "Webhook disabled"}</Badge>
           </p>
           {Object.entries(result.details).map(([key, value]) => (
-            <p key={key} className="flex justify-between gap-2 text-[#94A3B8]">
+            <p key={key} className="flex justify-between gap-2 text-zinc-500">
               <span className="uppercase tracking-wide">{key}</span>
-              <span className="font-medium text-[#CBD5E1]">{value}</span>
+              <span className="font-medium text-zinc-900">{value}</span>
             </p>
           ))}
           <div className="pt-1">
-            <p className="mb-1 font-semibold text-[#94A3B8]">Templates</p>
+            <p className="mb-1 font-semibold text-zinc-500 uppercase tracking-wider">Templates</p>
             <div className="flex flex-wrap gap-1.5">
               {result.templates.map((t) => (
                 <Badge key={t.useCase} tone={t.approved ? "green" : "slate"}>

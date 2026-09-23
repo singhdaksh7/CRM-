@@ -34,7 +34,7 @@ export function MapsDiagnosticsPanel() {
   }
 
   return (
-    <div className="mt-3 space-y-3 border-t border-[rgba(255,255,255,0.06)] pt-3">
+    <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3">
       <Button size="sm" variant="secondary" onClick={testConnection} loading={checking}>
         <MapPin className="h-3.5 w-3.5" /> Run Test
       </Button>
@@ -42,13 +42,13 @@ export function MapsDiagnosticsPanel() {
       {result && (
         <div className="space-y-1.5 text-xs">
           <p className="flex items-center gap-2">
-            <span className="text-[#94A3B8]">Result:</span>
+            <span className="text-zinc-500">Result:</span>
             <Badge tone={result.ok ? "green" : "red"}>{result.ok ? "Maps connected" : "Test failed"}</Badge>
           </p>
           {Object.entries(result.details).map(([key, value]) => (
-            <p key={key} className="flex justify-between gap-2 text-[#94A3B8]">
+            <p key={key} className="flex justify-between gap-2 text-zinc-500">
               <span className="uppercase tracking-wide">{key}</span>
-              <span className="font-medium text-[#CBD5E1]">{value}</span>
+              <span className="font-medium text-zinc-900">{value}</span>
             </p>
           ))}
         </div>

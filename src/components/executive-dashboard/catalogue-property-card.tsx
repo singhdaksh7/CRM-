@@ -48,43 +48,43 @@ export function CataloguePropertyCard({ catalogueId, property }: { catalogueId: 
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
+    <div className="rounded-xl border border-[#E4E4E7] bg-white p-4 shadow-xs space-y-3">
       {property.coverImage && (
         // eslint-disable-next-line @next/next/no-img-element -- signed/legacy cover URLs
-        <img src={property.coverImage} alt="" className="h-36 w-full rounded-xl object-cover bg-[#F5F7FA]" />
+        <img src={property.coverImage} alt="" className="h-36 w-full rounded-xl object-cover bg-[#F4F4F5]" />
       )}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-semibold text-[#1B2430]">{property.title}</p>
-          <p className="text-xs text-[#596579] mt-0.5">
+          <p className="font-semibold text-[#09090B]">{property.title}</p>
+          <p className="text-xs text-[#52525B] mt-0.5">
             {property.buildingName && `${property.buildingName}, `}
             {property.flatNumber && `Flat ${property.flatNumber}, `}
             {property.address}
             {property.gateNumber && ` (${property.gateNumber})`}
           </p>
-          {property.landmark && <p className="text-xs text-[#8A94A6]">Near {property.landmark}</p>}
+          {property.landmark && <p className="text-xs text-[#71717A]">Near {property.landmark}</p>}
         </div>
         <Badge tone={STATUS_TONE[status] ?? "slate"}>{status.replace(/_/g, " ")}</Badge>
       </div>
 
-      <p className="text-lg font-bold text-[#3366FF]">{property.price}</p>
+      <p className="text-lg font-bold text-[#09090B]">{property.price}</p>
 
-      <div className="rounded-xl bg-[#F5F7FA] p-3 text-xs space-y-1">
+      <div className="rounded-xl bg-[#FAFAFA] border border-[#E4E4E7] p-3 text-xs space-y-1 text-[#52525B]">
         {property.inventorySource === "DIRECT" ? (
           <>
-            <p><span className="font-semibold">Owner:</span> {property.ownerName ?? "-"}</p>
-            <p><span className="font-semibold">Phone:</span> {property.ownerPhone ?? "-"}</p>
+            <p><span className="font-semibold text-[#09090B]">Owner:</span> {property.ownerName ?? "-"}</p>
+            <p><span className="font-semibold text-[#09090B]">Phone:</span> {property.ownerPhone ?? "-"}</p>
           </>
         ) : (
           <>
-            <p><span className="font-semibold">Partner:</span> {property.partnerName ?? "-"}</p>
-            <p><span className="font-semibold">Phone:</span> {property.partnerPhone ?? "-"}</p>
+            <p><span className="font-semibold text-[#09090B]">Partner:</span> {property.partnerName ?? "-"}</p>
+            <p><span className="font-semibold text-[#09090B]">Phone:</span> {property.partnerPhone ?? "-"}</p>
           </>
         )}
-        {property.keyAvailability && <p><span className="font-semibold">Keys:</span> {property.keyAvailability}</p>}
-        {property.entryInstructions && <p><span className="font-semibold">Entry:</span> {property.entryInstructions}</p>}
-        {property.internalNotes && <p><span className="font-semibold">Notes:</span> {property.internalNotes}</p>}
-        {property.negotiationNotes && <p><span className="font-semibold">Negotiation:</span> {property.negotiationNotes}</p>}
+        {property.keyAvailability && <p><span className="font-semibold text-[#09090B]">Keys:</span> {property.keyAvailability}</p>}
+        {property.entryInstructions && <p><span className="font-semibold text-[#09090B]">Entry:</span> {property.entryInstructions}</p>}
+        {property.internalNotes && <p><span className="font-semibold text-[#09090B]">Notes:</span> {property.internalNotes}</p>}
+        {property.negotiationNotes && <p><span className="font-semibold text-[#09090B]">Negotiation:</span> {property.negotiationNotes}</p>}
       </div>
 
       <QuickActions
@@ -93,7 +93,7 @@ export function CataloguePropertyCard({ catalogueId, property }: { catalogueId: 
         longitude={property.longitude}
       />
 
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-[#EFF4FF]">
+      <div className="flex flex-wrap gap-2 pt-2 border-t border-[#E4E4E7]">
         {STATUS_OPTIONS.map((opt) => (
           <Button key={opt.value} size="sm" variant={status === opt.value ? "primary" : "secondary"} disabled={updating} onClick={() => updateStatus(opt.value)}>
             {opt.label}

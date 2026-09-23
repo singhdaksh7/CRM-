@@ -61,17 +61,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-1 items-center justify-center bg-[#FAFBFC] px-4 py-8 text-[#1B2430]">
+    <div className="flex min-h-screen flex-1 items-center justify-center bg-[#FAFAFA] px-4 py-8 text-[#09090B]">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#3366FF] text-white font-bold text-2xl shadow-lg shadow-[#3366FF]/20">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0A0A0A] text-white font-bold text-2xl shadow-xs">
             KP
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Welcome back</h1>
-          <p className="mt-2 text-sm text-[#596579]">Sign in to manage today’s leads, visits, and client follow-ups.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#09090B]">Welcome back</h1>
+          <p className="mt-2 text-sm text-[#52525B]">Sign in to manage today’s leads, visits, and client follow-ups.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-[#E7ECF2] bg-white p-6 sm:p-8 shadow-xs">
+        <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-[#E4E4E7] bg-white p-6 sm:p-8 shadow-xs">
           <Field label="Email Address">
             <Input
               type="email"
@@ -100,7 +100,7 @@ export default function LoginPage() {
             Sign In to CRM
           </Button>
           <p className="text-center text-sm">
-            <Link href="/forgot-password" className="font-semibold text-[#3366FF] hover:underline">
+            <Link href="/forgot-password" className="font-semibold text-[#09090B] hover:underline">
               Forgot Password?
             </Link>
           </p>

@@ -2,12 +2,12 @@ import { Inbox, Loader2, AlertTriangle, ShieldAlert } from "lucide-react";
 
 export function EmptyState({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#C3C5D8] bg-white py-16 px-4 text-center shadow-xs">
-      <div className="rounded-full bg-[#F3F6FA] p-3 text-[#596579]">
-        <Inbox className="h-8 w-8" />
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#E4E4E7] bg-white py-12 px-4 text-center">
+      <div className="rounded-full bg-[#F4F4F5] p-3 text-[#71717A]">
+        <Inbox className="h-6 w-6" />
       </div>
-      <p className="mt-3 text-base font-semibold text-[#1B2430]">{title}</p>
-      {description && <p className="mt-1 max-w-sm text-sm text-[#596579]">{description}</p>}
+      <p className="mt-3 text-sm font-semibold text-[#09090B]">{title}</p>
+      {description && <p className="mt-1 max-w-sm text-xs text-[#71717A]">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -15,21 +15,21 @@ export function EmptyState({ title, description, action }: { title: string; desc
 
 export function LoadingState({ label = "Loading..." }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-[#596579]">
-      <Loader2 className="h-7 w-7 animate-spin text-[#3366FF]" />
-      <p className="mt-3 text-sm font-medium">{label}</p>
+    <div className="flex flex-col items-center justify-center py-12 text-[#71717A]">
+      <Loader2 className="h-6 w-6 animate-spin text-[#09090B]" />
+      <p className="mt-2 text-xs font-medium text-[#71717A]">{label}</p>
     </div>
   );
 }
 
 export function ErrorState({ title = "Something went wrong", description, action }: { title?: string; description?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-[#FFC7C9] bg-[#FFECEC] py-12 px-4 text-center shadow-xs">
-      <div className="rounded-full bg-[#FFD8D9] p-3 text-[#E5484D]">
-        <AlertTriangle className="h-7 w-7" />
+    <div className="flex flex-col items-center justify-center rounded-xl border border-[#FECACA] bg-[#FEF2F2] py-10 px-4 text-center">
+      <div className="rounded-full bg-[#FEE2E2] p-2.5 text-[#DC2626]">
+        <AlertTriangle className="h-6 w-6" />
       </div>
-      <p className="mt-3 text-base font-semibold text-[#E5484D]">{title}</p>
-      {description && <p className="mt-1 max-w-sm text-sm text-[#596579]">{description}</p>}
+      <p className="mt-3 text-sm font-semibold text-[#B91C1C]">{title}</p>
+      {description && <p className="mt-1 max-w-sm text-xs text-[#7F1D1D]">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -37,12 +37,12 @@ export function ErrorState({ title = "Something went wrong", description, action
 
 export function PermissionState({ title = "Access Restricted", description = "You do not have permission to view this section." }: { title?: string; description?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-[#E7ECF2] bg-white py-16 px-4 text-center shadow-xs">
-      <div className="rounded-full bg-[#FFF6E5] p-3 text-[#E6A23C]">
-        <ShieldAlert className="h-8 w-8" />
+    <div className="flex flex-col items-center justify-center rounded-xl border border-[#E4E4E7] bg-white py-12 px-4 text-center">
+      <div className="rounded-full bg-[#FFFBEB] p-3 text-[#D97706]">
+        <ShieldAlert className="h-6 w-6" />
       </div>
-      <p className="mt-3 text-base font-semibold text-[#1B2430]">{title}</p>
-      <p className="mt-1 max-w-sm text-sm text-[#596579]">{description}</p>
+      <p className="mt-3 text-sm font-semibold text-[#09090B]">{title}</p>
+      <p className="mt-1 max-w-sm text-xs text-[#71717A]">{description}</p>
     </div>
   );
 }

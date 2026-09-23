@@ -81,7 +81,7 @@ export function PropertyPickerDialog({
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr]">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <Input
               autoFocus
               value={query}
@@ -100,29 +100,29 @@ export function PropertyPickerDialog({
         </div>
 
         <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-          {loading && <p className="py-6 text-center text-xs text-[#94A3B8]">Searching...</p>}
-          {!loading && results.length === 0 && <p className="py-6 text-center text-xs text-[#94A3B8]">No properties found.</p>}
+          {loading && <p className="py-6 text-center text-xs text-zinc-500">Searching...</p>}
+          {!loading && results.length === 0 && <p className="py-6 text-center text-xs text-zinc-500">No properties found.</p>}
           {!loading &&
             results.map((p) => {
               const alreadyAdded = excludeIds.has(p.id);
               const price = p.listingType === "RENT" ? formatINR(p.monthlyRent, { suffix: "month" }) : formatINR(p.salePrice, { compact: true });
               return (
-                <div key={p.id} className="flex items-center gap-3 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#11151F] p-2.5">
-                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-md bg-[#181E2A]">
+                <div key={p.id} className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-2xs transition-colors hover:bg-zinc-50/60">
+                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
                     {p.coverImage ? (
                       <Image src={p.coverImage} alt={p.title} fill className="object-cover" unoptimized />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[#64748B]">
+                      <div className="flex h-full w-full items-center justify-center text-zinc-400">
                         <ImageOff className="h-4 w-4" />
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-medium text-[#F8FAFC]">{p.title}</span>
+                      <span className="truncate text-sm font-semibold text-zinc-900">{p.title}</span>
                       <Badge tone={PROPERTY_STATUS_TONE[p.status] ?? "slate"} className="shrink-0">{enumToLabel(p.status)}</Badge>
                     </div>
-                    <p className="truncate text-xs text-[#94A3B8]">
+                    <p className="truncate text-xs text-zinc-500">
                       {p.propertyCode} &middot; {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {price}
                     </p>
                   </div>
@@ -130,7 +130,7 @@ export function PropertyPickerDialog({
                     type="button"
                     disabled={alreadyAdded}
                     onClick={() => onSelect(p)}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#4F8CFF] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#3D7AEF] disabled:cursor-not-allowed disabled:bg-[#1E2533] disabled:text-[#64748B]"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400"
                   >
                     <Plus className="h-3.5 w-3.5" /> {alreadyAdded ? "Added" : "Add"}
                   </button>

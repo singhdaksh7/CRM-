@@ -44,13 +44,13 @@ export function PropertyTimelinePanel({ propertyId, lastVerifiedAt, events }: { 
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
+    <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-            <Clock className="h-4 w-4 text-[#3366FF]" /> Property Timeline
+          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#09090B]">
+            <Clock className="h-4 w-4 text-[#09090B]" /> Property Timeline
           </h3>
-          <p className="text-xs text-[#596579] mt-1">
+          <p className="text-xs text-[#52525B] mt-1">
             {lastVerifiedAt ? `Verified ${timeAgo(new Date(lastVerifiedAt))}` : "Never verified"}
           </p>
         </div>
@@ -60,15 +60,15 @@ export function PropertyTimelinePanel({ propertyId, lastVerifiedAt, events }: { 
       </div>
 
       {events.length === 0 ? (
-        <p className="text-sm text-[#8A94A6]">No history recorded yet.</p>
+        <p className="text-sm text-[#71717A]">No history recorded yet.</p>
       ) : (
         <ol className="space-y-3 max-h-96 overflow-y-auto">
           {[...events].reverse().map((e) => (
-            <li key={e.id} className="relative border-l-2 border-[#E7ECF2] pl-4">
-              <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[#3366FF]" />
-              <p className="text-sm font-medium text-[#1B2430] capitalize">{eventLabel(e)}</p>
-              {e.note && <p className="text-xs text-[#596579]">{e.note}</p>}
-              <p className="text-xs text-[#8A94A6]">{e.actor ? `${e.actor.name} · ` : ""}{formatDateTime(new Date(e.createdAt))}</p>
+            <li key={e.id} className="relative border-l-2 border-[#E4E4E7] pl-4">
+              <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[#0A0A0A]" />
+              <p className="text-sm font-medium text-[#09090B] capitalize">{eventLabel(e)}</p>
+              {e.note && <p className="text-xs text-[#52525B]">{e.note}</p>}
+              <p className="text-xs text-[#71717A]">{e.actor ? `${e.actor.name} · ` : ""}{formatDateTime(new Date(e.createdAt))}</p>
             </li>
           ))}
         </ol>

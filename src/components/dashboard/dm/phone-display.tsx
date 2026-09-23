@@ -26,16 +26,16 @@ export function PhoneDisplay({ phone, className }: { phone: string; className?: 
   }
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-sm font-semibold text-[#1B2430]", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 text-sm font-semibold text-[#09090B]", className)}>
       <span aria-label={`Phone number ${phone}`}>{phone}</span>
       <button
         type="button"
         onClick={copy}
         aria-label={copied ? "Phone number copied" : "Copy phone number"}
         title="Copy number"
-        className="inline-flex items-center gap-1 rounded-lg border border-[#E7ECF2] px-1.5 py-0.5 text-[10px] font-semibold text-[#596579] hover:bg-[#F3F6FA]"
+        className="inline-flex items-center gap-1 rounded-md border border-[#E4E4E7] bg-white px-1.5 py-0.5 text-[10px] font-medium text-[#71717A] hover:bg-[#F4F4F5] hover:text-[#09090B] hover:border-[#D4D4D8] transition-colors cursor-pointer"
       >
-        {copied ? <Check className="h-3 w-3 text-[#25D366]" /> : <Copy className="h-3 w-3" />}
+        {copied ? <Check className="h-3 w-3 text-[#16A34A]" /> : <Copy className="h-3 w-3" />}
         {copied ? "Copied" : "Copy"}
       </button>
     </span>

@@ -36,15 +36,6 @@ const KIND_TONE: Record<TodaysWorkKind, "blue" | "green" | "amber" | "red" | "pu
   OVERDUE: "red",
 };
 
-/**
- * simplified-role-workflow (continuation pass, spec item 1) - the
- * chronological "Today's Priorities" list shared by the DATA_MANAGER
- * dashboard. Each row's inline action hits the SAME routes the lead
- * workspace / visit detail page already use (PATCH /api/follow-ups/[id],
- * PATCH /api/visits/[id]) - no new business logic, just a quicker surface
- * for it. [Reschedule] deliberately links out to the visit detail page
- * rather than duplicating its reschedule form here.
- */
 export function TodaysPrioritiesList({ items }: { items: TodaysWorkItem[] }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -86,7 +77,7 @@ export function TodaysPrioritiesList({ items }: { items: TodaysWorkItem[] }) {
   }
 
   if (items.length === 0) {
-    return <p className="py-6 text-center text-sm text-[#8A94A6]">Nothing on today&apos;s plate. Great work!</p>;
+    return <p className="py-6 text-center text-xs text-[#71717A]">Nothing on today&apos;s plate. Great work!</p>;
   }
 
   return (
@@ -96,15 +87,15 @@ export function TodaysPrioritiesList({ items }: { items: TodaysWorkItem[] }) {
         const isVisit = item.kind === "VISIT_TODAY";
         const busy = busyId === item.id;
         return (
-          <div key={`${item.kind}-${item.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+          <div key={`${item.kind}-${item.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E4E4E7] bg-white p-3 shadow-2xs hover:border-[#D4D4D8] transition-colors">
             <div className="flex min-w-0 items-start gap-2.5">
-              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#596579]" />
+              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#71717A]" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[#1B2430]">
+                <p className="truncate text-sm font-semibold text-[#09090B]">
                   {item.leadName}
                   {isVisit && item.propertyCount ? ` · ${item.propertyCount} ${item.propertyCount === 1 ? "property" : "properties"}` : ""}
                 </p>
-                <p className="text-xs text-[#8A94A6]">
+                <p className="text-xs text-[#71717A]">
                   {isVisit ? item.visitTime : formatDateTime(item.dueAt)}
                   {item.ownerName ? ` · ${item.ownerName}` : ""}
                   {isVisit && item.meetingLocation ? ` · ${item.meetingLocation}` : ""}
@@ -116,24 +107,24 @@ export function TodaysPrioritiesList({ items }: { items: TodaysWorkItem[] }) {
               <Badge tone={KIND_TONE[item.kind]}>{KIND_LABEL[item.kind]}</Badge>
               {isVisit ? (
                 <>
-                  <Link href={`/visits/${item.id}`} className="rounded-lg border border-[#E7ECF2] px-2.5 py-1.5 text-xs font-semibold text-[#3366FF] hover:bg-[#F3F6FA]">
+                  <Link href={`/visits/${item.id}`} className="rounded-lg border border-[#E4E4E7] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5] transition-colors">
                     Open Visit
                   </Link>
-                  <button onClick={() => confirmVisit(item)} disabled={busy} className="rounded-lg border border-[#E7ECF2] px-2.5 py-1.5 text-xs font-semibold text-[#1FA971] hover:bg-[#F3F6FA] disabled:opacity-50">
+                  <button onClick={() => confirmVisit(item)} disabled={busy} className="rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1.5 text-xs font-semibold text-[#15803D] hover:bg-[#DCFCE7] disabled:opacity-50 transition-colors cursor-pointer">
                     Confirm
                   </button>
-                  <Link href={`/visits/${item.id}`} className="rounded-lg border border-[#E7ECF2] px-2.5 py-1.5 text-xs font-semibold text-[#596579] hover:bg-[#F3F6FA]">
+                  <Link href={`/visits/${item.id}`} className="rounded-lg border border-[#E4E4E7] bg-white px-2.5 py-1.5 text-xs font-medium text-[#71717A] hover:bg-[#F4F4F5] hover:text-[#09090B] transition-colors">
                     Reschedule
                   </Link>
                 </>
               ) : (
                 <>
                   {item.leadId && (
-                    <Link href={`/leads/${item.leadId}`} className="rounded-lg border border-[#E7ECF2] px-2.5 py-1.5 text-xs font-semibold text-[#3366FF] hover:bg-[#F3F6FA]">
+                    <Link href={`/leads/${item.leadId}`} className="rounded-lg border border-[#E4E4E7] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5] transition-colors">
                       Open Lead
                     </Link>
                   )}
-                  <button onClick={() => completeFollowUp(item)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-[#1FA971] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#178A5C] disabled:opacity-50">
+                  <button onClick={() => completeFollowUp(item)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-[#0A0A0A] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#27272A] disabled:opacity-50 transition-colors shadow-2xs border border-[#0A0A0A] cursor-pointer">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Complete
                   </button>
                 </>

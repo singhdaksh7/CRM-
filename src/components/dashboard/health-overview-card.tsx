@@ -10,11 +10,11 @@ const LABEL_TONE: Record<HealthLabel, BadgeTone> = {
   Critical: "red",
 };
 const BAR_COLOR: Record<HealthLabel, string> = {
-  Excellent: "#1FA971",
-  Healthy: "#1FA971",
-  "Needs Attention": "#E6A23C",
+  Excellent: "#16A34A",
+  Healthy: "#16A34A",
+  "Needs Attention": "#D97706",
   "At Risk": "#EA580C",
-  Critical: "#E5484D",
+  Critical: "#DC2626",
 };
 
 export function HealthOverviewCard({ title, distribution }: { title: string; distribution: { label: HealthLabel; count: number }[] }) {
@@ -22,13 +22,13 @@ export function HealthOverviewCard({ title, distribution }: { title: string; dis
   const byLabel = new Map(distribution.map((d) => [d.label, d.count]));
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+    <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">{title}</h3>
-        <span className="text-xs text-[#8A94A6]">{total} tracked</span>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-[#09090B]">{title}</h3>
+        <span className="text-xs text-[#71717A]">{total} tracked</span>
       </div>
       {total === 0 ? (
-        <p className="text-sm text-[#8A94A6]">No active records to score yet.</p>
+        <p className="text-xs text-[#71717A]">No active records to score yet.</p>
       ) : (
         <div className="space-y-2.5">
           {LABEL_ORDER.map((label) => {
@@ -38,10 +38,10 @@ export function HealthOverviewCard({ title, distribution }: { title: string; dis
             return (
               <div key={label} className="flex items-center gap-3">
                 <Badge tone={LABEL_TONE[label]} className="w-[7.5rem] justify-center">{label}</Badge>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#F3F6FA]">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#F4F4F5]">
                   <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: BAR_COLOR[label] }} />
                 </div>
-                <span className="w-10 text-right text-xs font-semibold text-[#596579]">{count}</span>
+                <span className="w-10 text-right text-xs font-semibold text-[#09090B]">{count}</span>
               </div>
             );
           })}

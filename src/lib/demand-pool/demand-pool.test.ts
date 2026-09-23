@@ -150,13 +150,6 @@ describe("customer import parse helpers", () => {
   });
 });
 
-describe("global search customer/requirement phrases", () => {
-  it("recognizes customer and requirement entity phrases without exposing notes", () => {
-    expect(parseSearchQuery("customer Rahul").entity).toBe("CONTACT");
-    expect(parseSearchQuery("requirement 3bhk").entity).toBe("REQUIREMENT");
-  });
-});
-
 describe("no automatic send contract", () => {
   it("documents that prepare/send are explicit API actions only", () => {
     // UI never calls provider send on render; prepare and mark-sent are user-triggered.

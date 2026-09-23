@@ -57,7 +57,7 @@ export function PasswordResetForm({ token }: { token: string }) {
   if (state.loading) {
     return (
       <AuthCard title="Set a new password">
-        <p className="text-center text-sm text-[#596579]">Validating secure link…</p>
+        <p className="text-center text-sm text-zinc-500">Validating secure link…</p>
       </AuthCard>
     );
   }
@@ -66,10 +66,10 @@ export function PasswordResetForm({ token }: { token: string }) {
     return (
       <AuthCard
         title="Link no longer valid"
-        footer={<Link href="/forgot-password" className="font-semibold text-[#3366FF] hover:underline">Request a new link</Link>}
+        footer={<Link href="/forgot-password" className="font-semibold text-zinc-900 hover:underline">Request a new link</Link>}
       >
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{state.error ?? GENERIC_TOKEN_ERROR}</div>
-        <p className="mt-4 text-sm text-[#596579]">Ask your administrator to generate a fresh password reset link for you.</p>
+        <p className="mt-4 text-sm text-zinc-500">Ask your administrator to generate a fresh password reset link for you.</p>
       </AuthCard>
     );
   }

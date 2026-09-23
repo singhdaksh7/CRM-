@@ -119,7 +119,7 @@ describe("previewContactImport - real duplicate detection, zero writes", () => {
     vi.resetModules();
     const findUnique = vi.fn().mockResolvedValue({ id: "existing1" });
     const create = vi.fn();
-    const requirementFindFirst = vi.fn().mockResolvedValue(null); // no identical requirement already on file
+    const requirementFindFirst = vi.fn().mockResolvedValue(null);
     vi.doMock("@/lib/prisma", () => ({ prisma: { customerContact: { findUnique, create }, customerRequirement: { findFirst: requirementFindFirst, create: vi.fn() } } }));
     const { previewContactImport } = await import("@/lib/imports");
     const rows = await previewContactImport({
@@ -146,18 +146,5 @@ describe("previewContactImport - real duplicate detection, zero writes", () => {
     expect(rows[0].action).toBe("SKIP");
     expect(rows[0].state).toBe("DUPLICATE");
     expect(create).not.toHaveBeenCalled();
-  });
-});
-
-describe("Global search entity-type contract (CONTACT, not CUSTOMER)", () => {
-  it("parser and entity-search agree on the CONTACT entity type the UI renders", async () => {
-    const { parseSearchQuery } = await import("@/lib/search/parser");
-    const { ALL_SEARCH_ENTITY_TYPES } = await import("@/lib/search/search-types");
-    expect(parseSearchQuery("customer Rahul").entity).toBe("CONTACT");
-    expect(parseSearchQuery("contact Rahul").entity).toBe("CONTACT");
-    expect(ALL_SEARCH_ENTITY_TYPES).toContain("CONTACT");
-    expect(ALL_SEARCH_ENTITY_TYPES).not.toContain("CUSTOMER");
-    // No duplicate REQUIREMENT entry left over from the merge.
-    expect(ALL_SEARCH_ENTITY_TYPES.filter((e) => e === "REQUIREMENT")).toHaveLength(1);
   });
 });

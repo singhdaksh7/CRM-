@@ -8,10 +8,6 @@ import { Eye } from "lucide-react";
 
 const TAKE = 50;
 
-/**
- * Catalogues landing page. FE history follows shared lead-read policy
- * (assigned + unassigned), matching assertLeadAccessible / lead list.
- */
 export default async function CataloguesPage() {
   const session = await auth();
   const organizationId = getOrganizationId(session!.user);
@@ -34,30 +30,30 @@ export default async function CataloguesPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-[#1B2430]">Catalogues</h1>
-        <p className="text-sm text-[#596579]">Property catalogues shared with clients - most recent first</p>
+    <div className="space-y-5">
+      <div className="border-b border-[#E4E4E7] pb-4">
+        <h1 className="text-2xl font-bold text-[#09090B]">Catalogues</h1>
+        <p className="mt-1 text-sm text-[#52525B]">Property catalogues shared with clients — track engagement and views</p>
       </div>
 
       {shares.length === 0 ? (
         <EmptyState title="No catalogues shared yet" description="Share a catalogue from inside a lead's workspace to see its history here." />
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shares.map((share) => (
             <Link
               key={share.id}
               href={`/leads/${share.lead.id}`}
-              className="rounded-xl border border-[#E7ECF2] bg-white p-4 shadow-xs hover:border-[#3366FF] transition-colors"
+              className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs hover:border-[#0A0A0A] transition-colors group"
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-[#1B2430] text-sm">{share.title}</h3>
-                <span className="rounded-full bg-[#F3F6FA] px-2 py-0.5 text-[10px] font-semibold uppercase text-[#596579]">{share.status}</span>
+                <h3 className="font-semibold text-[#09090B] text-sm group-hover:underline">{share.title}</h3>
+                <span className="rounded-full bg-[#F4F4F5] border border-[#E4E4E7] px-2.5 py-0.5 text-[10px] font-semibold uppercase text-[#09090B]">{share.status}</span>
               </div>
-              <p className="mt-1 text-xs text-[#596579]">{share.lead.clientName} &middot; {share.lead.phone}</p>
-              <div className="mt-3 flex items-center justify-between text-xs text-[#8A94A6]">
+              <p className="mt-1.5 text-xs text-[#52525B]">{share.lead.clientName} &middot; {share.lead.phone}</p>
+              <div className="mt-4 pt-3 border-t border-[#F4F4F5] flex items-center justify-between text-xs text-[#71717A]">
                 <span>{share._count.properties} properties</span>
-                <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{share.viewCount}</span>
+                <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{share.viewCount} views</span>
               </div>
             </Link>
           ))}

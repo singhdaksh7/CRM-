@@ -34,21 +34,21 @@ export function PortalLeadActions({ eventId, status, alreadyLinked }: { eventId:
     }
   }
 
-  if (status === "REJECTED" || alreadyLinked) return <span className="text-xs text-[#596579]">{status.replaceAll("_", " ")}</span>;
+  if (status === "REJECTED" || alreadyLinked) return <span className="text-xs text-zinc-500">{status.replaceAll("_", " ")}</span>;
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
-        <input value={leadId} onChange={(e) => setLeadId(e.target.value)} placeholder="Lead ID" className="w-24 rounded border p-1 text-xs" />
-        <button disabled={busy || !leadId} onClick={() => act({ action: "LINK_EXISTING", leadId })} className="rounded border px-2 py-1 text-xs font-semibold text-[#3366FF] disabled:opacity-50">
+        <input value={leadId} onChange={(e) => setLeadId(e.target.value)} placeholder="Lead ID" className="w-24 rounded-lg border border-zinc-200 bg-white p-1 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none" />
+        <button disabled={busy || !leadId} onClick={() => act({ action: "LINK_EXISTING", leadId })} className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold text-zinc-900 hover:bg-zinc-50 disabled:opacity-50">
           Link
         </button>
       </div>
       <div className="flex items-center gap-1.5">
-        <button disabled={busy} onClick={() => act({ action: "RETRY" })} className="rounded border px-2 py-1 text-xs disabled:opacity-50">
+        <button disabled={busy} onClick={() => act({ action: "RETRY" })} className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-50">
           Retry
         </button>
-        <button disabled={busy} onClick={() => act({ action: "REJECT" })} className="rounded border px-2 py-1 text-xs text-red-700 disabled:opacity-50">
+        <button disabled={busy} onClick={() => act({ action: "REJECT" })} className="rounded-lg border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
           Reject
         </button>
       </div>

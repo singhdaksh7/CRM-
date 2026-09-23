@@ -110,7 +110,7 @@ export function InventoryPartnerForm({ partner }: { partner?: InventoryPartner }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-4">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Name" required error={errors.name?.message}>
             <Input {...register("name", { required: "Name is required", minLength: { value: 2, message: "Name is too short" } })} placeholder="Sharma Real Estate Dealers" />
@@ -150,14 +150,14 @@ export function InventoryPartnerForm({ partner }: { partner?: InventoryPartner }
                 {localities.map((l) => (
                   <span
                     key={l}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#3366FF] bg-[#3366FF]/10 px-3 py-1.5 text-xs font-medium text-[#3366FF]"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-900"
                   >
                     {l}
                     <button
                       type="button"
                       onClick={() => removeLocality(l)}
                       aria-label={`Remove ${l}`}
-                      className="text-[#3366FF]/70 hover:text-[#3366FF]"
+                      className="text-zinc-400 hover:text-zinc-900 ml-0.5"
                     >
                       ×
                     </button>

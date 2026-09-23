@@ -32,21 +32,21 @@ export default async function ExecutiveCatalogueViewPage({ params }: { params: P
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-[#E7ECF2] pb-5">
+      <div className="border-b border-zinc-200 pb-5">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">{dto.title}</h1>
-          <Badge tone="blue">v{dto.version}</Badge>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">{dto.title}</h1>
+          <Badge tone="slate">v{dto.version}</Badge>
         </div>
-        <p className="mt-1 text-sm text-[#596579]">For {dto.clientName} - internal view (owner/partner details, navigation, and notes visible here only)</p>
+        <p className="mt-1 text-sm text-zinc-500">For {dto.clientName} - internal view (owner/partner details, navigation, and notes visible here only)</p>
         {preferenceSummary && (
-          <p className="mt-2 text-sm font-medium text-[#596579]">
+          <p className="mt-2 text-sm font-medium text-zinc-600">
             {preferenceSummary.totalProperties} properties · {preferenceSummary.likedCount} liked · {preferenceSummary.notInterestedCount} not interested · {preferenceSummary.noResponseCount} no response
           </p>
         )}
       </div>
 
       {dto.properties.length === 0 ? (
-        <p className="text-sm text-[#596579]">No properties in this catalogue.</p>
+        <p className="text-sm text-zinc-500">No properties in this catalogue.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {dto.properties.map((p) => (

@@ -37,8 +37,8 @@ export function ForgotPasswordForm() {
   if (submitted) {
     return (
       <AuthCard title="Check with your admin" subtitle="Password reset request received">
-        <p className="rounded-xl bg-[#EFF4FF] p-4 text-sm text-[#1B2430]">{GENERIC_CONFIRMATION}</p>
-        <p className="mt-4 text-sm text-[#596579]">
+        <p className="rounded-xl bg-zinc-50 border border-zinc-200 p-4 text-sm text-zinc-900">{GENERIC_CONFIRMATION}</p>
+        <p className="mt-4 text-sm text-zinc-500">
           Your administrator sends reset links directly over WhatsApp. If you don’t hear back shortly, contact them.
         </p>
       </AuthCard>

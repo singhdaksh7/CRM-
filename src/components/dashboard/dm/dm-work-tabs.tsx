@@ -34,8 +34,8 @@ export function DmWorkTabs({ queues }: { queues: DataManagerQueues }) {
   };
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
-      <div role="tablist" aria-label="Data manager work queues" className="flex gap-1.5 overflow-x-auto border-b border-[#E7ECF2] p-2">
+    <div className="rounded-xl border border-[#E4E4E7] bg-white shadow-2xs">
+      <div role="tablist" aria-label="Data manager work queues" className="flex gap-1.5 overflow-x-auto border-b border-[#E4E4E7] p-2">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -44,8 +44,8 @@ export function DmWorkTabs({ queues }: { queues: DataManagerQueues }) {
             aria-selected={tab === t.key}
             aria-controls={`dm-tabpanel-${t.key}`}
             onClick={() => setTab(t.key)}
-            className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors ${
-              tab === t.key ? "bg-[#3366FF] text-white" : "text-[#596579] hover:bg-[#F3F6FA]"
+            className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+              tab === t.key ? "bg-[#0A0A0A] text-white shadow-2xs" : "text-[#71717A] hover:text-[#09090B] hover:bg-[#F4F4F5]"
             }`}
           >
             {t.label} ({counts[t.key]})
@@ -53,7 +53,7 @@ export function DmWorkTabs({ queues }: { queues: DataManagerQueues }) {
         ))}
       </div>
 
-      <div className="p-4">
+      <div className="p-5">
         <div role="tabpanel" id="dm-tabpanel-todaysLeads" aria-labelledby="dm-tab-todaysLeads" hidden={tab !== "todaysLeads"}>
           <LeadListPanel rows={queues.todaysLeads.rows} emptyLabel="No leads received today yet." onRecordCall={setCallTarget} />
         </div>
@@ -89,21 +89,22 @@ function LeadListPanel({ rows, emptyLabel, onRecordCall }: { rows: DmLeadRow[]; 
   return (
     <div className="space-y-3">
       {rows.map((lead) => (
-        <div key={lead.id} className="flex flex-col gap-3 border-b border-[#EFF4FF] pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+        <div key={lead.id} className="flex flex-col gap-3 border-b border-[#E4E4E7] pb-3.5 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#1B2430]">
-              {lead.clientName} <Badge tone={LEAD_STATUS_TONE[lead.status] ?? "slate"}>{enumToLabel(lead.status)}</Badge>
-            </p>
-            <div className="mt-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-[#09090B]">{lead.clientName}</span>
+              <Badge tone={LEAD_STATUS_TONE[lead.status] ?? "slate"}>{enumToLabel(lead.status)}</Badge>
+            </div>
+            <div className="mt-1">
               <PhoneDisplay phone={lead.phone} />
             </div>
-            <p className="mt-1 text-xs text-[#596579]">
+            <p className="mt-1 text-xs text-[#52525B]">
               {lead.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {lead.preferredLocation} &middot;{" "}
-              <span className="font-semibold text-[#3366FF]">
+              <span className="font-semibold text-[#09090B]">
                 {formatINR(lead.minBudget, { compact: true })} - {formatINR(lead.maxBudget, { compact: true })}
               </span>
             </p>
-            <p className="mt-0.5 text-xs text-[#8A94A6]">
+            <p className="mt-0.5 text-xs text-[#71717A]">
               {enumToLabel(lead.source)} &middot; {lead.assignedToName ?? "Unassigned"} &middot; Received {timeAgo(lead.createdAt)}
             </p>
           </div>
@@ -111,11 +112,11 @@ function LeadListPanel({ rows, emptyLabel, onRecordCall }: { rows: DmLeadRow[]; 
             <button
               type="button"
               onClick={() => onRecordCall({ leadId: lead.id, clientName: lead.clientName, phone: lead.phone })}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#3366FF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2952CC]"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0A0A0A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#27272A] border border-[#0A0A0A] shadow-2xs transition-colors cursor-pointer"
             >
               <PhoneCall className="h-3.5 w-3.5" /> Record Call
             </button>
-            <Link href={`/leads/${lead.id}`} className="inline-flex items-center rounded-xl border border-[#E7ECF2] px-3 py-1.5 text-xs font-semibold text-[#596579] hover:bg-[#F3F6FA]">
+            <Link href={`/leads/${lead.id}`} className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-3 py-1.5 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5] hover:border-[#D4D4D8] transition-colors">
               Open Lead
             </Link>
           </div>
@@ -163,12 +164,12 @@ function CallAgainGroup({
   if (rows.length === 0) return null;
   return (
     <div>
-      <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#596579]">
-        <Icon className="h-3.5 w-3.5" /> {title} ({rows.length})
+      <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#52525B]">
+        <Icon className="h-3.5 w-3.5 text-[#71717A]" /> {title} ({rows.length})
       </h4>
-      <div>
+      <div className="space-y-2">
         {rows.map((row) => (
-          <div key={row.id} className="border-b border-slate-100 py-2 last:border-0">
+          <div key={row.id} className="border-b border-[#E4E4E7] py-2.5 last:border-0">
             <div className="mb-1">
               <PhoneDisplay phone={row.lead.phone} />
             </div>
@@ -176,7 +177,7 @@ function CallAgainGroup({
             <button
               type="button"
               onClick={() => onRecordCall({ leadId: row.lead.id, clientName: row.lead.clientName, phone: row.lead.phone })}
-              className="mt-1 inline-flex items-center gap-1.5 rounded-xl bg-[#3366FF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2952CC]"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#0A0A0A] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#27272A] border border-[#0A0A0A] shadow-2xs transition-colors cursor-pointer"
             >
               <PhoneCall className="h-3.5 w-3.5" /> Record Call
             </button>
@@ -192,16 +193,16 @@ function VisitsComingPanel({ rows }: { rows: DmVisitRow[] }) {
   return (
     <div className="space-y-3">
       {rows.map((row) => (
-        <div key={`${row.kind}-${row.id}`} className="flex flex-col gap-2 border-b border-[#EFF4FF] pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+        <div key={`${row.kind}-${row.id}`} className="flex flex-col gap-2 border-b border-[#E4E4E7] pb-3.5 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#1B2430]">
-              {row.clientName}{" "}
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-[#09090B]">{row.clientName}</p>
               <Badge tone={row.kind === "PROPERTY_VISIT" ? "blue" : "purple"}>{row.kind === "PROPERTY_VISIT" ? "Property Visit" : "Coming / Office"}</Badge>
-            </p>
-            <div className="mt-0.5">
+            </div>
+            <div className="mt-1">
               <PhoneDisplay phone={row.phone} />
             </div>
-            <p className="mt-1 text-xs text-[#596579]">
+            <p className="mt-1 text-xs text-[#52525B]">
               {formatDate(row.when)}
               {row.visitTime ? ` · ${row.visitTime}` : ""}
               {row.propertyTitle ? ` · ${row.propertyTitle}` : ""}
@@ -210,11 +211,11 @@ function VisitsComingPanel({ rows }: { rows: DmVisitRow[] }) {
           </div>
           <div className="flex shrink-0 gap-2">
             {row.kind === "PROPERTY_VISIT" && (
-              <Link href={`/visits/${row.id}`} className="inline-flex items-center rounded-xl border border-[#E7ECF2] px-3 py-1.5 text-xs font-semibold text-[#596579] hover:bg-[#F3F6FA]">
+              <Link href={`/visits/${row.id}`} className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-3 py-1.5 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5] hover:border-[#D4D4D8] transition-colors">
                 Open Visit
               </Link>
             )}
-            <Link href={`/leads/${row.leadId}`} className="inline-flex items-center rounded-xl border border-[#E7ECF2] px-3 py-1.5 text-xs font-semibold text-[#596579] hover:bg-[#F3F6FA]">
+            <Link href={`/leads/${row.leadId}`} className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-3 py-1.5 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5] hover:border-[#D4D4D8] transition-colors">
               Open Lead
             </Link>
           </div>
@@ -229,14 +230,14 @@ function CompletedPanel({ rows }: { rows: DmCompletedRow[] }) {
   return (
     <div className="space-y-3">
       {rows.map((row) => (
-        <div key={row.activityId} className="flex flex-col gap-2 border-b border-[#EFF4FF] pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+        <div key={row.activityId} className="flex flex-col gap-2 border-b border-[#E4E4E7] pb-3.5 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#1B2430]">
-              {row.clientName} <span className="text-[#8A94A6]">&middot; {row.outcomeLabel}</span>
+            <p className="text-sm font-semibold text-[#09090B]">
+              {row.clientName} <span className="text-[#71717A] font-normal">&middot; {row.outcomeLabel}</span>
             </p>
-            <p className="mt-0.5 text-xs text-[#596579]">{formatDateTime(row.processedAt)}</p>
+            <p className="mt-0.5 text-xs text-[#71717A]">{formatDateTime(row.processedAt)}</p>
           </div>
-          <Link href={`/leads/${row.leadId}`} className="inline-flex shrink-0 items-center rounded-xl border border-[#E7ECF2] px-3 py-1.5 text-xs font-semibold text-[#596579] hover:bg-[#F3F6FA]">
+          <Link href={`/leads/${row.leadId}`} className="inline-flex shrink-0 items-center rounded-lg border border-[#E4E4E7] bg-white px-3 py-1.5 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5] hover:border-[#D4D4D8] transition-colors">
             Open Lead
           </Link>
         </div>

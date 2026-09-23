@@ -26,7 +26,17 @@ interface VisitFieldActionsProps {
  * API. Owner phone is only rendered at all when the server has already
  * decided `canSeeOwnerPhone` - this component never re-derives that.
  */
-export function VisitFieldActions({ visitId, status, propertyAddress, latitude, longitude, clientName, clientPhone, ownerPhone, canSeeOwnerPhone }: VisitFieldActionsProps) {
+export function VisitFieldActions({
+  visitId,
+  status,
+  propertyAddress,
+  latitude,
+  longitude,
+  clientName,
+  clientPhone,
+  ownerPhone,
+  canSeeOwnerPhone,
+}: VisitFieldActionsProps) {
   const router = useRouter();
   const [updating, setUpdating] = useState(false);
 
@@ -56,38 +66,70 @@ export function VisitFieldActions({ visitId, status, propertyAddress, latitude, 
 
   const directionsHref = bestDirectionsUrl({ latitude, longitude, address: propertyAddress });
   const clientWaNumber = normalizeIndianPhone(clientPhone);
-  const clientWaHref = clientWaNumber ? `https://wa.me/${clientWaNumber}?text=${encodeURIComponent(`Hi ${clientName}, I'm on my way for the property visit.`)}` : null;
+  const clientWaHref = clientWaNumber
+    ? `https://wa.me/${clientWaNumber}?text=${encodeURIComponent(`Hi ${clientName}, I'm on my way for the property visit.`)}`
+    : null;
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      <a href={directionsHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md bg-[#25D366]/15 px-2 py-1 text-[11px] font-semibold text-[#25D366] hover:bg-[#25D366]/25">
-        <Navigation className="h-3 w-3" /> Directions
+    <div className="flex flex-wrap gap-2">
+      <a
+        href={directionsHref}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-900 shadow-2xs hover:bg-zinc-50"
+      >
+        <Navigation className="h-3.5 w-3.5 text-zinc-600" /> Directions
       </a>
-      <button onClick={copyAddress} className="inline-flex items-center gap-1 rounded-md border border-[rgba(255,255,255,0.1)] px-2 py-1 text-[11px] font-semibold text-[#CBD5E1] hover:bg-[#1E2533]">
-        <Copy className="h-3 w-3" /> Copy Address
+      <button
+        type="button"
+        onClick={copyAddress}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-900 shadow-2xs hover:bg-zinc-50"
+      >
+        <Copy className="h-3.5 w-3.5 text-zinc-600" /> Copy Address
       </button>
-      <a href={`tel:${clientPhone}`} className="inline-flex items-center gap-1 rounded-md border border-[rgba(255,255,255,0.1)] px-2 py-1 text-[11px] font-semibold text-[#CBD5E1] hover:bg-[#1E2533]">
-        <Phone className="h-3 w-3" /> Call Client
+      <a
+        href={`tel:${clientPhone}`}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-900 shadow-2xs hover:bg-zinc-50"
+      >
+        <Phone className="h-3.5 w-3.5 text-zinc-600" /> Call Client
       </a>
       {clientWaHref && (
-        <a href={clientWaHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md bg-[#25D366]/15 px-2 py-1 text-[11px] font-semibold text-[#25D366] hover:bg-[#25D366]/25">
-          <MessageCircle className="h-3 w-3" /> WhatsApp Client
+        <a
+          href={clientWaHref}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 shadow-2xs hover:bg-emerald-100"
+        >
+          <MessageCircle className="h-3.5 w-3.5 text-emerald-600" /> WhatsApp Client
         </a>
       )}
       {canSeeOwnerPhone && ownerPhone && (
-        <a href={`tel:${ownerPhone}`} className="inline-flex items-center gap-1 rounded-md border border-[rgba(255,255,255,0.1)] px-2 py-1 text-[11px] font-semibold text-[#CBD5E1] hover:bg-[#1E2533]">
-          <Phone className="h-3 w-3" /> Call Owner
+        <a
+          href={`tel:${ownerPhone}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-900 shadow-2xs hover:bg-zinc-50"
+        >
+          <Phone className="h-3.5 w-3.5 text-zinc-600" /> Call Owner
         </a>
       )}
       {status !== "COMPLETED" && status !== "CANCELLED" && (
         <>
           {status !== "EMPLOYEE_REACHED" && (
-            <button onClick={() => updateStatus("EMPLOYEE_REACHED")} disabled={updating} className="inline-flex items-center gap-1 rounded-md bg-[#4F8CFF]/15 px-2 py-1 text-[11px] font-semibold text-[#4F8CFF] hover:bg-[#4F8CFF]/25 disabled:opacity-50">
-              <Flag className="h-3 w-3" /> Mark Arrived
+            <button
+              type="button"
+              onClick={() => updateStatus("EMPLOYEE_REACHED")}
+              disabled={updating}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-900 bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-white shadow-2xs hover:bg-zinc-800 disabled:opacity-50"
+            >
+              <Flag className="h-3.5 w-3.5" /> Mark Arrived
             </button>
           )}
-          <button onClick={() => updateStatus("COMPLETED")} disabled={updating} className="inline-flex items-center gap-1 rounded-md bg-[#22C55E]/15 px-2 py-1 text-[11px] font-semibold text-[#22C55E] hover:bg-[#22C55E]/25 disabled:opacity-50">
-            <CheckCircle2 className="h-3 w-3" /> Complete Visit
+          <button
+            type="button"
+            onClick={() => updateStatus("COMPLETED")}
+            disabled={updating}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-2xs hover:bg-emerald-700 disabled:opacity-50"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" /> Complete Visit
           </button>
         </>
       )}

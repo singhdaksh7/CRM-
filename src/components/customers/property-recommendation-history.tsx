@@ -30,24 +30,24 @@ export function PropertyRecommendationHistory({ propertyId }: { propertyId: stri
   if (!summary && !statusCounts) return null;
 
   return (
-    <section className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-3">
+    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">Recommendations</h3>
-        <Link href={`/properties/${propertyId}/matches`} className="text-xs font-semibold text-[#3366FF]">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Recommendations</h3>
+        <Link href={`/properties/${propertyId}/matches`} className="text-xs font-semibold text-zinc-900 hover:underline">
           View matches
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         {statusCounts?.PREPARED != null && (
           <div>
-            <p className="text-xs text-[#8A94A6]">Prepared</p>
-            <p className="font-semibold">{statusCounts.PREPARED}</p>
+            <p className="text-xs text-zinc-400">Prepared</p>
+            <p className="font-semibold text-zinc-900">{statusCounts.PREPARED}</p>
           </div>
         )}
         {statusCounts?.SENT != null && (
           <div>
-            <p className="text-xs text-[#8A94A6]">Sent</p>
-            <p className="font-semibold">{statusCounts.SENT}</p>
+            <p className="text-xs text-zinc-400">Sent</p>
+            <p className="font-semibold text-zinc-900">{statusCounts.SENT}</p>
           </div>
         )}
         {statusCounts &&
@@ -55,14 +55,14 @@ export function PropertyRecommendationHistory({ propertyId }: { propertyId: stri
             .filter(([status]) => status === "RESPONDED")
             .map(([status, count]) => (
               <div key={status}>
-                <p className="text-xs text-[#8A94A6]">Responded</p>
-                <p className="font-semibold">{count}</p>
+                <p className="text-xs text-zinc-400">Responded</p>
+                <p className="font-semibold text-zinc-900">{count}</p>
               </div>
             ))}
         {summary && (
           <div>
-            <p className="text-xs text-[#8A94A6]">Potential matches</p>
-            <p className="font-semibold">{summary.total}</p>
+            <p className="text-xs text-zinc-400">Potential matches</p>
+            <p className="font-semibold text-zinc-900">{summary.total}</p>
           </div>
         )}
       </div>

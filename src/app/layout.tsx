@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#3366FF",
+  themeColor: "#0A0A0A",
   width: "device-width",
   initialScale: 1,
 };
@@ -41,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+      <body className="min-h-full flex flex-col bg-[#FAFAFA] text-[#09090B]">
         <AuthSessionProvider>
           {children}
           <Toaster richColors position="top-right" />

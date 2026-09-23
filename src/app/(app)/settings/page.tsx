@@ -27,9 +27,9 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="border-b border-[#E7ECF2] pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">System & Integration Settings</h1>
-        <p className="mt-1 text-sm text-[#596579]">Organization profile, WhatsApp credentials, matching logic & lead rules</p>
+      <div className="border-b border-[#E4E4E7] pb-4">
+        <h1 className="text-2xl font-bold tracking-tight text-[#09090B]">System & Integration Settings</h1>
+        <p className="mt-1 text-sm text-[#52525B]">Organization profile, WhatsApp credentials, matching engine & automation rules</p>
       </div>
 
       <SettingsSection icon={Building} title="Company Profile">
@@ -69,7 +69,7 @@ export default async function SettingsPage() {
           }
         />
         <div>
-          <p className="mb-1.5 text-xs font-semibold text-[#8A94A6]">Templates</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#71717A]">Templates</p>
           <div className="flex flex-wrap gap-1.5">
             {templates.map((t) => (
               <Badge key={t.useCase} tone={t.approved ? "green" : "slate"}>
@@ -78,7 +78,7 @@ export default async function SettingsPage() {
             ))}
           </div>
         </div>
-        <p className="text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">
+        <p className="text-xs text-[#71717A] border-t border-[#F4F4F5] pt-2.5">
           🔒 Secrets are securely validated server-side and never exposed to the client browser.
         </p>
         {isAdmin && <WhatsAppDiagnosticsPanel />}
@@ -92,11 +92,11 @@ export default async function SettingsPage() {
         <Row label="Default Language" value={maps.defaultLanguage} />
         <Row label="Default City" value={maps.defaultCity} />
         {!maps.configured && (
-          <p className="rounded-xl border border-dashed border-[#FCE8E6] bg-[#FFF8F7] p-3 text-xs text-[#8A94A6]">
+          <p className="rounded-lg border border-[#E4E4E7] bg-[#FAFAFA] p-3 text-xs text-[#71717A]">
             Maps integration is not configured. Address search and map previews are unavailable, but manual address entry, property forms, and external &quot;Open in Google Maps&quot; links continue to work with zero configuration.
           </p>
         )}
-        <p className="text-xs text-[#8A94A6] border-t border-[#EFF4FF] pt-2.5">
+        <p className="text-xs text-[#71717A] border-t border-[#F4F4F5] pt-2.5">
           🔒 Keys are securely validated server-side and never exposed beyond what this page shows.
         </p>
         {isAdmin && <MapsDiagnosticsPanel />}
@@ -108,7 +108,7 @@ export default async function SettingsPage() {
       </SettingsSection>
 
       <SettingsSection icon={Workflow} title="Automatic Lead Assignment Rules">
-        <p className="mb-4 text-xs text-[#8A94A6]">
+        <p className="mb-4 text-xs text-[#71717A]">
           Rules run in priority order against every new lead (manual entry or portal webhook). The first active rule matching source or location decides assignment.
         </p>
         <AssignmentRulesPanel />
@@ -116,7 +116,7 @@ export default async function SettingsPage() {
 
       {isAdmin && (
         <SettingsSection icon={Settings2} title="System Configuration">
-          <p className="mb-4 text-xs text-[#8A94A6]">
+          <p className="mb-4 text-xs text-[#71717A]">
             Business rules previously hardcoded in the app - hot lead threshold, health score weights, matching radius/budget tolerance, follow-up SLA, visit reminders, notification throttling, catalogue expiry, and business hours.
           </p>
           <SystemConfigPanel />
@@ -125,7 +125,7 @@ export default async function SettingsPage() {
 
       {isAdmin && (
         <SettingsSection icon={Zap} title="Automation Rules Engine">
-          <p className="mb-4 text-xs text-[#8A94A6]">
+          <p className="mb-4 text-xs text-[#71717A]">
             When X happens, do Y. Rules run best-effort right after the triggering event and never block it - a failing rule is logged, not surfaced as an error.
           </p>
           <AutomationRulesPanel />
@@ -150,11 +150,11 @@ export default async function SettingsPage() {
 
 function SettingsSection({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-3">
-      <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-        <Icon className="h-4 w-4 text-[#3366FF]" /> {title}
+    <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs space-y-3">
+      <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-[#09090B]">
+        <Icon className="h-4 w-4 text-[#09090B]" /> {title}
       </h3>
-      <div className="space-y-3.5 border-t border-[#EFF4FF] pt-3">{children}</div>
+      <div className="space-y-3 border-t border-[#F4F4F5] pt-3">{children}</div>
     </div>
   );
 }
@@ -162,8 +162,8 @@ function SettingsSection({ icon: Icon, title, children }: { icon: React.Componen
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-      <span className="text-[#8A94A6]">{label}</span>
-      <span className="font-semibold text-[#1B2430]">{value}</span>
+      <span className="text-[#71717A]">{label}</span>
+      <span className="font-semibold text-[#09090B]">{value}</span>
     </div>
   );
 }

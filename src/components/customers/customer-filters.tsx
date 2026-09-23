@@ -17,9 +17,9 @@ export function CustomerFilters() {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-[#E7ECF2] bg-white p-3.5 shadow-xs">
+    <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-3.5 shadow-xs">
       <div className="relative min-w-[200px] flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8A94A6]" aria-hidden />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" aria-hidden />
         <Input
           aria-label="Search customers by name, phone, email, or locality"
           placeholder="Search name, phone, email, locality..."

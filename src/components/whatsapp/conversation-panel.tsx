@@ -178,31 +178,31 @@ export function ConversationPanel({ leadId, canManage, clientName }: { leadId: s
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#E4E4E7] bg-white p-3 shadow-xs">
         <div className="flex items-center gap-2 text-sm">
           <MessageCircle className="h-4 w-4 text-[#25D366]" />
-          <span className="font-semibold text-[#1B2430]">+{conversation.phoneNumber}</span>
+          <span className="font-semibold text-[#09090B]">+{conversation.phoneNumber}</span>
           <Badge tone="whatsapp">{PROVIDER_LABEL[conversation.provider]}</Badge>
         </div>
-        <button onClick={() => load()} className="flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+        <button onClick={() => load()} className="flex items-center gap-1 text-xs font-semibold text-[#09090B] hover:underline">
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </button>
       </div>
 
-      <div className="max-h-[420px] min-h-[220px] space-y-3 overflow-y-auto rounded-2xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
-        {messages.length === 0 && <p className="text-center text-sm text-[#8A94A6]">No messages yet. Say hello!</p>}
+      <div className="max-h-[420px] min-h-[220px] space-y-3 overflow-y-auto rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] p-4">
+        {messages.length === 0 && <p className="text-center text-sm text-[#71717A]">No messages yet. Say hello!</p>}
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} canManage={canManage} isMock={isMock} onOpenChat={() => openInWhatsApp(m)} onSimulateStatus={simulateStatus} onRetry={retryMessage} />
         ))}
       </div>
 
       {canManage && (
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+        <div className="rounded-xl border border-[#E4E4E7] bg-white p-3 shadow-xs">
           <div className="mb-2 flex items-center justify-between">
-            <button onClick={() => setTemplatePickerOpen(true)} className="flex items-center gap-1.5 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+            <button onClick={() => setTemplatePickerOpen(true)} className="flex items-center gap-1.5 text-xs font-semibold text-[#09090B] hover:underline">
               <FileText className="h-3.5 w-3.5" /> Insert template
             </button>
-            {pendingTemplateName && <span className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Template: {pendingTemplateName}</span>}
+            {pendingTemplateName && <span className="text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">Template: {pendingTemplateName}</span>}
           </div>
           <div className="flex gap-2">
             <Textarea rows={2} value={text} onChange={(e) => { setText(e.target.value); setPendingTemplateName(null); }} placeholder="Type a message..." className="flex-1" />
@@ -210,7 +210,7 @@ export function ConversationPanel({ leadId, canManage, clientName }: { leadId: s
               <Send className="h-4 w-4" /> Send
             </Button>
           </div>
-          {isClickToChat && <p className="mt-1.5 text-xs text-[#8A94A6]">Click-to-Chat mode: sending queues the message, then opens WhatsApp for you to actually hit send.</p>}
+          {isClickToChat && <p className="mt-1.5 text-xs text-[#71717A]">Click-to-Chat mode: sending queues the message, then opens WhatsApp for you to actually hit send.</p>}
         </div>
       )}
 
@@ -225,12 +225,12 @@ export function ConversationPanel({ leadId, canManage, clientName }: { leadId: s
       />
 
       {isMock && canManage && (
-        <div className="rounded-2xl border border-dashed border-[#B8F3D1] bg-[#E6F9EE] p-3">
+        <div className="rounded-xl border border-dashed border-[#B8F3D1] bg-[#E6F9EE] p-3">
           <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-[#25D366]">
             <Sparkles className="h-3.5 w-3.5" /> Demo Controls (mock mode only)
           </p>
           <div className="flex flex-wrap gap-2">
-            <Select value={simulatedText} onChange={(e) => setSimulatedText(e.target.value)} className="w-auto flex-1 bg-white border-[#E7ECF2]">
+            <Select value={simulatedText} onChange={(e) => setSimulatedText(e.target.value)} className="w-auto flex-1 bg-white border-[#E4E4E7]">
               {SIMULATED_REPLIES.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
@@ -239,7 +239,7 @@ export function ConversationPanel({ leadId, canManage, clientName }: { leadId: s
               Simulate Client Reply
             </Button>
           </div>
-          <p className="mt-2 text-[11px] text-[#596579]">Per-message Delivered/Read/Failed controls appear under each outbound message above.</p>
+          <p className="mt-2 text-[11px] text-[#52525B]">Per-message Delivered/Read/Failed controls appear under each outbound message above.</p>
         </div>
       )}
     </div>
@@ -268,7 +268,7 @@ function MessageBubble({
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-xs ${
-          isOutbound ? "rounded-br-sm bg-[#3366FF] text-white" : "rounded-bl-sm bg-white text-[#1B2430] border border-[#E7ECF2]"
+          isOutbound ? "rounded-br-sm bg-[#0A0A0A] text-white" : "rounded-bl-sm bg-white text-[#09090B] border border-[#E4E4E7]"
         }`}
       >
         {message.messageType !== "TEXT" && (
@@ -277,13 +277,13 @@ function MessageBubble({
           </span>
         )}
         <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-        <div className={`mt-1 flex items-center justify-end gap-1.5 text-[11px] ${isOutbound ? "text-[#dce1ff]" : "text-[#8A94A6]"}`}>
+        <div className={`mt-1 flex items-center justify-end gap-1.5 text-[11px] ${isOutbound ? "text-zinc-400" : "text-[#71717A]"}`}>
           <span>{formatDateTime(message.createdAt)}</span>
           {isOutbound && <StatusIcon status={message.status} />}
         </div>
 
         {message.status === "FAILED" && message.errorMessage && (
-          <p className="mt-1 text-[11px] font-medium text-[#E5484D]">{message.errorMessage}</p>
+          <p className="mt-1 text-[11px] font-medium text-red-500">{message.errorMessage}</p>
         )}
 
         {canManage && isClickToChatQueued && (
@@ -293,7 +293,7 @@ function MessageBubble({
         )}
 
         {canManage && message.status === "FAILED" && (
-          <button onClick={() => onRetry(message.id)} className="mt-1.5 flex items-center gap-1 rounded-xl bg-[#FFECEC] px-2.5 py-1 text-[11px] font-semibold text-[#E5484D] hover:bg-[#FFD8D9]">
+          <button onClick={() => onRetry(message.id)} className="mt-1.5 flex items-center gap-1 rounded-xl bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100">
             <RefreshCw className="h-3 w-3" /> Retry
           </button>
         )}

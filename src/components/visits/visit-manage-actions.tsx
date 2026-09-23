@@ -55,20 +55,20 @@ export function VisitManageActions({
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Manage</h2>
+    <div className="rounded-xl border border-[#E4E4E7] bg-white p-4 shadow-xs">
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#71717A]">Manage</h2>
 
       {mode === "none" && (
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setMode("reschedule")}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#E7ECF2] bg-white px-4 text-sm font-semibold text-[#3366FF]"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#E4E4E7] bg-white px-4 text-sm font-semibold text-[#09090B] hover:bg-zinc-50"
           >
             <CalendarClock className="h-4 w-4" /> Reschedule
           </button>
           <button
             onClick={() => setMode("cancel")}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#FFC7C9] bg-white px-4 text-sm font-semibold text-[#E5484D]"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 hover:bg-red-50"
           >
             <XCircle className="h-4 w-4" /> Cancel Visit
           </button>

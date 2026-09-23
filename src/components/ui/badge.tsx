@@ -3,20 +3,20 @@ import { cn } from "@/lib/utils";
 export type BadgeTone = "slate" | "green" | "amber" | "red" | "blue" | "purple" | "indigo" | "orange" | "whatsapp";
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  slate: "bg-[#F3F6FA] text-[#596579] border border-[#E7ECF2]",
-  green: "bg-[#E6F7F0] text-[#1FA971] border border-[#B3EBD3]",
-  amber: "bg-[#FFF6E5] text-[#E6A23C] border border-[#FFE3B3]",
-  red: "bg-[#FFECEC] text-[#E5484D] border border-[#FFC7C9]",
-  blue: "bg-[#EFF4FF] text-[#3366FF] border border-[#CCE0FF]",
-  purple: "bg-[#F3E8FF] text-[#9333EA] border border-[#E9D5FF]",
-  indigo: "bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE]",
-  orange: "bg-[#FFF3EB] text-[#EA580C] border border-[#FFD8BE]",
-  whatsapp: "bg-[#E6F9EE] text-[#25D366] border border-[#B8F3D1]",
+  slate: "bg-[#F4F4F5] text-[#52525B] border border-[#E4E4E7]",
+  green: "bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0]",
+  amber: "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]",
+  red: "bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]",
+  blue: "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]",
+  purple: "bg-[#FAF5FF] text-[#7E22CE] border border-[#E9D5FF]",
+  indigo: "bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE]",
+  orange: "bg-[#FFF7ED] text-[#C2410C] border border-[#FFEDD5]",
+  whatsapp: "bg-[#F0FDF4] text-[#15803D] border border-[#86EFAC]",
 };
 
 export function Badge({ tone = "slate", children, className }: { tone?: BadgeTone; children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide whitespace-nowrap", TONE_CLASSES[tone], className)}>
+    <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium tracking-normal whitespace-nowrap", TONE_CLASSES[tone], className)}>
       {children}
     </span>
   );
@@ -28,7 +28,7 @@ export const LEAD_STATUS_TONE: Record<string, BadgeTone> = {
   QUALIFIED: "purple",
   PROPERTIES_SHARED: "amber",
   VISIT_SCHEDULED: "orange",
-  VISIT_COMPLETED: "orange",
+  VISIT_COMPLETED: "green",
   NEGOTIATION: "amber",
   CLOSED_WON: "green",
   CLOSED_LOST: "red",

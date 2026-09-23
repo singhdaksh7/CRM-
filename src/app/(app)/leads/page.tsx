@@ -29,10 +29,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   if (sp.assetClass) where.assetClass = sp.assetClass as never;
   if (sp.transactionType) where.transactionType = sp.transactionType as never;
 
-  // FIELD_EXECUTIVE scoping applied LAST so it always wins over the
-  // assignedToId query param (spec item 12): "My Assigned" shows only their
-  // own leads, "Unassigned" shows org-wide unassigned leads, and no query
-  // string can be crafted to view a colleague's assigned leads.
   const isFieldExecutive = session!.user.role === "FIELD_EXECUTIVE";
   if (isFieldExecutive) {
     where.assignedToId = sp.assignedToId === "unassigned" ? null : session!.user.id;
@@ -42,9 +38,6 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     Promise.all([
       prisma.lead.findMany({ where, include: { assignedTo: { select: assignedToSelect } }, orderBy: { createdAt: "desc" }, skip: (page - 1) * DEFAULT_PAGE_SIZE, take: DEFAULT_PAGE_SIZE }),
       prisma.lead.count({ where }),
-      // Only id/name are rendered (assignment filter + bulk-assign dropdowns) -
-      // select instead of a bare findMany() so passwordHash and other account
-      // fields never leave the server for this dropdown data.
       prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "DATA_MANAGER"] }, status: "ACTIVE" }, select: assignedToSelect }),
       prisma.lead.count({ where: { organizationId, assignedToId: null, status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"] } } }),
     ])
@@ -55,12 +48,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E7ECF2] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E4E4E7] pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Leads Pipeline</h1>
-          <p className="mt-1 text-sm text-[#596579]">{totalCount} leads {session!.user.role === "FIELD_EXECUTIVE" ? "assigned to you" : "in organization pipeline"}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#09090B]">Leads Pipeline</h1>
+          <p className="mt-1 text-xs text-[#71717A]">{totalCount} leads {session!.user.role === "FIELD_EXECUTIVE" ? "assigned to you" : "in organization pipeline"}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {canManage && <BulkAutoAssignButton unassignedCount={unassignedCount} />}
           {canCreate && (
             <LinkButton href="/leads/new" className="w-full sm:w-auto">
@@ -71,17 +64,17 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       </div>
 
       {isFieldExecutive && (
-        <div className="flex gap-2 border-b border-[#E7ECF2]">
+        <div className="flex gap-2 border-b border-[#E4E4E7]">
           <LinkButton
             href="/leads"
-            className={sp.assignedToId !== "unassigned" ? "border-b-2 border-[#3366FF] text-[#3366FF]" : "text-[#596579]"}
+            className={sp.assignedToId !== "unassigned" ? "border-b-2 border-[#09090B] text-[#09090B] font-semibold" : "text-[#71717A]"}
             variant="ghost"
           >
             My Assigned Leads
           </LinkButton>
           <LinkButton
             href="/leads?assignedToId=unassigned"
-            className={sp.assignedToId === "unassigned" ? "border-b-2 border-[#3366FF] text-[#3366FF]" : "text-[#596579]"}
+            className={sp.assignedToId === "unassigned" ? "border-b-2 border-[#09090B] text-[#09090B] font-semibold" : "text-[#71717A]"}
             variant="ghost"
           >
             Unassigned Leads

@@ -39,15 +39,6 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
   const organizationId = getOrganizationId(user);
   const now = new Date();
 
-  // Three bugs previously lived in these five lines:
-  //   1. `where` started as `{}` - no organizationId scope at all.
-  //   2. Day boundaries came from `setHours(0,0,0,0)` in the SERVER's
-  //      timezone. On a UTC host, a visit at 11:00 IST tomorrow is stored as
-  //      05:30Z tomorrow, but "end of today" was computed as 23:59:59 UTC
-  //      today - so tomorrow-early-IST visits fell on the wrong side of the
-  //      boundary and vanished from Upcoming.
-  //   3. Upcoming included CANCELLED and COMPLETED visits.
-  // All three are now handled by the shared IST-anchored helpers.
   let where: Prisma.VisitWhereInput = visitRoleScopeWhere(organizationId, user);
   if (tab === "today") where = todaysVisitsWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined);
   else if (tab === "upcoming") where = upcomingVisitsWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined);
@@ -69,21 +60,12 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       }),
       isAllTab ? prisma.visit.count({ where }) : Promise.resolve(null),
       prisma.visit.count({ where: needsVisitOutcomeWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined) }),
-      // Every supporting query is organization-scoped too - previously none of
-      // them were, so the Schedule Visit modal could offer another org's data.
       canManage ? prisma.lead.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 100 }) : Promise.resolve([]),
       canManage ? prisma.property.findMany({ where: { organizationId, status: "AVAILABLE" }, take: 200 }) : Promise.resolve([]),
-      // Admin may personally perform a visit (the business owner often does),
-      // so the assignee pool is FIELD_EXECUTIVE + ADMIN, not FIELD_EXECUTIVE
-      // alone. DATA_MANAGER is deliberately excluded - it was never eligible
-      // before this change and this task does not widen that.
       canManage ? prisma.user.findMany({ where: { organizationId, role: { in: ["FIELD_EXECUTIVE", "ADMIN"] }, status: "ACTIVE" }, select: { id: true, name: true, role: true } }) : Promise.resolve([]),
     ])
   );
 
-  // Pending client visit REQUESTS. A Field Executive never sees this queue -
-  // reviewing and confirming a request is an Admin/Data Manager decision, and
-  // the client's contact details ride along with it.
   const visitRequests = canManage ? await listCatalogueVisitRequests(organizationId) : [];
   const catalogueOptions = canManage ? await getVisitRequestCatalogueOptions(visitRequests, organizationId) : {};
 
@@ -96,11 +78,11 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[#1B2430]">Property Visits</h1>
-          <p className="text-sm text-[#596579]">{isAllTab ? totalCount : visits.length} visits</p>
+          <h1 className="text-2xl font-bold text-[#09090B]">Property Visits</h1>
+          <p className="mt-1 text-sm text-[#52525B]">{isAllTab ? totalCount : visits.length} scheduled visits</p>
         </div>
         {canManage && (
           <ScheduleVisitModal
@@ -142,9 +124,17 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
         <SuggestedRoutePanel employeeId={user.role === "FIELD_EXECUTIVE" ? user.id : sp.employeeId!} />
       )}
 
-      <div className="flex gap-1 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1 text-sm shadow-xs w-fit">
+      <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#E4E4E7] bg-[#F4F4F5] p-1 text-sm w-fit">
         {TABS.map((t) => (
-          <Link key={t.key} href={`/visits?tab=${t.key}`} className={`whitespace-nowrap rounded-xl px-3.5 py-1.5 font-semibold transition-all ${tab === t.key ? "bg-[#3366FF] text-white shadow-xs" : "text-[#596579] hover:text-[#1B2430] hover:bg-[#F3F6FA]"}`}>
+          <Link
+            key={t.key}
+            href={`/visits?tab=${t.key}`}
+            className={`whitespace-nowrap rounded-md px-3.5 py-1.5 font-medium transition-all ${
+              tab === t.key
+                ? "bg-[#0A0A0A] text-white shadow-xs"
+                : "text-[#52525B] hover:text-[#09090B] hover:bg-white"
+            }`}
+          >
             {t.label}{t.key === "needs-outcome" ? ` (${needsOutcomeCount})` : ""}
           </Link>
         ))}
@@ -155,14 +145,14 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       ) : tab === "employee" ? (
         <div className="space-y-4">
           {[...grouped.entries()].map(([name, vs]) => (
-            <div key={name} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-              <h3 className="mb-3 text-sm font-bold text-[#1B2430]">{name} ({vs.length})</h3>
+            <div key={name} className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
+              <h3 className="mb-3 text-sm font-semibold text-[#09090B]">{name} ({vs.length})</h3>
               <VisitList visits={vs} />
             </div>
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+        <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
           <VisitList visits={visits} />
         </div>
       )}
@@ -174,32 +164,27 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
   );
 }
 
-/**
- * One row per visit, showing everything the Upcoming Visits view is required
- * to show: client name, lead code, date, time, assigned executive, number of
- * properties, and status. The whole row links to the visit detail page.
- */
 function VisitList({ visits }: { visits: VisitWithRelations[] }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {visits.map((v) => {
         const progress = computeVisitProgress(v.properties);
         return (
           <Link
             key={v.id}
             href={`/visits/${v.id}`}
-            className="block rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-3.5 transition-colors hover:border-[#CCE0FF] hover:bg-[#F5F8FF]"
+            className="block rounded-lg border border-[#E4E4E7] bg-white p-4 transition-colors hover:border-[#D4D4D8] hover:bg-[#FAFAFA]"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-sm font-bold text-[#1B2430]">
+                <p className="text-sm font-semibold text-[#09090B]">
                   {v.lead.clientName}
-                  <span className="ml-2 font-mono text-xs font-normal text-[#8A94A6]">{v.lead.leadCode}</span>
+                  <span className="ml-2 font-mono text-xs font-normal text-[#71717A]">{v.lead.leadCode}</span>
                 </p>
-                <p className="mt-0.5 text-xs text-[#596579]">
+                <p className="mt-1 text-xs text-[#52525B]">
                   {formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"}
                 </p>
-                <p className="mt-0.5 text-xs text-[#8A94A6]">
+                <p className="mt-0.5 text-xs text-[#71717A]">
                   {progress.total} {progress.total === 1 ? "property" : "properties"}
                   {progress.resolved > 0 && <> &middot; {progress.label}</>}
                   {v.catalogueShareId && <> &middot; from catalogue</>}
@@ -208,7 +193,7 @@ function VisitList({ visits }: { visits: VisitWithRelations[] }) {
               <Badge tone={VISIT_STATUS_TONE[v.status] ?? "slate"}>{enumToLabel(v.status)}</Badge>
             </div>
             {v.conflictStatus === "OVERRIDDEN" && (
-              <p className="mt-1.5 text-xs font-semibold text-[#E6A23C]">⚠ Scheduling conflict overridden{v.conflictDetail ? `: ${v.conflictDetail}` : ""}</p>
+              <p className="mt-2 text-xs font-medium text-amber-600">⚠ Scheduling conflict overridden{v.conflictDetail ? `: ${v.conflictDetail}` : ""}</p>
             )}
           </Link>
         );

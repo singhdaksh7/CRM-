@@ -122,9 +122,9 @@ function AccountStatusAction({ employeeId, action }: { employeeId: string; actio
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
-      <p className="text-sm font-semibold text-slate-900">{disabling ? "Disable account" : "Enable account"}</p>
-      <p className="text-xs text-slate-600">
+    <div className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+      <p className="text-sm font-semibold text-zinc-900">{disabling ? "Disable account" : "Enable account"}</p>
+      <p className="text-xs text-zinc-600">
         {disabling
           ? "Blocks sign-in immediately, signs out every device, and invalidates any outstanding setup or reset link."
           : "Restores access. An employee who never chose a password comes back as Pending Setup, not Active."}

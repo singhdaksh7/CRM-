@@ -41,12 +41,6 @@ interface BulkResult {
   results: { id: string; success: boolean; error?: string }[];
 }
 
-/**
- * Extracted from the leads list page so checkbox selection + a bulk action
- * toolbar can be added without a second, duplicate leads table - this is
- * the same rows/columns the page already rendered inline, now client-side
- * so selection state can live here.
- */
 export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; employees: Pick<User, "id" | "name">[]; canManage: boolean }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -122,9 +116,9 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
   return (
     <div className="space-y-3">
       {canManage && selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#CCE0FF] bg-[#EFF4FF] p-3">
-          <span className="text-xs font-bold text-[#1B2430]">{selected.size} selected</span>
-          <Select value={action} onChange={(e) => setAction(e.target.value as BulkAction)} className="w-auto text-xs font-semibold">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] p-3 shadow-2xs">
+          <span className="text-xs font-semibold text-[#09090B]">{selected.size} selected</span>
+          <Select value={action} onChange={(e) => setAction(e.target.value as BulkAction)} className="w-auto text-xs">
             <option value="">Bulk action...</option>
             <option value="ASSIGN">Assign</option>
             <option value="STATUS">Change Status</option>
@@ -132,7 +126,7 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
             <option value="CATALOGUE">Generate Catalogue</option>
           </Select>
           {action === "ASSIGN" && (
-            <Select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} className="w-auto text-xs font-semibold">
+            <Select value={assignedToId} onChange={(e) => setAssignedToId(e.target.value)} className="w-auto text-xs">
               <option value="">Choose employee...</option>
               {employees.map((e) => (
                 <option key={e.id} value={e.id}>{e.name}</option>
@@ -140,7 +134,7 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
             </Select>
           )}
           {action === "STATUS" && (
-            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto text-xs font-semibold">
+            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto text-xs">
               {LEAD_STATUSES.map((s) => (
                 <option key={s} value={s}>{enumToLabel(s)}</option>
               ))}
@@ -148,7 +142,7 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
           )}
           {action === "FOLLOW_UP" && (
             <>
-              <Select value={followUpType} onChange={(e) => setFollowUpType(e.target.value)} className="w-auto text-xs font-semibold">
+              <Select value={followUpType} onChange={(e) => setFollowUpType(e.target.value)} className="w-auto text-xs">
                 {HUMAN_FOLLOWUP_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
@@ -170,52 +164,52 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
       )}
 
       {!canManage && selected.size > 0 && (
-        <div className="flex items-center gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3">
-          <span className="text-xs font-bold text-[#1B2430]">{selected.size} selected</span>
+        <div className="flex items-center gap-2 rounded-xl border border-[#E4E4E7] bg-white p-3 shadow-2xs">
+          <span className="text-xs font-semibold text-[#09090B]">{selected.size} selected</span>
           <Button size="sm" variant="secondary" onClick={exportSelected}>
             <Download className="h-3.5 w-3.5" /> Export selected
           </Button>
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white shadow-xs">
-        <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
-          <thead className="bg-[#F8F9FF] text-left text-xs font-semibold uppercase tracking-wider text-[#596579]">
+      <div className="overflow-x-auto rounded-xl border border-[#E4E4E7] bg-white shadow-2xs">
+        <table className="min-w-full divide-y divide-[#E4E4E7] text-sm">
+          <thead className="bg-[#FAFAFA] text-left text-xs font-semibold uppercase tracking-wider text-[#71717A]">
             <tr>
-              <th className="px-4 py-3.5 w-8">
-                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" />
+              <th className="px-4 py-3 w-8">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all" className="h-4 w-4 rounded border-[#E4E4E7] text-[#0A0A0A] focus:ring-[#0A0A0A]" />
               </th>
-              <th className="px-4 py-3.5">Client</th>
-              <th className="px-4 py-3.5">Requirement</th>
-              <th className="px-4 py-3.5">Budget</th>
-              <th className="px-4 py-3.5">Source</th>
-              <th className="px-4 py-3.5">Assigned To</th>
-              <th className="px-4 py-3.5">Status</th>
-              <th className="px-4 py-3.5">Priority</th>
-              <th className="px-4 py-3.5">Score</th>
-              <th className="px-4 py-3.5">Created</th>
+              <th className="px-4 py-3">Client</th>
+              <th className="px-4 py-3">Requirement</th>
+              <th className="px-4 py-3">Budget</th>
+              <th className="px-4 py-3">Source</th>
+              <th className="px-4 py-3">Assigned To</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Priority</th>
+              <th className="px-4 py-3">Score</th>
+              <th className="px-4 py-3">Created</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#EFF4FF] text-[#1B2430]">
+          <tbody className="divide-y divide-[#E4E4E7] text-[#09090B]">
             {leads.map((l) => (
-              <tr key={l.id} className={`hover:bg-[#F3F6FA] transition-colors ${selected.has(l.id) ? "bg-[#EFF4FF]" : ""}`}>
-                <td className="px-4 py-3.5">
-                  <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleOne(l.id)} aria-label={`Select ${l.clientName}`} />
+              <tr key={l.id} className={`hover:bg-[#FAFAFA] transition-colors ${selected.has(l.id) ? "bg-[#F4F4F5]" : ""}`}>
+                <td className="px-4 py-3">
+                  <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggleOne(l.id)} aria-label={`Select ${l.clientName}`} className="h-4 w-4 rounded border-[#E4E4E7] text-[#0A0A0A] focus:ring-[#0A0A0A]" />
                 </td>
-                <td className="px-4 py-3.5">
-                  <Link href={`/leads/${l.id}`} className="font-bold text-[#1B2430] hover:text-[#3366FF] transition-colors">{l.clientName}</Link>
-                  <p className="text-xs text-[#8A94A6] font-mono mt-0.5">{l.phone}</p>
+                <td className="px-4 py-3">
+                  <Link href={`/leads/${l.id}`} className="font-semibold text-[#09090B] hover:underline transition-colors">{l.clientName}</Link>
+                  <p className="text-xs text-[#71717A] font-mono mt-0.5">{l.phone}</p>
                 </td>
-                <td className="px-4 py-3.5">
+                <td className="px-4 py-3 text-[#52525B]">
                   {l.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {l.preferredBhk ? `${l.preferredBhk} BHK` : "Any"} &middot; {l.preferredLocation}
                 </td>
-                <td className="px-4 py-3.5 font-semibold text-[#3366FF]">{formatINR(l.minBudget, { compact: true })} - {formatINR(l.maxBudget, { compact: true })}</td>
-                <td className="px-4 py-3.5">{enumToLabel(l.source)}</td>
-                <td className="px-4 py-3.5">{l.assignedTo?.name ?? <span className="font-semibold text-[#E6A23C]">Unassigned</span>}</td>
-                <td className="px-4 py-3.5"><Badge tone={LEAD_STATUS_TONE[l.status]}>{enumToLabel(l.status)}</Badge></td>
-                <td className="px-4 py-3.5"><Badge tone={LEAD_PRIORITY_TONE[l.priority]}>{l.priority}</Badge></td>
-                <td className="px-4 py-3.5 font-bold text-[#1B2430]">{l.score}</td>
-                <td className="px-4 py-3.5 text-xs text-[#8A94A6]">{formatDate(l.createdAt)}</td>
+                <td className="px-4 py-3 font-semibold text-[#09090B]">{formatINR(l.minBudget, { compact: true })} - {formatINR(l.maxBudget, { compact: true })}</td>
+                <td className="px-4 py-3 text-[#71717A]">{enumToLabel(l.source)}</td>
+                <td className="px-4 py-3 text-xs">{l.assignedTo?.name ?? <span className="font-medium text-[#D97706]">Unassigned</span>}</td>
+                <td className="px-4 py-3"><Badge tone={LEAD_STATUS_TONE[l.status]}>{enumToLabel(l.status)}</Badge></td>
+                <td className="px-4 py-3"><Badge tone={LEAD_PRIORITY_TONE[l.priority]}>{l.priority}</Badge></td>
+                <td className="px-4 py-3 font-bold text-[#09090B]">{l.score}</td>
+                <td className="px-4 py-3 text-xs text-[#71717A]">{formatDate(l.createdAt)}</td>
               </tr>
             ))}
           </tbody>
@@ -224,8 +218,8 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm bulk action" description={actionLabel()}>
         <div className="space-y-4">
-          <p className="text-sm text-[#596579]">This will update {selected.size} lead{selected.size > 1 ? "s" : ""}. Partial failures will be reported individually.</p>
-          <div className="flex justify-end gap-2">
+          <p className="text-sm text-[#52525B]">This will update {selected.size} lead{selected.size > 1 ? "s" : ""}. Partial failures will be reported individually.</p>
+          <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
             <Button size="sm" onClick={runAction} loading={running}>Confirm</Button>
           </div>
@@ -237,9 +231,9 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
           <div className="max-h-80 space-y-1.5 overflow-y-auto">
             {result.results.map((r) => (
               <div key={r.id} className="flex items-center gap-2 text-xs">
-                {r.success ? <CheckCircle2 className="h-3.5 w-3.5 text-[#1FA971]" /> : <XCircle className="h-3.5 w-3.5 text-[#E5484D]" />}
-                <span className="font-mono text-[#8A94A6]">{r.id}</span>
-                {r.error && <span className="text-[#E5484D]">{r.error}</span>}
+                {r.success ? <CheckCircle2 className="h-3.5 w-3.5 text-[#16A34A]" /> : <XCircle className="h-3.5 w-3.5 text-[#DC2626]" />}
+                <span className="font-mono text-[#71717A]">{r.id}</span>
+                {r.error && <span className="text-[#DC2626]">{r.error}</span>}
               </div>
             ))}
           </div>

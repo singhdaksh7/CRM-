@@ -14,8 +14,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Real-estate broker CRM & property inventory management",
     start_url: "/dashboard",
     display: "standalone",
-    background_color: "#FAFBFC",
-    theme_color: "#3366FF",
+    background_color: "#FAFAFA",
+    theme_color: "#0A0A0A",
     icons: [
       { src: "/api/pwa/icon?size=192", sizes: "192x192", type: "image/png" },
       { src: "/api/pwa/icon?size=512", sizes: "512x512", type: "image/png" },

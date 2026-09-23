@@ -31,8 +31,7 @@ export function PasswordInput({ className, ...props }: React.InputHTMLAttributes
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
         id={describedBy}
-        // 44px tap target - comfortably thumb-sized on a phone.
-        className="absolute inset-y-0 right-0 flex h-full w-11 items-center justify-center rounded-r-xl text-[#8A94A6] transition-colors hover:text-[#1B2430] focus:outline-none focus-visible:text-[#3366FF]"
+        className="absolute inset-y-0 right-0 flex h-full w-11 items-center justify-center rounded-r-xl text-[#71717A] transition-colors hover:text-[#09090B] focus:outline-none focus-visible:text-[#09090B]"
       >
         {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>

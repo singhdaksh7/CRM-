@@ -11,8 +11,8 @@ export default async function LocalityAnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-[#1B2430]">Locality Analytics</h1>
-        <p className="text-sm text-[#596579]">Demand, budgets, and inventory by locality</p>
+        <h1 className="text-2xl font-bold text-[#09090B]">Locality Analytics</h1>
+        <p className="mt-1 text-sm text-[#52525B]">Demand distribution, buyer budgets, and inventory supply by locality</p>
       </div>
 
       <ReportsTabs />
@@ -26,11 +26,11 @@ export default async function LocalityAnalyticsPage() {
         <PieChartCard title="Inventory: Rent vs Sale" data={data.inventoryRentVsSale} />
       </div>
 
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-        <h3 className="mb-3 text-sm font-bold text-[#1B2430]">Locality Detail</h3>
+      <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#71717A]">Locality Detail</h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-[#E7ECF2] text-sm">
-            <thead className="bg-[#FAFBFC] text-left text-xs font-semibold uppercase tracking-wider text-[#8A94A6]">
+          <table className="min-w-full divide-y divide-[#E4E4E7] text-sm">
+            <thead className="bg-[#FAFAFA] text-left text-xs font-semibold uppercase tracking-wider text-[#71717A]">
               <tr>
                 <th className="px-4 py-2.5">Locality</th>
                 <th className="px-4 py-2.5">Requested</th>
@@ -39,10 +39,10 @@ export default async function LocalityAnalyticsPage() {
                 <th className="px-4 py-2.5">Avg Days to Sell</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFF4FF] text-[#596579]">
+            <tbody className="divide-y divide-[#E4E4E7] text-[#52525B]">
               {data.mostRequested.map((l) => (
-                <tr key={l.locality} className="hover:bg-[#F3F6FA]">
-                  <td className="px-4 py-2.5 font-semibold text-[#1B2430]">{l.locality}</td>
+                <tr key={l.locality} className="hover:bg-[#FAFAFA] transition-colors">
+                  <td className="px-4 py-2.5 font-semibold text-[#09090B]">{l.locality}</td>
                   <td className="px-4 py-2.5">{l.requestedCount}</td>
                   <td className="px-4 py-2.5">₹{l.avgBudget.toLocaleString("en-IN")}</td>
                   <td className="px-4 py-2.5">{l.availableInventory}</td>

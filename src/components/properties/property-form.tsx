@@ -493,7 +493,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
             properties that came through the inventory import pipeline; never editable here
             and never required for a manually-created property. */}
         {isEdit && (property?.priceRaw || property?.lastPrice != null) && (
-          <p className="text-xs text-[#8A94A6]">
+          <p className="text-xs text-zinc-500">
             {property?.priceRaw && <>Imported value: {property.priceRaw}</>}
             {property?.priceRaw && property?.lastPrice != null && " · "}
             {property?.lastPrice != null && <>Last quoted: ₹{property.lastPrice.toLocaleString("en-IN")}</>}
@@ -592,7 +592,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
                 key={a}
                 onClick={() => toggleAmenity(a)}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all border ${
-                  amenities.includes(a) ? "bg-[#3366FF] text-white border-[#3366FF]" : "bg-[#FAFBFC] text-[#596579] border-[#E7ECF2] hover:bg-[#F3F6FA]"
+                  amenities.includes(a) ? "bg-[#0A0A0A] text-white border-[#0A0A0A]" : "bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100"
                 }`}
               >
                 {a}
@@ -635,7 +635,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
         {isEdit ? (
           <PropertyGallery propertyId={property!.id} propertyTitle={property!.title} legacyCoverImage={property!.coverImage} />
         ) : (
-          <p className="text-sm text-[#8A94A6]">Save the property first, then you&apos;ll be able to upload and manage photos from its detail page.</p>
+          <p className="text-sm text-zinc-500">Save the property first, then you&apos;ll be able to upload and manage photos from its detail page.</p>
         )}
       </Section>
 
@@ -674,7 +674,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
             </Select>
           </Field>
           {partners.length === 0 && (
-            <p className="mt-1 text-xs text-[#8A94A6]">No active inventory partners yet - <Link href="/inventory-partners/new" className="text-[#3366FF] hover:underline">add one first</Link>.</p>
+            <p className="mt-1 text-xs text-zinc-500">No active inventory partners yet - <Link href="/inventory-partners/new" className="font-medium text-zinc-900 underline hover:text-black">add one first</Link>.</p>
           )}
         </Section>
       )}
@@ -694,7 +694,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
         {/* Property Inventory V2 - import provenance/audit only. Read-only text,
             never an editable input, and only shown when actually populated (imported rows). */}
         {isEdit && (property?.areaRaw || property?.floorRaw || property?.sourceRaw) && (
-          <div className="space-y-1 border-t border-[#EFF4FF] pt-3 text-xs text-[#8A94A6]">
+          <div className="space-y-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500">
             <p className="font-semibold uppercase tracking-wider">Import provenance (read-only)</p>
             {property?.areaRaw && <p>Raw area: {property.areaRaw}</p>}
             {property?.floorRaw && <p>Raw floor: {property.floorRaw}</p>}
@@ -703,7 +703,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
         )}
       </Section>
 
-      <div className="flex justify-end gap-3 pt-2 border-t border-[#EFF4FF]">
+      <div className="flex justify-end gap-3 pt-2 border-t border-zinc-200">
         <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
         <Button type="submit" loading={submitting}>{isEdit ? "Save Changes" : "Add Property"}</Button>
       </div>
@@ -713,8 +713,8 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#8A94A6]">{title}</h3>
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs">
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">{title}</h3>
       <div className="space-y-4">{children}</div>
     </div>
   );

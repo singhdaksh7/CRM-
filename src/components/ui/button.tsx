@@ -6,21 +6,19 @@ type Variant = "primary" | "secondary" | "danger" | "ghost" | "whatsapp" | "outl
 type Size = "sm" | "md" | "lg" | "touch";
 
 const VARIANT_CLASSES: Record<Variant, string> = {
-  primary: "bg-[#3366FF] text-white hover:bg-[#2952CC] active:bg-[#1F3D99] focus-visible:ring-2 focus-visible:ring-[#3366FF] shadow-xs",
-  secondary: "bg-white text-[#1B2430] border border-[#E7ECF2] hover:bg-[#F3F6FA] hover:border-[#C3C5D8] active:bg-[#E5EEFF] shadow-xs",
+  primary: "bg-[#0A0A0A] text-white hover:bg-[#27272A] active:bg-[#18181B] focus-visible:ring-2 focus-visible:ring-[#0A0A0A] shadow-xs border border-[#0A0A0A]",
+  secondary: "bg-white text-[#09090B] border border-[#E4E4E7] hover:bg-[#F4F4F5] hover:border-[#D4D4D8] active:bg-[#E4E4E7] shadow-xs",
   whatsapp: "bg-[#25D366] text-white hover:bg-[#20bd5a] active:bg-[#1ca64f] shadow-xs",
-  danger: "bg-[#E5484D] text-white hover:bg-[#c93b40] active:bg-[#b03035] shadow-xs",
-  outline: "bg-transparent text-[#596579] border border-[#E7ECF2] hover:bg-[#F3F6FA] hover:text-[#1B2430]",
-  ghost: "bg-transparent text-[#596579] hover:bg-[#F3F6FA] hover:text-[#1B2430]",
+  danger: "bg-[#DC2626] text-white hover:bg-[#B91C1C] active:bg-[#991B1B] shadow-xs",
+  outline: "bg-transparent text-[#52525B] border border-[#E4E4E7] hover:bg-[#F4F4F5] hover:text-[#09090B]",
+  ghost: "bg-transparent text-[#52525B] hover:bg-[#F4F4F5] hover:text-[#09090B]",
 };
 
 const SIZE_CLASSES: Record<Size, string> = {
-  sm: "px-2.5 py-1.5 text-xs rounded-xl",
-  md: "px-3.5 py-2 text-sm rounded-xl",
-  lg: "px-4 py-2.5 text-base rounded-xl",
-  // Phase 4 - Executive Dashboard: a real 44px+ touch target (WCAG minimum),
-  // for large touch-friendly buttons on phones (Call/WhatsApp/Maps/etc).
-  touch: "px-5 py-3 text-base rounded-xl min-h-[48px]",
+  sm: "px-2.5 py-1.5 text-xs rounded-lg font-medium",
+  md: "px-3.5 py-2 text-sm rounded-lg font-medium",
+  lg: "px-4 py-2.5 text-base rounded-lg font-medium",
+  touch: "px-5 py-3 text-base rounded-lg font-medium min-h-[44px]",
 };
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -33,7 +31,7 @@ export function Button({ variant = "primary", size = "md", loading, className, c
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer select-none",
+        "inline-flex items-center justify-center gap-2 transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer select-none",
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         className
@@ -64,7 +62,7 @@ export function LinkButton({
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center justify-center gap-2 font-semibold transition-all duration-150 select-none",
+        "inline-flex items-center justify-center gap-2 transition-all duration-150 select-none",
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         className

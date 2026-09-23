@@ -14,14 +14,6 @@ export interface LeadPhoneRow {
 
 const LABEL_PRESETS = ["Personal", "Office", "Family", "Other"];
 
-/**
- * simplified-role-workflow (continuation pass, spec item 5) - the lead
- * header's "Primary + Other numbers + [+ Add Number]" UI, on top of the
- * LeadPhone backend built in the previous pass (src/lib/lead-phones.ts,
- * GET/POST /api/leads/[id]/phones). Normalization, per-lead dedupe, and the
- * at-most-one-PRIMARY rule all happen server-side - this component just
- * displays what's there and submits new numbers.
- */
 export function LeadPhonesPanel({ leadId, primaryPhone, phones }: { leadId: string; primaryPhone: string; phones: LeadPhoneRow[] }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -52,41 +44,41 @@ export function LeadPhonesPanel({ leadId, primaryPhone, phones }: { leadId: stri
   }
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[#596579]">
-      <span className="flex items-center gap-1">
-        <Phone className="h-3.5 w-3.5" /> {primaryPhone} <span className="text-[10px] font-semibold uppercase text-[#8A94A6]">(primary)</span>
+    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[#52525B]">
+      <span className="flex items-center gap-1 font-mono text-xs">
+        <Phone className="h-3.5 w-3.5 text-[#71717A]" /> {primaryPhone} <span className="text-[10px] font-semibold uppercase text-[#71717A]">(primary)</span>
       </span>
       {phones.map((p) => (
-        <span key={p.id} className="flex items-center gap-1">
-          <Phone className="h-3.5 w-3.5" /> {p.phone}
-          {(p.label || p.type === "PRIMARY") && <span className="text-[10px] font-semibold uppercase text-[#8A94A6]">({p.label ?? "Primary"})</span>}
+        <span key={p.id} className="flex items-center gap-1 font-mono text-xs">
+          <Phone className="h-3.5 w-3.5 text-[#71717A]" /> {p.phone}
+          {(p.label || p.type === "PRIMARY") && <span className="text-[10px] font-semibold uppercase text-[#71717A]">({p.label ?? "Primary"})</span>}
         </span>
       ))}
 
       {!adding ? (
-        <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+        <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-[#09090B] hover:underline cursor-pointer">
           <Plus className="h-3.5 w-3.5" /> Add Number
         </button>
       ) : (
-        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-2">
+        <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-[#E4E4E7] bg-[#FAFAFA] p-2">
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="10-digit mobile number"
-            className="min-w-[160px] flex-1 rounded-lg border border-[#E7ECF2] bg-white px-2.5 py-1.5 text-sm"
+            className="min-w-[160px] flex-1 rounded-md border border-[#E4E4E7] bg-white px-2.5 py-1.5 text-xs text-[#09090B] focus:outline-none focus:border-[#0A0A0A]"
           />
-          <select value={label} onChange={(e) => setLabel(e.target.value)} className="rounded-lg border border-[#E7ECF2] bg-white px-2.5 py-1.5 text-sm">
+          <select value={label} onChange={(e) => setLabel(e.target.value)} className="rounded-md border border-[#E4E4E7] bg-white px-2.5 py-1.5 text-xs text-[#09090B]">
             {LABEL_PRESETS.map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
           </select>
-          <label className="flex items-center gap-1 text-xs text-[#596579]">
-            <input type="checkbox" checked={makePrimary} onChange={(e) => setMakePrimary(e.target.checked)} /> Make primary
+          <label className="flex items-center gap-1 text-xs text-[#52525B]">
+            <input type="checkbox" checked={makePrimary} onChange={(e) => setMakePrimary(e.target.checked)} className="rounded border-[#E4E4E7] text-[#0A0A0A]" /> Make primary
           </label>
-          <button onClick={submit} disabled={saving || !phone.trim()} className="rounded-lg bg-[#3366FF] px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+          <button onClick={submit} disabled={saving || !phone.trim()} className="rounded-md bg-[#0A0A0A] px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-[#27272A] cursor-pointer">
             {saving ? "Saving..." : "Save"}
           </button>
-          <button onClick={() => setAdding(false)} className="rounded-lg p-1.5 text-[#8A94A6] hover:bg-[#F3F6FA]">
+          <button onClick={() => setAdding(false)} className="rounded-md p-1.5 text-[#71717A] hover:bg-[#F4F4F5] cursor-pointer">
             <X className="h-4 w-4" />
           </button>
         </div>

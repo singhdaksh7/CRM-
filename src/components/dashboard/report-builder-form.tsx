@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { Field, Input, Select } from "@/components/ui/form";
+import { Download } from "lucide-react";
 
-// Kept in sync with REPORT_TYPES in src/lib/report-builder.ts - duplicated
-// here (rather than imported) because that module pulls in the Prisma
-// client, which must never end up in a client-side bundle.
 type ReportType = "leads" | "visits" | "employees" | "brokerage" | "properties";
 const REPORT_TYPES: ReportType[] = ["leads", "visits", "employees", "brokerage", "properties"];
 
@@ -30,8 +28,8 @@ export function ReportBuilderForm() {
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Field label="Report Type">
           <Select value={type} onChange={(e) => setType(e.target.value as ReportType)}>
             {REPORT_TYPES.map((t) => (
@@ -39,22 +37,24 @@ export function ReportBuilderForm() {
             ))}
           </Select>
         </Field>
-        <Field label="From">
+        <Field label="From Date">
           <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </Field>
-        <Field label="To">
+        <Field label="To Date">
           <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </Field>
       </div>
-      <a
-        href={exportUrl()}
-        download
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#3366FF] px-3.5 py-2 text-sm font-semibold text-white shadow-xs transition-all hover:bg-[#2952CC]"
-      >
-        Export CSV
-      </a>
-      <p className="text-xs text-[#8A94A6]">
-        Excel-compatible CSV branded with KP Properties, generation date, generated-by, and the filters used. Leave dates blank for all-time. PDF and native .xlsx export are not available yet.
+      <div className="pt-2">
+        <a
+          href={exportUrl()}
+          download
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0A0A0A] px-4 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#27272A]"
+        >
+          <Download className="h-4 w-4" /> Export CSV
+        </a>
+      </div>
+      <p className="text-xs text-[#71717A]">
+        Excel-compatible CSV branded with KP Properties, generation date, and active filters. Leave dates blank for all-time.
       </p>
     </div>
   );

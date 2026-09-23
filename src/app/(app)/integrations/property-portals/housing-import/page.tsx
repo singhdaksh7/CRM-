@@ -8,8 +8,8 @@ export default async function HousingImportPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-[#1B2430]">Import Housing Leads</h1>
-        <p className="mt-1 text-sm text-[#596579]">
+        <h1 className="text-2xl font-bold text-zinc-900">Import Housing Leads</h1>
+        <p className="mt-1 text-sm text-zinc-500">
           Upload a Housing lead export (.csv or .xlsx) alongside the live Housing webhook - both stay active together.
           Upload → map columns → preview & validate → confirm. Nothing is written until you confirm.
         </p>

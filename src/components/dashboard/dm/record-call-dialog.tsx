@@ -25,13 +25,6 @@ const LOST_REASON_CATEGORIES = ["PRICE", "LOCATION", "COMPETITION", "BUDGET", "L
 
 type Step = "ASK" | "OUTCOME" | "DETAIL";
 
-/**
- * simplified-data-manager-workflow - the compact "Record Call" popup.
- * Progressive disclosure: Did you speak? -> pick one simple outcome -> only
- * the 1-2 fields that outcome actually needs. Every mutation goes through
- * the single POST /api/leads/[id]/record-call orchestration endpoint - this
- * component never calls prisma or any other route directly.
- */
 export function RecordCallDialog({ open, onClose, leadId, clientName, phone }: { open: boolean; onClose: () => void; leadId: string; clientName: string; phone: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("ASK");
@@ -122,7 +115,7 @@ export function RecordCallDialog({ open, onClose, leadId, clientName, phone }: {
   return (
     <Dialog open={open} onClose={close} title={`Record Call — ${clientName}`} description="This records the call outcome only. It does not place a call or send WhatsApp.">
       <div className="space-y-4">
-        <div className="rounded-xl border border-[#E7ECF2] bg-[#F8FAFC] px-3 py-2">
+        <div className="rounded-lg border border-[#E4E4E7] bg-[#FAFAFA] px-3 py-2">
           <PhoneDisplay phone={phone} />
         </div>
 
@@ -130,38 +123,38 @@ export function RecordCallDialog({ open, onClose, leadId, clientName, phone }: {
           <SavedSummary outcome={savedOutcome} leadId={leadId} onClose={close} />
         ) : step === "ASK" ? (
           <div>
-            <p className="mb-3 text-sm font-bold text-[#1B2430]">Did you speak with the customer?</p>
+            <p className="mb-3 text-sm font-semibold text-[#09090B]">Did you speak with the customer?</p>
             <div className="grid grid-cols-2 gap-3">
               <Button type="button" variant="secondary" size="lg" className="justify-center" onClick={() => chooseSpoke(true)}>
-                <PhoneCall className="h-4 w-4 text-[#25D366]" /> Yes
+                <PhoneCall className="h-4 w-4 text-[#16A34A]" /> Yes
               </Button>
               <Button type="button" variant="secondary" size="lg" className="justify-center" onClick={() => chooseSpoke(false)}>
-                <PhoneOff className="h-4 w-4 text-[#E5484D]" /> No
+                <PhoneOff className="h-4 w-4 text-[#DC2626]" /> No
               </Button>
             </div>
           </div>
         ) : step === "OUTCOME" ? (
           <div>
-            <p className="mb-3 text-sm font-bold text-[#1B2430]">{spokeWithCustomer ? "What did the customer say?" : "What happened?"}</p>
+            <p className="mb-3 text-sm font-semibold text-[#09090B]">{spokeWithCustomer ? "What did the customer say?" : "What happened?"}</p>
             <div className="grid gap-2">
               {(spokeWithCustomer ? SPOKE_OUTCOMES : NO_ANSWER_OUTCOMES).map((value) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => chooseOutcome(value)}
-                  className="rounded-xl border border-[#E7ECF2] px-3 py-2.5 text-left text-sm font-semibold text-[#1B2430] hover:border-[#3366FF] hover:bg-[#EFF4FF]"
+                  className="rounded-lg border border-[#E4E4E7] bg-white px-3 py-2.5 text-left text-sm font-medium text-[#09090B] hover:border-[#09090B] hover:bg-[#F4F4F5] transition-colors cursor-pointer"
                 >
                   {CALL_OUTCOME_LABELS[value]}
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => setStep("ASK")} className="mt-3 text-xs font-semibold text-[#596579] hover:text-[#1B2430]">
+            <button type="button" onClick={() => setStep("ASK")} className="mt-3 text-xs font-semibold text-[#71717A] hover:text-[#09090B] cursor-pointer">
               &larr; Back
             </button>
           </div>
         ) : outcome ? (
           <div className="space-y-3">
-            <p className="text-sm font-bold text-[#1B2430]">{CALL_OUTCOME_LABELS[outcome]}</p>
+            <p className="text-sm font-semibold text-[#09090B]">{CALL_OUTCOME_LABELS[outcome]}</p>
 
             {needsDateTime && (
               <div className="grid grid-cols-2 gap-3">
@@ -196,17 +189,17 @@ export function RecordCallDialog({ open, onClose, leadId, clientName, phone }: {
             </Field>
 
             {outcome === "VISIT_REQUIRED" && (
-              <p className="text-xs text-[#596579]">
+              <p className="text-xs text-[#71717A]">
                 This records the interaction only. Open the lead to pick a property and schedule the visit.
               </p>
             )}
 
-            <div className="flex justify-between gap-2">
-              <button type="button" onClick={() => setStep("OUTCOME")} className="text-xs font-semibold text-[#596579] hover:text-[#1B2430]">
+            <div className="flex justify-between items-center gap-2 pt-2">
+              <button type="button" onClick={() => setStep("OUTCOME")} className="text-xs font-semibold text-[#71717A] hover:text-[#09090B] cursor-pointer">
                 &larr; Back
               </button>
               <Button type="button" onClick={save} loading={saving}>
-                Save
+                Save Call
               </Button>
             </div>
           </div>
@@ -219,16 +212,16 @@ export function RecordCallDialog({ open, onClose, leadId, clientName, phone }: {
 function SavedSummary({ outcome, leadId, onClose }: { outcome: CallOutcome; leadId: string; onClose: () => void }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm text-[#596579]">
-        Recorded as <span className="font-semibold text-[#1B2430]">{CALL_OUTCOME_LABELS[outcome]}</span>.
+      <p className="text-sm text-[#52525B]">
+        Recorded as <span className="font-semibold text-[#09090B]">{CALL_OUTCOME_LABELS[outcome]}</span>.
       </p>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 pt-2">
         {outcome === "VISIT_REQUIRED" && (
-          <Link href={`/leads/${leadId}`} className="inline-flex items-center rounded-xl border border-[#E7ECF2] px-3.5 py-2 text-sm font-semibold text-[#3366FF] hover:bg-[#EFF4FF]">
+          <Link href={`/leads/${leadId}`} className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-3.5 py-2 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5]">
             Schedule Visit
           </Link>
         )}
-        <Link href={`/leads/${leadId}`} className="inline-flex items-center rounded-xl border border-[#E7ECF2] px-3.5 py-2 text-sm font-semibold text-[#596579] hover:bg-[#F3F6FA]">
+        <Link href={`/leads/${leadId}`} className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-3.5 py-2 text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5]">
           Open Lead
         </Link>
         <Button type="button" onClick={onClose}>

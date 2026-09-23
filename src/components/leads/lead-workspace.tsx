@@ -171,7 +171,7 @@ function ProgressTracker({
   visitsCount: number;
 }) {
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs">
       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Customer Journey Progress</h3>
       <div className="grid grid-cols-4 gap-4 text-center divide-x divide-slate-100">
         <div>
@@ -233,13 +233,13 @@ export function LeadWorkspace({
       <PrimaryActionsBar leadId={lead.id} phone={lead.phone} phones={lead.phones} onNavigate={setTab} onLogInteraction={() => setShowInteraction(true)} />
       {showInteraction && <InteractionComposer leadId={lead.id} onClose={() => setShowInteraction(false)} />}
 
-      <div className="flex gap-1.5 overflow-x-auto rounded-2xl border border-[#E7ECF2] bg-white p-1.5 text-sm shadow-xs">
+      <div className="flex gap-1.5 overflow-x-auto rounded-xl border border-[#E4E4E7] bg-white p-1 text-sm shadow-2xs">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`whitespace-nowrap rounded-xl px-3.5 py-2 font-semibold transition-all ${
-              tab === t ? "bg-[#3366FF] text-white shadow-xs" : "text-[#596579] hover:text-[#1B2430] hover:bg-[#F3F6FA]"
+            className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer ${
+              tab === t ? "bg-[#0A0A0A] text-white shadow-2xs" : "text-[#71717A] hover:text-[#09090B] hover:bg-[#F4F4F5]"
             }`}
           >
             {TAB_LABELS[t]}
@@ -269,7 +269,7 @@ export function LeadWorkspace({
             providerSendConfigured={providerSendConfigured}
           />
           <div>
-            <h3 className="mb-3 text-sm font-bold text-[#1B2430]">Catalogues</h3>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Catalogues</h3>
             <CataloguesTab
               leadId={lead.id}
               canManage={canManage}
@@ -330,28 +330,28 @@ function MoreTab({
   const [subTab, setSubTab] = useState<"whatsapp" | "documents" | "activity">("whatsapp");
 
   return (
-    <div className="space-y-6 bg-white border border-[#E7ECF2] p-5 rounded-2xl shadow-xs">
-      <div className="flex gap-2 border-b border-[#E7ECF2] pb-3">
+    <div className="space-y-6 bg-white border border-[#E4E4E7] p-5 rounded-xl shadow-2xs">
+      <div className="flex gap-2 border-b border-[#E4E4E7] pb-3">
         <button
           onClick={() => setSubTab("whatsapp")}
-          className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-            subTab === "whatsapp" ? "bg-[#3366FF] text-white" : "text-[#596579] hover:bg-[#F3F6FA] hover:text-[#1B2430]"
+          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            subTab === "whatsapp" ? "bg-[#0A0A0A] text-white" : "text-[#71717A] hover:bg-[#F4F4F5] hover:text-[#09090B]"
           }`}
         >
           WhatsApp Chat
         </button>
         <button
           onClick={() => setSubTab("documents")}
-          className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-            subTab === "documents" ? "bg-[#3366FF] text-white" : "text-[#596579] hover:bg-[#F3F6FA] hover:text-[#1B2430]"
+          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            subTab === "documents" ? "bg-[#0A0A0A] text-white" : "text-[#71717A] hover:bg-[#F4F4F5] hover:text-[#09090B]"
           }`}
         >
           Documents
         </button>
         <button
           onClick={() => setSubTab("activity")}
-          className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-            subTab === "activity" ? "bg-[#3366FF] text-white" : "text-[#596579] hover:bg-[#F3F6FA] hover:text-[#1B2430]"
+          className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            subTab === "activity" ? "bg-[#0A0A0A] text-white" : "text-[#71717A] hover:bg-[#F4F4F5] hover:text-[#09090B]"
           }`}
         >
           Activity Timeline
@@ -396,7 +396,7 @@ function PrimaryActionsBar({
   }
 
   return (
-    <div className="mb-4 flex flex-wrap gap-2 rounded-2xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+    <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-[#E4E4E7] bg-white p-3 shadow-2xs">
       <LeadPhonePicker phones={phoneOptions} action="call" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("more")} />
       <LeadPhonePicker phones={phoneOptions} action="whatsapp" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("more")} />
       <Button size="sm" variant="secondary" onClick={() => onNavigate("matches")}>
@@ -443,10 +443,10 @@ function InteractionComposer({ leadId, onClose }: { leadId: string; onClose: () 
   }
 
   return (
-    <div className="rounded-2xl border border-[#3366FF]/30 bg-[#EFF4FF]/40 p-4 shadow-xs">
+    <div className="rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] p-4 shadow-2xs">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div><h3 className="text-sm font-bold text-[#1B2430]">Log Internal Interaction</h3><p className="text-xs text-[#596579]">CRM record only — this does not send WhatsApp or place a call.</p></div>
-        <button onClick={onClose} className="text-xs font-semibold text-[#596579] hover:text-[#1B2430]">Cancel</button>
+        <div><h3 className="text-sm font-semibold text-[#09090B]">Log Internal Interaction</h3><p className="text-xs text-[#71717A]">CRM record only — this does not send WhatsApp or place a call.</p></div>
+        <button onClick={onClose} className="text-xs font-semibold text-[#71717A] hover:text-[#09090B] cursor-pointer">Cancel</button>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <Select value={type} onChange={(e) => setType(e.target.value)}>
@@ -641,21 +641,21 @@ function OverviewTab({
     <div className="space-y-6">
       <LeadRequirementsPanel leadId={lead.id} />
       {nextAction ? (
-        <div className="rounded-2xl border-2 border-[#3366FF] bg-[#EFF4FF]/30 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="rounded-xl border border-zinc-900/10 bg-zinc-900/[0.03] p-5 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#3366FF] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white mb-2">Next Action Recommended</span>
-            <h4 className="text-base font-bold text-[#1B2430]">{nextAction.label}</h4>
-            <p className="text-sm text-[#596579] mt-0.5">{nextAction.description}</p>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#0A0A0A] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white mb-2">Next Action Recommended</span>
+            <h4 className="text-base font-bold text-zinc-900">{nextAction.label}</h4>
+            <p className="text-sm text-zinc-600 mt-0.5">{nextAction.description}</p>
           </div>
-          <Button onClick={() => onTabAction(nextAction.tab)} className="shrink-0 bg-[#3366FF] hover:bg-[#2952CC] text-white font-bold">
+          <Button onClick={() => onTabAction(nextAction.tab)} className="shrink-0 font-medium">
             {nextAction.buttonText}
           </Button>
         </div>
       ) : (
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs flex items-center justify-between">
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs flex items-center justify-between">
           <div>
-            <h4 className="text-sm font-bold text-[#1B2430]">All caught up!</h4>
-            <p className="text-xs text-slate-500 mt-0.5">No urgent recommendations pending.</p>
+            <h4 className="text-sm font-bold text-zinc-900">All caught up!</h4>
+            <p className="text-xs text-zinc-500 mt-0.5">No urgent recommendations pending.</p>
           </div>
           <Button variant="secondary" size="sm" onClick={() => onTabAction("followups")}>Schedule Follow-up</Button>
         </div>
@@ -666,26 +666,26 @@ function OverviewTab({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-2">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Next Follow-up</h3>
+            <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Next Follow-up</h3>
               {nextFollowUp ? (
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold text-slate-800">{enumToLabel(nextFollowUp.type)} &middot; {formatDate(nextFollowUp.dueDate)}</p>
-                  <button onClick={() => onTabAction("followups")} className="text-xs text-[#3366FF] font-semibold hover:underline">Manage Follow-ups &rarr;</button>
+                  <p className="text-sm font-semibold text-zinc-900">{enumToLabel(nextFollowUp.type)} &middot; {formatDate(nextFollowUp.dueDate)}</p>
+                  <button onClick={() => onTabAction("followups")} className="text-xs text-zinc-900 font-semibold hover:underline">Manage Follow-ups &rarr;</button>
                 </div>
               ) : (
-                <button onClick={() => onTabAction("followups")} className="text-xs text-[#3366FF] font-semibold hover:underline">+ Schedule Follow-up</button>
+                <button onClick={() => onTabAction("followups")} className="text-xs text-zinc-900 font-semibold hover:underline">+ Schedule Follow-up</button>
               )}
             </div>
-            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-2">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Next Site Visit</h3>
+            <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Next Site Visit</h3>
               {nextVisit ? (
                 <div className="space-y-1.5">
-                  <p className="text-sm font-semibold text-slate-800">{nextVisit.visitTime} &middot; {formatDate(nextVisit.visitDate)}</p>
-                  <button onClick={() => onTabAction("visits")} className="text-xs text-[#3366FF] font-semibold hover:underline">Manage Visits &rarr;</button>
+                  <p className="text-sm font-semibold text-zinc-900">{nextVisit.visitTime} &middot; {formatDate(nextVisit.visitDate)}</p>
+                  <button onClick={() => onTabAction("visits")} className="text-xs text-zinc-900 font-semibold hover:underline">Manage Visits &rarr;</button>
                 </div>
               ) : (
-                <button onClick={() => onTabAction("visits")} className="text-xs text-[#3366FF] font-semibold hover:underline">+ Schedule Visit</button>
+                <button onClick={() => onTabAction("visits")} className="text-xs text-zinc-900 font-semibold hover:underline">+ Schedule Visit</button>
               )}
             </div>
           </div>
@@ -694,8 +694,8 @@ function OverviewTab({
           {health && <HealthCard title="Lead Health" health={health} />}
           <SuggestionList suggestions={suggestions} onTabAction={onTabAction} />
 
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Add Internal Note</h3>
+          <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Add Internal Note</h3>
             <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Type private lead notes..." />
             <div className="flex justify-end">
               <Button size="sm" onClick={addNote} loading={saving} disabled={!note.trim()}>
@@ -705,16 +705,16 @@ function OverviewTab({
           </div>
 
           {lead.notes && (
-            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-              <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Existing Notes</h3>
-              <p className="whitespace-pre-wrap text-sm text-[#596579] bg-[#FAFBFC] p-3 rounded-xl border border-[#E7ECF2]">{lead.notes}</p>
+            <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">Existing Notes</h3>
+              <p className="whitespace-pre-wrap text-sm text-zinc-600 bg-zinc-50 p-3 rounded-xl border border-zinc-200">{lead.notes}</p>
             </div>
           )}
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Lead Controls</h3>
+          <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Lead Controls</h3>
             <Field label="Status">
               <Select value={status} onChange={(e) => onStatusChange(e.target.value)} disabled={saving}>
                 {STATUSES.map((s) => (
@@ -753,16 +753,16 @@ function OverviewTab({
           </div>
 
           {canManage && (
-            <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-                <UserIcon className="h-4 w-4 text-[#3366FF]" /> Assignment Details
+            <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs space-y-4">
+              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                <UserIcon className="h-4 w-4 text-zinc-900" /> Assignment Details
               </h3>
-              <p className="text-sm text-[#596579]">Currently: <span className="font-bold text-[#1B2430]">{assignment.user?.name ?? "Unassigned"}</span></p>
+              <p className="text-sm text-zinc-600">Currently: <span className="font-bold text-zinc-900">{assignment.user?.name ?? "Unassigned"}</span></p>
               {lead.assignmentReason && (
-                <p className="rounded-xl bg-[#FAFBFC] p-3 text-xs text-[#596579] border border-[#E7ECF2]">
+                <p className="rounded-xl bg-zinc-50 p-3 text-xs text-zinc-600 border border-zinc-200">
                   {lead.assignmentStrategy && <Badge tone="indigo" className="mr-1.5 mb-1">{enumToLabel(lead.assignmentStrategy)}</Badge>}
                   {lead.assignmentReason}
-                  {lead.autoAssignedAt && <span className="mt-1 block text-[#8A94A6]">{formatDateTime(lead.autoAssignedAt)}</span>}
+                  {lead.autoAssignedAt && <span className="mt-1 block text-zinc-400">{formatDateTime(lead.autoAssignedAt)}</span>}
                 </p>
               )}
               {!assignment.id && (
@@ -779,7 +779,7 @@ function OverviewTab({
                 </Select>
               </Field>
               {assignment.id && (
-                <div className="border-t border-[#EFF4FF] pt-3">
+                <div className="border-t border-zinc-100 pt-3">
                   <Field label="Transfer to executive">
                     <div className="flex gap-2">
                       <Select value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
@@ -803,29 +803,29 @@ function OverviewTab({
 
 function ScorePanel({ lead, onRecalculate, saving }: { lead: LeadWithRelations; onRecalculate: () => void; saving: boolean }) {
   const factors: ScoreFactor[] = lead.scoreExplanation ? JSON.parse(lead.scoreExplanation) : [];
-  const tone = lead.score >= 70 ? "red" : lead.score >= 40 ? "amber" : "blue";
+  const tone = lead.score >= 70 ? "red" : lead.score >= 40 ? "amber" : "slate";
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-          <Gauge className="h-4 w-4 text-[#3366FF]" /> Lead Quality Score
+        <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+          <Gauge className="h-4 w-4 text-zinc-900" /> Lead Quality Score
         </h3>
-        <button onClick={onRecalculate} disabled={saving} className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC] disabled:opacity-50">
+        <button onClick={onRecalculate} disabled={saving} className="text-xs font-semibold text-zinc-900 hover:underline disabled:opacity-50">
           Recalculate
         </button>
       </div>
       <div className="flex items-center gap-3">
-        <p className="text-4xl font-extrabold text-[#1B2430]">{lead.score}</p>
+        <p className="text-4xl font-extrabold text-zinc-900">{lead.score}</p>
         <Badge tone={tone}>{lead.priority}</Badge>
       </div>
-      {lead.scoreUpdatedAt && <p className="mt-1 text-xs text-[#8A94A6]">Updated {timeAgo(lead.scoreUpdatedAt)}</p>}
+      {lead.scoreUpdatedAt && <p className="mt-1 text-xs text-zinc-400">Updated {timeAgo(lead.scoreUpdatedAt)}</p>}
       {factors.length > 0 && (
-        <div className="mt-4 space-y-2 border-t border-[#EFF4FF] pt-3">
+        <div className="mt-4 space-y-2 border-t border-zinc-100 pt-3">
           {factors.map((f, i) => (
             <div key={i} className="flex items-start justify-between gap-2 text-xs">
-              <span className="text-[#596579]">{f.reason}</span>
-              <span className={`shrink-0 font-bold ${f.delta >= 0 ? "text-[#1FA971]" : "text-[#E5484D]"}`}>{f.delta >= 0 ? "+" : ""}{f.delta}</span>
+              <span className="text-zinc-600">{f.reason}</span>
+              <span className={`shrink-0 font-bold ${f.delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{f.delta >= 0 ? "+" : ""}{f.delta}</span>
             </div>
           ))}
         </div>
@@ -844,29 +844,29 @@ function ActivityTab({ activities, createdAt, followUps }: { activities: LeadWit
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-          <FileText className="h-4 w-4 text-[#3366FF]" /> Timeline Summary
+      <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
+        <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+          <FileText className="h-4 w-4 text-zinc-900" /> Timeline Summary
         </h3>
         <ul className="space-y-1.5">
           {summary.lines.map((line) => (
-            <li key={line.id} className="flex items-start gap-2 text-sm text-[#596579]">
-              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#3366FF]" />
+            <li key={line.id} className="flex items-start gap-2 text-sm text-zinc-600">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#0A0A0A]" />
               {line.text}
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Activity Timeline</h3>
-        {activities.length === 0 && <p className="text-sm text-[#8A94A6]">No activity recorded yet.</p>}
+      <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
+        <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-zinc-500">Activity Timeline</h3>
+        {activities.length === 0 && <p className="text-sm text-zinc-400">No activity recorded yet.</p>}
         <ol className="space-y-4">
           {activities.map((a) => (
-            <li key={a.id} className="relative border-l-2 border-[#E7ECF2] pl-4">
-              <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-[#3366FF]" />
-              <p className="text-sm font-semibold text-[#1B2430]">{a.description}</p>
-              <p className="text-xs text-[#8A94A6]">{a.actor ? `${a.actor.name} · ` : ""}{formatDateTime(a.createdAt)} ({timeAgo(a.createdAt)})</p>
+            <li key={a.id} className="relative border-l-2 border-zinc-200 pl-4">
+              <div className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-[#0A0A0A]" />
+              <p className="text-sm font-semibold text-zinc-900">{a.description}</p>
+              <p className="text-xs text-zinc-400">{a.actor ? `${a.actor.name} · ` : ""}{formatDateTime(a.createdAt)} ({timeAgo(a.createdAt)})</p>
             </li>
           ))}
         </ol>
@@ -939,8 +939,8 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Add Follow-up</h3>
+      <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Add Follow-up</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Select value={type} onChange={(e) => setType(e.target.value as FollowUpType)}>
             {HUMAN_FOLLOWUP_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
@@ -956,24 +956,24 @@ function FollowUpsTab({ leadId, followUps, employees }: { leadId: string; follow
         <Textarea rows={2} placeholder="Note (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-[#1B2430]">Follow-up History</h3>
-        {followUps.length === 0 && <p className="text-sm text-[#8A94A6]">No follow-ups scheduled.</p>}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs">
+        <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-zinc-500">Follow-up History</h3>
+        {followUps.length === 0 && <p className="text-sm text-zinc-400">No follow-ups scheduled.</p>}
         <div className="space-y-3">
           {followUps.map((f) => (
-            <div key={f.id} className="flex items-center justify-between gap-3 border-b border-[#EFF4FF] pb-3 last:border-0 last:pb-0">
+            <div key={f.id} className="flex items-center justify-between gap-3 border-b border-zinc-100 pb-3 last:border-0 last:pb-0">
               <div>
-                <p className="text-sm font-semibold text-[#1B2430]">{enumToLabel(f.type)} <span className="text-[#8A94A6] font-normal">&middot; {f.owner?.name ?? "Unassigned"}</span></p>
-                <p className="text-xs text-[#8A94A6]">{formatDateTime(f.dueDate)}{f.notes ? ` · ${f.notes}` : ""}</p>
+                <p className="text-sm font-semibold text-zinc-900">{enumToLabel(f.type)} <span className="text-zinc-400 font-normal">&middot; {f.owner?.name ?? "Unassigned"}</span></p>
+                <p className="text-xs text-zinc-400">{formatDateTime(f.dueDate)}{f.notes ? ` · ${f.notes}` : ""}</p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge tone={FOLLOWUP_STATUS_TONE[f.status]}>{enumToLabel(f.status)}</Badge>
                 {!["COMPLETED", "CANCELLED"].includes(f.status) && (
                   <>
-                  <button onClick={() => complete(f.id)} className="text-[#8A94A6] hover:text-[#1FA971] transition-colors" title="Mark completed">
+                  <button onClick={() => complete(f.id)} className="text-zinc-400 hover:text-emerald-600 transition-colors" title="Mark completed">
                     <CheckCircle2 className="h-5 w-5" />
                   </button>
-                  <button onClick={() => reschedule(f)} className="text-xs font-semibold text-[#3366FF] hover:underline">Reschedule</button>
+                  <button onClick={() => reschedule(f)} className="text-xs font-semibold text-zinc-900 hover:underline">Reschedule</button>
                   <button onClick={() => cancel(f.id)} className="text-xs font-semibold text-rose-600 hover:underline">Cancel</button>
                   </>
                 )}
@@ -1021,16 +1021,16 @@ function VisitsTab({
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs space-y-4">
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Site Visits</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Site Visits</h3>
         <div className="flex items-center gap-3">
           {canManage && (
-            <button onClick={() => setShowScheduleForm((v) => !v)} className="inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+            <button onClick={() => setShowScheduleForm((v) => !v)} className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 hover:underline">
               <CalendarPlus className="h-3.5 w-3.5" /> {showScheduleForm ? "Cancel" : "Schedule Visit"}
             </button>
           )}
-          <Link href="/visits" className="text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+          <Link href="/visits" className="text-xs font-semibold text-zinc-900 hover:underline">
             Visits module &rarr;
           </Link>
         </div>
@@ -1042,7 +1042,7 @@ function VisitsTab({
         </div>
       )}
 
-      {visits.length === 0 && !showScheduleForm && <p className="text-sm text-[#8A94A6]">No visits scheduled yet.</p>}
+      {visits.length === 0 && !showScheduleForm && <p className="text-sm text-zinc-400">No visits scheduled yet.</p>}
 
       <div className="space-y-3">
         {visits.map((v) => {
@@ -1051,27 +1051,27 @@ function VisitsTab({
             <div
               key={v.id}
               className={`rounded-xl border p-4 transition-colors ${
-                isHighlighted ? "border-[#3366FF] bg-[#EFF4FF]/20 ring-1 ring-[#3366FF]" : "border-[#E7ECF2] bg-[#FAFBFC]"
+                isHighlighted ? "border-zinc-900 bg-zinc-50 ring-1 ring-zinc-900" : "border-zinc-200 bg-zinc-50/50"
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="flex items-start gap-2 text-sm font-bold text-[#1B2430]">
-                    <Building2 className="h-4 w-4 text-[#3366FF] mt-0.5 shrink-0" />
+                  <p className="flex items-start gap-2 text-sm font-bold text-zinc-900">
+                    <Building2 className="h-4 w-4 text-zinc-900 mt-0.5 shrink-0" />
                     <span>
                       {v.properties && v.properties.length > 0
                         ? v.properties.map((p) => p.property.title).join(", ")
                         : v.property?.title ?? "No property selected"}
                     </span>
                   </p>
-                  <p className="mt-0.5 text-xs text-[#8A94A6]">
+                  <p className="mt-0.5 text-xs text-zinc-400">
                     {formatDate(v.visitDate)} at {v.visitTime} &middot; {v.assignedTo?.name ?? "Unassigned"}
                     {v.outcome ? ` · ${enumToLabel(v.outcome)}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone={VISIT_STATUS_TONE[v.status]}>{enumToLabel(v.status)}</Badge>
-                  <Link href={`/visits/${v.id}`} className="text-xs font-semibold text-[#3366FF] hover:underline">
+                  <Link href={`/visits/${v.id}`} className="text-xs font-semibold text-zinc-900 hover:underline">
                     View
                   </Link>
                 </div>
@@ -1087,7 +1087,7 @@ function VisitsTab({
                   </Select>
                 </div>
               )}
-              {v.employeeNotes && <p className="mt-2 text-xs text-[#596579]">{v.employeeNotes}</p>}
+              {v.employeeNotes && <p className="mt-2 text-xs text-zinc-600">{v.employeeNotes}</p>}
               {(visitSuggestions[v.id]?.length ?? 0) > 0 && (
                 <div className="mt-3">
                   <SuggestionList title="Smart suggestion" suggestions={visitSuggestions[v.id]} onTabAction={onTabAction} />
@@ -1103,21 +1103,21 @@ function VisitsTab({
 
 function SharedTab({ shares }: { shares: LeadWithRelations["sharedProperties"] }) {
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-      <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-        <MessageSquare className="h-4 w-4 text-[#25D366]" /> WhatsApp Share History
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs">
+      <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+        <MessageSquare className="h-4 w-4 text-emerald-600" /> WhatsApp Share History
       </h3>
-      {shares.length === 0 && <p className="text-sm text-[#8A94A6]">No properties shared yet.</p>}
+      {shares.length === 0 && <p className="text-sm text-zinc-400">No properties shared yet.</p>}
       <div className="space-y-3">
         {shares.map((s) => {
           const ids: string[] = JSON.parse(s.propertyIds);
           return (
-            <div key={s.id} className="rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-4">
-              <p className="text-sm font-bold text-[#1B2430]">
+            <div key={s.id} className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+              <p className="text-sm font-bold text-zinc-900">
                 {ids.length} propert{ids.length > 1 ? "ies" : "y"} shared
               </p>
-              <p className="mt-0.5 text-xs text-[#8A94A6]">{formatDateTime(s.createdAt)}</p>
-              <a href={s.whatsappLink} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#25D366] hover:underline">
+              <p className="mt-0.5 text-xs text-zinc-400">{formatDateTime(s.createdAt)}</p>
+              <a href={s.whatsappLink} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline">
                 <Send className="h-3.5 w-3.5" /> Reopen WhatsApp message
               </a>
             </div>

@@ -47,16 +47,16 @@ export function InstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-40 flex items-center justify-between gap-3 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-lg lg:bottom-4 lg:left-auto lg:right-4 lg:w-96">
+    <div className="fixed bottom-20 left-4 right-4 z-40 flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-lg lg:bottom-4 lg:left-auto lg:right-4 lg:w-96">
       <div>
-        <p className="text-sm font-semibold text-[#1B2430]">Install this app</p>
-        <p className="text-xs text-[#596579]">Add to your home screen for quick, app-like access.</p>
+        <p className="text-sm font-semibold text-zinc-900">Install this app</p>
+        <p className="text-xs text-zinc-500">Add to your home screen for quick, app-like access.</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <Button size="sm" onClick={install}>
           <Download className="h-4 w-4" /> Install
         </Button>
-        <button type="button" onClick={dismiss} aria-label="Dismiss" className="rounded-lg p-1.5 text-[#8A94A6] hover:bg-[#F3F6FA]">
+        <button type="button" onClick={dismiss} aria-label="Dismiss" className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900">
           <X className="h-4 w-4" />
         </button>
       </div>

@@ -77,8 +77,8 @@ export function PropertyReportPanel({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs space-y-2">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-[#1B2430]">Report an Issue</h3>
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs space-y-2">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500">Report an Issue</h3>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button size="touch" variant="secondary" className="flex-1" onClick={() => setMode("report")}>
           <Flag className="h-4 w-4" /> Report Data Issue

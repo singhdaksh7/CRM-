@@ -193,42 +193,42 @@ export function EditCatalogueDialog({
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-[#1B2430]">Selected Properties ({entries.length})</p>
+            <p className="text-sm font-semibold text-zinc-900">Selected Properties ({entries.length})</p>
             <Button type="button" size="sm" variant="secondary" onClick={() => setPickerOpen(true)}>
               <Plus className="h-3.5 w-3.5" /> Add Other Properties
             </Button>
           </div>
 
           {entries.length === 0 ? (
-            <p className="py-6 text-center text-xs text-[#8A94A6]">No properties selected - add at least one before saving.</p>
+            <p className="py-6 text-center text-xs text-zinc-400">No properties selected - add at least one before saving.</p>
           ) : (
             <ul className="space-y-2">
               {entries.map((e, idx) => {
                 const price = e.property.listingType === "RENT" ? formatINR(e.property.monthlyRent, { suffix: "month" }) : formatINR(e.property.salePrice, { compact: true });
                 return (
-                  <li key={e.propertyId} className="flex items-center gap-3 rounded-xl border border-[#E7ECF2] bg-white p-2.5">
-                    <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-[#FAFBFC]">
+                  <li key={e.propertyId} className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-2.5">
+                    <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
                       {e.property.coverImage ? (
                         <Image src={e.property.coverImage} alt={e.property.title} fill className="object-cover" unoptimized />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[#8A94A6]"><ImageOff className="h-4 w-4" /></div>
+                        <div className="flex h-full w-full items-center justify-center text-zinc-400"><ImageOff className="h-4 w-4" /></div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#1B2430]">{e.property.title}</p>
-                      <p className="truncate text-xs text-[#596579]">
+                      <p className="truncate text-sm font-semibold text-zinc-900">{e.property.title}</p>
+                      <p className="truncate text-xs text-zinc-500">
                         {e.property.propertyCode} &middot; {e.property.area} &middot; {price}
-                        {e.addedManually && <span className="ml-1.5 text-[#3366FF]">&middot; manually added</span>}
+                        {e.addedManually && <span className="ml-1.5 font-medium text-zinc-900">&middot; manually added</span>}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
-                      <button type="button" onClick={() => move(e.propertyId, -1)} disabled={idx === 0} aria-label="Move up" className="rounded-lg p-1.5 text-[#8A94A6] hover:bg-[#F3F6FA] hover:text-[#1B2430] disabled:opacity-30">
+                      <button type="button" onClick={() => move(e.propertyId, -1)} disabled={idx === 0} aria-label="Move up" className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-30">
                         <ArrowUp className="h-3.5 w-3.5" />
                       </button>
-                      <button type="button" onClick={() => move(e.propertyId, 1)} disabled={idx === entries.length - 1} aria-label="Move down" className="rounded-lg p-1.5 text-[#8A94A6] hover:bg-[#F3F6FA] hover:text-[#1B2430] disabled:opacity-30">
+                      <button type="button" onClick={() => move(e.propertyId, 1)} disabled={idx === entries.length - 1} aria-label="Move down" className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-30">
                         <ArrowDown className="h-3.5 w-3.5" />
                       </button>
-                      <button type="button" onClick={() => remove(e.propertyId)} aria-label={`Remove ${e.property.title}`} className="rounded-lg p-1.5 text-[#8A94A6] hover:bg-[#FFF1F0] hover:text-[#E5484D]">
+                      <button type="button" onClick={() => remove(e.propertyId)} aria-label={`Remove ${e.property.title}`} className="rounded-lg p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -238,7 +238,7 @@ export function EditCatalogueDialog({
             </ul>
           )}
 
-          <div className="flex justify-end gap-2 border-t border-[#EFF4FF] pt-3">
+          <div className="flex justify-end gap-2 border-t border-zinc-200 pt-3">
             <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
               Cancel
             </Button>

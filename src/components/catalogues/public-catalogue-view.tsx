@@ -60,12 +60,12 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
   if (catalogue.status !== "ACTIVE") {
     return (
       <main className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-8">
-        <p className="text-lg font-bold text-[#1B2430]">
+        <p className="text-lg font-bold text-[#09090B]">
           This catalogue is {catalogue.status === "EXPIRED" ? "no longer available" : "no longer active"}.
         </p>
-        <p className="mt-2 text-sm text-[#596579]">Please contact your broker for updated options.</p>
+        <p className="mt-2 text-sm text-[#52525B]">Please contact your broker for updated options.</p>
         {catalogue.brokerageContactPhone && (
-          <a href={`tel:${catalogue.brokerageContactPhone}`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#3366FF] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-[#2952CC]">
+          <a href={`tel:${catalogue.brokerageContactPhone}`} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#0A0A0A] px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-zinc-800">
             <Phone className="h-4 w-4" /> Call {catalogue.brokerageName}
           </a>
         )}
@@ -75,14 +75,14 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
-        <h1 className="text-xl font-bold text-[#1B2430]">{catalogue.title}</h1>
-        <p className="mt-1 text-sm text-[#596579]">Hi {catalogue.clientFirstName}, {catalogue.introMessage || `here are properties matching ${catalogue.requirementSummary}.`}</p>
-        {catalogue.expiresAt && <p className="mt-1 text-xs text-[#8A94A6]">This link expires on {new Date(catalogue.expiresAt).toLocaleDateString("en-IN")}</p>}
+      <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
+        <h1 className="text-xl font-bold text-[#09090B]">{catalogue.title}</h1>
+        <p className="mt-1 text-sm text-[#52525B]">Hi {catalogue.clientFirstName}, {catalogue.introMessage || `here are properties matching ${catalogue.requirementSummary}.`}</p>
+        {catalogue.expiresAt && <p className="mt-1 text-xs text-[#71717A]">This link expires on {new Date(catalogue.expiresAt).toLocaleDateString("en-IN")}</p>}
       </div>
 
       {catalogue.properties.length === 0 ? (
-        <p className="mt-6 text-center text-sm text-[#8A94A6]">No properties in this catalogue.</p>
+        <p className="mt-6 text-center text-sm text-[#71717A]">No properties in this catalogue.</p>
       ) : (
         <div className="mt-4 space-y-4 pb-24">
           {catalogue.properties.map((p) => (
@@ -99,14 +99,14 @@ export function PublicCatalogueView({ catalogue, token }: { catalogue: PublicCat
       )}
 
       {(catalogue.brokerageContactPhone || whatsappHref) && (
-        <div className="mt-6 rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-          <p className="mb-3 text-sm font-bold text-[#1B2430]">Have questions or ready to move forward?</p>
+        <div className="mt-6 rounded-xl border border-[#E4E4E7] bg-white p-4 shadow-xs">
+          <p className="mb-3 text-sm font-bold text-[#09090B]">Have questions or ready to move forward?</p>
           <div className="flex flex-col gap-2 sm:flex-row">
             {catalogue.brokerageContactPhone && (
               <a
                 href={`tel:${catalogue.brokerageContactPhone}`}
                 onClick={() => recordPageInteraction(token, "CALL_REQUESTED")}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white border border-[#E7ECF2] px-4 py-2.5 text-sm font-semibold text-[#1B2430] hover:bg-[#F3F6FA]"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white border border-[#E4E4E7] px-4 py-2.5 text-sm font-semibold text-[#09090B] hover:bg-zinc-50"
               >
                 <Phone className="h-4 w-4" /> Call Broker
               </a>
@@ -175,20 +175,20 @@ function BulkVisitBar({
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-10 border-t border-[#E7ECF2] bg-white p-4 shadow-lg">
+    <div className="fixed inset-x-0 bottom-0 z-10 border-t border-[#E4E4E7] bg-white p-4 shadow-lg">
       <div className="mx-auto max-w-3xl">
-        <p className="mb-2 text-sm font-bold text-[#1B2430]">Request visits for selected properties ({selectedIds.size})</p>
+        <p className="mb-2 text-sm font-bold text-[#09090B]">Request visits for selected properties ({selectedIds.size})</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="date"
             value={preferredDate}
             onChange={(e) => setPreferredDate(e.target.value)}
-            className="flex-1 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] px-2 py-1.5 text-xs text-[#1B2430]"
+            className="flex-1 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] px-2 py-1.5 text-xs text-[#09090B]"
           />
           <select
             value={preferredWindow}
             onChange={(e) => setPreferredWindow(e.target.value)}
-            className="flex-1 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] px-2 py-1.5 text-xs text-[#1B2430]"
+            className="flex-1 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] px-2 py-1.5 text-xs text-[#09090B]"
           >
             <option value="">Any time</option>
             <option value="Morning">Morning</option>
@@ -200,17 +200,17 @@ function BulkVisitBar({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Optional message"
-            className="flex-1 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] px-2 py-1.5 text-xs text-[#1B2430]"
+            className="flex-1 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] px-2 py-1.5 text-xs text-[#09090B]"
           />
           <button
             onClick={submit}
             disabled={submitting}
-            className="rounded-xl bg-[#3366FF] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-[#2952CC]"
+            className="rounded-xl bg-[#0A0A0A] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-zinc-800"
           >
             {submitting ? "Requesting…" : "Request Visits"}
           </button>
         </div>
-        <p className="mt-2 text-[11px] text-[#8A94A6]">We&apos;ll have the broker contact you to confirm these visits - they aren&apos;t booked automatically.</p>
+        <p className="mt-2 text-[11px] text-[#71717A]">We&apos;ll have the broker contact you to confirm these visits - they aren&apos;t booked automatically.</p>
       </div>
     </div>
   );
@@ -248,7 +248,7 @@ function PropertyGallery({ images, coverImage, title, area }: { images: string[]
   }
 
   if (gallery.length === 0 || !current) {
-    return <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">No photo available</div>;
+    return <div className="flex h-full w-full items-center justify-center text-xs text-zinc-400">No photo available</div>;
   }
 
   return (
@@ -269,7 +269,7 @@ function PropertyGallery({ images, coverImage, title, area }: { images: string[]
           always navigate away from it to a working photo, rather than
           getting stuck on a dead end. */}
       {currentFailed ? (
-        <div className="flex h-full w-full items-center justify-center text-xs text-[#8A94A6]">Photo unavailable</div>
+        <div className="flex h-full w-full items-center justify-center text-xs text-zinc-400">Photo unavailable</div>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element -- external signed/legacy URLs, loaded lazily
         <img
@@ -390,8 +390,8 @@ function PropertyCard({
   const isAvailable = property.isAvailable;
 
   return (
-    <div className={`overflow-hidden rounded-2xl border bg-white shadow-xs ${isAvailable ? "border-[#E7ECF2]" : "border-[#E7ECF2] opacity-75"}`}>
-      <div className="relative h-56 w-full bg-[#FAFBFC]">
+    <div className={`overflow-hidden rounded-xl border bg-white shadow-xs ${isAvailable ? "border-[#E4E4E7]" : "border-[#E4E4E7] opacity-75"}`}>
+      <div className="relative h-56 w-full bg-[#FAFAFA]">
         <PropertyGallery images={property.images} coverImage={property.coverImage} title={property.title} area={property.area} />
         {!isAvailable && (
           <div className="absolute left-2 top-2">
@@ -401,39 +401,39 @@ function PropertyCard({
       </div>
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base font-bold text-[#1B2430]">{property.title}</h3>
+          <h3 className="text-base font-bold text-[#09090B]">{property.title}</h3>
           {onToggleSelected && (
-            <label className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#596579]">
+            <label className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-[#52525B]">
               <input
                 type="checkbox"
                 checked={selected}
                 onChange={onToggleSelected}
                 aria-label={`Select ${property.title} for a bulk visit request`}
-                className="h-4 w-4 rounded border-[#E7ECF2] text-[#3366FF] focus:ring-[#3366FF]"
+                className="h-4 w-4 rounded border-[#E4E4E7] text-[#0A0A0A] focus:ring-[#0A0A0A]"
               />
               Select
             </label>
           )}
         </div>
-        <p className="mt-1 flex items-center gap-1 text-sm text-[#596579]">
-          <MapPin className="h-3.5 w-3.5 text-[#3366FF]" /> {property.address ?? property.area}, Delhi
+        <p className="mt-1 flex items-center gap-1 text-sm text-[#52525B]">
+          <MapPin className="h-3.5 w-3.5 text-[#09090B]" /> {property.address ?? property.area}, Delhi
         </p>
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#596579]">
+        <div className="mt-2 flex flex-wrap gap-3 text-xs text-[#52525B]">
           {catalogueSpecChips(property).map((chip) => (
             <span key={chip.label} className="flex items-center gap-1">
               {chip.kind === "bhk" ? <BedDouble className="h-3.5 w-3.5" /> : chip.kind === "bath" ? <Bath className="h-3.5 w-3.5" /> : chip.kind === "area" ? <Ruler className="h-3.5 w-3.5" /> : <BriefcaseBusiness className="h-3.5 w-3.5" />} {chip.label}
             </span>
           ))}
         </div>
-        {property.price && <p className="mt-2 text-lg font-bold text-[#3366FF]">{property.price}</p>}
-        {property.brokerage && <p className="text-xs text-[#8A94A6]">Brokerage: {property.brokerage}</p>}
-        {property.furnishing && <p className="mt-1 text-xs text-[#596579]">{property.furnishing.replace(/_/g, " ")}</p>}
+        {property.price && <p className="mt-2 text-lg font-bold text-[#09090B]">{property.price}</p>}
+        {property.brokerage && <p className="text-xs text-[#71717A]">Brokerage: {property.brokerage}</p>}
+        {property.furnishing && <p className="mt-1 text-xs text-[#52525B]">{property.furnishing.replace(/_/g, " ")}</p>}
         {property.availableFrom && (
-          <p className="mt-1 flex items-center gap-1 text-xs text-[#8A94A6]">
+          <p className="mt-1 flex items-center gap-1 text-xs text-[#71717A]">
             <Clock className="h-3 w-3" /> Available from {new Date(property.availableFrom).toLocaleDateString("en-IN")}
           </p>
         )}
-        {property.customNote && <p className="mt-2 rounded-xl bg-[#EFF4FF] p-2 text-xs text-[#3366FF]">{property.customNote}</p>}
+        {property.customNote && <p className="mt-2 rounded-xl bg-[#F4F4F5] border border-[#E4E4E7] p-2 text-xs text-[#09090B]">{property.customNote}</p>}
 
         {property.amenities.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -447,7 +447,7 @@ function PropertyCard({
           <>
             <div className="mt-3 flex flex-wrap gap-2">
               {mapsUrl && (
-                <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-xl bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1B2430] border border-[#E7ECF2] hover:bg-[#F3F6FA]">
+                <a href={mapsUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-xl bg-white px-2.5 py-1.5 text-xs font-semibold text-[#09090B] border border-[#E4E4E7] hover:bg-zinc-50">
                   <Navigation className="h-3.5 w-3.5" /> {property.locationDisclosure === "APPROXIMATE" ? "Open Approximate Area" : "Open in Maps"}
                 </a>
               )}
@@ -490,25 +490,25 @@ function PropertyCard({
               />
             )}
             {expanded === "visit" && (
-              <div className="mt-3 space-y-2 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-3">
+              <div className="mt-3 space-y-2 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] p-3">
                 <div className="flex gap-2">
-                  <input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} className="flex-1 rounded-xl border border-[#E7ECF2] bg-white px-2 py-1.5 text-xs text-[#1B2430]" />
-                  <select value={preferredWindow} onChange={(e) => setPreferredWindow(e.target.value)} className="flex-1 rounded-xl border border-[#E7ECF2] bg-white px-2 py-1.5 text-xs text-[#1B2430]">
+                  <input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)} className="flex-1 rounded-xl border border-[#E4E4E7] bg-white px-2 py-1.5 text-xs text-[#09090B]" />
+                  <select value={preferredWindow} onChange={(e) => setPreferredWindow(e.target.value)} className="flex-1 rounded-xl border border-[#E4E4E7] bg-white px-2 py-1.5 text-xs text-[#09090B]">
                     <option value="">Any time</option>
                     <option value="Morning">Morning</option>
                     <option value="Afternoon">Afternoon</option>
                     <option value="Evening">Evening</option>
                   </select>
                 </div>
-                <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Optional message" rows={2} className="w-full rounded-xl border border-[#E7ECF2] bg-white px-2 py-1.5 text-xs text-[#1B2430]" />
+                <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Optional message" rows={2} className="w-full rounded-xl border border-[#E4E4E7] bg-white px-2 py-1.5 text-xs text-[#09090B]" />
                 <button
                   onClick={() => interact("VISIT_REQUESTED", { preferredDate, preferredWindow, message })}
                   disabled={submitting}
-                  className="w-full rounded-xl bg-[#3366FF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-[#2952CC]"
+                  className="w-full rounded-xl bg-[#0A0A0A] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-zinc-800"
                 >
                   Confirm Visit Request
                 </button>
-                <p className="text-[11px] text-[#8A94A6]">We&apos;ll have the broker contact you to confirm this visit - it isn&apos;t booked automatically.</p>
+                <p className="text-[11px] text-[#71717A]">We&apos;ll have the broker contact you to confirm this visit - it isn&apos;t booked automatically.</p>
               </div>
             )}
           </>
@@ -536,10 +536,10 @@ function ActionButton({
   lockWhenDone?: boolean;
 }) {
   const toneClasses: Record<string, string> = {
-    green: "text-[#1FA971] border-[#B8F3D1] bg-[#E6F9EE]",
-    slate: "text-[#596579] border-[#E7ECF2] bg-white",
-    indigo: "text-[#3366FF] border-[#C2D1FF] bg-[#EFF4FF]",
-    amber: "text-[#E6A23C] border-[#FCE6C3] bg-[#FFF8EE]",
+    green: "text-emerald-700 border-emerald-200 bg-emerald-50",
+    slate: "text-[#52525B] border-[#E4E4E7] bg-white hover:bg-zinc-50",
+    indigo: "text-[#09090B] border-[#E4E4E7] bg-white hover:bg-zinc-50",
+    amber: "text-amber-700 border-amber-200 bg-amber-50",
   };
   return (
     <button
@@ -569,12 +569,12 @@ function InlineForm({
   required?: boolean;
 }) {
   return (
-    <div className="mt-3 space-y-2 rounded-xl border border-[#E7ECF2] bg-[#FAFBFC] p-3">
-      <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={placeholder} rows={2} className="w-full rounded-xl border border-[#E7ECF2] bg-white px-2 py-1.5 text-xs text-[#1B2430]" />
+    <div className="mt-3 space-y-2 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] p-3">
+      <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder={placeholder} rows={2} className="w-full rounded-xl border border-[#E4E4E7] bg-white px-2 py-1.5 text-xs text-[#09090B]" />
       <button
         onClick={onSubmit}
         disabled={submitting || (required && !message.trim())}
-        className="w-full rounded-xl bg-[#3366FF] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-[#2952CC]"
+        className="w-full rounded-xl bg-[#0A0A0A] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50 hover:bg-zinc-800"
       >
         Submit
       </button>

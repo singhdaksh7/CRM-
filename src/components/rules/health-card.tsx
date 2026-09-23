@@ -17,30 +17,30 @@ const HEALTH_LABEL_TONE: Record<HealthLabel, BadgeTone> = {
  */
 export function HealthCard({ title, health }: { title: string; health: HealthScoreResult }) {
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-5 shadow-xs">
+    <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-xs">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B2430]">
-          <HeartPulse className="h-4 w-4 text-[#3366FF]" /> {title}
+        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#09090B]">
+          <HeartPulse className="h-4 w-4 text-[#09090B]" /> {title}
         </h3>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#8A94A6]">Smart suggestion</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">Smart suggestion</span>
       </div>
       <div className="flex items-center gap-3">
-        <p className="text-4xl font-extrabold text-[#1B2430]">{health.score}</p>
+        <p className="text-4xl font-extrabold text-[#09090B]">{health.score}</p>
         <Badge tone={HEALTH_LABEL_TONE[health.label]}>{health.label}</Badge>
       </div>
 
       {health.recommendedAction && (
-        <p className="mt-3 rounded-xl border border-[#CCE0FF] bg-[#EFF4FF] p-3 text-xs font-medium text-[#1B2430]">
-          <span className="font-bold text-[#3366FF]">Recommended action: </span>
+        <p className="mt-3 rounded-xl border border-[#E4E4E7] bg-[#FAFAFA] p-3 text-xs font-medium text-[#09090B]">
+          <span className="font-bold text-[#09090B]">Recommended action: </span>
           {health.recommendedAction}
         </p>
       )}
 
       {health.positives.length > 0 && (
-        <div className="mt-4 space-y-1.5 border-t border-[#EFF4FF] pt-3">
+        <div className="mt-4 space-y-1.5 border-t border-[#E4E4E7] pt-3">
           {health.positives.map((r, i) => (
-            <div key={`p-${i}`} className="flex items-start gap-2 text-xs text-[#596579]">
-              <span className="mt-0.5 text-[#1FA971]">+</span>
+            <div key={`p-${i}`} className="flex items-start gap-2 text-xs text-[#52525B]">
+              <span className="mt-0.5 text-emerald-600 font-bold">+</span>
               <span>{r.detail}</span>
             </div>
           ))}
@@ -48,10 +48,10 @@ export function HealthCard({ title, health }: { title: string; health: HealthSco
       )}
 
       {health.warnings.length > 0 && (
-        <div className="mt-3 space-y-1.5 border-t border-[#EFF4FF] pt-3">
+        <div className="mt-3 space-y-1.5 border-t border-[#E4E4E7] pt-3">
           {health.warnings.map((r, i) => (
-            <div key={`w-${i}`} className="flex items-start gap-2 text-xs text-[#596579]">
-              <span className="mt-0.5 text-[#E5484D]">!</span>
+            <div key={`w-${i}`} className="flex items-start gap-2 text-xs text-[#52525B]">
+              <span className="mt-0.5 text-red-600 font-bold">!</span>
               <span>{r.detail}</span>
             </div>
           ))}

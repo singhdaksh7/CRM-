@@ -38,7 +38,7 @@ export function EmployeeDirectoryLabelSettings() {
   }
 
   return (
-    <div className="space-y-2 border-t border-[#EFF4FF] pt-3">
+    <div className="space-y-2 border-t border-zinc-200 pt-3">
       <Field label="Employee Directory Name" hint="Controls how the employee directory is named throughout the CRM." required>
         <Input value={label} maxLength={40} onChange={(event) => setLabel(event.target.value)} />
       </Field>

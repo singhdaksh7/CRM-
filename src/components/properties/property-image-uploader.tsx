@@ -31,6 +31,8 @@ function friendlyError(status: number | undefined, raw: string): string {
   return "Upload failed. Please try again.";
 }
 
+const DEFAULT_ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"];
+
 export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: string; onUploaded?: () => void }) {
   const { capabilities, loading } = useStorageCapabilities();
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -38,7 +40,7 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
   const inputRef = useRef<HTMLInputElement>(null);
 
   const maxBytes = capabilities?.propertyImages.maxSizeBytes ?? 10 * 1024 * 1024;
-  const allowedMimes = capabilities?.propertyImages.allowedMimeTypes ?? ["image/jpeg", "image/png", "image/webp"];
+  const allowedMimes = capabilities?.propertyImages.allowedMimeTypes ?? DEFAULT_ALLOWED_MIMES;
   const uploadsEnabled = !!capabilities?.propertyImages.enabled;
 
   const addFiles = useCallback(
@@ -200,12 +202,12 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
         }}
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
-          dragActive ? "border-[#4F8CFF] bg-[rgba(79,140,255,0.06)]" : "border-[rgba(255,255,255,0.14)] bg-[#11151F] hover:border-[rgba(255,255,255,0.25)]"
+          dragActive ? "border-zinc-900 bg-zinc-100" : "border-zinc-200 bg-zinc-50/70 hover:border-zinc-400 hover:bg-zinc-50"
         )}
       >
-        <UploadCloud className="h-7 w-7 text-[#4F8CFF]" />
-        <p className="text-sm font-semibold text-[#F8FAFC]">Drag and drop images, or click to browse</p>
-        <p className="text-xs text-[#94A3B8]">JPEG, PNG or WebP · optimized to WebP · up to {Math.round(maxBytes / (1024 * 1024))} MB each</p>
+        <UploadCloud className="h-7 w-7 text-zinc-700" />
+        <p className="text-sm font-semibold text-zinc-900">Drag and drop images, or click to browse</p>
+        <p className="text-xs text-zinc-500">JPEG, PNG or WebP · optimized to WebP · up to {Math.round(maxBytes / (1024 * 1024))} MB each</p>
         <input
           ref={inputRef}
           type="file"
@@ -221,7 +223,7 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
       </div>
 
       {(busyCount > 0 || doneCount > 0) && (
-        <p className="text-xs text-[#94A3B8]" aria-live="polite">
+        <p className="text-xs text-zinc-500" aria-live="polite">
           Uploading {doneCount} of {queue.filter((i) => i.status !== "failed" && i.status !== "removed").length}
           {busyCount > 0 ? ` · ${busyCount} in progress` : ""}
         </p>
@@ -231,8 +233,8 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
         <>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Selected images">
             {queue.map((item) => (
-              <li key={item.id} className="relative overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#11151F]">
-                <div className="relative h-24 w-full">
+              <li key={item.id} className="relative overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xs">
+                <div className="relative h-24 w-full bg-zinc-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.previewUrl} alt={item.file.name} className="h-full w-full object-cover" />
                   {item.status !== "uploaded" && (
@@ -251,29 +253,29 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
                       onClick={() => toggleCover(item.id)}
                       aria-pressed={item.isCover}
                       aria-label={`Set ${item.file.name} as cover image`}
-                      className={cn("absolute left-1 top-1 rounded-full p-1", item.isCover ? "bg-[#4F8CFF] text-white" : "bg-black/60 text-white hover:bg-black/80")}
+                      className={cn("absolute left-1 top-1 rounded-full p-1", item.isCover ? "bg-zinc-900 text-white" : "bg-black/60 text-white hover:bg-black/80")}
                     >
                       <Star className="h-3 w-3" fill={item.isCover ? "currentColor" : "none"} />
                     </button>
                   )}
                 </div>
-                <div className="p-1.5">
-                  <p className="truncate text-[11px] font-medium text-[#CBD5E1]">{item.file.name}</p>
-                  <p className="text-[10px] text-[#64748B]">{(item.file.size / 1024).toFixed(0)} KB</p>
+                <div className="p-2">
+                  <p className="truncate text-xs font-medium text-zinc-900">{item.file.name}</p>
+                  <p className="text-[10px] text-zinc-400">{(item.file.size / 1024).toFixed(0)} KB</p>
                   {["optimizing", "authorizing", "uploading", "confirming"].includes(item.status) && (
                     <ProgressBar value={item.progress} label={`Uploading ${item.file.name}`} className="mt-1" />
                   )}
                   <p className="mt-1 flex items-center gap-1 text-[10px]" aria-live="polite">
-                    {item.status === "waiting" && !item.error && <span className="text-[#94A3B8]">Waiting</span>}
-                    {item.status === "optimizing" && <span className="text-[#4F8CFF]">Optimizing…</span>}
-                    {item.status === "authorizing" && <span className="text-[#4F8CFF]">Authorizing…</span>}
-                    {item.status === "uploading" && <span className="text-[#4F8CFF]">Uploading…</span>}
-                    {item.status === "confirming" && <span className="text-[#4F8CFF]">Confirming…</span>}
-                    {item.status === "uploaded" && <span className="text-[#22C55E]">Uploaded</span>}
-                    {item.status === "failed" && <span className="text-[#EF4444]">{item.error}</span>}
+                    {item.status === "waiting" && !item.error && <span className="text-zinc-500">Waiting</span>}
+                    {item.status === "optimizing" && <span className="text-zinc-900 font-medium">Optimizing…</span>}
+                    {item.status === "authorizing" && <span className="text-zinc-900 font-medium">Authorizing…</span>}
+                    {item.status === "uploading" && <span className="text-zinc-900 font-medium">Uploading…</span>}
+                    {item.status === "confirming" && <span className="text-zinc-900 font-medium">Confirming…</span>}
+                    {item.status === "uploaded" && <span className="font-semibold text-emerald-600">Uploaded</span>}
+                    {item.status === "failed" && <span className="font-medium text-red-600">{item.error}</span>}
                   </p>
                   {item.status === "failed" && !item.error?.includes("not supported") && !item.error?.includes("larger than") && (
-                    <button type="button" onClick={() => void uploadItem(item)} className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-[#4F8CFF] hover:underline">
+                    <button type="button" onClick={() => void uploadItem(item)} className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-zinc-900 hover:underline">
                       <RotateCcw className="h-3 w-3" /> Retry
                     </button>
                   )}

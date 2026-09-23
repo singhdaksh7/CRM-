@@ -14,8 +14,8 @@ export default async function EditInventoryPartnerPage({ params }: { params: Pro
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="border-b border-[#E7ECF2] pb-5">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Edit {partner.name}</h1>
+      <div className="border-b border-zinc-200 pb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Edit {partner.name}</h1>
       </div>
       <InventoryPartnerForm partner={partner} />
     </div>

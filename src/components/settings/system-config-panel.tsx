@@ -65,7 +65,7 @@ export function SystemConfigPanel() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-[#8A94A6]">
+      <p className="text-xs text-zinc-500">
         <Badge tone="green">Active</Badge> settings are read by live business logic - changing them changes real behavior the next time that service runs.{" "}
         <Badge tone="slate">Not active yet</Badge> settings are stored for a planned feature that does not exist yet, or don&apos;t have a safe wiring point without changing existing behavior - they are read-only until wired.
       </p>
@@ -110,11 +110,11 @@ export function SystemConfigPanel() {
         </Field>
       </div>
 
-      <div className="rounded-xl border border-dashed border-[#E7ECF2] p-4 opacity-60">
-        <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#8A94A6]">
+      <div className="rounded-xl border border-dashed border-zinc-200 p-4 opacity-60">
+        <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Health Score Weights (should sum to ~100) <StatusBadge active={false} />
         </p>
-        <p className="mb-3 text-xs text-[#8A94A6]">Matches the property-matching algorithm&apos;s built-in weights, but is not yet wired to it - changing these has no effect.</p>
+        <p className="mb-3 text-xs text-zinc-500">Matches the property-matching algorithm&apos;s built-in weights, but is not yet wired to it - changing these has no effect.</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {(Object.keys(config.healthScoreWeights) as (keyof SystemConfigValues["healthScoreWeights"])[]).map((key) => (
             <Field key={key} label={key}>

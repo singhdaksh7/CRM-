@@ -45,8 +45,8 @@ export default async function PortalSyncConflictsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#1B2430]">Portal Sync Conflicts</h1>
-        <p className="mt-1 text-sm text-[#596579]">Listings where a provider snapshot differs from CRM state on price, availability, or metadata. Resolutions are recorded for human follow-up; nothing is applied automatically.</p>
+        <h1 className="text-2xl font-bold text-zinc-900">Portal Sync Conflicts</h1>
+        <p className="mt-1 text-sm text-zinc-500">Listings where a provider snapshot differs from CRM state on price, availability, or metadata. Resolutions are recorded for human follow-up; nothing is applied automatically.</p>
       </div>
       <ConflictList conflicts={conflicts} canResolve={["ADMIN", "DATA_MANAGER"].includes(session.user.role)} />
     </div>

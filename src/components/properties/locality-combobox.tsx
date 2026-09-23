@@ -133,14 +133,14 @@ export function LocalityCombobox({
         autoComplete="off"
       />
       {open && (
-        <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-[#E7ECF2] bg-white shadow-lg">
-          {loading && <p className="px-3 py-2 text-xs text-[#8A94A6]">Searching...</p>}
-          {!loading && options.length === 0 && !showAddOption && <p className="px-3 py-2 text-xs text-[#8A94A6]">No matches</p>}
+        <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg">
+          {loading && <p className="px-3 py-2 text-xs text-zinc-500">Searching...</p>}
+          {!loading && options.length === 0 && !showAddOption && <p className="px-3 py-2 text-xs text-zinc-500">No matches</p>}
           {options.map((opt) => (
             <button
               key={opt.id}
               type="button"
-              className="block w-full truncate px-3 py-2 text-left text-sm text-[#1B2430] hover:bg-[#F3F6FA]"
+              className="block w-full truncate px-3 py-2 text-left text-sm text-zinc-900 hover:bg-zinc-100 transition-colors"
               onClick={() => {
                 select(opt.name);
                 onSelectLocality?.(opt);
@@ -153,7 +153,7 @@ export function LocalityCombobox({
             <button
               type="button"
               disabled={creating}
-              className="block w-full truncate border-t border-[#EFF4FF] px-3 py-2 text-left text-sm font-semibold text-[#3366FF] hover:bg-[#EFF4FF] disabled:opacity-50"
+              className="block w-full truncate border-t border-zinc-200 px-3 py-2 text-left text-sm font-semibold text-zinc-900 hover:bg-zinc-100 transition-colors disabled:opacity-50"
               onClick={addNew}
             >
               {creating ? "Adding..." : `+ Add "${trimmedQuery}"`}

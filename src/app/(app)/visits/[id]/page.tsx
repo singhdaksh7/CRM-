@@ -75,13 +75,13 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="mx-auto max-w-3xl space-y-5 pb-24">
       <div>
-        <Link href="/visits" className="inline-flex items-center gap-1 text-sm font-semibold text-[#596579] hover:text-[#3366FF]">
+        <Link href="/visits" className="inline-flex items-center gap-1 text-sm font-semibold text-zinc-500 hover:text-zinc-900">
           <ArrowLeft className="h-4 w-4" /> All visits
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">{dto.client.name}</h1>
-            <p className="mt-1 text-sm text-[#596579]">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">{dto.client.name}</h1>
+            <p className="mt-1 text-sm text-zinc-500">
               {formatDate(dto.visitDate)} at {dto.visitTime}
               {dto.assignedTo && <> &middot; {dto.assignedTo.name}</>}
               {" "}&middot; {dto.progress.total} {dto.progress.total === 1 ? "property" : "properties"}
@@ -92,23 +92,23 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {dto.status === "CANCELLED" && dto.cancellationReason && (
-        <div className="rounded-2xl border border-[#FFC7C9] bg-[#FFECEC] p-4">
-          <p className="text-sm font-bold text-[#E5484D]">Visit cancelled</p>
-          <p className="mt-0.5 text-sm text-[#596579]">{dto.cancellationReason}</p>
+        <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4">
+          <p className="text-sm font-bold text-rose-700">Visit cancelled</p>
+          <p className="mt-0.5 text-sm text-zinc-600">{dto.cancellationReason}</p>
         </div>
       )}
 
       {/* CLIENT */}
       <Section title="Client">
-        <Row label="Name" value={<Link href={`/leads/${dto.client.leadId}`} className="font-semibold text-[#3366FF] hover:underline">{dto.client.name}</Link>} />
+        <Row label="Name" value={<Link href={`/leads/${dto.client.leadId}`} className="font-semibold text-zinc-900 hover:underline">{dto.client.name}</Link>} />
         <Row label="Lead code" value={<span className="font-mono text-xs">{dto.client.leadCode}</span>} />
         {dto.client.phone && (
           <Row
             label="Phone"
             value={
               <span className="flex flex-wrap items-center gap-3">
-                <a href={`tel:${dto.client.phone}`} className="font-semibold text-[#3366FF]">{dto.client.phone}</a>
-                <a href={`https://wa.me/${dto.client.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#25D366]">
+                <a href={`tel:${dto.client.phone}`} className="font-semibold text-zinc-900 hover:underline">{dto.client.phone}</a>
+                <a href={`https://wa.me/${dto.client.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-emerald-600 hover:underline">
                   WhatsApp
                 </a>
               </span>
@@ -139,7 +139,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
           <Row
             label="Source"
             value={
-              <Link href={`/catalogues/${dto.catalogue.id}/internal`} className="font-semibold text-[#3366FF] hover:underline">
+              <Link href={`/catalogues/${dto.catalogue.id}/internal`} className="font-semibold text-zinc-900 hover:underline">
                 {dto.catalogue.title} (v{dto.catalogue.version})
               </Link>
             }
@@ -150,7 +150,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
       {/* CATALOGUES PREVIOUSLY SHARED - full history, spec item 9 */}
       {sharedCatalogues.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Catalogues Previously Shared</h2>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">Catalogues Previously Shared</h2>
           <div className="space-y-2">
             {sharedCatalogues.map((c) => (
               <a
@@ -158,16 +158,16 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
                 href={`/share/catalogue/${c.token}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-between gap-2 rounded-xl border border-[#E7ECF2] bg-white p-3 shadow-xs hover:border-[#3366FF]"
+                className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-xs hover:border-zinc-900 transition-colors"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[#1B2430]">{c.title}</p>
-                  <p className="text-xs text-[#8A94A6]">
+                  <p className="truncate text-sm font-semibold text-zinc-900">{c.title}</p>
+                  <p className="text-xs text-zinc-400">
                     {c.properties.length} propert{c.properties.length === 1 ? "y" : "ies"} &middot; {formatDate(c.createdAt)}
                     {c.createdBy && ` by ${c.createdBy.name}`}
                   </p>
                 </div>
-                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#3366FF]">
+                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-zinc-900">
                   <Eye className="h-3.5 w-3.5" /> View
                 </span>
               </a>
@@ -179,27 +179,27 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
       {/* CLIENT LIKED */}
       {likedPreferences.liked.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Client Liked</h2>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">Client Liked</h2>
           <div className="space-y-2">
             {likedPreferences.liked.map((item) => (
-              <div key={item.propertyId} className="flex gap-3 rounded-xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
-                <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-[#F5F7FA]">
+              <div key={item.propertyId} className="flex gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-xs">
+                <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
                   {item.property.thumbnailUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.property.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                   ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1 text-sm font-semibold text-[#1B2430]">
-                    <Heart className="h-3.5 w-3.5 text-[#E5484D]" /> {item.property.title}
+                  <p className="flex items-center gap-1 text-sm font-semibold text-zinc-900">
+                    <Heart className="h-3.5 w-3.5 text-rose-500" /> {item.property.title}
                   </p>
-                  <p className="text-xs text-[#596579]">
+                  <p className="text-xs text-zinc-500">
                     {item.property.area} · {item.property.bhk} BHK
                     {!item.available && " · Unavailable"}
                   </p>
-                  <p className="text-[11px] text-[#8A94A6]">From: {item.catalogueTitle}</p>
+                  <p className="text-[11px] text-zinc-400">From: {item.catalogueTitle}</p>
                 </div>
-                <Link href={`/properties/${item.propertyId}`} className="inline-flex items-center gap-1 self-center text-xs font-semibold text-[#3366FF]">
+                <Link href={`/properties/${item.propertyId}`} className="inline-flex items-center gap-1 self-center text-xs font-semibold text-zinc-900 hover:underline">
                   <ExternalLink className="h-3.5 w-3.5" /> Open
                 </Link>
               </div>
@@ -210,33 +210,33 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
 
       {/* TODAY'S PLANNED PROPERTIES */}
       <div>
-        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Today&apos;s Planned Properties</h2>
+        <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">Today&apos;s Planned Properties</h2>
         {dto.can.runFieldWorkflow ? (
           <VisitPropertyWorkflow visit={dto} likedPropertyIds={[...likedIds]} coverUrls={plannedCoverUrls} />
         ) : (
           <div className="space-y-2">
             {dto.properties.map((p) => (
-              <div key={p.visitPropertyId} className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
+              <div key={p.visitPropertyId} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
                 {plannedCoverUrls[p.propertyId] && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={plannedCoverUrls[p.propertyId]} alt="" className="mb-3 h-36 w-full rounded-xl object-cover bg-[#F5F7FA]" />
+                  <img src={plannedCoverUrls[p.propertyId]} alt="" className="mb-3 h-36 w-full rounded-xl object-cover bg-zinc-100" />
                 )}
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-[#1B2430]">
-                      <span className="mr-1.5 text-[#8A94A6]">{p.sequence + 1}.</span>
+                    <p className="text-sm font-bold text-zinc-900">
+                      <span className="mr-1.5 text-zinc-400">{p.sequence + 1}.</span>
                       {p.title}
                     </p>
-                    <p className="mt-0.5 text-xs text-[#596579]">
+                    <p className="mt-0.5 text-xs text-zinc-500">
                       {p.area} &middot; {enumToLabel(p.propertyType)}{p.assetClass === "COMMERCIAL" ? null : <> &middot; {p.bhk} BHK</>}
                       {p.floorNumber !== null && <> &middot; Floor {p.floorNumber}</>}
                     </p>
-                    <p className="mt-0.5 text-xs text-[#8A94A6]">{p.address}</p>
-                    <p className="mt-1 text-sm font-semibold text-[#1B2430]">{p.price ?? "Price on request"}</p>
-                    <p className="mt-1 text-[11px] font-semibold text-[#8A94A6]">
+                    <p className="mt-0.5 text-xs text-zinc-400">{p.address}</p>
+                    <p className="mt-1 text-sm font-semibold text-zinc-900">{p.price ?? "Price on request"}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-zinc-400">
                       {likedIds.has(p.propertyId) ? "❤️ Liked by Client" : dto.catalogue ? "Shared in Catalogue" : "Added Manually"}
                     </p>
-                    <Link href={`/properties/${p.propertyId}`} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF]">
+                    <Link href={`/properties/${p.propertyId}`} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 hover:underline">
                       <ExternalLink className="h-3.5 w-3.5" /> Open Property
                     </Link>
                   </div>
@@ -250,18 +250,18 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
                   <div className="mt-2 flex items-center gap-2">
                     <div className="flex gap-0.5">
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <Star key={n} className={`h-4 w-4 ${n <= p.reactionRating! ? "fill-[#E6A23C] text-[#E6A23C]" : "text-[#C9D2DE]"}`} />
+                        <Star key={n} className={`h-4 w-4 ${n <= p.reactionRating! ? "fill-amber-400 text-amber-400" : "text-zinc-200"}`} />
                       ))}
                     </div>
-                    <span className="text-xs font-semibold text-[#596579]">
+                    <span className="text-xs font-semibold text-zinc-600">
                       Client reaction {p.reactionRating}/5 &mdash; {p.reactionLabel ? enumToLabel(p.reactionLabel) : ""}
                     </span>
                   </div>
                 )}
-                {p.reactionNote && <p className="mt-1 text-xs text-[#596579]">{p.reactionNote}</p>}
-                {p.skipReason && <p className="mt-1 text-xs text-[#E6A23C]">Reason: {p.skipReason}</p>}
-                {p.isPreferred && <p className="mt-1 text-xs font-semibold text-[#9333EA]">Client preferred this property</p>}
-                {p.negotiationNotes && <p className="mt-2 rounded-lg bg-[#FFF6E5] p-2 text-xs text-[#8A6D3B]">Negotiation: {p.negotiationNotes}</p>}
+                {p.reactionNote && <p className="mt-1 text-xs text-zinc-500">{p.reactionNote}</p>}
+                {p.skipReason && <p className="mt-1 text-xs text-amber-600">Reason: {p.skipReason}</p>}
+                {p.isPreferred && <p className="mt-1 text-xs font-semibold text-zinc-900">Client preferred this property</p>}
+                {p.negotiationNotes && <p className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2 text-xs text-amber-800">Negotiation: {p.negotiationNotes}</p>}
               </div>
             ))}
           </div>
@@ -282,8 +282,8 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
           controls, kept intact and moved here from the visits list so the
           Phase 2C feedback flow is still reachable. */}
       {dto.can.manage && (
-        <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">Status &amp; outcome</h2>
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">Status &amp; outcome</h2>
           <VisitRowActions visitId={dto.id} status={dto.status} outcome={visit.outcome} />
         </div>
       )}
@@ -302,8 +302,8 @@ function istDateInputValue(date: Date): string {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-[#E7ECF2] bg-white p-4 shadow-xs">
-      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#8A94A6]">{title}</h2>
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
+      <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">{title}</h2>
       <dl className="space-y-1.5">{children}</dl>
     </div>
   );
@@ -312,8 +312,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-wrap gap-x-3 text-sm">
-      <dt className="w-32 shrink-0 text-[#8A94A6]">{label}</dt>
-      <dd className="min-w-0 flex-1 text-[#1B2430]">{value}</dd>
+      <dt className="w-32 shrink-0 text-zinc-500">{label}</dt>
+      <dd className="min-w-0 flex-1 text-zinc-900">{value}</dd>
     </div>
   );
 }

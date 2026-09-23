@@ -21,39 +21,39 @@ export function NewLeadsPanel({ leads, totalCount }: { leads: NewLeadRow[]; tota
   }
 
   if (leads.length === 0) {
-    return <p className="py-6 text-center text-sm text-[#8A94A6]">No new or unassigned leads right now.</p>;
+    return <p className="py-6 text-center text-sm text-[#71717A]">No new or unassigned leads right now.</p>;
   }
 
   return (
     <div className="space-y-2">
       {leads.map((lead) => (
-        <div key={lead.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E7ECF2] bg-white p-3 shadow-xs">
+        <div key={lead.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4E4E7] bg-white p-3 shadow-xs">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[#1B2430]">{lead.clientName}</p>
-            <p className="text-xs text-[#8A94A6]">
+            <p className="truncate text-sm font-semibold text-[#09090B]">{lead.clientName}</p>
+            <p className="text-xs text-[#71717A]">
               {lead.phone} &middot; {enumToLabel(lead.source)} &middot; {timeAgo(lead.createdAt)}
               {!lead.assignedToId && " · Unassigned"}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Badge tone={lead.status === "NEW" ? "amber" : "slate"}>{enumToLabel(lead.status)}</Badge>
-            <a href={`tel:${lead.phone}`} onClick={() => logCall(lead.id)} className="rounded-lg border border-[#E7ECF2] p-1.5 text-[#1FA971] hover:bg-[#F3F6FA]" title="Call">
+            <a href={`tel:${lead.phone}`} onClick={() => logCall(lead.id)} className="rounded-lg border border-[#E4E4E7] p-1.5 text-emerald-700 hover:bg-[#FAFAFA]" title="Call">
               <PhoneCall className="h-4 w-4" />
             </a>
-            <a href={`https://wa.me/${lead.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="rounded-lg border border-[#E7ECF2] p-1.5 text-[#25D366] hover:bg-[#F3F6FA]" title="WhatsApp">
+            <a href={`https://wa.me/${lead.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="rounded-lg border border-[#E4E4E7] p-1.5 text-[#25D366] hover:bg-[#FAFAFA]" title="WhatsApp">
               <MessageCircle className="h-4 w-4" />
             </a>
-            <Link href={`/leads/${lead.id}`} className="rounded-lg border border-[#E7ECF2] p-1.5 text-[#3366FF] hover:bg-[#F3F6FA]" title="Add follow-up / Open lead">
+            <Link href={`/leads/${lead.id}`} className="rounded-lg border border-[#E4E4E7] p-1.5 text-[#09090B] hover:bg-[#FAFAFA]" title="Add follow-up / Open lead">
               <BellPlus className="h-4 w-4" />
             </Link>
-            <Link href={`/leads/${lead.id}`} className="rounded-lg bg-[#3366FF] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#2952CC]">
+            <Link href={`/leads/${lead.id}`} className="rounded-lg bg-[#0A0A0A] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800">
               Open
             </Link>
           </div>
         </div>
       ))}
       {totalCount > leads.length && (
-        <Link href="/leads?assignedToId=unassigned" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#3366FF] hover:text-[#2952CC]">
+        <Link href="/leads?assignedToId=unassigned" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#09090B] hover:underline">
           View all {totalCount} <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       )}

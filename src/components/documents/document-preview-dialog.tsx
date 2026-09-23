@@ -71,11 +71,6 @@ export function DocumentPreviewDialog({
       uploadForm.append("entityId", (document.propertyId ?? document.leadId ?? document.ownerId ?? document.dealId ?? document.paymentId) ?? "");
       uploadForm.append("category", document.category);
 
-      // Two-step: upload the new file as its own object first (never touches
-      // the current version), then point the replace endpoint at the
-      // resulting storageKey so it can create the versioned record and mark
-      // this version superseded - a failed step 2 leaves the current
-      // document untouched.
       const uploadRes = await fetch("/api/documents/upload", { method: "POST", body: uploadForm });
       if (!uploadRes.ok) {
         const body = await uploadRes.json().catch(() => ({}));
@@ -123,12 +118,12 @@ export function DocumentPreviewDialog({
     <>
       <Dialog open={open} onClose={onClose} title={document.originalFilename ?? document.fileName} description={CATEGORY_LABELS[document.category]}>
         <div className="space-y-4">
-          <div className="flex items-center justify-center rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#11151F] py-8">
-            {isImage ? <ImageIcon className="h-10 w-10 text-[#4F8CFF]" /> : <FileText className="h-10 w-10 text-[#4F8CFF]" />}
+          <div className="flex items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 py-8">
+            {isImage ? <ImageIcon className="h-10 w-10 text-zinc-700" /> : <FileText className="h-10 w-10 text-zinc-700" />}
           </div>
 
           {SENSITIVE_CATEGORIES.has(document.category) && (
-            <p className="rounded-lg border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.06)] px-3 py-2 text-xs text-[#FCA5A5]">
+            <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
               This is a private document and is never shown on a public property catalogue.
             </p>
           )}
@@ -141,12 +136,12 @@ export function DocumentPreviewDialog({
             <Row label="Uploaded" value={formatDateTime(document.createdAt)} />
             <Row label="Expiry" value={document.expiresAt ? formatDateTime(document.expiresAt) : "No expiry"} />
             <div>
-              <dt className="text-[#94A3B8]">Status</dt>
+              <dt className="text-zinc-500">Status</dt>
               <dd className="mt-0.5"><Badge tone={STATUS_TONE[document.status]}>{document.status}</Badge></dd>
             </div>
           </dl>
 
-          <div className="flex flex-wrap gap-2 border-t border-[rgba(255,255,255,0.08)] pt-3">
+          <div className="flex flex-wrap gap-2 border-t border-zinc-200 pt-3">
             <Button type="button" size="sm" onClick={handleDownload} loading={downloading} disabled={document.status === "DELETED"}>
               <Download className="h-3.5 w-3.5" /> Download
             </Button>
@@ -155,7 +150,7 @@ export function DocumentPreviewDialog({
             </Button>
             {canManage && document.status !== "DELETED" && (
               <>
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1E2533] px-3.5 py-2 text-sm font-medium text-[#F8FAFC] hover:bg-[#252D3D]">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-900 hover:bg-zinc-50">
                   <RefreshCw className="h-3.5 w-3.5" /> {replacing ? "Replacing..." : "Replace"}
                   <input
                     type="file"
@@ -185,8 +180,8 @@ export function DocumentPreviewDialog({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[#94A3B8]">{label}</dt>
-      <dd className="mt-0.5 font-semibold text-[#F8FAFC]">{value}</dd>
+      <dt className="text-zinc-500">{label}</dt>
+      <dd className="mt-0.5 font-semibold text-zinc-900">{value}</dd>
     </div>
   );
 }

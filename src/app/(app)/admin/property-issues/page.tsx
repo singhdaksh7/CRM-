@@ -12,9 +12,9 @@ export default async function PropertyIssuesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-[#E7ECF2] pb-5">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Property Issues Queue</h1>
-        <p className="mt-1 text-sm text-[#596579]">{issues.length} open issue{issues.length === 1 ? "" : "s"} - availability reports and data-quality reports, all in one place.</p>
+      <div className="border-b border-zinc-200 pb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Property Issues Queue</h1>
+        <p className="mt-1 text-sm text-zinc-500">{issues.length} open issue{issues.length === 1 ? "" : "s"} - availability reports and data-quality reports, all in one place.</p>
       </div>
 
       {issues.length === 0 ? (

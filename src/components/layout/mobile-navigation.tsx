@@ -1,48 +1,50 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
-import { LayoutDashboard, Users, Building2, CalendarClock, ContactRound, BookOpen } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, Users, Building2, CalendarClock } from "lucide-react";
 import type { Role } from "@prisma/client";
+import { cn } from "@/lib/utils";
 
 export function MobileNavigation({ role }: { role: Role }) {
-  // simplified-role-workflow: DATA_MANAGER and FIELD_EXECUTIVE get the same
-  // trimmed bottom bar centered on Today's Work / Leads / Visits / Catalogues
-  // (matching their sidebar); ADMIN keeps the original wider bar.
-  let items = [];
+  const pathname = usePathname();
+
+  let items = [
+    { label: "Today", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Leads", href: "/leads", icon: Users },
+    { label: "Properties", href: "/properties", icon: Building2 },
+    { label: "Visits", href: "/visits", icon: CalendarClock },
+  ];
+
   if (role === "FIELD_EXECUTIVE") {
     items = [
       { label: "Today", href: "/executive-dashboard", icon: LayoutDashboard },
       { label: "My Leads", href: "/leads", icon: Users },
       { label: "My Visits", href: "/visits", icon: CalendarClock },
-      { label: "Visit Properties", href: "/properties", icon: Building2 },
-    ];
-  } else if (role === "DATA_MANAGER") {
-    items = [
-      { label: "Today", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Leads", href: "/leads", icon: Users },
       { label: "Properties", href: "/properties", icon: Building2 },
-      { label: "Visits", href: "/visits", icon: CalendarClock },
-    ];
-  } else {
-    items = [
-      { label: "Today", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Leads", href: "/leads", icon: Users },
-      { label: "Properties", href: "/properties", icon: Building2 },
-      { label: "Visits", href: "/visits", icon: CalendarClock },
     ];
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-center justify-around border-t border-[#E7ECF2] bg-white px-2 lg:hidden shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-center justify-around border-t border-[#E4E4E7] bg-white px-2 lg:hidden shadow-xs">
       {items.map((item) => {
         const Icon = item.icon;
+        const active = item.href === "/dashboard" || item.href === "/executive-dashboard"
+          ? pathname === item.href
+          : pathname.startsWith(item.href);
+
         return (
           <Link
             key={item.href}
             href={item.href}
-            className="flex flex-col items-center gap-1 text-[#596579] hover:text-[#3366FF] transition-colors"
+            className={cn(
+              "flex flex-col items-center gap-1 px-3 py-1.5 transition-colors rounded-lg",
+              active ? "text-[#09090B] font-semibold" : "text-[#71717A] hover:text-[#09090B]"
+            )}
           >
-            <Icon className="h-5 w-5" />
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <Icon className={cn("h-5 w-5", active ? "text-[#09090B]" : "text-[#71717A]")} />
+            <span className="text-[10px]">{item.label}</span>
           </Link>
         );
       })}

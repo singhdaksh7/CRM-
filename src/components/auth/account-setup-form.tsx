@@ -31,11 +31,11 @@ export function AccountSetupForm({ token }: { token: string }) {
     window.location.assign("/login?setup=success");
   }
 
-  return <main className="flex min-h-screen items-center justify-center bg-[#FAFBFC] px-4 py-8">
-    <div className="w-full max-w-md rounded-2xl border border-[#E7ECF2] bg-white p-6 shadow-sm sm:p-8">
-      <div className="mb-6 text-center"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#3366FF] text-xl font-bold text-white">KP</div><h1 className="text-xl font-bold text-[#1B2430]">Create your CRM password</h1></div>
-      {state.loading ? <p className="text-center text-sm text-slate-500">Validating secure link…</p> : !state.valid ? <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{state.error ?? "This setup link is invalid or has expired."}</div> : <form onSubmit={submit} className="space-y-4">
-        <p className="text-sm text-slate-600">Hi {state.firstName}, choose a password to activate your account.</p>
+  return <main className="flex min-h-screen items-center justify-center bg-[#FAFAFA] px-4 py-8">
+    <div className="w-full max-w-md rounded-2xl border border-[#E4E4E7] bg-white p-6 shadow-xs sm:p-8">
+      <div className="mb-6 text-center"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#0A0A0A] text-xl font-bold text-white shadow-xs">KP</div><h1 className="text-xl font-bold text-[#09090B]">Create your CRM password</h1></div>
+      {state.loading ? <p className="text-center text-sm text-[#71717A]">Validating secure link…</p> : !state.valid ? <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{state.error ?? "This setup link is invalid or has expired."}</div> : <form onSubmit={submit} className="space-y-4">
+        <p className="text-sm text-[#52525B]">Hi {state.firstName}, choose a password to activate your account.</p>
         {state.error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{state.error}</p>}
         <Field label="New Password" hint="8–128 characters"><Input type="password" autoComplete="new-password" minLength={8} maxLength={128} required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         <Field label="Confirm Password"><Input type="password" autoComplete="new-password" minLength={8} maxLength={128} required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></Field>

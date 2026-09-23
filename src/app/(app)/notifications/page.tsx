@@ -33,10 +33,10 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   const types = Object.keys(NOTIFICATION_LABELS) as NotificationType[];
 
   return (
-    <div className="space-y-6">
-      <div className="border-b border-[#E7ECF2] pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1B2430]">Notifications Centre</h1>
-        <p className="mt-1 text-sm text-[#596579]">Alerts & operational updates across leads, site visits, and follow-ups.</p>
+    <div className="space-y-5">
+      <div className="border-b border-[#E4E4E7] pb-4">
+        <h1 className="text-2xl font-bold tracking-tight text-[#09090B]">Notifications Centre</h1>
+        <p className="mt-1 text-sm text-[#52525B]">Alerts & operational updates across leads, site visits, and follow-ups.</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -47,7 +47,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         ))}
       </div>
 
-      <div className="rounded-2xl border border-[#E7ECF2] bg-white p-2 shadow-xs">
+      <div className="rounded-xl border border-[#E4E4E7] bg-white overflow-hidden shadow-xs">
         <NotificationList notifications={notifications} />
       </div>
 
@@ -61,10 +61,10 @@ function FilterChip({ href, active, label }: { href: string; active: boolean; la
     <Link
       href={href}
       className={cn(
-        "rounded-full px-3 py-1.5 text-xs font-semibold transition-all border",
+        "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border",
         active
-          ? "bg-[#3366FF] text-white border-[#3366FF] shadow-xs"
-          : "bg-white text-[#596579] border-[#E7ECF2] hover:bg-[#F3F6FA] hover:text-[#1B2430]"
+          ? "bg-[#0A0A0A] text-white border-[#0A0A0A] shadow-xs"
+          : "bg-white text-[#52525B] border-[#E4E4E7] hover:bg-[#F4F4F5] hover:text-[#09090B]"
       )}
     >
       {label}
