@@ -19,6 +19,7 @@ export default auth((req) => {
     pathname.startsWith("/api/catalogues/") ||
     pathname.startsWith("/api/integrations") ||
     pathname.startsWith("/api/auth") ||
+    pathname === "/api/health" ||
     pathname === "/api/system/health" ||
     pathname === "/api/system/readiness" ||
     // Vercel Cron (and manual/administrative triggers) call this without a
