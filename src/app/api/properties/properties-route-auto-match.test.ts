@@ -2,8 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // ---------------------------------------------------------------------------
-// Property writes retain the lead-facing recommendation trigger while the
-// retired Demand Pool customer recommendation trigger stays disconnected.
+// Production bug fix: property create/update must invoke the canonical
+// demand-matching engine (recomputeMatchesForProperty) so the Property
+// Details "Best Matching Leads" panel stays populated, alongside the
+// pre-existing lead-facing recommendation trigger (recommendPropertyToWaitingLeads
+// / MatchRecommendation notifications) - the two are distinct systems and
+// both must keep firing.
 // ---------------------------------------------------------------------------
 
 const propertyCreate = vi.fn();
@@ -42,6 +46,8 @@ vi.mock("@/lib/organization", () => ({ getOrganizationId: () => "org_default" })
 vi.mock("@/lib/property-timeline", () => ({ appendPropertyTimelineEvent: vi.fn() }));
 const recommendPropertyToWaitingLeads = vi.fn();
 vi.mock("@/lib/match-recommendations", () => ({ recommendPropertyToWaitingLeads }));
+const recomputeMatchesForProperty = vi.fn().mockResolvedValue({ created: 0, updated: 0 });
+vi.mock("@/lib/demand-recommendations", () => ({ recomputeMatchesForProperty }));
 vi.mock("@/lib/property-share-alerts", () => ({ notifyAffectedCataloguesOfPropertyChange: vi.fn() }));
 vi.mock("@/lib/property-access", () => ({ fieldExecutiveHasPropertyAccess: vi.fn() }));
 vi.mock("@/lib/property-detail-dto", () => ({ toFieldExecutivePropertyDTO: (p: unknown) => p }));
@@ -108,6 +114,12 @@ describe("POST /api/properties - lead matching trigger", () => {
     expect(res.status).toBe(201);
     expect(recommendPropertyToWaitingLeads).toHaveBeenCalledWith("prop1", expect.stringContaining("created:prop1:"));
   });
+
+  it("also triggers the canonical demand-matching recompute so a new property's Best Matching Leads panel is populated", async () => {
+    const res = await POST(createReq({ title: "2BHK", area: "Kirti Nagar", listingType: "RENT", assetClass: "RESIDENTIAL" }));
+    expect(res.status).toBe(201);
+    expect(recomputeMatchesForProperty).toHaveBeenCalledWith("prop1", "org_default");
+  });
 });
 
 describe("PATCH /api/properties/[id] - automatic match recompute (Feature 1)", () => {
@@ -123,10 +135,24 @@ describe("PATCH /api/properties/[id] - automatic match recompute (Feature 1)", (
     expect(recommendPropertyToWaitingLeads).toHaveBeenCalledWith("p1", expect.stringContaining("property:p1:"));
   });
 
+  it("also triggers the canonical demand-matching recompute for a material edit", async () => {
+    shouldRematchProperty.mockReturnValue(true);
+    const res = await PATCH(patchReq({ monthlyRent: 35000 }), params("p1"));
+    expect(res.status).toBe(200);
+    expect(recomputeMatchesForProperty).toHaveBeenCalledWith("p1", "org_default");
+  });
+
   it("skips lead matching for a non-material edit (shouldRematchProperty=false)", async () => {
     shouldRematchProperty.mockReturnValue(false);
     const res = await PATCH(patchReq({ title: "Renamed" }), params("p1"));
     expect(res.status).toBe(200);
     expect(recommendPropertyToWaitingLeads).not.toHaveBeenCalled();
+  });
+
+  it("also skips the demand-matching recompute for a non-material edit", async () => {
+    shouldRematchProperty.mockReturnValue(false);
+    const res = await PATCH(patchReq({ title: "Renamed" }), params("p1"));
+    expect(res.status).toBe(200);
+    expect(recomputeMatchesForProperty).not.toHaveBeenCalled();
   });
 });

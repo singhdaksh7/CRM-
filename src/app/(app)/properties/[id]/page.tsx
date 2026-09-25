@@ -22,7 +22,7 @@ import { DistributionPanel, type ProviderRow } from "@/components/property-porta
 import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
 import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
 import { CaptureLocationButton } from "@/components/properties/capture-location-button";
-import { LeadRequirementMatches } from "@/components/properties/lead-requirement-matches";
+import { MatchedCustomersPanel } from "@/components/customers/matched-customers-panel";
 import { PropertyReportPanel } from "@/components/properties/property-report-panel";
 
 const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
@@ -70,6 +70,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
+  const rawPrice = property.listingType === "RENT" ? property.monthlyRent : property.salePrice;
+  const propertyMeta = `${property.propertyCode} · ${enumToLabel(property.assetClass)} · ${property.area}`;
 
   return (
     <div className="space-y-6">
@@ -101,8 +103,19 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           {/* Gallery */}
           <PropertyGallery propertyId={property.id} propertyTitle={property.title} legacyCoverImage={property.coverImage} />
 
-          {/* Best Matching Leads Section */}
-          <LeadRequirementMatches propertyId={property.id} />
+          {/* Best Matching Leads Section - canonical demand-matching engine
+              (CustomerRequirement + explicit LeadRequirement + legacy Lead
+              fallback). The underlying GET /api/properties/[id]/matches
+              already enforces per-role Lead access (a FIELD_EXECUTIVE never
+              sees a Lead assigned to a different employee), so the panel
+              itself is shown to every role. */}
+          <MatchedCustomersPanel
+            propertyId={property.id}
+            propertyTitle={property.title}
+            propertyMeta={propertyMeta}
+            propertyPrice={rawPrice}
+            role={session!.user.role}
+          />
 
           {/* Location & Map */}
           {(!isFieldExecutive || hasFieldAccess) && (

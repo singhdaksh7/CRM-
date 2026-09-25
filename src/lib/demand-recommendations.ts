@@ -6,6 +6,7 @@ import {
   scoreDemandCandidate,
   normalizeCustomerRequirement,
   normalizeLeadRequirement,
+  normalizeExplicitLeadRequirement,
   leadIsMatchEligible,
   candidateKeyFor,
   type MatchTierConfig,
@@ -60,7 +61,7 @@ export async function recomputeMatchesForProperty(propertyId: string, organizati
   const price = getListingPrice(property);
   const minBudget = price > 0 ? minAcceptableMaxBudget(price, budgetStretchPct) : 0;
 
-  const [requirements, leads] = await Promise.all([
+  const [requirements, leads, activeLeadRequirements] = await Promise.all([
     prisma.customerRequirement.findMany({
       where: {
         organizationId,
@@ -81,13 +82,51 @@ export async function recomputeMatchesForProperty(propertyId: string, organizati
         maxBudget: { gte: minBudget },
       },
     }),
+    // Explicit per-Lead briefs (the `lead_requirements` table) - queried
+    // separately from the legacy-fields `leads` query above because a
+    // Lead's explicit brief can target a different asset class/transaction
+    // type than the legacy fields stored directly on the Lead row itself.
+    // Bounded the same way (org + status + asset class + transaction type +
+    // budget, all indexed/filtered in SQL - rule 40).
+    prisma.leadRequirement.findMany({
+      where: {
+        organizationId,
+        status: "ACTIVE",
+        assetClass: property.assetClass,
+        transactionType: property.listingType,
+        OR: [{ maxBudget: null }, { maxBudget: { gte: minBudget } }],
+      },
+      include: {
+        lead: { select: { id: true, status: true } },
+        localities: { include: { locality: { select: { name: true } } } },
+        bhkValues: true,
+      },
+    }),
   ]);
+
+  // Precedence (rule 11 - a Lead must never be represented twice): an
+  // explicit ACTIVE LeadRequirement always wins over the legacy-Lead-fields
+  // fallback for that same Lead. Both are keyed by candidateId=lead.id (see
+  // candidateKeyFor), so building at most one NormalizedRequirement per
+  // Lead here is what actually prevents the duplicate, not anything
+  // downstream.
+  const explicitLeadIds = new Set(activeLeadRequirements.map((r) => r.leadId));
 
   const normalized: NormalizedRequirement[] = [
     ...requirements
       .filter((r) => !isStale(r.lastConfirmedAt, staleAfterDays))
       .map((r) => normalizeCustomerRequirement(r, r.customerContact, isStale(r.lastConfirmedAt, staleAfterDays))),
-    ...leads.filter(leadIsMatchEligible).map(normalizeLeadRequirement),
+    ...activeLeadRequirements
+      .filter((r) => leadIsMatchEligible(r.lead))
+      .map((r) =>
+        normalizeExplicitLeadRequirement(
+          r.lead,
+          r,
+          r.localities.map((l) => l.locality.name),
+          r.bhkValues.map((b) => b.bhk)
+        )
+      ),
+    ...leads.filter((lead) => leadIsMatchEligible(lead) && !explicitLeadIds.has(lead.id)).map(normalizeLeadRequirement),
   ];
 
   let created = 0;
