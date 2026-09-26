@@ -1,25 +1,57 @@
+# Dependencies and build output
 node_modules
 .next
+out
+build
+coverage
+
+# VCS and editor
 .git
+.github
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+.cursor
+.claude
+
+# Secrets and local env (never bake into the image)
 .env*
-*.local
+
+# Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 firebase-debug.log
+
+# Test-only files. Next.js typechecks tsconfig includes during `next build`.
+# `tests/` is excluded here, so playwright.config.ts MUST also be excluded or
+# the production image fails with: Cannot find module './tests/e2e/helpers/safety-guard'.
+playwright.config.ts
+vitest.config.ts
+eslint.config.mjs
+tests
+e2e
+scripts
+**/*.test.ts
+**/*.test.tsx
 test-results
 playwright-report
 blob-report
-coverage
-tests
+
+# Docs and local analysis artifacts (not required to compile the app)
+*.md
+docs
+graphify-out
+agent-transcripts
+
+# Local/dev database artifacts
 prisma/dev.db*
 prisma/backups
 prisma/migrations.sqlite-archive
-*.md
-docs
-.vscode
-.idea
-.DS_Store
-Thumbs.db
+prisma/seed.ts
+
+# Compose files are not needed inside the build context
+docker-compose*.yml

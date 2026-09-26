@@ -12,10 +12,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://crm.kpproperties.co.in}
+        NEXTAUTH_URL: ${NEXTAUTH_URL:-https://crm.kpproperties.co.in}
     container_name: kp-crm
     restart: unless-stopped
     env_file:
-      - .env.production
+      - path: .env.production
+        required: true
     ports:
       # Bound strictly to host loopback (127.0.0.1) - never exposed on 0.0.0.0
       - "127.0.0.1:${CRM_HOST_PORT:-3000}:3000"
