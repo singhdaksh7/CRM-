@@ -4,6 +4,8 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { employeeSchema } from "@/lib/validators";
 import { getOrganizationId } from "@/lib/organization";
 import { invalidateCache } from "@/lib/cache";
+import { deleteEmployeeAccount } from "@/lib/account-lifecycle";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // Never include passwordHash in an API response.
 const EMPLOYEE_DETAIL_SELECT = {
@@ -52,6 +54,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       throw new ApiError(400, "Use the account status controls to enable or disable an employee");
     }
 
+    // Same lockout hazard as disableEmployeeAccount (account-lifecycle.ts):
+    // demoting the last remaining active admin away from ADMIN is just as
+    // dangerous as disabling them - nobody would be left who can promote
+    // anyone back.
+    if (data.role !== undefined && data.role !== "ADMIN" && existing.role === "ADMIN" && existing.status === "ACTIVE") {
+      const otherActiveAdmins = await prisma.user.count({
+        where: { organizationId, role: "ADMIN", status: "ACTIVE", id: { not: existing.id } },
+      });
+      if (otherActiveAdmins === 0) {
+        throw new ApiError(400, "Cannot change the role of the only active admin in this organization");
+      }
+    }
+
     const employee = await prisma.user.update({
       where: { id },
       data: { ...data, email: data.email?.toLowerCase() },
@@ -69,6 +84,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     await invalidateCache(`employees:list:${organizationId}`);
     return NextResponse.json({ employee });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+/**
+ * Permanently deletes an already-deactivated employee - only when they have
+ * zero CRM history attached (see deleteEmployeeAccount in account-lifecycle.ts
+ * for the full relation check and lockout guards). Deliberately ADMIN-only
+ * and rate limited the same as the other account-admin actions.
+ */
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await requireSession(["ADMIN"]);
+    const limit = await checkRateLimit("accountAdminAction", session.user.id);
+    if (!limit.allowed) return rateLimitResponse(limit);
+
+    const { id } = await params;
+    const organizationId = getOrganizationId(session.user);
+    const result = await deleteEmployeeAccount({ employeeId: id, organizationId, actorId: session.user.id });
+
+    await invalidateCache(`employees:list:${organizationId}`);
+    return NextResponse.json(result);
   } catch (err) {
     return handleApiError(err);
   }

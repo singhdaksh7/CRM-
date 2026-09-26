@@ -157,9 +157,28 @@ const envSchema = z
 
 export type Env = z.infer<typeof envSchema>;
 
+/**
+ * Hostinger-style `.env.production` files keep optional keys as empty
+ * assignments (`R2_ENDPOINT=`). Zod treats `""` as present, so optional URL
+ * and regex fields would fail even though the operator intended "omit".
+ * Required secrets stay required: an empty DATABASE_URL/AUTH_SECRET still fails.
+ */
+export function normalizeEnv(env: NodeJS.Dict<string | undefined>): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value !== "string") {
+      out[key] = value;
+      continue;
+    }
+    const trimmed = value.trim();
+    out[key] = trimmed === "" ? undefined : trimmed;
+  }
+  return out;
+}
+
 /** Throws a single aggregated, human-readable error listing every problem found - never partial/silent. */
-export function validateEnv(): Env {
-  const result = envSchema.safeParse(process.env);
+export function validateEnv(env: NodeJS.Dict<string | undefined> = process.env): Env {
+  const result = envSchema.safeParse(normalizeEnv(env));
   if (!result.success) {
     const lines = result.error.issues.map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`);
     throw new Error(`Invalid environment configuration:\n${lines.join("\n")}\n\nSee .env.example for the full variable list.`);

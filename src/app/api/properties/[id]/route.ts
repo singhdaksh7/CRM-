@@ -8,6 +8,7 @@ import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
 import { shouldRematchProperty } from "@/lib/property-rematch";
 import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
+import { recomputeMatchesForProperty } from "@/lib/demand-recommendations";
 import { fieldExecutiveHasPropertyAccess } from "@/lib/property-access";
 import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
 import { resolveOrCreatePropertyLocality } from "@/lib/property-locality";
@@ -87,7 +88,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (shouldRematchProperty(existing, property)) {
         // Internal recommendation only; it never invokes WhatsApp or mutates a catalogue.
         void recommendPropertyToWaitingLeads(property.id, `property:${property.id}:${property.updatedAt.toISOString()}`);
-
+        // Canonical demand-matching engine (rule 12) - a material change
+        // (price/area/bhk/status/etc, see property-rematch.ts) can both
+        // create new matches and make a previously-matching candidate stop
+        // matching; recomputeMatchesForProperty handles both (it EXPIREs a
+        // stale PENDING row rather than deleting it - see its doc comment).
+        void recomputeMatchesForProperty(property.id, patchOrganizationId);
       }
       try {
         if (data.status && data.status !== "AVAILABLE" && data.status !== existing.status) {

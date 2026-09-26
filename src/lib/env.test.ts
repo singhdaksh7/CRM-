@@ -21,6 +21,9 @@ const MANAGED_KEYS = [
   "R2_ENDPOINT",
   "R2_SIGNED_URL_EXPIRY_SECONDS",
   "R2_PUBLIC_BASE_URL",
+  "REDIS_URL",
+  "CRON_SECRET",
+  "WHATSAPP_API_VERSION",
   "STORAGE_BUCKET",
   "STORAGE_ACCESS_KEY_ID",
   "STORAGE_SECRET_ACCESS_KEY",
@@ -116,6 +119,25 @@ describe("validateEnv - STORAGE_PROVIDER=R2", () => {
     process.env.R2_ACCESS_KEY_ID = "key123";
     // R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME intentionally left unset
     expect(() => validateEnv()).toThrow(/R2_BUCKET_NAME/);
+  });
+
+  it("treats empty optional strings as omitted, matching Hostinger .env.production templates", () => {
+    process.env.R2_ENDPOINT = "";
+    process.env.R2_PUBLIC_BASE_URL = "   ";
+    process.env.REDIS_URL = "";
+    process.env.WHATSAPP_API_VERSION = "";
+    process.env.CRON_SECRET = "";
+    expect(() => validateEnv()).not.toThrow();
+  });
+
+  it("still rejects an empty required secret", () => {
+    process.env.DATABASE_URL = "";
+    expect(() => validateEnv()).toThrow(/DATABASE_URL/);
+  });
+
+  it("still rejects an empty AUTH_SECRET", () => {
+    process.env.AUTH_SECRET = "   ";
+    expect(() => validateEnv()).toThrow(/AUTH_SECRET/);
   });
 
   it("never surfaces the actual secret value in a thrown validation error", () => {

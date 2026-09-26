@@ -6,6 +6,7 @@ import { generateCode } from "@/lib/utils";
 import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
 import { getOrganizationId } from "@/lib/organization";
 import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
+import { recomputeMatchesForProperty } from "@/lib/demand-recommendations";
 import { readTake, readSkip } from "@/lib/pagination";
 import { resolveOrCreatePropertyLocality } from "@/lib/property-locality";
 
@@ -115,6 +116,11 @@ export async function POST(req: NextRequest) {
     });
     // Recommendations are internal and idempotent; never share or message a client here.
     void recommendPropertyToWaitingLeads(property.id, `created:${property.id}:${property.updatedAt.toISOString()}`);
+    // Canonical demand-matching engine (rule 12) - populates the Matched
+    // Customers panel (PropertyRecommendation rows) for this new property.
+    // Distinct from recommendPropertyToWaitingLeads above (MatchRecommendation
+    // notifications) - both are internal/idempotent, never auto-send.
+    void recomputeMatchesForProperty(property.id, organizationId);
 
     return NextResponse.json({ property }, { status: 201 });
   } catch (err) {

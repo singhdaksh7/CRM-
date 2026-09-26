@@ -87,40 +87,14 @@ export interface PublicCatalogueProperty {
 }
 
 /**
- * Coordinate precision reduced to ~2 decimal places (~1.1km at Delhi's
- * latitude) - enough to place an approximate map pin without revealing the
- * exact building, matching Property.publicLocationMode = "APPROXIMATE".
+ * Client-facing catalogues never receive a street address or any GPS
+ * coordinate, including a reduced-precision pin. Locality text (`area`) is
+ * the only location shown. Staff flags (`includeAddress`, `addressVisible`,
+ * `publicLocationMode`) cannot override this. Exact navigation data stays
+ * on the authenticated executive DTO.
  */
-function toApproximateCoordinate(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-/**
- * Resolves what location data (if any) is safe to reveal on a public
- * catalogue, independent of the address-text visibility toggle:
- * - HIDDEN / LOCALITY_ONLY: never reveal coordinates - `area` (locality
- *   text) is the only location info shown, exactly like before this field
- *   existed.
- * - APPROXIMATE: reveal a deliberately fuzzed pin regardless of whether the
- *   address text is visible - an approximate pin alone doesn't identify a
- *   specific building.
- * - EXACT: only reveal the real coordinates when this catalogue entry has
- *   also explicitly made the address text visible (`addressVisible &&
- *   includeAddress`) - exact coordinates are exactly as sensitive as the
- *   exact address, so they share the same permission. Otherwise falls back
- *   to the same fuzzed pin as APPROXIMATE, never a silent full reveal.
- */
-function resolvePublicLocation(
-  property: { latitude: number | null; longitude: number | null; publicLocationMode: string },
-  addressVisible: boolean
-): Pick<PublicCatalogueProperty, "latitude" | "longitude" | "locationDisclosure"> {
-  if (property.latitude === null || property.longitude === null || property.publicLocationMode === "HIDDEN" || property.publicLocationMode === "LOCALITY_ONLY") {
-    return { latitude: null, longitude: null, locationDisclosure: "HIDDEN" };
-  }
-  if (property.publicLocationMode === "EXACT" && addressVisible) {
-    return { latitude: property.latitude, longitude: property.longitude, locationDisclosure: "EXACT" };
-  }
-  return { latitude: toApproximateCoordinate(property.latitude), longitude: toApproximateCoordinate(property.longitude), locationDisclosure: "APPROXIMATE" };
+function hiddenPublicLocation(): Pick<PublicCatalogueProperty, "latitude" | "longitude" | "locationDisclosure"> {
+  return { latitude: null, longitude: null, locationDisclosure: "HIDDEN" };
 }
 
 export interface PublicCatalogueDTO {
@@ -170,14 +144,13 @@ export function toPublicCatalogueDTO(catalogue: CatalogueForDTO): PublicCatalogu
       const price = priceVisible ? (p.listingType === "RENT" ? formatINR(p.monthlyRent, { suffix: "month" }) : formatINR(p.salePrice, { compact: true })) : null;
       const brokerageAmount = p.listingType === "RENT" ? p.rentBrokerage : p.saleBrokerageAmount;
       const isAvailable = p.status === "AVAILABLE";
-      const addressVisible = cp.addressVisible && catalogue.includeAddress;
-      const location = resolvePublicLocation(p, addressVisible);
+      const location = hiddenPublicLocation();
 
       return {
         id: p.id,
         title: p.title,
         area: p.area,
-        address: addressVisible ? p.address : null,
+        address: null,
         assetClass: p.assetClass,
         propertyType: p.propertyType,
         workstations: p.workstations,

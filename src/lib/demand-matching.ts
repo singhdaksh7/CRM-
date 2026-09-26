@@ -142,6 +142,60 @@ export function leadIsMatchEligible(lead: Pick<Lead, "status">): boolean {
   return !LEAD_MATCH_INELIGIBLE_STATUSES.has(lead.status);
 }
 
+export interface ExplicitLeadRequirementInput {
+  assetClass: "RESIDENTIAL" | "COMMERCIAL";
+  transactionType: "RENT" | "SALE";
+  /** Maps to the LeadRequirement.propertyType column (commercial subtype). */
+  propertyType: string | null;
+  minBudget: number | null;
+  maxBudget: number | null;
+  minAreaSqft: number | null;
+  maxAreaSqft: number | null;
+  furnishingPreference: string | null;
+  parkingPreference: "REQUIRED" | "PREFERRED" | "NO_PREFERENCE";
+  liftPreference: "REQUIRED" | "PREFERRED" | "NO_PREFERENCE";
+  status: "ACTIVE" | "PAUSED" | "FULFILLED" | "CANCELLED";
+}
+
+/**
+ * Adapts a Lead's explicit LeadRequirement brief (the `lead_requirements`
+ * table) into the same normalized shape used by every other candidate.
+ * Per the schema doc comment ("Legacy Lead preference fields remain intact
+ * as a fallback for leads without an ACTIVE brief"), a caller must prefer
+ * this over normalizeLeadRequirement's legacy-fields fallback whenever an
+ * ACTIVE brief exists for the property's asset class/transaction type -
+ * never both, so the same Lead is never scored/represented twice. Still
+ * keyed by candidateId=lead.id (never requirement.id), so precedence is a
+ * property of which normalizer the CALLER chooses to run, not of this
+ * function or of candidateKeyFor.
+ */
+export function normalizeExplicitLeadRequirement(
+  lead: Pick<Lead, "id" | "status">,
+  requirement: ExplicitLeadRequirementInput,
+  preferredLocalities: string[],
+  bhkValues: number[]
+): NormalizedRequirement {
+  return {
+    source: "LEAD",
+    candidateId: lead.id,
+    requirementId: null,
+    assetClass: requirement.assetClass,
+    transactionType: requirement.transactionType,
+    preferredLocalities,
+    minBudget: requirement.minBudget,
+    maxBudget: requirement.maxBudget,
+    bhk: bhkValues[0] ?? null,
+    commercialPropertyType: requirement.propertyType,
+    minArea: requirement.minAreaSqft,
+    maxArea: requirement.maxAreaSqft,
+    furnishing: requirement.furnishingPreference,
+    parkingRequired: requirement.parkingPreference === "REQUIRED",
+    liftRequired: requirement.liftPreference === "REQUIRED",
+    commercialFitOutPref: null,
+    contactable: requirement.status === "ACTIVE" && leadIsMatchEligible(lead),
+  };
+}
+
 const WEIGHTS = { location: 25, budget: 25, typeFit: 20, furnishing: 10, parking: 5, lift: 5, area: 10 };
 
 function getListingPrice(property: Property): number {

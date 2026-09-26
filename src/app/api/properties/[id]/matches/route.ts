@@ -5,6 +5,7 @@ import { getOrganizationId } from "@/lib/organization";
 import { recomputeMatchesForProperty } from "@/lib/demand-recommendations";
 import { getSystemConfig } from "@/lib/system-config";
 import { loadMatchHistory, matchHistoryStatusFor, matchHistorySortRank } from "@/lib/match-history";
+import { isLeadAccessibleToUser } from "@/lib/lead-access";
 
 // GET /api/properties/[id]/matches - MATCHED CUSTOMERS panel (rule 19):
 // unified CONTACT + LEAD candidates for this property, filterable by tier/
@@ -42,18 +43,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       },
       include: {
         customerContact: { select: { id: true, name: true, phone: true, doNotContact: true, whatsAppOptOut: true, lastContactedAt: true, lastPropertySentAt: true } },
-        lead: { select: { id: true, clientName: true, phone: true, status: true, lastContactedAt: true } },
+        lead: { select: { id: true, clientName: true, phone: true, status: true, lastContactedAt: true, assignedToId: true } },
         requirement: { select: { id: true, minBudget: true, maxBudget: true, preferredLocalities: true } },
       },
       orderBy: [{ tier: "asc" }, { score: "desc" }],
     });
 
+    // A FIELD_EXECUTIVE must never see a candidate backed by a Lead assigned
+    // to a different employee (isLeadAccessibleToUser is the single source
+    // of truth for this - see its doc comment). A CONTACT-sourced
+    // recommendation has no Lead and is unaffected; ADMIN/DATA_MANAGER see
+    // everything in their organization, unchanged.
+    const accessFiltered = recommendations.filter((r) => !r.lead || isLeadAccessibleToUser(r.lead, session.user));
+
     const contactRecencyFiltered = notContactedRecentlyOnly
-      ? recommendations.filter((r) => {
+      ? accessFiltered.filter((r) => {
           const lastContacted = r.customerContact?.lastContactedAt ?? r.lead?.lastContactedAt ?? null;
           return !lastContacted || lastContacted < cutoff;
         })
-      : recommendations;
+      : accessFiltered;
 
     // Feature 2 (daily-ops hardening): annotate each candidate with what the
     // CRM already knows happened between this lead and this exact property -

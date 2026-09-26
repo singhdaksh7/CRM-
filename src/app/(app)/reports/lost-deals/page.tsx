@@ -35,9 +35,9 @@ export default async function LostDealAnalysisPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <PieChartCard title="Lost Reasons" data={data.byReason.map((r) => ({ name: r.reason, value: r.count }))} />
+            <PieChartCard title="Lost Reasons" data={data.byReason.map((r) => ({ name: r.reason, value: r.count }))} semantic />
             <BarChartCard title="Loss Trend (last 12 months)" data={data.trend.map((t) => ({ name: t.month, value: t.count }))} />
-            <BarChartCard title="Top Reasons (last 90 days)" data={data.topReasonLast90Days.map((r) => ({ name: r.reason, value: r.count }))} />
+            <BarChartCard title="Top Reasons (last 90 days)" data={data.topReasonLast90Days.map((r) => ({ name: r.reason, value: r.count }))} semantic />
           </div>
 
           {data.byReason.length === 0 && (

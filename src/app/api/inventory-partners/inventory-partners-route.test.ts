@@ -104,6 +104,30 @@ describe("GET /api/inventory-partners", () => {
       expect.arrayContaining([{ name: { contains: "Sharma" } }])
     );
   });
+
+  it("filters by dealer operating locality via a case-insensitive substring match on the localities column", async () => {
+    await GET(getRequest("?locality=Noida"));
+    const call = inventoryPartnerFindMany.mock.calls[0][0];
+    expect(call.where.localities).toEqual({ contains: "Noida", mode: "insensitive" });
+  });
+
+  it("trims whitespace from the locality filter and omits it when blank", async () => {
+    await GET(getRequest("?locality=%20%20"));
+    const call = inventoryPartnerFindMany.mock.calls[0][0];
+    expect(call.where.localities).toBeUndefined();
+  });
+
+  it("combines the locality filter with isActive and organization scoping", async () => {
+    await GET(getRequest("?locality=Gurgaon&isActive=true"));
+    const call = inventoryPartnerFindMany.mock.calls[0][0];
+    expect(call.where).toEqual(
+      expect.objectContaining({
+        organizationId: "org_default",
+        isActive: true,
+        localities: { contains: "Gurgaon", mode: "insensitive" },
+      })
+    );
+  });
 });
 
 describe("POST /api/inventory-partners", () => {

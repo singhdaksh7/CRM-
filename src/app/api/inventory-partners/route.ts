@@ -26,6 +26,18 @@ export async function GET(req: NextRequest) {
     const isActive = sp.get("isActive");
     if (isActive !== null) where.isActive = isActive === "true";
 
+    // Partners store their dealing/operating localities as a JSON string
+    // array (InventoryPartner.localities - see schema comment). A substring
+    // match against that serialized column is deliberately how "where does
+    // this dealer operate" is filtered rather than introducing a new
+    // relation: it is the field the spec says already carries this data, and
+    // a normalized join table is unwarranted for a handful of freeform area
+    // names per partner. Case-insensitive (Postgres `mode: "insensitive"`).
+    const locality = sp.get("locality")?.trim();
+    if (locality) {
+      where.localities = { contains: locality, mode: "insensitive" };
+    }
+
     const take = readTake(sp);
     const skip = readSkip(sp);
     const [partners, total] = await Promise.all([

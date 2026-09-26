@@ -200,7 +200,6 @@ export function PropertyMatchingWorkspace({
   const [title, setTitle] = useState(`Shortlist for ${lead.clientName}`);
   const [introMessage, setIntroMessage] = useState("");
   const [includePrice, setIncludePrice] = useState(true);
-  const [includeAddress, setIncludeAddress] = useState(false);
   const [includeBrokerage, setIncludeBrokerage] = useState(false);
   const [expiresAt, setExpiresAt] = useState("");
 
@@ -417,7 +416,6 @@ export function PropertyMatchingWorkspace({
     const warnings: string[] = [];
     if (entry.property.status !== "AVAILABLE") warnings.push(`Property status is ${enumToLabel(entry.property.status)}, not Available`);
     if (!entry.property.coverImage) warnings.push("No cover image set for this property");
-    if (entry.addressVisible && includeAddress) warnings.push("Exact address will be visible to the client");
     if (entry.aboveBudget) warnings.push("Priced above the client's stated budget");
     return warnings;
   }
@@ -440,7 +438,7 @@ export function PropertyMatchingWorkspace({
           title,
           introMessage: introMessage || null,
           includePrice,
-          includeAddress,
+          includeAddress: false,
           includeBrokerage,
           expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
           properties: shortlist.map((s, i) => ({
@@ -707,8 +705,6 @@ export function PropertyMatchingWorkspace({
                 setIntroMessage={setIntroMessage}
                 includePrice={includePrice}
                 setIncludePrice={setIncludePrice}
-                includeAddress={includeAddress}
-                setIncludeAddress={setIncludeAddress}
                 includeBrokerage={includeBrokerage}
                 setIncludeBrokerage={setIncludeBrokerage}
                 expiresAt={expiresAt}
@@ -781,7 +777,7 @@ export function PropertyMatchingWorkspace({
                             {s.property.title}
                           </p>
                           <p className="truncate text-xs text-[#52525B]">
-                            {s.property.area} &middot; {includePrice ? formatPrice(s.property) : "Price hidden"} &middot; {includeAddress && s.addressVisible ? s.property.address ?? "No address on file" : "Location only"}
+                            {s.property.area} &middot; {includePrice ? formatPrice(s.property) : "Price hidden"} &middot; Locality only
                           </p>
                           {s.customNote && <p className="mt-0.5 text-xs italic text-[#71717A]">&ldquo;{s.customNote}&rdquo;</p>}
                         </div>
@@ -918,8 +914,6 @@ function ShortlistPanel({
   setIntroMessage,
   includePrice,
   setIncludePrice,
-  includeAddress,
-  setIncludeAddress,
   includeBrokerage,
   setIncludeBrokerage,
   onReview,
@@ -935,8 +929,6 @@ function ShortlistPanel({
   setIntroMessage: (v: string) => void;
   includePrice: boolean;
   setIncludePrice: (v: boolean) => void;
-  includeAddress: boolean;
-  setIncludeAddress: (v: boolean) => void;
   includeBrokerage: boolean;
   setIncludeBrokerage: (v: boolean) => void;
   expiresAt: string;
@@ -995,8 +987,8 @@ function ShortlistPanel({
 
           <div className="space-y-2 border-t border-[#F4F4F5] pt-3 text-xs">
             <Checkbox label="Show prices" checked={includePrice} onChange={(e) => setIncludePrice(e.target.checked)} />
-            <Checkbox label="Show address" checked={includeAddress} onChange={(e) => setIncludeAddress(e.target.checked)} />
             <Checkbox label="Show brokerage" checked={includeBrokerage} onChange={(e) => setIncludeBrokerage(e.target.checked)} />
+            <p className="text-[11px] text-[#71717A]">Clients see the locality only. Street address, flat number, and GPS stay internal.</p>
           </div>
 
           <Button className="w-full justify-center" onClick={onReview}>

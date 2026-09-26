@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const propertyFindFirst = vi.fn();
 const customerRequirementFindMany = vi.fn();
 const leadFindMany = vi.fn();
+const leadRequirementFindMany = vi.fn();
 const propertyRecommendationFindUnique = vi.fn();
 const propertyRecommendationCreate = vi.fn();
 const propertyRecommendationUpdate = vi.fn();
@@ -27,6 +28,7 @@ vi.mock("./prisma", () => ({
     property: { findFirst: (...a: unknown[]) => propertyFindFirst(...a) },
     customerRequirement: { findMany: (...a: unknown[]) => customerRequirementFindMany(...a) },
     lead: { findMany: (...a: unknown[]) => leadFindMany(...a) },
+    leadRequirement: { findMany: (...a: unknown[]) => leadRequirementFindMany(...a) },
     propertyRecommendation: {
       findUnique: (...a: unknown[]) => propertyRecommendationFindUnique(...a),
       create: (...a: unknown[]) => propertyRecommendationCreate(...a),
@@ -68,6 +70,7 @@ beforeEach(() => {
     { id: "lead1", organizationId: "org1", status: "NEW", maxBudget: 40000 },
     { id: "lead2", organizationId: "org1", status: "NEW", maxBudget: 40000 },
   ]);
+  leadRequirementFindMany.mockResolvedValue([]);
   propertyRecommendationUpdateMany.mockResolvedValue({ count: 0 });
 });
 

@@ -106,7 +106,7 @@ export default async function ReportsPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PieChartCard title="Leads by Source" data={data.leadsBySource} />
-        <PieChartCard title="Rent vs Buy Enquiries" data={data.rentVsSale} />
+        <PieChartCard title="Rent vs Buy Enquiries" data={data.rentVsSale} semantic />
         <BarChartCard title="Property Demand by Location" data={data.propertiesByLocation} />
         <BarChartCard title="Property Demand by Budget" data={data.propertyDemandByBudget.map((b) => ({ name: b.label, value: b.count }))} />
       </div>
