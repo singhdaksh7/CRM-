@@ -190,11 +190,13 @@ describe("toPublicCatalogueDTO - privacy", () => {
     expect(dto.properties[0].area).toBe("Janakpuri");
   });
 
-  it("shows the exact address only when both the catalogue and the property-level flag allow it", () => {
+  it("never reveals the street address, even when both address flags are on", () => {
     const base = fakeCatalogue();
-    base.properties[0].addressVisible = true; // property-level flag must also be on
+    base.properties[0].addressVisible = true;
     const dto = toPublicCatalogueDTO(fakeCatalogue({ includeAddress: true, properties: base.properties }));
-    expect(dto.properties[0].address).toBe("123 Main Street, Janakpuri");
+    expect(dto.properties[0].address).toBeNull();
+    expect(dto.properties[0].area).toBe("Janakpuri");
+    expect(JSON.stringify(dto)).not.toContain("123 Main Street");
   });
 
   it("hides brokerage by default and shows it only when both flags are enabled", () => {
@@ -272,63 +274,23 @@ describe("toPublicCatalogueDTO - Property Inventory V2 field exposure", () => {
 });
 
 describe("toPublicCatalogueDTO - location privacy", () => {
-  it("hides coordinates entirely when publicLocationMode is LOCALITY_ONLY (the default)", () => {
-    const dto = toPublicCatalogueDTO(fakeCatalogue());
-    expect(dto.properties[0].latitude).toBeNull();
-    expect(dto.properties[0].longitude).toBeNull();
-    expect(dto.properties[0].locationDisclosure).toBe("HIDDEN");
-  });
-
-  it("hides coordinates entirely when publicLocationMode is HIDDEN, even with address visible", () => {
-    const base = fakeCatalogue();
-    base.properties[0].addressVisible = true;
-    base.properties[0].property = property({ publicLocationMode: "HIDDEN" });
-    const dto = toPublicCatalogueDTO(fakeCatalogue({ includeAddress: true, properties: base.properties }));
-    expect(dto.properties[0].latitude).toBeNull();
-    expect(dto.properties[0].locationDisclosure).toBe("HIDDEN");
-  });
-
-  it("reveals a fuzzed (reduced-precision) pin for APPROXIMATE mode, regardless of address visibility", () => {
-    const base = fakeCatalogue();
-    base.properties[0].property = property({ publicLocationMode: "APPROXIMATE", latitude: 28.612945, longitude: 77.229467 });
-    const dto = toPublicCatalogueDTO(fakeCatalogue({ properties: base.properties }));
-    expect(dto.properties[0].locationDisclosure).toBe("APPROXIMATE");
-    expect(dto.properties[0].latitude).toBe(28.61);
-    expect(dto.properties[0].longitude).toBe(77.23);
-  });
-
-  it("never reveals the exact coordinate for APPROXIMATE mode even if address visibility is on", () => {
-    const base = fakeCatalogue();
-    base.properties[0].addressVisible = true;
-    base.properties[0].property = property({ publicLocationMode: "APPROXIMATE", latitude: 28.612945, longitude: 77.229467 });
-    const dto = toPublicCatalogueDTO(fakeCatalogue({ includeAddress: true, properties: base.properties }));
-    expect(dto.properties[0].latitude).not.toBe(28.612945);
-  });
-
-  it("reveals the exact coordinate for EXACT mode only when address visibility is also on", () => {
-    const base = fakeCatalogue();
-    base.properties[0].addressVisible = true;
-    base.properties[0].property = property({ publicLocationMode: "EXACT", latitude: 28.612945, longitude: 77.229467 });
-    const dto = toPublicCatalogueDTO(fakeCatalogue({ includeAddress: true, properties: base.properties }));
-    expect(dto.properties[0].latitude).toBe(28.612945);
-    expect(dto.properties[0].locationDisclosure).toBe("EXACT");
-  });
-
-  it("falls back to a fuzzed pin for EXACT mode when address visibility is off - never a silent full reveal", () => {
-    const base = fakeCatalogue();
-    base.properties[0].property = property({ publicLocationMode: "EXACT", latitude: 28.612945, longitude: 77.229467 });
-    const dto = toPublicCatalogueDTO(fakeCatalogue({ properties: base.properties })); // addressVisible stays false
-    expect(dto.properties[0].latitude).not.toBe(28.612945);
-    expect(dto.properties[0].locationDisclosure).toBe("APPROXIMATE");
-  });
-
-  it("hides coordinates when the property has none geocoded, regardless of mode", () => {
-    const base = fakeCatalogue();
-    base.properties[0].property = property({ publicLocationMode: "EXACT", latitude: null, longitude: null });
-    const dto = toPublicCatalogueDTO(fakeCatalogue({ properties: base.properties }));
-    expect(dto.properties[0].latitude).toBeNull();
-    expect(dto.properties[0].locationDisclosure).toBe("HIDDEN");
-  });
+  it.each(["LOCALITY_ONLY", "HIDDEN", "APPROXIMATE", "EXACT"] as const)(
+    "never reveals coordinates for publicLocationMode %s, even when address flags are on",
+    (mode) => {
+      const base = fakeCatalogue();
+      base.properties[0].addressVisible = true;
+      base.properties[0].property = property({ publicLocationMode: mode, latitude: 28.612945, longitude: 77.229467 });
+      const dto = toPublicCatalogueDTO(fakeCatalogue({ includeAddress: true, properties: base.properties }));
+      expect(dto.properties[0].latitude).toBeNull();
+      expect(dto.properties[0].longitude).toBeNull();
+      expect(dto.properties[0].locationDisclosure).toBe("HIDDEN");
+      const serialized = JSON.stringify(dto);
+      expect(serialized).not.toContain("28.612945");
+      expect(serialized).not.toContain("28.61");
+      expect(serialized).not.toContain("77.229467");
+      expect(serialized).not.toContain("77.23");
+    }
+  );
 });
 
 describe("toExecutiveCatalogueDTO", () => {
