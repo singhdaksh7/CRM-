@@ -1,9 +1,11 @@
 name: kp-properties-crm
 
-# Production Docker Compose for KP Properties CRM on Hostinger VPS
-# Traefik runs in host network mode (network_mode: host) on ports 80/443.
-# This stack contains ONLY the CRM container.
-# External dependencies: Supabase PostgreSQL, Cloudflare R2, Upstash/External Redis.
+# Production Docker Compose for KP Properties CRM on Hostinger VPS.
+# Traefik already owns host ports 80/443. This stack is only the CRM container.
+# PostgreSQL and Redis stay on the VPS and are reached through environment
+# variables. Cloudflare R2 stays external. No database or Redis is started here,
+# and the container does not run Prisma migrations on startup.
+# The CRM joins the existing external Docker network Traefik already uses.
 
 services:
   crm:
@@ -33,3 +35,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    networks:
+      - kp-backend
+
+networks:
+  kp-backend:
+    external: true

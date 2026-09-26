@@ -183,7 +183,7 @@ See `ENVIRONMENT.md` for the full annotated list. Required at minimum: `DATABASE
 
 ## 9. Docker — implemented and verified
 
-- **`Dockerfile`**: 3-stage build (deps → build → runner) on `node:20-slim`. Runs as a non-root user, includes `HEALTHCHECK`, and runs `prisma migrate deploy` before `next start` on every container start (idempotent — a no-op if already applied).
+- **`Dockerfile`**: 3-stage build (deps → build → runner) on `node:22-slim`. Runs as a non-root user, includes `HEALTHCHECK`, and starts `node server.js` only. It does not run `prisma migrate deploy` on container startup. Apply migrations as a separate, reviewed step.
 - **`docker-compose.yml`**: local dev infra (Postgres, Redis, MinIO) — this is what every Phase 3 verification in this document actually ran against.
 - **`docker-compose.prod.yml`**: production-shaped example (app + Postgres + Redis; object storage is intentionally NOT a container here — production storage should be a real managed bucket, not self-hosted MinIO).
 

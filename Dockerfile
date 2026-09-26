@@ -1,10 +1,10 @@
 # Multi-stage production Dockerfile for Delhi Broker / KP Properties CRM
-# Next.js 16 (App Router, Standalone Output) + Node 20 Slim + Prisma 6
+# Next.js 16 (App Router, Standalone Output) + Node 22 Slim + Prisma 6
 
 # ---------------------------------------------------------------------------
 # Stage 1: Install dependencies
 # ---------------------------------------------------------------------------
-FROM node:20-slim AS deps
+FROM node:22-slim AS deps
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
@@ -13,7 +13,7 @@ RUN npm ci
 # ---------------------------------------------------------------------------
 # Stage 2: Build application
 # ---------------------------------------------------------------------------
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
@@ -34,7 +34,7 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 # Stage 3: Production runtime (standalone output)
 # ---------------------------------------------------------------------------
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
