@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { canAccess } from "@/lib/permissions";
+import { isRetiredDemandPoolApi } from "@/lib/retired-demand-pool";
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -53,7 +54,7 @@ export default auth((req) => {
   if (pathname === "/reports/demand") {
     return NextResponse.redirect(new URL("/reports", req.nextUrl.origin));
   }
-  if (pathname.startsWith("/api/customers") || pathname.startsWith("/api/recommendations") || /^\/api\/properties\/[^/]+\/matches$/.test(pathname)) {
+  if (isRetiredDemandPoolApi(pathname)) {
     return NextResponse.json({ error: "Demand Pool has been retired. Use Leads and Lead Requirements instead." }, { status: 410 });
   }
   if (pathname.startsWith("/api")) return NextResponse.next();
