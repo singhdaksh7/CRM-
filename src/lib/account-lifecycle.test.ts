@@ -6,13 +6,14 @@ vi.mock("./api-auth", () => ({ ApiError: class ApiError extends Error { status: 
 const userFindFirst = vi.fn();
 const userUpdateMany = vi.fn();
 const userCount = vi.fn();
+const userDelete = vi.fn();
 const setupCount = vi.fn();
 const setupUpdateMany = vi.fn();
 const resetDeleteMany = vi.fn();
 const auditCreate = vi.fn();
 
 const tx = {
-  user: { findFirst: userFindFirst, updateMany: userUpdateMany, count: userCount },
+  user: { findFirst: userFindFirst, updateMany: userUpdateMany, count: userCount, delete: userDelete },
   accountSetupToken: { count: setupCount, updateMany: setupUpdateMany },
   passwordResetToken: { deleteMany: resetDeleteMany },
   auditLog: { create: auditCreate },
@@ -20,12 +21,39 @@ const tx = {
 const transaction = vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx));
 vi.mock("./prisma", () => ({ prisma: { $transaction: transaction } }));
 
-const { disableEmployeeAccount, enableEmployeeAccount, hasCompletedAccountSetup } = await import("./account-lifecycle");
+const { disableEmployeeAccount, enableEmployeeAccount, deleteEmployeeAccount, hasCompletedAccountSetup } = await import("./account-lifecycle");
+
+function employeeWithZeroHistory(overrides: Partial<{ id: string; name: string; email: string; role: string; status: string }> = {}) {
+  return {
+    id: "u1",
+    name: "Test Employee",
+    email: "test@example.com",
+    role: "FIELD_EXECUTIVE",
+    status: "INACTIVE",
+    ...overrides,
+    _count: {
+      assignedLeads: 0, assignedVisits: 0, visitConflictOverrides: 0, createdVisits: 0, visitPropertiesVisited: 0,
+      scheduledCatalogueRequests: 0, followUps: 0, activities: 0, sharedProperties: 0, leadTransfersFrom: 0, leadTransfersTo: 0,
+      propertiesAdded: 0, assignmentRules: 0, notifications: 0, whatsappMessagesSent: 0, whatsappConversationsAssigned: 0,
+      cataloguesCreated: 0, catalogueShareProperties: 0, ownersCreated: 0, ownersVerified: 0, dealsAssigned: 0, dealsCreated: 0,
+      brokerageCalculationsMade: 0, brokerageIncentives: 0, paymentsRecorded: 0, documentsUploaded: 0, propertyImagesUploaded: 0,
+      importJobsCreated: 0, importMappingPresetsCreated: 0, auditLogs: 0, backupsTriggered: 0, restoreValidationsDone: 0,
+      savedViews: 0, systemConfigsUpdated: 0, automationRulesCreated: 0, inventoryPartnersCreated: 0, propertiesLastVerified: 0,
+      propertiesLocationCaptured: 0, propertyLocalitiesCreated: 0, propertyLocalityAliasesCreated: 0, propertyTimelineEventsActed: 0,
+      availabilityReportsSubmitted: 0, availabilityReportsReviewed: 0, propertyReportsSubmitted: 0, propertyReportsResolved: 0,
+      visitFeedbackSubmitted: 0, leadPhonesCreated: 0, leadAssignmentHistoryTo: 0, catalogueExecutiveStatusUpdates: 0,
+      catalogueVersionEventsActed: 0, propertyFavorites: 0, propertyViewLogs: 0, dealOffers: 0, requirementBroadcasts: 0,
+      matchRecommendations: 0, customerContactsCreated: 0, customerRequirementsCreated: 0, propertyRecommendationsCreated: 0,
+      propertyRecommendationsResponded: 0, leadRequirementsCreated: 0,
+    },
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   userUpdateMany.mockResolvedValue({ count: 1 });
   userCount.mockResolvedValue(1);
+  userDelete.mockResolvedValue({ id: "u1" });
   setupUpdateMany.mockResolvedValue({ count: 0 });
   resetDeleteMany.mockResolvedValue({ count: 0 });
   setupCount.mockResolvedValue(0);
@@ -141,6 +169,67 @@ describe("enableEmployeeAccount", () => {
   it.each(["ACTIVE", "PENDING_SETUP"])("refuses to enable an employee already in %s", async (status) => {
     userFindFirst.mockResolvedValueOnce({ id: "u1", status });
     await expect(enableEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin1" })).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("deleteEmployeeAccount", () => {
+  it("permanently deletes a deactivated employee with zero CRM history", async () => {
+    userFindFirst.mockResolvedValueOnce(employeeWithZeroHistory());
+    await expect(deleteEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin1" }))
+      .resolves.toEqual({ id: "u1", deleted: true });
+    expect(userDelete).toHaveBeenCalledWith({ where: { id: "u1" } });
+  });
+
+  it("refuses to delete an account that is not yet deactivated", async () => {
+    userFindFirst.mockResolvedValueOnce(employeeWithZeroHistory({ status: "ACTIVE" }));
+    await expect(deleteEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin1" })).rejects.toMatchObject({ status: 409 });
+    expect(userDelete).not.toHaveBeenCalled();
+  });
+
+  it("refuses to delete when the employee has attached CRM history, naming what's attached", async () => {
+    const employee = employeeWithZeroHistory();
+    employee._count.assignedLeads = 3;
+    employee._count.documentsUploaded = 1;
+    userFindFirst.mockResolvedValueOnce(employee);
+    await expect(deleteEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin1" })).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining("assigned leads (3)"),
+    });
+    expect(userDelete).not.toHaveBeenCalled();
+  });
+
+  it("refuses to let an admin delete their own account", async () => {
+    userFindFirst.mockResolvedValueOnce(employeeWithZeroHistory({ id: "admin1", role: "ADMIN" }));
+    await expect(deleteEmployeeAccount({ employeeId: "admin1", organizationId: "org1", actorId: "admin1" })).rejects.toMatchObject({ status: 400 });
+    expect(userDelete).not.toHaveBeenCalled();
+  });
+
+  it("refuses to delete the only admin in the organization", async () => {
+    userFindFirst.mockResolvedValueOnce(employeeWithZeroHistory({ role: "ADMIN" }));
+    userCount.mockResolvedValueOnce(0);
+    await expect(deleteEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin2" })).rejects.toMatchObject({ status: 400 });
+    expect(userDelete).not.toHaveBeenCalled();
+  });
+
+  it("allows deleting an admin when another admin still exists", async () => {
+    userFindFirst.mockResolvedValueOnce(employeeWithZeroHistory({ role: "ADMIN" }));
+    userCount.mockResolvedValueOnce(1);
+    await expect(deleteEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin2" })).resolves.toEqual({ id: "u1", deleted: true });
+  });
+
+  it("rejects a cross-organization employee id as not found", async () => {
+    userFindFirst.mockResolvedValueOnce(null);
+    await expect(deleteEmployeeAccount({ employeeId: "u1", organizationId: "other", actorId: "admin1" })).rejects.toMatchObject({ status: 404 });
+    expect(userDelete).not.toHaveBeenCalled();
+  });
+
+  it("audits ACCOUNT_DELETED before deleting, using the actor's id (not the deleted user's)", async () => {
+    userFindFirst.mockResolvedValueOnce(employeeWithZeroHistory());
+    await deleteEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin1" });
+    expect(auditCreate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ userId: "admin1", action: "DELETE", entityId: "u1" }),
+    }));
+    expect(JSON.stringify(auditCreate.mock.calls)).toContain("account_deleted");
   });
 });
 

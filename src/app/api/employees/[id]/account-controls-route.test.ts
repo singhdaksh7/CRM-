@@ -14,6 +14,10 @@ const issuePasswordResetToken = vi.fn();
 const issueAccountSetupToken = vi.fn();
 const disableEmployeeAccount = vi.fn();
 const enableEmployeeAccount = vi.fn();
+const deleteEmployeeAccount = vi.fn();
+const prismaUserFindFirst = vi.fn();
+const prismaUserUpdate = vi.fn();
+const prismaUserCount = vi.fn();
 
 vi.mock("@/lib/api-auth", () => ({
   requireSession,
@@ -31,11 +35,14 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/password-reset", () => ({ issuePasswordResetToken }));
 vi.mock("@/lib/account-setup", () => ({ issueAccountSetupToken }));
-vi.mock("@/lib/account-lifecycle", () => ({ disableEmployeeAccount, enableEmployeeAccount }));
+vi.mock("@/lib/account-lifecycle", () => ({ disableEmployeeAccount, enableEmployeeAccount, deleteEmployeeAccount }));
+vi.mock("@/lib/prisma", () => ({ prisma: { user: { findFirst: prismaUserFindFirst, update: prismaUserUpdate, count: prismaUserCount } } }));
+vi.mock("@/lib/validators", () => ({ employeeSchema: { partial: () => ({ parse: (v: unknown) => v }) } }));
 
 const { POST: resetLinkPost } = await import("./reset-link/route");
 const { POST: setupLinkPost } = await import("./setup-link/route");
 const { POST: accountStatusPost } = await import("./account-status/route");
+const { DELETE: employeeDelete } = await import("./route");
 
 const params = () => ({ params: Promise.resolve({ id: "u1" }) });
 const emptyRequest = () => new Request("http://localhost/api/employees/u1/reset-link", { method: "POST" }) as never;
@@ -50,6 +57,7 @@ beforeEach(() => {
   issueAccountSetupToken.mockResolvedValue({ setupUrl: "https://crm.example.com/setup-account/plain-setup", expiresAt: new Date() });
   disableEmployeeAccount.mockResolvedValue({ id: "u1", status: "INACTIVE" });
   enableEmployeeAccount.mockResolvedValue({ id: "u1", status: "ACTIVE" });
+  deleteEmployeeAccount.mockResolvedValue({ id: "u1", deleted: true });
 });
 
 describe("POST /api/employees/[id]/reset-link", () => {
@@ -162,5 +170,48 @@ describe("POST /api/employees/[id]/account-status", () => {
     checkRateLimit.mockResolvedValueOnce({ allowed: false });
     expect((await accountStatusPost(statusRequest({ action: "DISABLE" }), params())).status).toBe(429);
     expect(disableEmployeeAccount).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /api/employees/[id]", () => {
+  const deleteRequest = () => new Request("http://localhost/api/employees/u1", { method: "DELETE" }) as never;
+
+  it("requires ADMIN", async () => {
+    await employeeDelete(deleteRequest(), params());
+    expect(requireSession).toHaveBeenCalledWith(["ADMIN"]);
+  });
+
+  it("denies a non-admin before deleting anything", async () => {
+    requireSession.mockRejectedValueOnce(new ApiError(403, "Forbidden"));
+    const response = await employeeDelete(deleteRequest(), params());
+    expect(response.status).toBe(403);
+    expect(deleteEmployeeAccount).not.toHaveBeenCalled();
+  });
+
+  it("deletes through the lifecycle helper, organization-scoped", async () => {
+    const response = await employeeDelete(deleteRequest(), params());
+    expect(response.status).toBe(200);
+    expect(deleteEmployeeAccount).toHaveBeenCalledWith({ employeeId: "u1", organizationId: "org1", actorId: "admin1" });
+  });
+
+  it("propagates a 409 when the employee still has CRM history attached", async () => {
+    deleteEmployeeAccount.mockRejectedValueOnce(new ApiError(409, "Cannot permanently delete: has history"));
+    expect((await employeeDelete(deleteRequest(), params())).status).toBe(409);
+  });
+
+  it("propagates a cross-organization id as a 404", async () => {
+    deleteEmployeeAccount.mockRejectedValueOnce(new ApiError(404, "Employee not found"));
+    expect((await employeeDelete(deleteRequest(), params())).status).toBe(404);
+  });
+
+  it("invalidates the cached employee list after a delete", async () => {
+    await employeeDelete(deleteRequest(), params());
+    expect(invalidateCache).toHaveBeenCalledWith("employees:list:org1");
+  });
+
+  it("rate limits per admin", async () => {
+    checkRateLimit.mockResolvedValueOnce({ allowed: false });
+    expect((await employeeDelete(deleteRequest(), params())).status).toBe(429);
+    expect(deleteEmployeeAccount).not.toHaveBeenCalled();
   });
 });

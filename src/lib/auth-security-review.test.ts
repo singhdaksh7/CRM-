@@ -31,6 +31,7 @@ const securityPageSource = read("../app/(app)/settings/security/page.tsx");
 describe("audit events", () => {
   it("defines every event the lifecycle is required to record", () => {
     expect(Object.keys(AUTH_AUDIT_EVENTS).sort()).toEqual([
+      "ACCOUNT_DELETED",
       "ACCOUNT_DISABLED",
       "ACCOUNT_ENABLED",
       "ACCOUNT_SETUP_COMPLETED",

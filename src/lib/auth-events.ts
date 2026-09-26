@@ -21,6 +21,7 @@ export const AUTH_AUDIT_EVENTS = {
   PASSWORD_CHANGED: "password_changed",
   ACCOUNT_DISABLED: "account_disabled",
   ACCOUNT_ENABLED: "account_enabled",
+  ACCOUNT_DELETED: "account_deleted",
   SETUP_LINK_REGENERATED: "account_setup_link_regenerated",
 } as const;
 

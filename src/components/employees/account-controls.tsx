@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Copy, ExternalLink, KeyRound, Lock, Unlock } from "lucide-react";
+import { Copy, ExternalLink, KeyRound, Lock, Unlock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SetupLinkActions } from "./setup-link-actions";
 
@@ -39,7 +39,72 @@ export function EmployeeAccountControls({ employeeId, employeeName, status }: {
       </div>
     );
   }
-  return <AccountStatusAction employeeId={employeeId} action="ENABLE" />;
+  return (
+    <div className="space-y-3">
+      <AccountStatusAction employeeId={employeeId} action="ENABLE" />
+      <DeleteEmployeeAction employeeId={employeeId} employeeName={employeeName} />
+    </div>
+  );
+}
+
+/**
+ * Permanently removes a deactivated employee - only reachable from INACTIVE
+ * (see AccountStatusAction above), and only actually succeeds server-side
+ * when they have zero CRM history attached (deleteEmployeeAccount). A
+ * two-word typed confirmation guards this specifically because, unlike
+ * Disable, there is no "Enable" to undo it with.
+ */
+function DeleteEmployeeAction({ employeeId, employeeName }: { employeeId: string; employeeName: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+
+  async function submit() {
+    setLoading(true);
+    const response = await fetch(`/api/employees/${employeeId}`, { method: "DELETE" });
+    setLoading(false);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      toast.error(body.error ?? "Could not delete this account");
+      return;
+    }
+    toast.success(`${employeeName} has been permanently deleted`);
+    router.push("/employees");
+    router.refresh();
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-4">
+      <p className="text-sm font-semibold text-red-900">Permanently delete account</p>
+      <p className="text-xs text-red-700">
+        Only possible when this account has zero leads, properties, visits, deals or other CRM history attached - otherwise it stays deactivated. This cannot be undone.
+      </p>
+      {confirming ? (
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={`Type DELETE to confirm`}
+            className="w-full rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs text-red-900 placeholder:text-red-300 focus:border-red-500 focus:outline-none"
+          />
+          <div className="flex gap-2">
+            <Button type="button" variant="danger" size="sm" onClick={submit} loading={loading} disabled={confirmText !== "DELETE"}>
+              Permanently Delete
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={() => { setConfirming(false); setConfirmText(""); }}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="button" variant="danger" onClick={() => setConfirming(true)}>
+          <Trash2 className="h-4 w-4" /> Permanently Delete
+        </Button>
+      )}
+    </div>
+  );
 }
 
 function ResetLinkActions({ employeeId, employeeName }: { employeeId: string; employeeName: string }) {
