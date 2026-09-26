@@ -99,9 +99,11 @@ function ResetLinkActions({ employeeId, employeeName }: { employeeId: string; em
 function AccountStatusAction({ employeeId, action }: { employeeId: string; action: "DISABLE" | "ENABLE" }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const disabling = action === "DISABLE";
 
   async function submit() {
+    setConfirming(false);
     setLoading(true);
     const response = await fetch(`/api/employees/${employeeId}/account-status`, {
       method: "POST",
@@ -129,10 +131,22 @@ function AccountStatusAction({ employeeId, action }: { employeeId: string; actio
           ? "Blocks sign-in immediately, signs out every device, and invalidates any outstanding setup or reset link."
           : "Restores access. An employee who never chose a password comes back as Pending Setup, not Active."}
       </p>
-      <Button type="button" variant={disabling ? "danger" : "primary"} onClick={submit} loading={loading}>
-        {disabling ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-        {disabling ? "Disable Account" : "Enable Account"}
-      </Button>
+      {confirming ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-2.5">
+          <p className="text-xs font-medium text-red-800">Are you sure? This signs them out everywhere, immediately.</p>
+          <Button type="button" variant="danger" size="sm" onClick={submit} loading={loading}>
+            Yes, disable
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setConfirming(false)}>
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button type="button" variant={disabling ? "danger" : "primary"} onClick={disabling ? () => setConfirming(true) : submit} loading={loading}>
+          {disabling ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+          {disabling ? "Disable Account" : "Enable Account"}
+        </Button>
+      )}
     </div>
   );
 }

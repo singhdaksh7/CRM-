@@ -9,6 +9,7 @@ import { formatDate, formatDateTime, enumToLabel } from "@/lib/utils";
 import { Clock, Mail, Phone } from "lucide-react";
 import { getOrganizationId } from "@/lib/organization";
 import { EmployeeAccountControls } from "@/components/employees/account-controls";
+import { EditEmployeeModal } from "@/components/employees/edit-employee-modal";
 import { formatLastLogin } from "@/lib/last-login";
 import { auth } from "@/lib/auth";
 
@@ -49,7 +50,13 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
               </div>
             </div>
           </div>
-          <StatusToggle status={employee.status} />
+          <div className="flex items-center gap-2">
+            <StatusToggle status={employee.status} />
+            <EditEmployeeModal
+              employeeId={employee.id}
+              initial={{ name: employee.name, phone: employee.phone, role: employee.role, notes: employee.notes }}
+            />
+          </div>
         </div>
         {employee.notes && <p className="mt-3 rounded-xl bg-zinc-50 border border-zinc-200 p-3 text-sm text-zinc-600">{employee.notes}</p>}
         <div className="mt-4">

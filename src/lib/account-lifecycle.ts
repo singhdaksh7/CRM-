@@ -52,10 +52,26 @@ export async function disableEmployeeAccount(params: {
   return prisma.$transaction(async (tx) => {
     const employee = await tx.user.findFirst({
       where: { id: params.employeeId, organizationId: params.organizationId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, role: true },
     });
     if (!employee) throw new ApiError(404, "Employee not found");
     if (employee.status !== "ACTIVE") throw new ApiError(409, "Only an active employee can be disabled");
+
+    // Never let an admin lock the organization out of itself: disabling
+    // yourself, or disabling the last remaining active admin, leaves no one
+    // able to re-enable anyone (including themselves) via the admin-only
+    // account-status route.
+    if (employee.id === params.actorId) {
+      throw new ApiError(400, "You cannot disable your own account");
+    }
+    if (employee.role === "ADMIN") {
+      const otherActiveAdmins = await tx.user.count({
+        where: { organizationId: params.organizationId, role: "ADMIN", status: "ACTIVE", id: { not: employee.id } },
+      });
+      if (otherActiveAdmins === 0) {
+        throw new ApiError(400, "Cannot disable the only active admin in this organization");
+      }
+    }
 
     const disabled = await tx.user.updateMany({
       where: { id: employee.id, organizationId: params.organizationId, status: "ACTIVE" },

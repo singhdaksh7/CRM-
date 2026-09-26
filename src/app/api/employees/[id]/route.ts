@@ -52,6 +52,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       throw new ApiError(400, "Use the account status controls to enable or disable an employee");
     }
 
+    // Same lockout hazard as disableEmployeeAccount (account-lifecycle.ts):
+    // demoting the last remaining active admin away from ADMIN is just as
+    // dangerous as disabling them - nobody would be left who can promote
+    // anyone back.
+    if (data.role !== undefined && data.role !== "ADMIN" && existing.role === "ADMIN" && existing.status === "ACTIVE") {
+      const otherActiveAdmins = await prisma.user.count({
+        where: { organizationId, role: "ADMIN", status: "ACTIVE", id: { not: existing.id } },
+      });
+      if (otherActiveAdmins === 0) {
+        throw new ApiError(400, "Cannot change the role of the only active admin in this organization");
+      }
+    }
+
     const employee = await prisma.user.update({
       where: { id },
       data: { ...data, email: data.email?.toLowerCase() },

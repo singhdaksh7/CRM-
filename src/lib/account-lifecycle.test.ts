@@ -5,13 +5,14 @@ vi.mock("./api-auth", () => ({ ApiError: class ApiError extends Error { status: 
 
 const userFindFirst = vi.fn();
 const userUpdateMany = vi.fn();
+const userCount = vi.fn();
 const setupCount = vi.fn();
 const setupUpdateMany = vi.fn();
 const resetDeleteMany = vi.fn();
 const auditCreate = vi.fn();
 
 const tx = {
-  user: { findFirst: userFindFirst, updateMany: userUpdateMany },
+  user: { findFirst: userFindFirst, updateMany: userUpdateMany, count: userCount },
   accountSetupToken: { count: setupCount, updateMany: setupUpdateMany },
   passwordResetToken: { deleteMany: resetDeleteMany },
   auditLog: { create: auditCreate },
@@ -24,6 +25,7 @@ const { disableEmployeeAccount, enableEmployeeAccount, hasCompletedAccountSetup 
 beforeEach(() => {
   vi.clearAllMocks();
   userUpdateMany.mockResolvedValue({ count: 1 });
+  userCount.mockResolvedValue(1);
   setupUpdateMany.mockResolvedValue({ count: 0 });
   resetDeleteMany.mockResolvedValue({ count: 0 });
   setupCount.mockResolvedValue(0);
@@ -69,6 +71,32 @@ describe("disableEmployeeAccount", () => {
   it("is race-safe: a concurrent disable that already won leaves count 0 and this one fails", async () => {
     userUpdateMany.mockResolvedValueOnce({ count: 0 });
     await expect(disableEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin1" })).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("refuses to let an admin disable their own account", async () => {
+    userFindFirst.mockResolvedValueOnce({ id: "admin1", status: "ACTIVE", role: "ADMIN" });
+    await expect(disableEmployeeAccount({ employeeId: "admin1", organizationId: "org1", actorId: "admin1" })).rejects.toMatchObject({ status: 400 });
+    expect(userUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses to disable the only other active admin, leaving the org lockable-out", async () => {
+    userFindFirst.mockResolvedValueOnce({ id: "u1", status: "ACTIVE", role: "ADMIN" });
+    userCount.mockResolvedValueOnce(0); // no other active admins besides u1
+    await expect(disableEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin2" })).rejects.toMatchObject({ status: 400 });
+    expect(userUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("allows disabling an admin when another active admin still exists", async () => {
+    userFindFirst.mockResolvedValueOnce({ id: "u1", status: "ACTIVE", role: "ADMIN" });
+    userCount.mockResolvedValueOnce(1); // one other active admin
+    await expect(disableEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin2" }))
+      .resolves.toEqual({ id: "u1", status: "INACTIVE" });
+  });
+
+  it("does not run the admin-lockout check for a non-admin employee", async () => {
+    userFindFirst.mockResolvedValueOnce({ id: "u1", status: "ACTIVE", role: "FIELD_EXECUTIVE" });
+    await disableEmployeeAccount({ employeeId: "u1", organizationId: "org1", actorId: "admin1" });
+    expect(userCount).not.toHaveBeenCalled();
   });
 });
 
