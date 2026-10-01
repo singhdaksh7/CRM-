@@ -10,8 +10,9 @@ docker exec kp-postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc
 docker exec -i kp-postgres pg_restore -l < "$f.tmp" >/dev/null
 mv "$f.tmp" "$f"
 ( cd "$B/daily" && sha256sum "$(basename "$f")" > "$(basename "$f").sha256" )
-[ "$(date -u +%u)" = 7 ] && cp -p "$f" "$f.sha256" "$B/weekly/"
-[ "$(date -u +%d)" = 01 ] && cp -p "$f" "$f.sha256" "$B/monthly/"
-prune() { ls -1t "$1"/*.dump 2>/dev/null | tail -n +$(( $2 + 1 )) | while read -r d; do rm -f "$d" "$d.sha256"; done; }
+if [ "$(date -u +%u)" = 7 ]; then cp -p "$f" "$f.sha256" "$B/weekly/"; fi
+if [ "$(date -u +%d)" = 01 ]; then cp -p "$f" "$f.sha256" "$B/monthly/"; fi
+prune() { find "$1" -maxdepth 1 -name "*.dump" -printf "%T@ %p
+" | sort -rn | tail -n +$(( $2 + 1 )) | cut -d" " -f2- | while read -r d; do rm -f "$d" "$d.sha256"; done; }
 prune "$B/daily" 7; prune "$B/weekly" 4; prune "$B/monthly" 6
 echo "backup ok: $(basename "$f") $(du -h "$f" | cut -f1)"
