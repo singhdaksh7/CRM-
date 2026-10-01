@@ -122,7 +122,7 @@ R2_SIGNED_URL_EXPIRY_SECONDS=300
 
 **Rotating credentials**: create a new API token in the Cloudflare dashboard scoped the same way, update `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` in Vercel, redeploy, then revoke the old token from **Manage R2 API tokens**. Never reuse a revoked token's values.
 
-**CORS**: not required for the current implementation — all uploads are server-mediated (the browser POSTs file bytes to a Next.js route, which pushes them to R2; the browser never talks to R2 directly). If a future presigned-PUT upload path is added for large images, configure the bucket's CORS policy to allow only `https://crm-kappa-five-28.vercel.app` (and `http://localhost:3000` for local testing) with methods `PUT, GET, HEAD`, header `Content-Type`, and exposed header `ETag` — never a wildcard origin in production.
+**CORS**: required. Property images are uploaded browser-direct to R2 with presigned PUTs (see `src/components/properties/property-image-uploader.tsx`), so the bucket CORS policy must allow the CRM origin, and the build must know the R2 origins for the CSP (`STORAGE_PROVIDER`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME` as Docker build args). See `deploy/README.md`.
 
 **Bucket separation**: one private bucket is used for both public-safe property images and private documents, separated by object-key path (`.../images/`, `.../floor-plans/` vs `.../documents/`, `.../receipts/`) — the same model already used for S3/Firebase. A separate public-image bucket or custom-domain delivery path is a later optimization, not needed for this pilot.
 
