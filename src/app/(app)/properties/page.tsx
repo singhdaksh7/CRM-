@@ -13,6 +13,7 @@ import {
   PROPERTY_LIST_SORT_TIMESTAMP,
   listAvailablePropertiesPage,
 } from "@/lib/property-list-query";
+import { propertyTypeFilterValues } from "@/lib/property-categories";
 import { Plus, Upload, History } from "lucide-react";
 import Link from "next/link";
 import type { Prisma, PropertyStatus } from "@prisma/client";
@@ -27,7 +28,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
 
   const statusFilter: PropertyStatus | null =
     sp.status === "ALL" ? null : ((sp.status as PropertyStatus | undefined) ?? "AVAILABLE");
-  const hasCustomFilters = Boolean(sp.q || sp.listingType || sp.assetClass || sp.area || sp.bhk || sp.furnishing || sp.possessionStatus || sp.liftAvailable || sp.parkFacing || (sp.status && sp.status !== "AVAILABLE") || sp.sort);
+  const hasCustomFilters = Boolean(sp.q || sp.listingType || sp.assetClass || sp.propertyType || sp.area || sp.bhk || sp.furnishing || sp.possessionStatus || sp.liftAvailable || sp.parkFacing || (sp.status && sp.status !== "AVAILABLE") || sp.sort);
 
   const listResult = await withTiming("propertiesPageQuery", "/properties", () =>
     listAvailablePropertiesPage({
@@ -38,6 +39,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
       q: sp.q,
       listingType: sp.listingType,
       assetClass: sp.assetClass,
+      propertyType: sp.propertyType,
       area: sp.area,
       bhk: sp.bhk ? Number(sp.bhk) : null,
       furnishing: sp.furnishing,
@@ -63,6 +65,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   }
   if (sp.listingType) where.listingType = sp.listingType as never;
   if (sp.assetClass) where.assetClass = sp.assetClass as never;
+  if (sp.propertyType) where.propertyType = { in: propertyTypeFilterValues(sp.propertyType) as never };
   if (sp.area) where.area = sp.area;
   if (sp.bhk) where.bhk = Number(sp.bhk);
   if (sp.furnishing) where.furnishing = sp.furnishing as never;

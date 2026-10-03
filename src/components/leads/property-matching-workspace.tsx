@@ -10,6 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { LoadingState, EmptyState } from "@/components/ui/states";
 import { PropertyPickerDialog, type PickerProperty } from "@/components/properties/property-picker-dialog";
 import { formatINR, enumToLabel } from "@/lib/utils";
+import { propertySpecSummary } from "@/lib/property-categories";
 import {
   Sparkles,
   Copy,
@@ -44,6 +45,8 @@ export interface ClientMatchProperty {
   address: string;
   listingType: "RENT" | "SALE";
   status: string;
+  /** RESIDENTIAL | COMMERCIAL - commercial rows show their type instead of "0 BHK". */
+  assetClass?: string;
   propertyType: string;
   bhk: number;
   bathrooms: number;
@@ -856,7 +859,7 @@ function MatchCard({
               )}
             </div>
             <p className="text-xs text-[#52525B]">
-              {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {p.builtUpAreaSqft} sqft
+              {p.area} &middot; {propertySpecSummary(p)}{p.assetClass === "COMMERCIAL" ? null : <> &middot; {enumToLabel(p.furnishing)}</>} &middot; {p.builtUpAreaSqft} sqft
             </p>
             <p className="text-sm font-semibold text-[#09090B]">{formatPrice(p)}</p>
             {match.matchedRequirement && (
