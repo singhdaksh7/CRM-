@@ -116,6 +116,23 @@ describe("property-image-upload sessions", () => {
     );
   }, 20000);
 
+  it("handles a COMMERCIAL property's photos through the same org-scoped upload path (no category branching)", async () => {
+    propertyFindFirst.mockResolvedValue({ id: "shop1", assetClass: "COMMERCIAL", propertyType: "SHOP" });
+    const { createPropertyImageUploadSession } = await import("./property-image-upload");
+    const result = await createPropertyImageUploadSession({
+      actorId: "admin1", organizationId: "org_default",
+      role: "ADMIN",
+      propertyId: "shop1",
+      fileName: "shopfront.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 2048,
+    });
+    expect(result.sessionId).toBe("sess1");
+    // Existence check is org-scoped exactly like residential.
+    expect(propertyFindFirst.mock.calls[0][0].where).toMatchObject({ id: "shop1", organizationId: "org_default" });
+    expect(JSON.stringify(createPropertyImageUploadUrl.mock.calls[0])).toContain("organizations/org_default/properties/shop1/");
+  }, 20000);
+
   it("rejects SVG / dangerous types via validation", async () => {
     const { createPropertyImageUploadSession } = await import("./property-image-upload");
     await expect(

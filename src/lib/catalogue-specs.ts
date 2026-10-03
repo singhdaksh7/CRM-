@@ -5,6 +5,8 @@
  * graph, which must never reach the client bundle.
  */
 
+import { propertyTypeLabel } from "./property-categories";
+
 export interface CatalogueSpecSource {
   assetClass: string;
   propertyType: string;
@@ -13,13 +15,10 @@ export interface CatalogueSpecSource {
   builtUpAreaSqft: number;
   workstations?: number | null;
   cabins?: number | null;
+  washrooms?: number | null;
 }
 
 export type CatalogueSpecChip = { kind: "bhk" | "bath" | "area" | "commercial"; label: string };
-
-function titleCase(value: string): string {
-  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 /**
  * Client-safe spec chips for one catalogue property.
@@ -32,9 +31,10 @@ function titleCase(value: string): string {
  */
 export function catalogueSpecChips(property: CatalogueSpecSource): CatalogueSpecChip[] {
   if (property.assetClass === "COMMERCIAL") {
-    const chips: CatalogueSpecChip[] = [{ kind: "commercial", label: titleCase(property.propertyType) }];
+    const chips: CatalogueSpecChip[] = [{ kind: "commercial", label: propertyTypeLabel(property.propertyType) }];
     if (property.workstations) chips.push({ kind: "commercial", label: `${property.workstations} workstations` });
     if (property.cabins) chips.push({ kind: "commercial", label: `${property.cabins} cabins` });
+    if (property.washrooms) chips.push({ kind: "commercial", label: `${property.washrooms} washroom${property.washrooms === 1 ? "" : "s"}` });
     chips.push({ kind: "area", label: `${property.builtUpAreaSqft} sqft` });
     return chips;
   }

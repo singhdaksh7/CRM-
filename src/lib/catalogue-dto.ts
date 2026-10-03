@@ -61,6 +61,8 @@ export interface PublicCatalogueProperty {
   propertyType: string;
   workstations: number | null;
   cabins: number | null;
+  /** Commercial washroom count - a public-safe listing spec, like workstations/cabins. */
+  washrooms: number | null;
   bhk: number;
   bathrooms: number;
   furnishing: string | null;
@@ -155,6 +157,7 @@ export function toPublicCatalogueDTO(catalogue: CatalogueForDTO): PublicCatalogu
         propertyType: p.propertyType,
         workstations: p.workstations,
         cabins: p.cabins,
+        washrooms: p.washrooms,
         bhk: p.bhk,
         bathrooms: p.bathrooms,
         furnishing: p.furnishing,
