@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "test-results/**",
     "playwright-report/**",
+    // Plain CommonJS operator scripts copied into the production container and run
+    // with bare `node`, deliberately outside the app's build/module system.
+    "deploy/scripts/*.cjs",
   ]),
 ]);
 
