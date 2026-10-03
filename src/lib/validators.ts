@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PROPERTY_TYPE_VALUES, isPropertyTypeAllowedForCategory } from "./property-categories";
 
 // Treats a blank/whitespace-only string as "not provided" before running the
 // underlying check, so optional fields left empty in the Add Property form
@@ -14,7 +15,7 @@ const pincodeField = optionalWhenBlank(z.string().regex(/^[0-9]{6}$/, "Pincode m
 
 export const propertySchema = z.object({
   title: z.string().min(3),
-  propertyType: z.enum(["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG", "STUDIO", "FARM_HOUSE", "CO_LIVING", "OTHER", "OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL"]),
+  propertyType: z.enum(PROPERTY_TYPE_VALUES),
   listingType: z.enum(["RENT", "SALE"]),
   assetClass: z.enum(["RESIDENTIAL", "COMMERCIAL"]).default("RESIDENTIAL"),
   status: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD", "INACTIVE"]).default("AVAILABLE"),
@@ -40,7 +41,11 @@ export const propertySchema = z.object({
   bhk: z.number().int().min(0).max(10).default(0),
   bathrooms: z.number().int().min(0).max(10).default(0),
   balconies: z.number().int().min(0).max(10).default(0),
-  furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]),
+  // Residential furnishing. Optional at this level because it does not
+  // apply to commercial inventory (which uses commercialFitOut instead) -
+  // createPropertySchema still requires it for RESIDENTIAL manual create via
+  // the residential-only refine below, so residential validation is unchanged.
+  furnishing: z.enum(["FURNISHED", "SEMI_FURNISHED", "UNFURNISHED"]).optional().nullable(),
   floorNumber: z.number().int().optional().nullable(),
   totalFloors: z.number().int().optional().nullable(),
   // Legacy single-value age - kept for backward compatibility, no longer
@@ -143,12 +148,48 @@ export const createPropertySchema = propertySchema.refine(
   (data) => data.inventorySource !== "INDIRECT" || !!data.partnerId,
   { message: "An inventory partner is required for indirect inventory", path: ["partnerId"] }
 ).refine(
-  (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
+  (data) => data.assetClass !== "COMMERCIAL" || isPropertyTypeAllowedForCategory("COMMERCIAL", data.propertyType),
   { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
+).refine(
+  // The reverse direction was previously unchecked, so a commercial type
+  // (e.g. SHOWROOM) could be saved as RESIDENTIAL inventory and then never
+  // match a commercial requirement (every matcher gates on assetClass).
+  (data) => data.assetClass !== "RESIDENTIAL" || isPropertyTypeAllowedForCategory("RESIDENTIAL", data.propertyType),
+  { message: "Choose a residential property type for residential inventory", path: ["propertyType"] }
+).refine(
+  (data) => data.assetClass !== "RESIDENTIAL" || !!data.furnishing,
+  { message: "Furnishing is required for residential inventory", path: ["furnishing"] }
 ).refine(
   (data) => data.propertyAgeMinYears == null || data.propertyAgeMaxYears == null || data.propertyAgeMinYears <= data.propertyAgeMaxYears,
   { message: "Maximum age cannot be less than minimum age", path: ["propertyAgeMaxYears"] }
 );
+
+/**
+ * PATCH counterpart of createPropertySchema's category/type refines.
+ * propertySchema.partial() (what PATCH parses with) can't carry a refine, and
+ * a partial body only makes sense against the stored row - e.g. switching
+ * only `assetClass` to COMMERCIAL must still be rejected while the stored
+ * type is APARTMENT. Only runs when the request actually touches one of the
+ * two fields, so an unrelated edit of a legacy row is never blocked by it.
+ * Throws a ZodError so handleApiError returns the same {issues} shape the
+ * property form already maps onto field errors.
+ */
+export function assertPropertyCategoryPatch(
+  existing: { assetClass: string; propertyType: string },
+  patch: { assetClass?: string | null; propertyType?: string | null }
+) {
+  if (patch.assetClass == null && patch.propertyType == null) return;
+  const assetClass = patch.assetClass ?? existing.assetClass;
+  const propertyType = patch.propertyType ?? existing.propertyType;
+  if (isPropertyTypeAllowedForCategory(assetClass, propertyType)) return;
+  throw new z.ZodError([
+    {
+      code: "custom",
+      path: ["propertyType"],
+      message: assetClass === "COMMERCIAL" ? "Choose a commercial property type for commercial inventory" : "Choose a residential property type for residential inventory",
+    },
+  ]);
+}
 
 // Property Inventory V2 - import-only variant of createPropertySchema.
 // Real broker workbooks (e.g. KP's inventory sheet) never carry a
@@ -183,8 +224,8 @@ export const importCreatePropertySchema = propertySchema
     { message: "An inventory partner is required for indirect inventory", path: ["partnerId"] }
   )
   .refine(
-    (data) => data.assetClass !== "COMMERCIAL" || ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE"].includes(data.propertyType),
-    { message: "Choose a commercial property type for commercial inventory", path: ["propertyType"] }
+    (data) => isPropertyTypeAllowedForCategory(data.assetClass, data.propertyType),
+    { message: "Property type does not belong to the selected category (Residential/Commercial)", path: ["propertyType"] }
   )
   .refine(
     (data) => data.propertyAgeMinYears == null || data.propertyAgeMaxYears == null || data.propertyAgeMinYears <= data.propertyAgeMaxYears,

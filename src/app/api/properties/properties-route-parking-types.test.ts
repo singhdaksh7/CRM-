@@ -53,6 +53,8 @@ vi.mock("@/lib/validators", () => ({
     }),
   },
   propertySchema: { partial: () => ({ parse: (b: unknown) => b }) },
+  // Category/type consistency is covered by property-categories.test.ts; these bodies never touch assetClass/propertyType.
+  assertPropertyCategoryPatch: () => undefined,
 }));
 
 const resolveOrCreatePropertyLocality = vi.fn();

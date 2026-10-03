@@ -1,6 +1,7 @@
 import type { Property, Lead, OwnerVerificationStatus } from "@prisma/client";
 import { normalizeLocality, getNearbyLocalities, getLocalityCentroid } from "./locality";
 import { haversineDistanceMeters } from "./geo";
+import { propertyTypesEquivalent } from "./property-categories";
 
 /**
  * Property matching engine.
@@ -199,7 +200,7 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
 
   // Commercial requirements deliberately do not depend on residential BHK.
   if (lead.assetClass === "COMMERCIAL") {
-    if (lead.commercialPropertyType && property.propertyType !== lead.commercialPropertyType) return null;
+    if (lead.commercialPropertyType && !propertyTypesEquivalent(property.propertyType, lead.commercialPropertyType)) return null;
     if (lead.minAreaSqft && property.builtUpAreaSqft < lead.minAreaSqft) return null;
     if (lead.maxAreaSqft && property.builtUpAreaSqft > lead.maxAreaSqft) return null;
     if (lead.commercialFitOutPref && property.commercialFitOut && property.commercialFitOut !== lead.commercialFitOutPref) {

@@ -1,6 +1,7 @@
 import type { Property, CustomerRequirement, Lead } from "@prisma/client";
 import { normalizeLocality, getNearbyLocalities } from "./locality";
 import type { LocationMatchKind } from "./matching";
+import { propertyTypesEquivalent } from "./property-categories";
 
 /**
  * Two-way demand-pool matching engine: Property <-> {CustomerRequirement,
@@ -281,7 +282,9 @@ export function scoreDemandCandidate(property: Property, requirement: Normalized
 
   if (requirement.assetClass === "COMMERCIAL") {
     // Commercial requirements never depend on BHK (rule 3/16).
-    if (requirement.commercialPropertyType && property.propertyType !== requirement.commercialPropertyType) return null;
+    // Alias-aware: a SHOP requirement still matches a listing stored under
+    // the legacy COMMERCIAL_SHOP value (and OFFICE/COMMERCIAL_OFFICE).
+    if (requirement.commercialPropertyType && !propertyTypesEquivalent(property.propertyType, requirement.commercialPropertyType)) return null;
     if (requirement.minArea && property.builtUpAreaSqft < requirement.minArea) return null;
     if (requirement.maxArea && property.builtUpAreaSqft > requirement.maxArea) return null;
     if (requirement.parkingRequired && !property.parkingAvailable) return null;
