@@ -5,11 +5,15 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { getOrganizationId } from "@/lib/organization";
 import { assertLeadAccessible } from "@/lib/lead-access";
 import { logActivity } from "@/lib/activity";
+import { PROPERTY_TYPE_VALUES, isPropertyTypeAllowedForCategory } from "@/lib/property-categories";
 
 export const leadRequirementSchema = z.object({
   transactionType: z.enum(["RENT", "SALE"]),
   assetClass: z.enum(["RESIDENTIAL", "COMMERCIAL"]).default("RESIDENTIAL"),
-  propertyType: z.string().nullable().optional(),
+  // Was z.string(): any text reached Prisma, so an unknown value (e.g. the
+  // requirement panel's old "COMMERCIAL SHOP" label-as-value) surfaced as a
+  // 500 instead of a validation error.
+  propertyType: z.enum(PROPERTY_TYPE_VALUES).nullable().optional(),
   minBudget: z.number().int().nonnegative().nullable().optional(),
   maxBudget: z.number().int().positive().nullable().optional(),
   minAreaSqft: z.number().int().positive().nullable().optional(),
@@ -26,6 +30,14 @@ export const leadRequirementSchema = z.object({
 }).superRefine((data, context) => {
   if (data.minBudget != null && data.maxBudget != null && data.minBudget > data.maxBudget) context.addIssue({ code: "custom", path: ["maxBudget"], message: "Maximum budget must be at least the minimum" });
   if (data.minAreaSqft != null && data.maxAreaSqft != null && data.minAreaSqft > data.maxAreaSqft) context.addIssue({ code: "custom", path: ["maxAreaSqft"], message: "Maximum area must be at least the minimum" });
+  // A residential brief can't ask for a commercial type (or vice versa) -
+  // every matcher hard-gates on assetClass first, so such a brief could
+  // never match anything and would just sit silently empty.
+  if (!isPropertyTypeAllowedForCategory(data.assetClass, data.propertyType)) context.addIssue({ code: "custom", path: ["propertyType"], message: data.assetClass === "COMMERCIAL" ? "Choose a commercial property type for a commercial requirement" : "Choose a residential property type for a residential requirement" });
+  // Commercial inventory stores bhk = 0 by design and matchPropertyToRequirement
+  // hard-filters on bhkValues, so a BHK on a commercial brief would exclude
+  // every commercial listing.
+  if (data.assetClass === "COMMERCIAL" && data.bhks.length) context.addIssue({ code: "custom", path: ["bhks"], message: "BHK does not apply to commercial requirements" });
 });
 
 const include = { localities: { include: { locality: { select: { id: true, name: true } } } }, bhkValues: { orderBy: { bhk: "asc" as const } } };
