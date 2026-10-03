@@ -114,7 +114,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=kp-proxy"
-      - "traefik.http.routers.kpcrm.rule=Host(`${CRM_DOMAIN:?set CRM_DOMAIN}`)"
+      # CRM_DOMAIN_EXTRA is optional - set it during a domain cutover to make Traefik also
+      # match the new hostname (and request its own Let's Encrypt cert on first successful
+      # HTTPS SNI/ACME HTTP-01 request) while CRM_DOMAIN keeps serving the existing one. Drop
+      # CRM_DOMAIN_EXTRA once the cutover is verified and CRM_DOMAIN has been switched to it.
+      - "traefik.http.routers.kpcrm.rule=Host(`${CRM_DOMAIN:?set CRM_DOMAIN}`)${CRM_DOMAIN_EXTRA:+ || Host(`${CRM_DOMAIN_EXTRA}`)}"
       - "traefik.http.routers.kpcrm.entrypoints=websecure"
       - "traefik.http.routers.kpcrm.tls=true"
       - "traefik.http.routers.kpcrm.tls.certresolver=letsencrypt"
