@@ -57,4 +57,4 @@ Creates the lead, auto-assigns it, scores it, runs property matching and `LEAD_C
 ## Operations
 
 * `ACRES_99_WEBHOOK_SECRET` lives only in the server's `env/.env.production` (`deploy/scripts/02-gen-env.sh` generates one on a fresh install). Rotate by editing the file and restarting the app; tell 99acres the new value.
-* The older **mock** route `POST /api/integrations/leads/99acres` (`x-api-key`, `ACRES_99_API_KEY`) is unrelated and is open when that key is unset - keep `ACRES_99_API_KEY` set in production.
+* The old mock route `/api/integrations/leads/99acres` (which was open when its key was unset) has been removed; this is the only 99acres ingestion endpoint.

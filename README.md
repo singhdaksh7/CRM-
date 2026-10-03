@@ -113,14 +113,15 @@ Every share is logged in `SharedPropertyLog` (properties included, message text,
 
 The public property page (`/p/[id]`) is unauthenticated by design (see `src/proxy.ts`'s public-path allowlist) and deliberately omits `ownerName`/`ownerPhone`/`ownerNotes`.
 
-## Mock Lead Ingestion (99acres / Magicbricks)
+## Mock Lead Ingestion (Magicbricks)
+
+The 99acres mock route was removed; the real 99acres endpoint is `POST /api/integrations/99acres/leads` (see `docs/99acres-lead-webhook.md`). The Magicbricks mock requires `MAGICBRICKS_API_KEY` (`x-api-key`) and refuses all requests (503) when it is unset.
 
 ```
-POST /api/integrations/leads/99acres
 POST /api/integrations/leads/magicbricks
 ```
 
-Both accept the same payload shape (validated with Zod in `src/lib/validators.ts`):
+It accepts the same payload shape (validated with Zod in `src/lib/validators.ts`):
 
 ```json
 {
@@ -201,8 +202,8 @@ All routes below live under `src/app/api/` and are protected by `requireSession(
 | `/api/activities` | GET | `?leadId=` |
 | `/api/dashboard` | GET | same aggregation the Dashboard page uses |
 | `/api/reports` | GET | admin-only |
-| `/api/integrations/leads/99acres` | POST | mock webhook, public |
-| `/api/integrations/leads/magicbricks` | POST | mock webhook, public |
+| `/api/integrations/99acres/leads` | POST | 99acres inbound webhook, bearer secret |
+| `/api/integrations/leads/magicbricks` | POST | mock webhook, API key required (fails closed) |
 | `/api/assignment-rules` | GET, POST | admin-only |
 | `/api/assignment-rules/[id]` | PATCH, DELETE | admin-only |
 | `/api/leads/[id]/auto-assign` | POST | |

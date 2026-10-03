@@ -7,8 +7,8 @@ import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 /**
  * Mock ingestion endpoint simulating the Magicbricks lead-notification webhook.
- * Same shape/pipeline as /api/integrations/leads/99acres - see that route's
- * comment for the payload example and rationale.
+ * Requires MAGICBRICKS_API_KEY (see webhook-auth.ts); refuses all requests when it
+ * is unset (fails closed). Payload shape: mockWebhookLeadSchema in validators.ts.
  */
 export async function POST(req: NextRequest) {
   try {

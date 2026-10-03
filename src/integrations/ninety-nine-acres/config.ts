@@ -8,8 +8,8 @@ import { DEFAULT_ORGANIZATION_ID } from "@/lib/organization";
  * 99acres. The organization is resolved here, from server-side config only:
  * nothing in an incoming payload can select a tenant.
  *
- * The env var is deliberately `ACRES_99_*` (matching the existing
- * `ACRES_99_API_KEY`), not `99ACRES_*`: POSIX shells and many env-file
+ * The env var is deliberately `ACRES_99_*`, i.e. an
+ * `ACRES_99_` prefix, not `99ACRES_*`: POSIX shells and many env-file
  * loaders reject variable names that start with a digit.
  */
 
