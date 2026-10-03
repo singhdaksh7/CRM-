@@ -29,7 +29,7 @@ The framework accepts only messages obtained from an approved mailbox mechanism.
 | Housing | Supported inbound | Unknown | Awaiting sample | Unknown | Existing normalizer | Connected webhook |
 | OLX | Unknown | Unknown | Awaiting sample | Unknown | CRM-ready skeleton | Awaiting provider access |
 | MagicBricks | Unknown | Unknown | Awaiting sample | Unknown | CRM-ready skeleton | Awaiting provider access |
-| 99acres | Unknown | Unknown | Awaiting sample | Unknown | CRM-ready skeleton | Awaiting provider access |
+| 99acres | Inbound endpoint ([docs](99acres-lead-webhook.md)) | Unknown | Awaiting sample | Unknown | Flexible alias adapter | Endpoint built; awaiting first real payload |
 | Meta | Unknown | Unknown | Unknown | Unknown | CRM-ready skeleton | Awaiting provider access |
 
 ## Adding a provider

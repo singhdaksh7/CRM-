@@ -52,6 +52,7 @@ Summary of the security posture as of Phase 3. See `DEPLOYMENT.md` for infra-lev
 - A webhook status update can only move a message's status forward (`QUEUED → SENT → DELIVERED → READ`, `FAILED` terminal) — a stale/out-of-order regression (e.g. a delayed "sent" arriving after "read") is detected and ignored, never applied.
 - An inbound WhatsApp message from a phone number matching zero or more than one lead's conversation is never guessed onto a lead — it's flagged and Admin/Data Manager are notified for manual resolution.
 - The 99acres/Magicbricks mock lead-ingestion webhooks support an optional shared-secret (`x-api-key`, checked against `ACRES_99_API_KEY`/`MAGICBRICKS_API_KEY`) — **set these in production**; left unset, those two routes stay open (documented mock-mode default, not an oversight).
+- The real 99acres inbound lead webhook (`POST /api/integrations/99acres/leads`) requires `Authorization: Bearer $ACRES_99_WEBHOOK_SECRET` (constant-time comparison), **fails closed** (503) when the secret is unset, is rate-limited per IP before authentication, resolves the tenant from server config only, caps the body at 64 KB, and stores the payload sanitised (credential-like keys and the secret itself redacted; request headers never stored). It sends no WhatsApp or customer-facing message.
 - All three webhook routes are rate-limited (120 req/min per IP by default).
 
 ## Transport & headers

@@ -36,6 +36,7 @@ See `WHATSAPP_SETUP.md` for the full Meta dashboard walkthrough and production h
 
 | Variable | When needed | Notes |
 |---|---|---|
+| `ACRES_99_WEBHOOK_SECRET` | **Required to enable** | Bearer secret for the real 99acres inbound webhook `POST /api/integrations/99acres/leads` (`Authorization: Bearer <secret>`). Unset = the endpoint refuses every request (503); it is never open. Generate on the server (`openssl rand -hex 32`); never commit. Optional `ACRES_99_ORGANIZATION_ID` overrides the tenant (default `org_default`). |
 | `ACRES_99_API_KEY` | Recommended in production | If set, `POST /api/integrations/leads/99acres` requires this exact value in the `x-api-key` header. Unset = endpoint stays open (mock-mode default). |
 | `MAGICBRICKS_API_KEY` | Recommended in production | Same, for `/api/integrations/leads/magicbricks`. |
 
