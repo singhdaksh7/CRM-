@@ -58,3 +58,11 @@ Creates the lead, auto-assigns it, scores it, runs property matching and `LEAD_C
 
 * `ACRES_99_WEBHOOK_SECRET` lives only in the server's `env/.env.production` (`deploy/scripts/02-gen-env.sh` generates one on a fresh install). Rotate by editing the file and restarting the app; tell 99acres the new value.
 * The old mock route `/api/integrations/leads/99acres` (which was open when its key was unset) has been removed; this is the only 99acres ingestion endpoint.
+
+## Secret retrieval and rotation (operators only)
+
+The secret exists in exactly one place: the single `ACRES_99_WEBHOOK_SECRET=` line in `/opt/kp-crm/env/.env.production` on the VPS (mode 600, owner `deploy`). Never paste it into chat, tickets, logs or git.
+
+* **Retrieve (to hand to 99acres over a secure channel):** run locally and read it privately, e.g. `ssh kp-production "grep '^ACRES_99_WEBHOOK_SECRET=' /opt/kp-crm/env/.env.production | cut -d= -f2-"` (needs the deploy SSH key; do not run it in a shared/recorded terminal).
+* **Rotate:** on the VPS, `umask 077; cp -p env/.env.production env/.env.production.bak`, replace the value in place (generate with `openssl rand -hex 32`; keep exactly one entry), delete the `.bak` once verified, then `deploy/scripts/deploy.sh up` so the container reloads the environment. Verify the old value now returns 403 and the new one is accepted, then give 99acres the new value. Delivery attempts using the old value fail with 403 until they switch, so coordinate the change.
+* **Check there is one entry:** `grep -c '^ACRES_99_WEBHOOK_SECRET=' /opt/kp-crm/env/.env.production` must print `1`.
