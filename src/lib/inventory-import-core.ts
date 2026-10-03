@@ -1,4 +1,5 @@
 import { importCreatePropertySchema, propertySchema } from "./validators";
+import { PROPERTY_TYPE_VALUES, isCommercialPropertyType } from "./property-categories";
 import { normalizeIndianPhone } from "@/integrations/whatsapp/phone";
 import { IMPORTABLE_PROPERTY_FIELDS, normalizeHeader, type ImportablePropertyField, type ImportActionValue } from "./inventory-import-shared";
 export { IMPORTABLE_PROPERTY_FIELDS, headerSignature, normalizeHeader } from "./inventory-import-shared";
@@ -353,6 +354,15 @@ const COMMERCIAL_PROPERTY_TYPE_FALLBACK = "OTHER_COMMERCIAL";
  */
 export function applyImportFallbackDefaults(data: Record<string, unknown>, issues: ImportFieldIssue[]): Record<string, unknown> {
   const next = { ...data };
+  // A row whose type is unambiguously commercial (e.g. a mapped "Type"
+  // column saying WAREHOUSE) but with no category column/sheet context is
+  // commercial inventory - not a guess. Without this the schema default
+  // (RESIDENTIAL) would make importCreatePropertySchema reject the row for a
+  // category/type mismatch. An explicit RESIDENTIAL is never overridden: that
+  // contradiction is surfaced as a validation error instead.
+  if (!valuePresent(next.assetClass) && typeof next.propertyType === "string" && isCommercialPropertyType(next.propertyType)) {
+    next.assetClass = "COMMERCIAL";
+  }
   if (!valuePresent(next.propertyType)) {
     next.propertyType = next.assetClass === "COMMERCIAL" ? COMMERCIAL_PROPERTY_TYPE_FALLBACK : RESIDENTIAL_PROPERTY_TYPE_FALLBACK;
     issues.push({ field: "propertyType", message: "Property type could not be determined from the sheet - defaulted to Other, please reclassify", severity: "WARNING" });
@@ -533,7 +543,10 @@ export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record
   convert("listingType", (v) => parseEnum(v, ["RENT", "SALE"], { rental: "RENT", buy: "SALE" }), "Use RENT or SALE");
   convert("assetClass", (v) => parseEnum(v, ["RESIDENTIAL", "COMMERCIAL"], { residential: "RESIDENTIAL", commercial: "COMMERCIAL" }), "Use RESIDENTIAL or COMMERCIAL");
   convert("commercialFitOut", (v) => parseEnum(v, ["FURNISHED", "SEMI_FURNISHED", "BARE_SHELL"], { "bare shell": "BARE_SHELL", semi: "SEMI_FURNISHED" }), "Unsupported commercial fit-out");
-  convert("propertyType", (v) => parseEnum(v, ["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG"], { flat: "APARTMENT", floor: "BUILDER_FLOOR" }), "Unsupported property type");
+  // Every PropertyType is importable (the list previously stopped at the
+  // pre-AssetClass values, so a SHOWROOM/WAREHOUSE/OFFICE cell was rejected
+  // as "Unsupported"). Aliases are only unambiguous broker spellings.
+  convert("propertyType", (v) => parseEnum(v, [...PROPERTY_TYPE_VALUES], { flat: "APARTMENT", floor: "BUILDER_FLOOR", godown: "WAREHOUSE", "commercial plot": "COMMERCIAL_LAND", "commercial land": "COMMERCIAL_LAND", coworking: "CO_WORKING", "shop cum office": "SCO" }), "Unsupported property type");
   // STATUS is sometimes used for a free-text broker note instead of an
   // actual status ("YH BNA RHE HAI" / "ABHI NHI DIKHANA" - Hindi/Punjabi
   // notes seen on the real KP workbook), not a classification mistake to
