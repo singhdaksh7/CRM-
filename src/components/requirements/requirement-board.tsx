@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { requirementMessage, sanitizeRequirement } from "@/lib/requirement-network";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 
 type Partner = { id: string; name: string; localities: string };
 type PropertyOption = { id: string; propertyCode: string; title: string; partnerId: string | null };
@@ -55,7 +56,7 @@ function sanitizedMessage(row: Row) {
 /** Commercial requirements have no BHK - showing "Any BHK" for them was misleading. */
 function requirementLabel(lead: Row["lead"]) {
   if (lead.assetClass === "COMMERCIAL") return `${(lead.commercialPropertyType ?? "Commercial").replace(/_/g, " ")} · ${lead.preferredLocation}`;
-  return `${lead.preferredBhk ?? "Any"} BHK · ${lead.preferredLocation}`;
+  return `${lead.preferredBhk != null ? residentialConfigurationLabel(lead.preferredBhk) : "Any configuration"} · ${lead.preferredLocation}`;
 }
 
 export function RequirementBoard({ rows, partners, properties }: { rows: Row[]; partners: Partner[]; properties: PropertyOption[] }) {

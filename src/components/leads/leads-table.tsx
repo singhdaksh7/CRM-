@@ -9,6 +9,7 @@ import { Select, Input } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import { CheckCircle2, XCircle, Download } from "lucide-react";
 import type { User } from "@prisma/client";
 import { HUMAN_FOLLOWUP_TYPES } from "@/lib/follow-up-types";
@@ -201,7 +202,7 @@ export function LeadsTable({ leads, employees, canManage }: { leads: LeadRow[]; 
                   <p className="text-xs text-[#71717A] font-mono mt-0.5">{l.phone}</p>
                 </td>
                 <td className="px-4 py-3 text-[#52525B]">
-                  {l.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {l.preferredBhk ? `${l.preferredBhk} BHK` : "Any"} &middot; {l.preferredLocation}
+                  {l.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {l.preferredBhk != null ? residentialConfigurationLabel(l.preferredBhk) : "Any"} &middot; {l.preferredLocation}
                 </td>
                 <td className="px-4 py-3 font-semibold text-[#09090B]">{formatINR(l.minBudget, { compact: true })} - {formatINR(l.maxBudget, { compact: true })}</td>
                 <td className="px-4 py-3 text-[#71717A]">{enumToLabel(l.source)}</td>

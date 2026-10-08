@@ -14,6 +14,7 @@ import {
   UNIT_LABELS,
   type MoneyUnit,
 } from "@/lib/money";
+import { propertyTypeLabel, propertyTypeOptionsForCategory, residentialConfigurationLabel } from "@/lib/property-categories";
 
 type Locality = { id: string; name: string };
 type Requirement = {
@@ -281,7 +282,9 @@ export function LeadRequirementsPanel({ leadId }: { leadId: string }) {
               "Any locality"}
           </p>
           <p className="mt-1 text-xs text-[#52525B]">
-            {r.bhkValues.map((x) => `${x.bhk} BHK`).join(" · ") || "Any BHK"}{" "}
+            {r.assetClass === "COMMERCIAL"
+              ? `Commercial · ${r.propertyType ? propertyTypeLabel(r.propertyType) : "Any type"}`
+              : r.bhkValues.map((x) => residentialConfigurationLabel(x.bhk)).join(" · ") || "Any configuration"}{" "}
             · Lift {r.liftPreference.replaceAll("_", " ")} · Parking{" "}
             {r.parkingPreference.replaceAll("_", " ")}
           </p>
@@ -312,6 +315,8 @@ export function LeadRequirementsPanel({ leadId }: { leadId: string }) {
                   ...form,
                   assetClass: e.target.value,
                   propertyType: "",
+                  // BHK never applies to commercial demand (the API rejects it).
+                  bhks: e.target.value === "COMMERCIAL" ? [] : form.bhks,
                 })
               }
             >
@@ -336,35 +341,11 @@ export function LeadRequirementsPanel({ leadId }: { leadId: string }) {
               }
             >
               <option value="">Any type</option>
-              {(form.assetClass === "COMMERCIAL"
-                ? [
-                    "COMMERCIAL_SHOP",
-                    "COMMERCIAL_OFFICE",
-                    "OFFICE",
-                    "SHOP",
-                    "SHOWROOM",
-                    "WAREHOUSE",
-                    "INDUSTRIAL",
-                    "COMMERCIAL_LAND",
-                    "CO_WORKING",
-                    "RESTAURANT_SPACE",
-                    "SCO",
-                    "OTHER_COMMERCIAL",
-                  ]
-                : [
-                    "APARTMENT",
-                    "INDEPENDENT_HOUSE",
-                    "VILLA",
-                    "BUILDER_FLOOR",
-                    "PLOT",
-                    "PG",
-                    "STUDIO",
-                    "FARM_HOUSE",
-                    "CO_LIVING",
-                    "OTHER",
-                  ]
-              ).map((x) => (
-                <option key={x}>{x.replaceAll("_", " ")}</option>
+              {/* Explicit value= : these options previously had none, so the
+                  submitted value was the display label ("COMMERCIAL SHOP"),
+                  which is not a PropertyType and failed on save. */}
+              {propertyTypeOptionsForCategory(form.assetClass, form.propertyType).map((x) => (
+                <option key={x} value={x}>{propertyTypeLabel(x)}</option>
               ))}
             </Select>
           </Field>
@@ -397,21 +378,21 @@ export function LeadRequirementsPanel({ leadId }: { leadId: string }) {
               />
             </div>
           </Field>
-          <div className="sm:col-span-2">
+          {form.assetClass !== "COMMERCIAL" && <div className="sm:col-span-2">
             <p className="mb-1.5 text-xs font-semibold text-[#52525B] uppercase tracking-wider">
               BHK
             </p>
             <div className="flex flex-wrap gap-3">
-              {[1, 2, 3, 4, 5].map((bhk) => (
+              {[0, 1, 2, 3, 4, 5].map((bhk) => (
                 <Checkbox
                   key={bhk}
-                  label={`${bhk}${bhk === 5 ? "+" : ""}`}
+                  label={`${residentialConfigurationLabel(bhk)}${bhk === 5 ? "+" : ""}`}
                   checked={form.bhks.includes(bhk)}
                   onChange={() => toggleBhk(bhk)}
                 />
               ))}
             </div>
-          </div>
+          </div>}
           <Field label="Minimum budget">
             <div className="flex gap-2">
               <Input

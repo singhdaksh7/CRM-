@@ -11,7 +11,7 @@ import { LoadingState } from "@/components/ui/states";
 import type { AssignmentStrategy, LeadAssignmentRule, LeadSource, RequirementType, User } from "@prisma/client";
 
 const STRATEGIES: AssignmentStrategy[] = ["LOWEST_WORKLOAD", "ROUND_ROBIN", "LOCATION_BASED", "SPECIALITY", "MANUAL_ONLY"];
-const SOURCES: LeadSource[] = ["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL"];
+const SOURCES: LeadSource[] = ["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "OLX", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL"];
 
 type RuleWithEmployee = LeadAssignmentRule & { employee: User | null };
 

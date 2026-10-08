@@ -1,4 +1,6 @@
 import type { AssetClass, FurnishingStatus, ListingType, PropertyStatus, PropertyType, TransactionType } from "@prisma/client";
+import { propertyTypesEquivalent } from "./property-categories";
+import { residentialConfigurationLabel } from "./property-categories";
 
 export type RequirementPreferenceValue = "REQUIRED" | "PREFERRED" | "NO_PREFERENCE";
 
@@ -75,7 +77,7 @@ export function matchPropertyToRequirement<T extends RequirementMatchablePropert
   if (requirement.status !== "ACTIVE" || property.status !== "AVAILABLE") return null;
   if (property.assetClass !== requirement.assetClass) return null;
   if ((requirement.transactionType === "RENT") !== (property.listingType === "RENT")) return null;
-  if (requirement.propertyType && property.propertyType !== requirement.propertyType) return null;
+  if (requirement.propertyType && !propertyTypesEquivalent(property.propertyType, requirement.propertyType)) return null;
   if (requirement.bhkValues.length && !requirement.bhkValues.some((value) => value.bhk === property.bhk)) return null;
   if (requirement.minAreaSqft && property.builtUpAreaSqft < requirement.minAreaSqft) return null;
   if (requirement.maxAreaSqft && property.builtUpAreaSqft > requirement.maxAreaSqft) return null;
@@ -115,7 +117,7 @@ export function matchPropertyToRequirement<T extends RequirementMatchablePropert
   }
   if (requirement.bhkValues.length) {
     score += 16;
-    reasons.push({ label: "BHK", matched: true, detail: `${property.bhk} BHK is selected in this requirement` });
+    reasons.push({ label: "BHK", matched: true, detail: `${residentialConfigurationLabel(property.bhk)} is selected in this requirement` });
   }
   if (requirement.furnishingPreference) {
     if (property.furnishing === requirement.furnishingPreference) {

@@ -3,6 +3,7 @@ import { logActivity } from "./activity";
 import { createNotification, notifyRoles } from "./notifications";
 import { DEFAULT_ORGANIZATION_ID } from "./organization";
 import type { AssignmentStrategy, Lead, LeadAssignmentRule } from "@prisma/client";
+import { residentialConfigurationLabel } from "./property-categories";
 
 export interface EmployeeCandidate {
   id: string;
@@ -205,7 +206,7 @@ async function applyAssignment(lead: Lead, employeeId: string, strategy: Assignm
     userId: employeeId,
     type: "LEAD_ASSIGNED",
     title: "New lead assigned to you",
-    message: `${lead.clientName} (${lead.leadCode}) - ${lead.preferredLocation}, ${lead.requirementType === "RENT" ? "rent" : "buy"} ${lead.preferredBhk ? lead.preferredBhk + " BHK" : ""}`.trim(),
+    message: `${lead.clientName} (${lead.leadCode}) - ${lead.preferredLocation}, ${lead.requirementType === "RENT" ? "rent" : "buy"} ${lead.preferredBhk != null ? residentialConfigurationLabel(lead.preferredBhk) : ""}`.trim(),
     leadId: lead.id,
   });
 }

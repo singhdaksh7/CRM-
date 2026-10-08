@@ -26,14 +26,23 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    const header = ["Property Code", "Title", "Listing Type", "Status", "Area", "BHK", "Monthly Rent", "Sale Price", "Owner Phone", "Created At"];
+    // Asset Class (Residential/Commercial) + Property Type let an exported
+    // sheet be told apart without guessing from the title, and both headers
+    // are auto-mapped by the inventory importer ("Asset Class" -> assetClass;
+    // note "Category" is already an importer alias for propertyType, so it is
+    // deliberately not used here). BHK is blank for commercial, not 0.
+    const header = ["Property Code", "Title", "Asset Class", "Property Type", "Listing Type", "Status", "Area", "BHK", "Built-up Area (sqft)", "Carpet Area (sqft)", "Monthly Rent", "Sale Price", "Owner Phone", "Created At"];
     const rows = properties.map((p) => [
       p.propertyCode,
       p.title,
+      p.assetClass,
+      p.propertyType,
       p.listingType,
       p.status,
       p.area,
-      p.bhk,
+      p.assetClass === "COMMERCIAL" ? "" : p.bhk,
+      p.builtUpAreaSqft,
+      p.carpetAreaSqft ?? "",
       p.monthlyRent ?? "",
       p.salePrice ?? "",
       p.ownerPhone,

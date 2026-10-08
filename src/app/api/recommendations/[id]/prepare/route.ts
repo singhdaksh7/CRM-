@@ -5,6 +5,7 @@ import { getOrganizationId } from "@/lib/organization";
 import { buildRecommendationMessage, buildClickToChatLink } from "@/lib/demand-whatsapp";
 import { getPublicPropertyRecommendationUrl } from "@/lib/public-recommendation-dto";
 import { formatINR } from "@/lib/utils";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 
 // POST /api/recommendations/[id]/prepare - builds the editable WhatsApp
 // message + click-to-chat link and moves the recommendation to PREPARED.
@@ -32,7 +33,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const recipientPhone = recommendation.customerContact?.phone ?? recommendation.lead?.phone ?? null;
     const property = recommendation.property;
     const commercial = property.assetClass === "COMMERCIAL";
-    const propertyTypeLabel = commercial ? property.propertyType.replace(/_/g, " ") : `${property.bhk} BHK`;
+    const propertyTypeLabel = commercial ? property.propertyType.replace(/_/g, " ") : residentialConfigurationLabel(property.bhk);
     const priceLabel = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" })! : formatINR(property.salePrice, { compact: true })!;
     const publicUrl = getPublicPropertyRecommendationUrl(property.id);
 

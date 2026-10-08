@@ -9,6 +9,7 @@ import { recommendPropertyToWaitingLeads } from "@/lib/match-recommendations";
 import { recomputeMatchesForProperty } from "@/lib/demand-recommendations";
 import { readTake, readSkip } from "@/lib/pagination";
 import { resolveOrCreatePropertyLocality } from "@/lib/property-locality";
+import { propertyTypeFilterValues } from "@/lib/property-categories";
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
     if (listingType) where.listingType = listingType;
     const assetClass = sp.get("assetClass");
     if (assetClass) where.assetClass = assetClass;
+    const propertyType = sp.get("propertyType");
+    if (propertyType) where.propertyType = { in: propertyTypeFilterValues(propertyType) };
     const status = sp.get("status");
     if (status) where.status = status;
     const area = sp.get("area");

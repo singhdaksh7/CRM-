@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { formatINR, formatDate, enumToLabel } from "@/lib/utils";
 import { CheckCircle2, XCircle, Download } from "lucide-react";
+import { propertySpecSummary } from "@/lib/property-categories";
 
 interface PropertyRow {
   id: string;
@@ -18,6 +19,8 @@ interface PropertyRow {
   area: string;
   listingType: string;
   bhk: number;
+  assetClass?: string;
+  propertyType: string;
   monthlyRent: number | null;
   salePrice: number | null;
   status: string;
@@ -168,7 +171,7 @@ export function PropertiesTable({ properties, canManage }: { properties: Propert
               <th className="px-4 py-3">Title</th>
               <th className="px-4 py-3">Location</th>
               <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">BHK</th>
+              <th className="px-4 py-3">Config</th>
               <th className="px-4 py-3">Price</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Added</th>
@@ -186,7 +189,7 @@ export function PropertiesTable({ properties, canManage }: { properties: Propert
                 </td>
                 <td className="px-4 py-3 text-[#52525B]">{p.area}</td>
                 <td className="px-4 py-3 text-[#52525B]">{p.listingType === "RENT" ? "Rent" : "Sale"}</td>
-                <td className="px-4 py-3 text-[#52525B]">{p.bhk} BHK</td>
+                <td className="px-4 py-3 text-[#52525B]">{propertySpecSummary(p)}</td>
                 <td className="px-4 py-3 font-semibold text-[#09090B]">
                   {p.listingType === "RENT" ? formatINR(p.monthlyRent, { suffix: "month" }) : formatINR(p.salePrice, { compact: true })}
                 </td>

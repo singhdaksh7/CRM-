@@ -126,7 +126,7 @@ export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
           <Field label="Email"><Input type="email" {...register("email")} placeholder="rahul@example.com" /></Field>
           <Field label="Lead Source" required>
             <Select {...register("source")}>
-              {["MANUAL", "ACRES_99", "MAGICBRICKS", "HOUSING_COM", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN"].map((s) => (
+              {["MANUAL", "ACRES_99", "MAGICBRICKS", "HOUSING_COM", "OLX", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN"].map((s) => (
                 <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
               ))}
             </Select>
@@ -151,6 +151,7 @@ export function LeadForm({ employees }: { employees: EmployeeOption[] }) {
           {assetClass === "RESIDENTIAL" && <Field label="Preferred BHK">
             <Select {...register("preferredBhk")}>
               <option value="">Any</option>
+              <option value="0">1 RK</option>
               {[1, 2, 3, 4, 5].map((b) => (<option key={b} value={b}>{b} BHK</option>))}
             </Select>
           </Field>}

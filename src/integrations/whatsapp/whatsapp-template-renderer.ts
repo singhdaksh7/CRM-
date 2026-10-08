@@ -1,4 +1,5 @@
 import { formatINR, enumToLabel } from "@/lib/utils";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import type { Property } from "@prisma/client";
 
 export interface CatalogueTemplateProperty {
@@ -14,6 +15,7 @@ export interface CatalogueTemplateProperty {
 export interface CatalogueTemplateLead {
   clientName: string;
   requirementType: string; // "RENT" | "SALE"
+  assetClass?: string | null;
   preferredBhk?: number | null;
   preferredLocation: string;
   minBudget: number;
@@ -64,7 +66,7 @@ function dominantPropertyTypeLabel(properties: CatalogueTemplateProperty[]): str
  * template's {{3}} variable so both describe the shortlist identically.
  */
 export function buildRequirementSummary(lead: CatalogueTemplateLead, properties: CatalogueTemplateProperty[]): string {
-  const bhkClause = lead.preferredBhk ? `${lead.preferredBhk} BHK ` : "";
+  const bhkClause = lead.assetClass !== "COMMERCIAL" && lead.preferredBhk != null ? `${residentialConfigurationLabel(lead.preferredBhk)} ` : "";
   const kind = lead.requirementType === "RENT" ? "rental" : "sale";
   const typeLabel = dominantPropertyTypeLabel(properties);
   return `${bhkClause}${kind}${typeLabel ? ` ${typeLabel.toLowerCase()}` : ""}`.trim();
@@ -89,14 +91,15 @@ export function renderCatalogueMessage(params: CatalogueTemplateParams): string 
   const count = params.properties.length;
   const bhk = params.lead.preferredBhk;
   const kind = params.lead.requirementType === "RENT" ? "rental" : "sale";
-  const bhkClause = bhk ? `${bhk} BHK ` : "";
+  const bhkLabel = params.lead.assetClass !== "COMMERCIAL" && bhk != null ? residentialConfigurationLabel(bhk) : null;
+  const bhkClause = bhkLabel ? `${bhkLabel} ` : "";
   const propertyNoun = count === 1 ? "property" : "properties";
   const location = params.lead.preferredLocation?.trim();
   const locationClause = location ? ` in and around ${location}` : "";
   const introLine = `As discussed, we have shortlisted ${count} suitable ${bhkClause}${kind} ${propertyNoun} for you${locationClause}.`;
 
   const typeLabel = dominantPropertyTypeLabel(params.properties);
-  const typeLine = bhk || typeLabel ? `🏠 Property type: ${[bhk ? `${bhk} BHK` : null, typeLabel].filter(Boolean).join(" ")}` : null;
+  const typeLine = bhkLabel || typeLabel ? `🏠 Property type: ${[bhkLabel, typeLabel].filter(Boolean).join(" ")}` : null;
 
   const employeeName = params.employeeName?.trim() || "Our Team";
   const brokerageName = params.brokerageName?.trim() || "KP Properties";

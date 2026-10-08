@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
-import { propertySchema } from "@/lib/validators";
+import { propertySchema, assertPropertyCategoryPatch } from "@/lib/validators";
 import { notifyAffectedCataloguesOfPropertyChange } from "@/lib/property-share-alerts";
 import { logger } from "@/lib/logger";
 import { appendPropertyTimelineEvent } from "@/lib/property-timeline";
@@ -45,6 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const patchOrganizationId = getOrganizationId(session.user);
     const existing = await prisma.property.findFirst({ where: { id, organizationId: patchOrganizationId } });
     if (!existing) throw new ApiError(404, "Property not found");
+    assertPropertyCategoryPatch(existing, data);
 
     // A8 - keep the reusable locality list in sync when the area text
     // actually changes; unchanged otherwise (avoids a needless lookup on

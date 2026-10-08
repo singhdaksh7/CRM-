@@ -30,12 +30,12 @@ export const PROPERTY_SCENARIO_INDEX = { noPhotos: 7, wellPhotographed: 13, stal
 /**
  * "1 RK" and "Warehouse" from the task's mix list aren't distinct
  * PropertyType/bhk values in the schema - a 1 RK is represented as
- * bhk=1 APARTMENT and a Warehouse as a COMMERCIAL_SHOP, distinguished only
+ * bhk=0 on residential inventory and a Warehouse as a COMMERCIAL_SHOP, distinguished only
  * in the display label (title/description), same pattern as the
  * Under-Negotiation/PropertyStatus mapping documented below.
  */
 function displayLabel(rng: Rng, type: PropertyType, bhk: number): string {
-  if (type === "APARTMENT" && bhk === 1 && rng.bool(0.35)) return "1 RK";
+  if (bhk === 0 && type === "APARTMENT") return "1 RK";
   if (type === "COMMERCIAL_SHOP" && rng.bool(0.4)) return "Warehouse";
   if (type === "COMMERCIAL_SHOP") return "Shop";
   if (type === "COMMERCIAL_OFFICE") return "Office";
@@ -84,7 +84,9 @@ export function buildPropertyData(
   const isCommercial = type === "COMMERCIAL_SHOP" || type === "COMMERCIAL_OFFICE";
   const isRent = rng.bool(0.6);
   const area = AREAS[(i - 1) % AREAS.length];
-  const bhk = isCommercial ? 0 : rng.int(1, 4);
+  // 0 is the stored residential value for 1 RK. Commercial inventory also
+  // stores 0, but its asset class/type keeps it out of residential rendering.
+  const bhk = isCommercial ? 0 : type === "APARTMENT" ? rng.int(0, 4) : rng.int(1, 4);
   const bathrooms = isCommercial ? 1 : Math.max(1, bhk - rng.int(0, 1));
   const builtUp = isCommercial ? rng.int(300, 2500) : 450 + bhk * 250 + rng.int(0, 200);
   const coords = AREA_COORDS[area];

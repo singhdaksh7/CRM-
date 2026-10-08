@@ -31,7 +31,7 @@ export function buildLeadWhere(parsed: ParsedQuery, organizationId: string, scop
 
   if (parsed.status && LEAD_STATUS_VALUES.includes(parsed.status as LeadStatus)) where.status = parsed.status as LeadStatus;
   if (parsed.status && LEAD_PRIORITY_VALUES.includes(parsed.status as LeadPriority)) where.priority = parsed.status as LeadPriority;
-  if (parsed.bhk) where.preferredBhk = parsed.bhk;
+  if (parsed.bhk != null) where.preferredBhk = parsed.bhk;
   if (parsed.minPrice) where.maxBudget = { gte: parsed.minPrice };
   if (parsed.maxPrice) where.minBudget = { lte: parsed.maxPrice };
   if (parsed.locality) where.preferredLocation = { contains: parsed.locality, mode: "insensitive" };
@@ -49,7 +49,7 @@ export function buildPropertyWhere(parsed: ParsedQuery, organizationId: string):
   const where: Prisma.PropertyWhereInput = { organizationId };
 
   if (parsed.status && PROPERTY_STATUS_VALUES.includes(parsed.status as PropertyStatus)) where.status = parsed.status as PropertyStatus;
-  if (parsed.bhk) where.bhk = parsed.bhk;
+  if (parsed.bhk != null) where.bhk = parsed.bhk;
   if (parsed.minPrice) where.OR = [{ monthlyRent: { gte: parsed.minPrice } }, { salePrice: { gte: parsed.minPrice } }];
   if (parsed.maxPrice) {
     const priceClause = [{ monthlyRent: { lte: parsed.maxPrice } }, { salePrice: { lte: parsed.maxPrice } }];

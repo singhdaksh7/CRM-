@@ -1,36 +1,127 @@
-name: kp-properties-crm
+name: kp-crm
 
-# Production Docker Compose for KP Properties CRM on Hostinger VPS.
-# Traefik already owns host ports 80/443. This stack is only the CRM container.
-# PostgreSQL and Redis stay on the VPS and are reached through environment
-# variables. Cloudflare R2 stays external. No database or Redis is started here,
-# and the container does not run Prisma migrations on startup.
-# The CRM joins the existing external Docker network Traefik already uses.
+# Production stack for the KP Properties CRM on the Hostinger VPS.
+#
+#   Internet -> existing Traefik (host network, :80/:443, NOT managed here)
+#            -> "kp-proxy" bridge network -> crm
+#            -> "kp-backend" INTERNAL network -> postgres, redis
+#
+# Traefik is host-networked and reaches `crm` by its container IP on kp-proxy;
+# `traefik.docker.network` pins that network because crm is on two networks.
+# postgres/redis publish NO ports and live only on the internal backend network.
+#
+# Always run through deploy/scripts/deploy.sh (it passes --env-file so the
+# ${...} values below and the crm container env come from the same private file):
+#   /opt/kp-crm/env/.env.production   (chmod 600, never committed)
 
 services:
+  postgres:
+    image: postgres:17
+    container_name: kp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kpcrm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in env/.env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-kpcrm}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=50
+      - -c
+      - log_min_duration_statement=1000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 256mb
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    container_name: kp-redis
+    restart: unless-stopped
+    # Rate limiting, caches and the sweep lock only - no business data lives here.
+    # AOF everysec keeps counters across a restart; allkeys-lru bounds memory.
+    command:
+      - sh
+      - -c
+      - >-
+        exec redis-server
+        --requirepass "$$REDIS_PASSWORD"
+        --maxmemory 128mb
+        --maxmemory-policy allkeys-lru
+        --appendonly yes
+        --appendfsync everysec
+        --save 900 1
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in env/.env.production}
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    volumes:
+      - redisdata:/data
+    mem_limit: 192m
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    networks:
+      - backend
+
   crm:
+    image: kp-crm:${CRM_IMAGE_TAG:-latest}
+    container_name: kp-crm
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://crm.kpproperties.co.in}
-        NEXTAUTH_URL: ${NEXTAUTH_URL:-https://crm.kpproperties.co.in}
-    container_name: kp-crm
+        # Public, non-secret values baked into the client bundle / CSP at build.
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?set NEXT_PUBLIC_APP_URL}
+        NEXTAUTH_URL: ${NEXTAUTH_URL:?set NEXTAUTH_URL}
+        STORAGE_PROVIDER: ${STORAGE_PROVIDER:-}
+        R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+        R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
+        R2_ENDPOINT: ${R2_ENDPOINT:-}
     restart: unless-stopped
     env_file:
-      - path: .env.production
+      - path: ../env/.env.production
         required: true
-    ports:
-      # Bound strictly to host loopback (127.0.0.1) - never exposed on 0.0.0.0
-      - "127.0.0.1:${CRM_HOST_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
     labels:
       - "traefik.enable=true"
-      # HTTPS Router
-      - "traefik.http.routers.kpcrm.rule=Host(`${CRM_DOMAIN:-crm.kpproperties.co.in}`)"
+      - "traefik.docker.network=kp-proxy"
+      # CRM_DOMAIN_EXTRA is optional - set it during a domain cutover to make Traefik also
+      # match the new hostname (and request its own Let's Encrypt cert on first successful
+      # HTTPS SNI/ACME HTTP-01 request) while CRM_DOMAIN keeps serving the existing one. Drop
+      # CRM_DOMAIN_EXTRA once the cutover is verified and CRM_DOMAIN has been switched to it.
+      - "traefik.http.routers.kpcrm.rule=Host(`${CRM_DOMAIN:?set CRM_DOMAIN}`)${CRM_DOMAIN_EXTRA:+ || Host(`${CRM_DOMAIN_EXTRA}`)}"
       - "traefik.http.routers.kpcrm.entrypoints=websecure"
       - "traefik.http.routers.kpcrm.tls=true"
       - "traefik.http.routers.kpcrm.tls.certresolver=letsencrypt"
-      # Load Balancer pointing to container internal port
       - "traefik.http.services.kpcrm.loadbalancer.server.port=3000"
       - "traefik.http.services.kpcrm.loadbalancer.passhostheader=true"
     healthcheck:
@@ -38,10 +129,23 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 30s
     networks:
-      - kp-backend
+      - proxy
+      - backend
 
 networks:
-  kp-backend:
+  proxy:
+    # Created once by deploy/scripts/01-bootstrap.sh; Traefik (host mode) reaches
+    # containers on it by IP, so Traefik's own compose is never modified.
     external: true
+    name: kp-proxy
+  backend:
+    name: kp-backend
+    internal: true
+
+volumes:
+  pgdata:
+    name: kp_pgdata
+  redisdata:
+    name: kp_redisdata

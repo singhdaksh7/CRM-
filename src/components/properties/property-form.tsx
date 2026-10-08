@@ -12,6 +12,7 @@ import { PropertyGallery } from "@/components/properties/property-gallery";
 import { PropertyAddressSearch, type AppliedLocation } from "@/components/properties/property-address-search";
 import { LocalityCombobox } from "@/components/properties/locality-combobox";
 import { allowedUnitsForListingType, fromINR, pickDefaultUnit, toINR, UNIT_LABELS, type MoneyUnit } from "@/lib/money";
+import { isPropertyTypeAllowedForCategory, propertyTypeLabel, propertyTypeOptionsForCategory, residentialConfigurationLabel } from "@/lib/property-categories";
 
 const AMENITIES_POOL = ["Lift", "Power Backup", "24x7 Security", "Swimming Pool", "Gym", "Club House", "Children's Play Area", "Covered Parking", "CCTV", "Park Facing", "Modular Kitchen", "Water Storage"];
 
@@ -244,6 +245,19 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
     setValue("salePriceUnit", allowedUnitsForListingType("SALE")[0]);
   }, [listingType, setValue]);
 
+  // Property Type options depend on the selected Category. Switching
+  // category must never leave a now-invalid type selected (e.g. APARTMENT
+  // under Commercial) - the server would reject it, or worse, a commercial
+  // type would be saved as residential inventory and never match. Moves to
+  // the first valid type of the new category instead. A legacy stored value
+  // (COMMERCIAL_SHOP/COMMERCIAL_OFFICE) stays selectable on edit so opening
+  // an old listing never silently rewrites its type.
+  const propertyTypeOptions = propertyTypeOptionsForCategory(assetClass, property?.propertyType);
+  useEffect(() => {
+    if (isPropertyTypeAllowedForCategory(assetClass, propertyType)) return;
+    setValue("propertyType", propertyTypeOptionsForCategory(assetClass)[0]);
+  }, [assetClass, propertyType, setValue]);
+
   function toggleAmenity(a: string) {
     setValue("amenities", amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a]);
   }
@@ -272,7 +286,13 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       // not meaningful for land. Keep the existing non-nullable DB contract.
       bhk: assetClass === "RESIDENTIAL" && !isPlot ? Number(values.bhk) : 0,
       bathrooms: assetClass === "RESIDENTIAL" && !isPlot ? Number(values.bathrooms) : 0,
-      balconies: Number(values.balconies),
+      balconies: assetClass === "RESIDENTIAL" ? Number(values.balconies) : 0,
+      // Residential furnishing never applies to commercial inventory (which
+      // records commercialFitOut instead) - the hidden residential default
+      // must not leak onto a commercial listing. Blank = null so the server
+      // reports "Furnishing is required" for residential instead of a raw
+      // enum error.
+      furnishing: assetClass === "COMMERCIAL" ? null : values.furnishing || null,
       floorNumber: values.floorNumber ? Number(values.floorNumber) : null,
       totalFloors: values.totalFloors ? Number(values.totalFloors) : null,
       // The min/max range is the source of truth going forward; the legacy
@@ -363,14 +383,14 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
           <Field label="Property Title" required error={errors.title?.message}>
             <Input {...register("title", { required: "Title is required", minLength: { value: 3, message: "Title must be at least 3 characters" } })} placeholder="Spacious 2 BHK Apartment in Janakpuri" />
           </Field>
-          <Field label="Property Type" required>
+          <Field label="Property Category" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
+          <Field label={assetClass === "COMMERCIAL" ? "Commercial Type" : "Property Type"} required error={errors.propertyType?.message}>
             <Select {...register("propertyType")}>
-              {(assetClass === "COMMERCIAL" ? ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL"] : ["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "STUDIO", "FARM_HOUSE", "PG", "CO_LIVING", "OTHER"]).map((t) => (
-                <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
+              {propertyTypeOptions.map((t) => (
+                <option key={t} value={t}>{propertyTypeLabel(t)}</option>
               ))}
             </Select>
           </Field>
-          <Field label="Property Category" required><Select {...register("assetClass")}><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></Select></Field>
           <Field label="Available For" required>
             <Select {...register("listingType")}>
               <option value="RENT">Rent</option>
@@ -502,9 +522,9 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       </Section>
 
       <Section title="Property Details">
-        {assetClass === "COMMERCIAL" ? <div className="space-y-4"><div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><Field label="Built-up Area (sqft)" required><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required" })} /></Field><Field label="Area Unit" hint="Only relevant if this listing's area came from a non-sqft source"><Select {...register("areaUnit")}><option value="">Not specified</option>{["SQ_FT", "SQ_YD", "SQ_M", "ACRE", "OTHER"].map((u) => <option key={u} value={u}>{u.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Carpet Area (sqft)"><Input type="number" {...register("carpetAreaSqft")} /></Field><Field label="Super Area (sqft)"><Input type="number" {...register("superAreaSqft")} /></Field><Field label="Dimension"><Input {...register("dimension")} placeholder="e.g. 30x40" /></Field><Field label="Fit-out"><Select {...register("commercialFitOut")}><option value="">Not specified</option><option value="FURNISHED">Furnished</option><option value="SEMI_FURNISHED">Semi-Furnished</option><option value="BARE_SHELL">Bare shell</option></Select></Field><Field label="Workstations"><Input type="number" {...register("workstations")} /></Field><Field label="Cabins"><Input type="number" {...register("cabins")} /></Field><Field label="Washrooms"><Input type="number" {...register("washrooms")} /></Field><Field label="Frontage (ft)"><Input type="number" {...register("frontageFeet")} /></Field><Field label="Power Load (kW)"><Input type="number" {...register("powerLoadKw")} /></Field><Field label="Park Facing"><Select {...register("parkFacing")}><option value="">Not specified</option><option value="true">Yes</option><option value="false">No</option></Select></Field></div><div className="flex flex-wrap gap-4"><Checkbox label="Parking available" {...register("parkingAvailable")} /><Checkbox label="Lift available" {...register("liftAvailable")} /><Checkbox label="Goods lift" {...register("goodsLiftAvailable")} /><Checkbox label="Pantry" {...register("pantryAvailable")} /><Checkbox label="Loading access" {...register("loadingAccessAvailable")} /></div><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Field label="Possession Status"><Select {...register("possessionStatus")}><option value="">Not specified</option>{["READY_TO_MOVE", "UNDER_CONSTRUCTION", "BOOKING", "TENANTED", "UNKNOWN"].map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Possession Notes"><Input {...register("possessionNotes")} placeholder="e.g. Ready by Dec 2026" /></Field><Field label="Available From"><Input type="date" {...register("availableFrom")} /></Field></div></div> : <>
+        {assetClass === "COMMERCIAL" ? <div className="space-y-4"><div className="grid grid-cols-2 gap-4 sm:grid-cols-3"><Field label="Built-up Area (sqft)" required><Input type="number" {...register("builtUpAreaSqft", { required: "Area is required" })} /></Field><Field label="Area Unit" hint="Only relevant if this listing's area came from a non-sqft source"><Select {...register("areaUnit")}><option value="">Not specified</option>{["SQ_FT", "SQ_YD", "SQ_M", "ACRE", "OTHER"].map((u) => <option key={u} value={u}>{u.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Carpet Area (sqft)"><Input type="number" {...register("carpetAreaSqft")} /></Field><Field label="Super Area (sqft)"><Input type="number" {...register("superAreaSqft")} /></Field><Field label="Dimension"><Input {...register("dimension")} placeholder="e.g. 30x40" /></Field><Field label="Fit-out"><Select {...register("commercialFitOut")}><option value="">Not specified</option><option value="FURNISHED">Furnished</option><option value="SEMI_FURNISHED">Semi-Furnished</option><option value="BARE_SHELL">Bare shell</option></Select></Field><Field label="Workstations"><Input type="number" {...register("workstations")} /></Field><Field label="Cabins"><Input type="number" {...register("cabins")} /></Field><Field label="Washrooms"><Input type="number" {...register("washrooms")} /></Field><Field label="Floor Number"><Input type="number" {...register("floorNumber")} /></Field><Field label="Total Floors"><Input type="number" {...register("totalFloors")} /></Field><Field label="Frontage (ft)"><Input type="number" {...register("frontageFeet")} /></Field><Field label="Power Load (kW)"><Input type="number" {...register("powerLoadKw")} /></Field><Field label="Park Facing"><Select {...register("parkFacing")}><option value="">Not specified</option><option value="true">Yes</option><option value="false">No</option></Select></Field></div>{/* Same OPEN/STILT inputs as residential: POST/PATCH derive the legacy parkingAvailable flag from these two, so a separate "Parking available" checkbox here was silently overwritten to false on save. */}<div className="flex flex-wrap gap-4"><Checkbox label="Open Parking" {...register("hasOpenParking")} /><Checkbox label="Stilt / Covered Parking" {...register("hasStiltParking")} /><Checkbox label="Lift available" {...register("liftAvailable")} /><Checkbox label="Goods lift" {...register("goodsLiftAvailable")} /><Checkbox label="Pantry" {...register("pantryAvailable")} /><Checkbox label="Loading access" {...register("loadingAccessAvailable")} /></div><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Field label="Possession Status"><Select {...register("possessionStatus")}><option value="">Not specified</option>{["READY_TO_MOVE", "UNDER_CONSTRUCTION", "BOOKING", "TENANTED", "UNKNOWN"].map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}</Select></Field><Field label="Possession Notes"><Input {...register("possessionNotes")} placeholder="e.g. Ready by Dec 2026" /></Field><Field label="Available From"><Input type="date" {...register("availableFrom")} /></Field></div></div> : <>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {!isPlot && <><Field label="BHK" required error={errors.bhk?.message}><Input type="number" {...register("bhk", { required: "BHK is required", min: { value: 0, message: "BHK must be 0-10" }, max: { value: 10, message: "BHK must be 0-10" } })} /></Field>
+          {!isPlot && <><Field label="Configuration" required error={errors.bhk?.message}><Select {...register("bhk", { required: "Configuration is required" })}>{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((bhk) => <option key={bhk} value={bhk}>{residentialConfigurationLabel(bhk)}</option>)}</Select></Field>
           <Field label="Bathrooms" required error={errors.bathrooms?.message}><Input type="number" {...register("bathrooms", { required: "Bathrooms required", min: { value: 0, message: "Bathrooms must be 0-10" }, max: { value: 10, message: "Bathrooms must be 0-10" } })} /></Field>
           <Field label="Balconies"><Input type="number" {...register("balconies")} /></Field>
           <Field label="Furnishing">
@@ -682,7 +702,7 @@ export function PropertyForm({ property, initialInventorySource, initialPartnerI
       <Section title="Internal Property View (staff only, never shown publicly)">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Building Name"><Input {...register("buildingName")} /></Field>
-          <Field label="Flat / Unit Number"><Input {...register("flatNumber")} /></Field>
+          <Field label="Flat / Shop / Unit Number"><Input {...register("flatNumber")} /></Field>
           <Field label="Gate Number"><Input {...register("gateNumber")} /></Field>
           <Field label="Property Source" hint="e.g. Referral, Cold call, Portal, Partner network"><Input {...register("propertySource")} /></Field>
           <Field label="Key Availability" hint="e.g. With owner, With partner, Office key box #4"><Input {...register("keyAvailability")} /></Field>

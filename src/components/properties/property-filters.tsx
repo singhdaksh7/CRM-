@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LocalityCombobox } from "@/components/properties/locality-combobox";
+import { propertyTypeLabel, propertyTypeOptionsForCategory, residentialConfigurationLabel } from "@/lib/property-categories";
 
 export function PropertyFilters({ view }: { view: "table" | "card" }) {
   const router = useRouter();
@@ -18,6 +19,24 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
     const params = new URLSearchParams(sp.toString());
     if (value) params.set(key, value);
     else params.delete(key);
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
+  const assetClass = sp.get("assetClass") ?? "";
+
+  // Type options depend on the category, so changing category drops any
+  // type filter from the other category (a stale COMMERCIAL "SHOP" filter
+  // under Residential would silently return nothing), and BHK/furnishing
+  // filters that can never match commercial inventory.
+  function updateCategory(value: string) {
+    const params = new URLSearchParams(sp.toString());
+    if (value) params.set("assetClass", value);
+    else params.delete("assetClass");
+    params.delete("propertyType");
+    if (value === "COMMERCIAL") {
+      params.delete("bhk");
+      params.delete("furnishing");
+    }
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -83,24 +102,36 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
 
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Property Category</label>
-            <Select defaultValue={sp.get("assetClass") ?? ""} onChange={(e) => update("assetClass", e.target.value)} className="w-full text-xs font-semibold">
+            <Select defaultValue={sp.get("assetClass") ?? ""} onChange={(e) => updateCategory(e.target.value)} className="w-full text-xs font-semibold">
               <option value="">All Categories</option>
               <option value="RESIDENTIAL">Residential</option>
               <option value="COMMERCIAL">Commercial</option>
             </Select>
           </div>
 
-          <div className="space-y-1">
+          {assetClass && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{assetClass === "COMMERCIAL" ? "Commercial Type" : "Property Type"}</label>
+              <Select key={assetClass} defaultValue={sp.get("propertyType") ?? ""} onChange={(e) => update("propertyType", e.target.value)} className="w-full text-xs font-semibold">
+                <option value="">All Types</option>
+                {propertyTypeOptionsForCategory(assetClass).map((t) => (
+                  <option key={t} value={t}>{propertyTypeLabel(t)}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+
+          {assetClass !== "COMMERCIAL" && <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">BHK</label>
             <Select defaultValue={sp.get("bhk") ?? ""} onChange={(e) => update("bhk", e.target.value)} className="w-full text-xs font-semibold">
               <option value="">All BHK</option>
-              {[1, 2, 3, 4, 5].map((b) => (
-                <option key={b} value={b}>{b} BHK</option>
+              {[0, 1, 2, 3, 4, 5].map((b) => (
+                <option key={b} value={b}>{residentialConfigurationLabel(b)}</option>
               ))}
             </Select>
-          </div>
+          </div>}
 
-          <div className="space-y-1">
+          {assetClass !== "COMMERCIAL" && <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Furnishing</label>
             <Select defaultValue={sp.get("furnishing") ?? ""} onChange={(e) => update("furnishing", e.target.value)} className="w-full text-xs font-semibold">
               <option value="">All Furnishing</option>
@@ -108,7 +139,7 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
               <option value="SEMI_FURNISHED">Semi-Furnished</option>
               <option value="UNFURNISHED">Unfurnished</option>
             </Select>
-          </div>
+          </div>}
 
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</label>

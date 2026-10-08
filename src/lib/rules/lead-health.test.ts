@@ -82,6 +82,11 @@ describe("computeLeadHealth", () => {
     expect(result.warnings.some((w) => /requirement/i.test(w.detail))).toBe(true);
   });
 
+  it("treats the stored 1 RK value as a completed BHK requirement", () => {
+    const result = computeLeadHealth(baseInput({ preferredBhk: 0 }));
+    expect(result.positives.some((p) => p.label === "Requirement complete")).toBe(true);
+  });
+
   it("clamps the score to 0-100 for a lead with every possible negative factor", () => {
     const result = computeLeadHealth(
       baseInput({

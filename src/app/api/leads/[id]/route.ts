@@ -11,6 +11,7 @@ import { getOrganizationId } from "@/lib/organization";
 import { logger } from "@/lib/logger";
 import { assignedToSelect } from "@/lib/user-select";
 import { isLeadAccessibleToUser } from "@/lib/lead-access";
+import { completeActiveVisitForLeadStatusChange } from "@/lib/visits";
 
 const REQUIREMENT_FIELDS = ["preferredLocation", "minBudget", "maxBudget", "preferredBhk", "requirementType", "moveInDate"] as const;
 
@@ -108,6 +109,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         actorId: session.user.id,
         ...(movingToLostTerminal ? { metadata: { lostReasonCategory: data.lostReasonCategory, lostReasonDetail: data.lostReasonDetail?.trim() || null } } : {}),
       });
+      if (data.status === "VISIT_COMPLETED") {
+        await completeActiveVisitForLeadStatusChange({ leadId: id, organizationId, actorId: session.user.id });
+      }
     }
     if (data.notes && data.notes !== existing.notes) {
       await logActivity({ leadId: id, type: "NOTE_ADDED", description: "Notes updated", actorId: session.user.id });

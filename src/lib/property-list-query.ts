@@ -1,6 +1,7 @@
 import type { Prisma, PropertyStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { getCoverImageUrls } from "./property-images";
+import { propertyTypeFilterValues } from "./property-categories";
 
 /**
  * Operational property listing uses Property.createdAt as the business
@@ -68,6 +69,8 @@ export async function listAvailablePropertiesPage(params: {
   q?: string | null;
   listingType?: string | null;
   assetClass?: string | null;
+  /** Property/commercial type filter - matches the type and its legacy alias (SHOP also finds COMMERCIAL_SHOP). */
+  propertyType?: string | null;
   area?: string | null;
   bhk?: number | null;
   furnishing?: string | null;
@@ -98,6 +101,7 @@ export async function listAvailablePropertiesPage(params: {
   }
   if (params.listingType) where.listingType = params.listingType as never;
   if (params.assetClass) where.assetClass = params.assetClass as never;
+  if (params.propertyType) where.propertyType = { in: propertyTypeFilterValues(params.propertyType) as never };
   if (params.area) where.area = params.area;
   if (params.bhk != null) where.bhk = params.bhk;
   if (params.furnishing) where.furnishing = params.furnishing as never;

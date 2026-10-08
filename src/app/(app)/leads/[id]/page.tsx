@@ -12,6 +12,7 @@ import { getWhatsAppConfigStatus } from "@/integrations/whatsapp/whatsapp-config
 import { assignedToSelect } from "@/lib/user-select";
 import { getOrganizationId } from "@/lib/organization";
 import { getLeadPropertyPreferences, getCataloguePreferenceSummary } from "@/lib/catalogue-property-preferences";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 
 export default async function LeadDetailPage({
   params,
@@ -101,7 +102,7 @@ export default async function LeadDetailPage({
             </div>
           </div>
           <div className="text-right text-xs text-[#71717A] space-y-0.5">
-            <p className="font-medium text-[#09090B]">{lead.requirementType === "RENT" ? "Looking to Rent" : "Looking to Buy"} &middot; {lead.preferredBhk ? `${lead.preferredBhk} BHK` : "Any BHK"}</p>
+            <p className="font-medium text-[#09090B]">{lead.requirementType === "RENT" ? "Looking to Rent" : "Looking to Buy"} &middot; {lead.preferredBhk != null ? residentialConfigurationLabel(lead.preferredBhk) : "Any configuration"}</p>
             <p>Created {formatDate(lead.createdAt)} &middot; Source {enumToLabel(lead.source)}</p>
             <p>Assigned to <span className="font-semibold text-[#09090B]">{lead.assignedTo?.name ?? "Unassigned"}</span></p>
             {lead.nextFollowUpAt && <p className="text-[#09090B] font-medium">Next follow-up: {formatDate(lead.nextFollowUpAt)}</p>}

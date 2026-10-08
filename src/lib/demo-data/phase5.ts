@@ -1,6 +1,7 @@
 import type { CatalogueShare, Deal, InventoryPartner, Lead, Property, User } from "@prisma/client";
 import { prisma } from "../prisma";
 import { DEMO_ORGANIZATION_ID, demoId } from "./constants";
+import { residentialConfigurationLabel } from "../property-categories";
 
 export interface DemoPhase5Set {
   dealOffers: number;
@@ -43,7 +44,7 @@ export async function createDemoPhase5Scenarios(input: {
       data: {
         id: broadcastId, organizationId: DEMO_ORGANIZATION_ID, leadId: lead.id,
         requirementSnapshot: JSON.stringify({ purpose: lead.requirementType, location: lead.preferredLocation, bhk: lead.preferredBhk, budgetMin: lead.minBudget, budgetMax: lead.maxBudget }),
-        messageSnapshot: `Requirement: ${lead.preferredBhk ?? "flexible"} BHK in ${lead.preferredLocation}. Client identity withheld.`,
+        messageSnapshot: `Requirement: ${lead.preferredBhk != null ? residentialConfigurationLabel(lead.preferredBhk) : "flexible"} in ${lead.preferredLocation}. Client identity withheld.`,
         status: i === 0 ? "MATCH_FOUND" : "SHARED", createdById: actor.id, sharedAt: new Date(),
       },
     });

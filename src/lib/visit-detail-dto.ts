@@ -16,6 +16,7 @@
  */
 
 import { formatINR } from "./utils";
+import { residentialConfigurationLabel } from "./property-categories";
 // Pure helpers only - this module is a view model and must stay free of
 // Prisma/auth imports so it can be unit-tested and rendered anywhere.
 import { computeVisitProgress, interestLabelFromRating, type VisitProgress } from "./visit-progress";
@@ -198,7 +199,7 @@ interface VisitPropertyInput {
 export function buildRequirementSummary(lead: VisitInput["lead"]): string {
   const parts = [
     lead.requirementType === "RENT" ? "Rent" : lead.requirementType === "BUY" ? "Buy" : lead.requirementType,
-    lead.preferredBhk ? `${lead.preferredBhk} BHK` : null,
+    lead.preferredBhk != null ? residentialConfigurationLabel(lead.preferredBhk) : null,
     `in ${lead.preferredLocation}`,
     `${formatINR(lead.minBudget, { compact: true })} - ${formatINR(lead.maxBudget, { compact: true })}`,
   ].filter(Boolean);

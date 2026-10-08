@@ -1,6 +1,7 @@
 import type { Property, Lead, OwnerVerificationStatus } from "@prisma/client";
 import { normalizeLocality, getNearbyLocalities, getLocalityCentroid } from "./locality";
 import { haversineDistanceMeters } from "./geo";
+import { propertyTypesEquivalent, residentialConfigurationLabel } from "./property-categories";
 
 /**
  * Property matching engine.
@@ -199,7 +200,7 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
 
   // Commercial requirements deliberately do not depend on residential BHK.
   if (lead.assetClass === "COMMERCIAL") {
-    if (lead.commercialPropertyType && property.propertyType !== lead.commercialPropertyType) return null;
+    if (lead.commercialPropertyType && !propertyTypesEquivalent(property.propertyType, lead.commercialPropertyType)) return null;
     if (lead.minAreaSqft && property.builtUpAreaSqft < lead.minAreaSqft) return null;
     if (lead.maxAreaSqft && property.builtUpAreaSqft > lead.maxAreaSqft) return null;
     if (lead.commercialFitOutPref && property.commercialFitOut && property.commercialFitOut !== lead.commercialFitOutPref) {
@@ -214,15 +215,15 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
   }
 
   // BHK match
-  if (lead.preferredBhk) {
+  if (lead.preferredBhk != null) {
     if (property.bhk === lead.preferredBhk) {
       score += WEIGHTS.bhk;
-      reasons.push({ label: "BHK", matched: true, detail: `${property.bhk} BHK matches requirement` });
+      reasons.push({ label: "BHK", matched: true, detail: `${residentialConfigurationLabel(property.bhk)} matches requirement` });
     } else if (Math.abs(property.bhk - lead.preferredBhk) === 1) {
       score += WEIGHTS.bhk * 0.5;
-      reasons.push({ label: "BHK", matched: true, detail: `${property.bhk} BHK is close to requested ${lead.preferredBhk} BHK` });
+      reasons.push({ label: "BHK", matched: true, detail: `${residentialConfigurationLabel(property.bhk)} is close to requested ${residentialConfigurationLabel(lead.preferredBhk)}` });
     } else {
-      reasons.push({ label: "BHK", matched: false, detail: `${property.bhk} BHK does not match requested ${lead.preferredBhk} BHK` });
+      reasons.push({ label: "BHK", matched: false, detail: `${residentialConfigurationLabel(property.bhk)} does not match requested ${residentialConfigurationLabel(lead.preferredBhk)}` });
     }
   } else {
     score += WEIGHTS.bhk;

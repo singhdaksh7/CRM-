@@ -3,6 +3,7 @@ import { getLeadsAwaitingShortlist } from "@/lib/dashboard-data";
 import { resolveOrganizationIdForUser } from "@/lib/organization";
 import { formatINR, timeAgo, enumToLabel } from "@/lib/utils";
 import { normalizeIndianPhone } from "@/integrations/whatsapp";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import { EmptyState } from "@/components/ui/states";
 import { Search, Phone, MessageCircle, ArrowRight, UserCog } from "lucide-react";
 
@@ -46,7 +47,7 @@ export async function LeadsAwaitingShortlistPanel({ userId }: { userId: string }
                     <span className="text-[#71717A]">&middot; {timeAgo(lead.createdAt)}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-[#52525B]">
-                    {lead.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {lead.preferredBhk ? `${lead.preferredBhk} BHK` : "Any"} &middot; {lead.preferredLocation}
+                    {lead.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {lead.preferredBhk != null ? residentialConfigurationLabel(lead.preferredBhk) : "Any"} &middot; {lead.preferredLocation}
                     {" "}&middot; <span className="font-semibold text-[#09090B]">{formatINR(lead.minBudget, { compact: true })} - {formatINR(lead.maxBudget, { compact: true })}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-[#71717A]">

@@ -16,6 +16,7 @@ import { getPropertyHealth, getPropertySuggestions, getInventoryFreshness } from
 import { MapPin, Home, Phone, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getOrganizationId } from "@/lib/organization";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import { PROPERTY_PORTAL_PROVIDERS, propertyPortalRegistry } from "@/integrations/property-portals/registry";
 import { portalPayloadPreview } from "@/integrations/property-portals/listing-lifecycle";
 import { DistributionPanel, type ProviderRow } from "@/components/property-portals/distribution-panel";
@@ -24,6 +25,7 @@ import { toFieldExecutivePropertyDTO } from "@/lib/property-detail-dto";
 import { CaptureLocationButton } from "@/components/properties/capture-location-button";
 import { MatchedCustomersPanel } from "@/components/customers/matched-customers-panel";
 import { PropertyReportPanel } from "@/components/properties/property-report-panel";
+import { propertyTypeLabel } from "@/lib/property-categories";
 
 const FRESHNESS_TONE: Record<string, "green" | "blue" | "amber" | "red"> = {
   FRESH: "green",
@@ -161,9 +163,13 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-[#09090B]">Property Specifications</h3>
             <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
               {property.assetClass === "COMMERCIAL" ? <>
-                <Detail label="Commercial Type" value={enumToLabel(property.propertyType)} />
+                <Detail label="Commercial Type" value={propertyTypeLabel(property.propertyType)} />
                 <Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} />
                 <Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} />
+                <Detail label="Super Area" value={property.superAreaSqft ? `${property.superAreaSqft} sqft` : "-"} />
+                <Detail label="Washrooms" value={property.washrooms ?? "-"} />
+                <Detail label="Frontage" value={property.frontageFeet ? `${property.frontageFeet} ft` : "-"} />
+                <Detail label="Possession" value={property.possessionStatus ? enumToLabel(property.possessionStatus) : "-"} />
                 <Detail label="Fit-out" value={property.commercialFitOut ? enumToLabel(property.commercialFitOut) : (property.furnishing ? enumToLabel(property.furnishing) : "-")} />
                 <Detail label="Floor" value={property.floorNumber !== null ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} />
                 <Detail label="Workstations" value={property.workstations ?? "-"} />
@@ -172,7 +178,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <Detail label="Lift / Goods lift" value={`${property.liftAvailable ? "Yes" : "No"} / ${property.goodsLiftAvailable ? "Yes" : "No"}`} />
                 <Detail label="Available From" value={formatDate(property.availableFrom)} />
               </> : <>
-                <Detail label="BHK" value={`${property.bhk} BHK`} /><Detail label="Bathrooms" value={property.bathrooms} /><Detail label="Balconies" value={property.balconies} /><Detail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} /><Detail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} /><Detail label="Age" value={formatPropertyAgeRange(property.propertyAgeMinYears, property.propertyAgeMaxYears)} /><Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} /><Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} /><Detail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} /><Detail label="Parking" value={parkingTypeLabel(property.hasOpenParking, property.hasStiltParking)} /><Detail label="Tenant Preference" value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} /><Detail label="Available From" value={formatDate(property.availableFrom)} />
+                <Detail label="Configuration" value={residentialConfigurationLabel(property.bhk)} /><Detail label="Bathrooms" value={property.bathrooms} /><Detail label="Balconies" value={property.balconies} /><Detail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} /><Detail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} /><Detail label="Age" value={formatPropertyAgeRange(property.propertyAgeMinYears, property.propertyAgeMaxYears)} /><Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} /><Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} /><Detail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} /><Detail label="Parking" value={parkingTypeLabel(property.hasOpenParking, property.hasStiltParking)} /><Detail label="Tenant Preference" value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} /><Detail label="Available From" value={formatDate(property.availableFrom)} />
               </>}
             </div>
           </div>

@@ -14,6 +14,7 @@ import { RATING_DESCRIPTIONS } from "@/lib/visits";
 import { listCataloguesForLead } from "@/lib/catalogues";
 import { getLeadPropertyPreferences } from "@/lib/catalogue-property-preferences";
 import { getCoverImageUrls } from "@/lib/property-images";
+import { propertySpecSummary, residentialConfigurationLabel } from "@/lib/property-categories";
 import { ArrowLeft, Star, Eye, Heart, ExternalLink } from "lucide-react";
 
 /**
@@ -194,7 +195,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
                     <Heart className="h-3.5 w-3.5 text-rose-500" /> {item.property.title}
                   </p>
                   <p className="text-xs text-zinc-500">
-                    {item.property.area} · {item.property.bhk} BHK
+                    {item.property.area} · {propertySpecSummary(item.property)}
                     {!item.available && " · Unavailable"}
                   </p>
                   <p className="text-[11px] text-zinc-400">From: {item.catalogueTitle}</p>
@@ -228,7 +229,7 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
                       {p.title}
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-500">
-                      {p.area} &middot; {enumToLabel(p.propertyType)}{p.assetClass === "COMMERCIAL" ? null : <> &middot; {p.bhk} BHK</>}
+                      {p.area} &middot; {enumToLabel(p.propertyType)}{p.assetClass === "COMMERCIAL" ? null : <> &middot; {residentialConfigurationLabel(p.bhk)}</>}
                       {p.floorNumber !== null && <> &middot; Floor {p.floorNumber}</>}
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-400">{p.address}</p>

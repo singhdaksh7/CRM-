@@ -42,7 +42,7 @@ import {
   visitOutcomeFromRating,
 } from "./visit-progress";
 import { assignedToSelect } from "./user-select";
-import type { Prisma, Role, VisitPropertyStatus } from "@prisma/client";
+import type { Prisma, Role, VisitPropertyStatus, VisitStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
 // Status vocabulary, star ratings, and progress
@@ -90,6 +90,56 @@ export interface VisitActor {
  * before) unless a future business rule explicitly adds it.
  */
 export const ELIGIBLE_VISIT_ASSIGNEE_ROLES = ["FIELD_EXECUTIVE", "ADMIN"] as const satisfies readonly Role[];
+
+/**
+ * Manual lead edits can close a visit without running the field workflow.
+ * Reuse the already-created active visit; this deliberately never creates a
+ * Visit or VisitProperty and never rewrites the property's recorded outcome.
+ */
+const MANUALLY_COMPLETABLE_VISIT_STATUSES: VisitStatus[] = ["SCHEDULED", "CONFIRMED", "CLIENT_REACHED", "EMPLOYEE_REACHED", "IN_PROGRESS"];
+
+export async function completeActiveVisitForLeadStatusChange(params: {
+  leadId: string;
+  organizationId: string;
+  actorId: string;
+}) {
+  const visit = await prisma.visit.findFirst({
+    where: {
+      leadId: params.leadId,
+      organizationId: params.organizationId,
+      status: { in: MANUALLY_COMPLETABLE_VISIT_STATUSES },
+    },
+    // A lead may have historical/rescheduled visits. The newest active one is
+    // the only visit the manual status change can reasonably complete.
+    orderBy: [{ visitDate: "desc" }, { createdAt: "desc" }],
+    select: { id: true, status: true, completedAt: true },
+  });
+  if (!visit) return null;
+
+  const completedAt = visit.completedAt ?? new Date();
+  const updated = await prisma.visit.update({
+    where: { id: visit.id },
+    data: { status: "COMPLETED", completedAt },
+  });
+
+  await logActivity({
+    leadId: params.leadId,
+    type: "STATUS_CHANGED",
+    actorId: params.actorId,
+    description: "Visit completed from lead status change",
+    metadata: { visitId: visit.id, event: "visit_completed_from_lead_status" },
+  });
+  await recordAudit({
+    userId: params.actorId,
+    organizationId: params.organizationId,
+    action: "UPDATE",
+    entityType: "Visit",
+    entityId: visit.id,
+    oldValues: { status: visit.status },
+    newValues: { event: "visit_completed_from_lead_status", status: "COMPLETED", completedAt },
+  });
+  return updated;
+}
 
 /**
  * Throws if `assignedToId` is set but doesn't resolve to an active,

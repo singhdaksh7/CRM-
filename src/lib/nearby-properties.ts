@@ -46,7 +46,7 @@ export async function findNearbyProperties(params: NearbyPropertiesParams): Prom
     status: params.status ?? "AVAILABLE",
   };
   if (params.listingType) where.listingType = params.listingType;
-  if (params.bhk) where.bhk = params.bhk;
+  if (params.bhk != null) where.bhk = params.bhk;
   if (params.excludePropertyId) where.id = { not: params.excludePropertyId };
   if (params.minBudget !== undefined || params.maxBudget !== undefined) {
     const priceField = params.listingType === "SALE" ? "salePrice" : "monthlyRent";

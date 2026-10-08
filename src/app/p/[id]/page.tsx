@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { getCoverImageUrls, getPublicOrderedImageUrls } from "@/lib/property-images";
 import { createDownloadUrl, isStorageConfigured } from "@/lib/storage";
 import { PUBLIC_PROPERTY_SELECT } from "@/lib/public-property-select";
-import { Building, MapPin, BedDouble, Bath, Ruler, Phone, CalendarCheck, FileText } from "lucide-react";
+import { Building, MapPin, BedDouble, Bath, Ruler, Phone, CalendarCheck, FileText, Briefcase } from "lucide-react";
+import { catalogueSpecChips } from "@/lib/catalogue-specs";
+import { propertyTypeLabel, residentialConfigurationLabel } from "@/lib/property-categories";
 
 /** Public, unauthenticated property page for WhatsApp sharing. See public-property-select.ts for the data-boundary privacy contract. */
 export default async function PublicPropertyPage({ params }: { params: Promise<{ id: string }> }) {
@@ -71,6 +73,7 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
   }
 
   const amenities: string[] = JSON.parse(property.amenities || "[]");
+  const isCommercial = property.assetClass === "COMMERCIAL";
   const price = property.listingType === "RENT" ? formatINR(property.monthlyRent, { suffix: "month" }) : formatINR(property.salePrice, { compact: true });
   const brandName = organization?.name || "Property Listing";
   const contactPhone = organization?.phone ?? null;
@@ -115,9 +118,20 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
           </p>
 
           <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-600">
-            <span className="flex items-center gap-1.5"><BedDouble className="h-4 w-4" /> {property.bhk} BHK</span>
-            <span className="flex items-center gap-1.5"><Bath className="h-4 w-4" /> {property.bathrooms} Bathrooms</span>
-            <span className="flex items-center gap-1.5"><Ruler className="h-4 w-4" /> {property.builtUpAreaSqft} sqft</span>
+            {isCommercial ? (
+              // Same chips the public catalogue shows - commercial stores bhk/bathrooms = 0 by design.
+              catalogueSpecChips(property).map((chip) => (
+                <span key={chip.label} className="flex items-center gap-1.5">
+                  {chip.kind === "area" ? <Ruler className="h-4 w-4" /> : <Briefcase className="h-4 w-4" />} {chip.label}
+                </span>
+              ))
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5"><BedDouble className="h-4 w-4" /> {residentialConfigurationLabel(property.bhk)}</span>
+                <span className="flex items-center gap-1.5"><Bath className="h-4 w-4" /> {property.bathrooms} Bathrooms</span>
+                <span className="flex items-center gap-1.5"><Ruler className="h-4 w-4" /> {property.builtUpAreaSqft} sqft</span>
+              </>
+            )}
           </div>
 
           <div className="mt-4 rounded-lg bg-indigo-50 p-4">
@@ -127,11 +141,19 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-            <MiniDetail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} />
-            <MiniDetail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} />
-            <MiniDetail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} />
+            {isCommercial ? (
+              <>
+                <MiniDetail label="Type" value={propertyTypeLabel(property.propertyType)} />
+                <MiniDetail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} />
+                <MiniDetail label="Washrooms" value={property.washrooms != null ? String(property.washrooms) : "-"} />
+              </>
+            ) : (
+              <MiniDetail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} />
+            )}
+            <MiniDetail label="Floor" value={property.floorNumber != null ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} />
+            {!isCommercial && <MiniDetail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} />}
             <MiniDetail label="Parking" value={parkingTypeLabel(property.hasOpenParking, property.hasStiltParking)} />
-            {property.listingType === "RENT" && <MiniDetail label="Tenant Pref." value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} />}
+            {!isCommercial && property.listingType === "RENT" && <MiniDetail label="Tenant Pref." value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} />}
           </div>
 
           {amenities.length > 0 && (

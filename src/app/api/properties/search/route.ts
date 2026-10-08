@@ -4,6 +4,7 @@ import { requireSession, handleApiError } from "@/lib/api-auth";
 import { getOrganizationId } from "@/lib/organization";
 import { getCoverImageUrls } from "@/lib/property-images";
 import type { Prisma } from "@prisma/client";
+import { propertyTypeFilterValues } from "@/lib/property-categories";
 
 const RESULT_CAP = 20;
 
@@ -52,6 +53,14 @@ export async function GET(req: NextRequest) {
     const bhk = sp.get("bhk");
     if (bhk) where.bhk = Number(bhk);
 
+    // Category + commercial type, same semantics as the main inventory
+    // filter (src/lib/property-list-query.ts) - a SHOP filter also finds
+    // listings stored under the legacy COMMERCIAL_SHOP value.
+    const assetClass = sp.get("assetClass");
+    if (assetClass === "RESIDENTIAL" || assetClass === "COMMERCIAL") where.assetClass = assetClass;
+    const propertyType = sp.get("propertyType");
+    if (propertyType) where.propertyType = { in: propertyTypeFilterValues(propertyType) as never };
+
     const properties = await prisma.property.findMany({
       where,
       select: {
@@ -63,6 +72,8 @@ export async function GET(req: NextRequest) {
         monthlyRent: true,
         salePrice: true,
         bhk: true,
+        assetClass: true,
+        propertyType: true,
         furnishing: true,
         coverImage: true,
         status: true,

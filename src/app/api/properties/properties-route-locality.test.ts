@@ -43,6 +43,8 @@ vi.mock("@/lib/property-detail-dto", () => ({ toFieldExecutivePropertyDTO: (p: u
 vi.mock("@/lib/validators", () => ({
   createPropertySchema: { parse: (b: Record<string, unknown>) => ({ ...b, amenities: b.amenities ?? [], suitableForTags: b.suitableForTags ?? [], images: b.images ?? [] }) },
   propertySchema: { partial: () => ({ parse: (b: unknown) => b }) },
+  // Category/type consistency is covered by property-categories.test.ts; these bodies never touch assetClass/propertyType.
+  assertPropertyCategoryPatch: () => undefined,
 }));
 
 const resolveOrCreatePropertyLocality = vi.fn();

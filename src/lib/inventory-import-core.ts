@@ -1,4 +1,5 @@
 import { importCreatePropertySchema, propertySchema } from "./validators";
+import { PROPERTY_TYPE_VALUES, isCommercialPropertyType } from "./property-categories";
 import { normalizeIndianPhone } from "@/integrations/whatsapp/phone";
 import { IMPORTABLE_PROPERTY_FIELDS, normalizeHeader, type ImportablePropertyField, type ImportActionValue } from "./inventory-import-shared";
 export { IMPORTABLE_PROPERTY_FIELDS, headerSignature, normalizeHeader } from "./inventory-import-shared";
@@ -282,6 +283,12 @@ export function deriveSheetContext(sheetName: string, inSheetTitle?: string): Sh
   const result: SheetContext = {};
 
   const bhkMatch = combined.match(/(\d)\s*BHK/);
+  if (/\b1\s*RK\b/.test(combined)) {
+    result.assetClass = "RESIDENTIAL";
+    result.bhk = 0;
+    result.listingType = /\bLEASE\b|\bRENT\b/.test(combined) ? "RENT" : "SALE";
+    return result;
+  }
   if (bhkMatch) {
     result.assetClass = "RESIDENTIAL";
     result.bhk = Number(bhkMatch[1]);
@@ -353,13 +360,25 @@ const COMMERCIAL_PROPERTY_TYPE_FALLBACK = "OTHER_COMMERCIAL";
  */
 export function applyImportFallbackDefaults(data: Record<string, unknown>, issues: ImportFieldIssue[]): Record<string, unknown> {
   const next = { ...data };
+  // A row whose type is unambiguously commercial (e.g. a mapped "Type"
+  // column saying WAREHOUSE) but with no category column/sheet context is
+  // commercial inventory - not a guess. Without this the schema default
+  // (RESIDENTIAL) would make importCreatePropertySchema reject the row for a
+  // category/type mismatch. An explicit RESIDENTIAL is never overridden: that
+  // contradiction is surfaced as a validation error instead.
+  if (!valuePresent(next.assetClass) && typeof next.propertyType === "string" && isCommercialPropertyType(next.propertyType)) {
+    next.assetClass = "COMMERCIAL";
+  }
   if (!valuePresent(next.propertyType)) {
     next.propertyType = next.assetClass === "COMMERCIAL" ? COMMERCIAL_PROPERTY_TYPE_FALLBACK : RESIDENTIAL_PROPERTY_TYPE_FALLBACK;
     issues.push({ field: "propertyType", message: "Property type could not be determined from the sheet - defaulted to Other, please reclassify", severity: "WARNING" });
   }
   if (!valuePresent(next.title)) {
     const parts: string[] = [];
-    if (valuePresent(next.bhk) && Number(next.bhk) > 0) parts.push(`${next.bhk} BHK`);
+    if (valuePresent(next.bhk) && next.assetClass !== "COMMERCIAL") {
+      const bhk = Number(next.bhk);
+      parts.push(bhk === 0 ? "1 RK" : `${bhk} BHK`);
+    }
     else if (typeof next.propertyType === "string" && next.propertyType !== RESIDENTIAL_PROPERTY_TYPE_FALLBACK && next.propertyType !== COMMERCIAL_PROPERTY_TYPE_FALLBACK) {
       parts.push(next.propertyType.replace(/_/g, " "));
     } else {
@@ -487,11 +506,16 @@ export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record
 
   for (const field of ["parkingAvailable", "liftAvailable", "parkFacing"]) convert(field, parseBoolean, "Use Yes/Y/Available or No/N");
   // A dedicated BHK column (seen on the real workbook's LEASE sheet) can hold
-  // "1BHK"/"2 BHK" rather than a bare number - strip the unit before the
+  // "1 RK"/"1BHK"/"2 BHK" rather than a bare number - normalize the
+  // existing 1 RK (zero-bedroom) representation before the generic
   // generic whole-number check below, same value either way.
   if (valuePresent(data.bhk)) {
-    const bhkMatch = String(data.bhk).trim().match(/^(\d+)\s*BHK$/i);
-    if (bhkMatch) data.bhk = bhkMatch[1];
+    const bhkText = String(data.bhk).trim();
+    if (/^1\s*RK$/i.test(bhkText)) data.bhk = 0;
+    else {
+      const bhkMatch = bhkText.match(/^(\d+)\s*BHK$/i);
+      if (bhkMatch) data.bhk = bhkMatch[1];
+    }
   }
   for (const field of ["bhk", "bathrooms", "workstations", "cabins", "leaseTermMonths", "lockInPeriodMonths"]) convert(field, (v) => /^\d+$/.test(String(v).trim()) ? Number(v) : null, "Enter a whole number");
 
@@ -533,7 +557,10 @@ export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record
   convert("listingType", (v) => parseEnum(v, ["RENT", "SALE"], { rental: "RENT", buy: "SALE" }), "Use RENT or SALE");
   convert("assetClass", (v) => parseEnum(v, ["RESIDENTIAL", "COMMERCIAL"], { residential: "RESIDENTIAL", commercial: "COMMERCIAL" }), "Use RESIDENTIAL or COMMERCIAL");
   convert("commercialFitOut", (v) => parseEnum(v, ["FURNISHED", "SEMI_FURNISHED", "BARE_SHELL"], { "bare shell": "BARE_SHELL", semi: "SEMI_FURNISHED" }), "Unsupported commercial fit-out");
-  convert("propertyType", (v) => parseEnum(v, ["APARTMENT", "INDEPENDENT_HOUSE", "VILLA", "BUILDER_FLOOR", "PLOT", "COMMERCIAL_SHOP", "COMMERCIAL_OFFICE", "PG"], { flat: "APARTMENT", floor: "BUILDER_FLOOR" }), "Unsupported property type");
+  // Every PropertyType is importable (the list previously stopped at the
+  // pre-AssetClass values, so a SHOWROOM/WAREHOUSE/OFFICE cell was rejected
+  // as "Unsupported"). Aliases are only unambiguous broker spellings.
+  convert("propertyType", (v) => parseEnum(v, [...PROPERTY_TYPE_VALUES], { flat: "APARTMENT", floor: "BUILDER_FLOOR", godown: "WAREHOUSE", "commercial plot": "COMMERCIAL_LAND", "commercial land": "COMMERCIAL_LAND", coworking: "CO_WORKING", "shop cum office": "SCO" }), "Unsupported property type");
   // STATUS is sometimes used for a free-text broker note instead of an
   // actual status ("YH BNA RHE HAI" / "ABHI NHI DIKHANA" - Hindi/Punjabi
   // notes seen on the real KP workbook), not a classification mistake to

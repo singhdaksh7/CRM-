@@ -1,4 +1,5 @@
 import { formatINR } from "./utils";
+import { residentialConfigurationLabel } from "./property-categories";
 export { catalogueSpecChips } from "./catalogue-specs";
 import { renderCatalogueMessage } from "@/integrations/whatsapp";
 import type { CatalogueStatus } from "@prisma/client";
@@ -15,7 +16,7 @@ export function budgetSummary(lead: { requirementType: string; preferredBhk: num
   // Commercial requirements have no BHK by design, so the phrase is built from
   // the asset class instead of reading like a residential enquiry.
   const commercial = lead.assetClass === "COMMERCIAL";
-  const bhk = !commercial && lead.preferredBhk ? `${lead.preferredBhk} BHK ` : "";
+  const bhk = !commercial && lead.preferredBhk != null ? `${residentialConfigurationLabel(lead.preferredBhk)} ` : "";
   const kind = lead.requirementType === "RENT" ? "rental" : "sale";
   const noun = commercial ? "commercial property" : "property";
   return `a ${bhk}${kind} ${noun} in ${lead.preferredLocation} within ${formatINR(lead.minBudget, { compact: true })}–${formatINR(lead.maxBudget, { compact: true })}`;
@@ -32,6 +33,7 @@ export function buildCatalogueMessageText(catalogue: CatalogueForDTO) {
     lead: {
       clientName: catalogue.lead.clientName,
       requirementType: catalogue.lead.requirementType,
+      assetClass: catalogue.lead.assetClass,
       preferredBhk: catalogue.lead.preferredBhk,
       preferredLocation: catalogue.lead.preferredLocation,
       minBudget: catalogue.lead.minBudget,
@@ -61,6 +63,8 @@ export interface PublicCatalogueProperty {
   propertyType: string;
   workstations: number | null;
   cabins: number | null;
+  /** Commercial washroom count - a public-safe listing spec, like workstations/cabins. */
+  washrooms: number | null;
   bhk: number;
   bathrooms: number;
   furnishing: string | null;
@@ -155,6 +159,7 @@ export function toPublicCatalogueDTO(catalogue: CatalogueForDTO): PublicCatalogu
         propertyType: p.propertyType,
         workstations: p.workstations,
         cabins: p.cabins,
+        washrooms: p.washrooms,
         bhk: p.bhk,
         bathrooms: p.bathrooms,
         furnishing: p.furnishing,

@@ -22,6 +22,15 @@ export const PUBLIC_PROPERTY_SELECT = {
   propertyCode: true,
   title: true,
   listingType: true,
+  // Category/type and commercial specs are listing attributes, not location
+  // or contact data - the same public-safe set toPublicCatalogueDTO exposes -
+  // so a commercial listing never renders "0 BHK / 0 Bathrooms".
+  assetClass: true,
+  propertyType: true,
+  workstations: true,
+  cabins: true,
+  washrooms: true,
+  carpetAreaSqft: true,
   area: true,
   bhk: true,
   bathrooms: true,

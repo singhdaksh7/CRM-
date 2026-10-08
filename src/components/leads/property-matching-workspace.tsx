@@ -10,6 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { LoadingState, EmptyState } from "@/components/ui/states";
 import { PropertyPickerDialog, type PickerProperty } from "@/components/properties/property-picker-dialog";
 import { formatINR, enumToLabel } from "@/lib/utils";
+import { propertySpecSummary, residentialConfigurationLabel } from "@/lib/property-categories";
 import {
   Sparkles,
   Copy,
@@ -44,6 +45,8 @@ export interface ClientMatchProperty {
   address: string;
   listingType: "RENT" | "SALE";
   status: string;
+  /** RESIDENTIAL | COMMERCIAL - commercial rows show their type instead of "0 BHK". */
+  assetClass?: string;
   propertyType: string;
   bhk: number;
   bathrooms: number;
@@ -538,7 +541,7 @@ export function PropertyMatchingWorkspace({
           <div>
             <h2 className="text-base font-semibold text-[#09090B]">{lead.clientName}</h2>
             <p className="mt-0.5 text-xs text-[#52525B]">
-              {lead.phone} &middot; {lead.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {lead.preferredBhk ? `${lead.preferredBhk} BHK` : "Any BHK"} &middot; {lead.preferredLocation} &middot;{" "}
+              {lead.phone} &middot; {lead.requirementType === "RENT" ? "Rent" : "Buy"} &middot; {lead.preferredBhk != null ? residentialConfigurationLabel(lead.preferredBhk) : "Any BHK"} &middot; {lead.preferredLocation} &middot;{" "}
               {formatINR(lead.minBudget, { compact: true })} - {formatINR(lead.maxBudget, { compact: true })}
             </p>
           </div>
@@ -736,7 +739,7 @@ export function PropertyMatchingWorkspace({
                 <CompareRow label="Property" cells={comparedMatches.map((m) => m.property.title)} bold />
                 <CompareRow label="Score" cells={comparedMatches.map((m) => `${m.score}%`)} />
                 <CompareRow label="Price" cells={comparedMatches.map((m) => formatPrice(m.property))} />
-                <CompareRow label="BHK" cells={comparedMatches.map((m) => `${m.property.bhk} BHK`)} />
+                <CompareRow label="Configuration" cells={comparedMatches.map((m) => propertySpecSummary(m.property))} />
                 <CompareRow label="Furnishing" cells={comparedMatches.map((m) => (m.property.furnishing ? enumToLabel(m.property.furnishing) : "-"))} />
                 <CompareRow label="Area" cells={comparedMatches.map((m) => `${m.property.builtUpAreaSqft} sqft`)} />
                 <CompareRow label="Floor" cells={comparedMatches.map((m) => (m.property.floorNumber !== null ? `${m.property.floorNumber}${m.property.totalFloors ? ` / ${m.property.totalFloors}` : ""}` : "-"))} />
@@ -856,12 +859,12 @@ function MatchCard({
               )}
             </div>
             <p className="text-xs text-[#52525B]">
-              {p.area} &middot; {p.bhk} BHK &middot; {enumToLabel(p.furnishing)} &middot; {p.builtUpAreaSqft} sqft
+              {p.area} &middot; {propertySpecSummary(p)}{p.assetClass === "COMMERCIAL" ? null : <> &middot; {enumToLabel(p.furnishing)}</>} &middot; {p.builtUpAreaSqft} sqft
             </p>
             <p className="text-sm font-semibold text-[#09090B]">{formatPrice(p)}</p>
             {match.matchedRequirement && (
               <p className="text-[11px] font-medium text-[#71717A]">
-                Matched requirement: {match.matchedRequirement.bhkValues.map((value) => `${value.bhk} BHK`).join(" / ") || "Any BHK"}
+                Matched requirement: {match.matchedRequirement.bhkValues.map((value) => residentialConfigurationLabel(value.bhk)).join(" / ") || "Any BHK"}
                 {match.matchedRequirement.localities.length ? ` · ${match.matchedRequirement.localities.map((value) => value.locality.name).join(" / ")}` : ""}
               </p>
             )}

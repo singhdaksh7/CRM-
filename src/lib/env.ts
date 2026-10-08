@@ -97,7 +97,9 @@ const envSchema = z
 
     REDIS_URL: z.string().optional(),
 
-    ACRES_99_API_KEY: z.string().optional(),
+    // Bearer secret for POST /api/integrations/99acres/leads. Unset = that endpoint refuses all traffic (fails closed).
+    ACRES_99_WEBHOOK_SECRET: z.string().optional(),
+    ACRES_99_ORGANIZATION_ID: z.string().optional(),
     MAGICBRICKS_API_KEY: z.string().optional(),
 
     // Authorizes POST /api/internal/notifications/sweep (Vercel Cron sends

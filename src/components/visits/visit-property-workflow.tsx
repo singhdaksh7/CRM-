@@ -8,6 +8,7 @@ import { Badge, VISIT_PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { bestDirectionsUrl } from "@/lib/external-directions";
 import { enumToLabel } from "@/lib/utils";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 // Pure helpers only - importing from @/lib/visits here would pull Prisma and
 // the notification/auth stack into the client bundle.
 import { RATING_DESCRIPTIONS } from "@/lib/visit-progress";
@@ -203,7 +204,7 @@ function PropertyCard({
             <p className="mt-0.5 text-xs text-[#52525B]">
               {property.area}
               {property.floorNumber !== null && <> &middot; Floor {property.floorNumber}</>}
-              {" "}&middot; {property.builtUpAreaSqft} sqft{property.assetClass === "COMMERCIAL" ? <> &middot; {enumToLabel(property.propertyType)}</> : <> &middot; {property.bhk} BHK</>}
+              {" "}&middot; {property.builtUpAreaSqft} sqft{property.assetClass === "COMMERCIAL" ? <> &middot; {enumToLabel(property.propertyType)}</> : <> &middot; {residentialConfigurationLabel(property.bhk)}</>}
             </p>
             <p className="mt-0.5 text-xs text-[#71717A]">{property.address}</p>
             <p className="mt-1 text-sm font-semibold text-[#09090B]">{property.price ?? "Price on request"}</p>

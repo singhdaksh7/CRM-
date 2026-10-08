@@ -1,4 +1,5 @@
 import { getLocalityAnalytics } from "@/lib/locality-analytics-data";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import { ReportsTabs } from "@/components/dashboard/reports-tabs";
 import { BarChartCard, PieChartCard } from "@/components/dashboard/charts-dynamic";
 import { auth } from "@/lib/auth";
@@ -21,7 +22,7 @@ export default async function LocalityAnalyticsPage() {
         <BarChartCard title="Most Requested Localities" data={data.mostRequested.map((l) => ({ name: l.locality, value: l.requestedCount }))} />
         <BarChartCard title="Highest Budget Areas" data={data.highestBudget.map((l) => ({ name: l.locality, value: l.avgBudget }))} />
         <BarChartCard title="Fastest Selling Areas (avg days)" data={data.fastestSelling.map((l) => ({ name: l.locality, value: l.avgDaysToSell ?? 0 }))} />
-        <BarChartCard title="Inventory by BHK" data={data.inventoryByBhk.map((b) => ({ name: `${b.bhk} BHK`, value: b.count }))} />
+        <BarChartCard title="Inventory by BHK" data={data.inventoryByBhk.map((b) => ({ name: residentialConfigurationLabel(b.bhk), value: b.count }))} />
         <BarChartCard title="Inventory by Budget" data={data.inventoryByBudgetBucket.map((b) => ({ name: b.label, value: b.count }))} />
         <PieChartCard title="Inventory: Rent vs Sale" data={data.inventoryRentVsSale} />
       </div>

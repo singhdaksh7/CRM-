@@ -71,6 +71,10 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   // behavior on a transient 5xx never gets mistaken for abuse, per-provider+IP
   // so it never shares a bucket with (or is starved by) the generic webhook rule.
   housingWebhook: { limit: Number(process.env.RATE_LIMIT_HOUSING_WEBHOOK_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_HOUSING_WEBHOOK_WINDOW_SECONDS ?? 60) },
+  // 99acres lead webhook - counted per client IP *before* authentication, so it
+  // also bounds secret-guessing. Sized for a portal pushing bursts of leads and
+  // retrying on failure, far above any real lead volume for one brokerage.
+  acres99Webhook: { limit: Number(process.env.RATE_LIMIT_ACRES99_WEBHOOK_MAX ?? 120), windowSeconds: Number(process.env.RATE_LIMIT_ACRES99_WEBHOOK_WINDOW_SECONDS ?? 60) },
   import: { limit: Number(process.env.RATE_LIMIT_IMPORT_MAX ?? 5), windowSeconds: Number(process.env.RATE_LIMIT_IMPORT_WINDOW_SECONDS ?? 300) },
   upload: { limit: Number(process.env.RATE_LIMIT_UPLOAD_MAX ?? 30), windowSeconds: Number(process.env.RATE_LIMIT_UPLOAD_WINDOW_SECONDS ?? 60) },
   document: { limit: Number(process.env.RATE_LIMIT_DOCUMENT_MAX ?? 100), windowSeconds: Number(process.env.RATE_LIMIT_DOCUMENT_WINDOW_SECONDS ?? 60) },

@@ -58,7 +58,7 @@ export function computeLeadHealth(input: LeadHealthInput, staleLeadDays = 14): H
   const now = input.now ?? new Date();
   const factors: HealthFactor[] = [];
 
-  const requirementComplete = Boolean(input.preferredBhk) && Boolean(input.furnishingPref) && input.maxBudget > input.minBudget;
+  const requirementComplete = input.preferredBhk != null && Boolean(input.furnishingPref) && input.maxBudget > input.minBudget;
   if (requirementComplete) {
     factors.push({ label: "Requirement complete", delta: 8, detail: "BHK, furnishing and budget range are all specified" });
   } else {

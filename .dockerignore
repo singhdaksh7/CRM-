@@ -55,3 +55,6 @@ prisma/seed.ts
 
 # Compose files are not needed inside the build context
 docker-compose*.yml
+
+# Server ops scripts/docs are not part of the app image
+deploy

@@ -16,7 +16,7 @@ export interface ScoreResult {
 }
 
 const HIGH_QUALITY_SOURCES: LeadSource[] = ["REFERRAL", "WALK_IN", "WEBSITE"];
-const MEDIUM_QUALITY_SOURCES: LeadSource[] = ["ACRES_99", "MAGICBRICKS", "HOUSING_COM"];
+const MEDIUM_QUALITY_SOURCES: LeadSource[] = ["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "OLX"];
 const PROGRESSED_STATUSES: LeadStatus[] = ["CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION", "CLOSED_WON"];
 
 export interface ScoringInput {
@@ -92,7 +92,7 @@ export function computeLeadScore(input: ScoringInput, hotThreshold = 70): ScoreR
   }
 
   let completeness = 0;
-  if (input.preferredBhk) completeness += 5;
+  if (input.preferredBhk != null) completeness += 5;
   if (input.furnishingPref) completeness += 5;
   if (completeness > 0) factors.push({ label: "Requirement completeness", delta: completeness, reason: "BHK and/or furnishing preference specified" });
 

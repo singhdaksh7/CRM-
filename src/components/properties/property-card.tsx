@@ -4,6 +4,7 @@ import type { Property } from "@prisma/client";
 import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { formatINR, enumToLabel } from "@/lib/utils";
 import { MapPin, BedDouble, Bath, Maximize2, BriefcaseBusiness, CalendarDays } from "lucide-react";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 
 type PropertyCardModel = Pick<
   Property,
@@ -74,7 +75,7 @@ export function PropertyCard({
           ) : (
             <>
               <span className="flex items-center gap-1 font-medium">
-                <BedDouble className="h-3.5 w-3.5 text-[#71717A]" /> {property.bhk} BHK
+                <BedDouble className="h-3.5 w-3.5 text-[#71717A]" /> {residentialConfigurationLabel(property.bhk)}
               </span>
               <span className="flex items-center gap-1">
                 <Bath className="h-3.5 w-3.5 text-[#71717A]" /> {property.bathrooms} Bath

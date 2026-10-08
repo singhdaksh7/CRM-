@@ -33,6 +33,19 @@ COPY . .
 # build time, so pass the real public URL (compose forwards it from env).
 ARG NEXT_PUBLIC_APP_URL=https://crm.kpproperties.co.in
 ARG NEXTAUTH_URL=https://crm.kpproperties.co.in
+# next.config.ts bakes the Content-Security-Policy at BUILD time from these
+# NON-SECRET R2 values (see src/lib/csp.ts). Without them connect-src/img-src
+# omit the R2 origins and the browser blocks direct presigned PUTs to R2 before
+# CORS is ever evaluated. Never pass R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
+# here - they are runtime-only (env_file) and not needed for the CSP.
+ARG STORAGE_PROVIDER=
+ARG R2_ACCOUNT_ID=
+ARG R2_BUCKET_NAME=
+ARG R2_ENDPOINT=
+ENV STORAGE_PROVIDER=$STORAGE_PROVIDER
+ENV R2_ACCOUNT_ID=$R2_ACCOUNT_ID
+ENV R2_BUCKET_NAME=$R2_BUCKET_NAME
+ENV R2_ENDPOINT=$R2_ENDPOINT
 ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
@@ -42,6 +55,15 @@ ENV DIRECT_URL="postgresql://build:build@localhost:5432/build"
 
 RUN npx prisma generate
 RUN npm run build
+
+# ---------------------------------------------------------------------------
+# Stage 2b: One-off migration/ops image (NOT the runtime image).
+# Has the Prisma CLI + full node_modules, which the standalone runner lacks.
+# Used only for `npx prisma migrate deploy` / `migrate status`:
+#   docker build --target migrate -t kp-crm-migrate .
+# ---------------------------------------------------------------------------
+FROM builder AS migrate
+CMD ["npx", "prisma", "migrate", "status"]
 
 # ---------------------------------------------------------------------------
 # Stage 3: Production runtime (standalone output)

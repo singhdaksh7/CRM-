@@ -18,11 +18,13 @@ export function resolvePortalLead(candidates: PortalCandidate[]) {
 
 function leadSource(provider: PropertyPortalProviderId) { return provider === "NINETY_NINE_ACRES" ? "ACRES_99" : provider === "HOUSING" ? "HOUSING_COM" : provider; }
 
-type IngestionContext = { connectionId?: string; snapshot?: Record<string, unknown> };
+type IngestionContext = { connectionId?: string; snapshot?: Record<string, unknown>; /** Provider-specific ceiling for the stored snapshot JSON (default 4000, Housing's historic limit). */ snapshotMaxChars?: number };
+
+const DEFAULT_SNAPSHOT_MAX_CHARS = 4000;
 
 export async function ingestPortalLead(organizationId: string, provider: PropertyPortalProviderId, input: CanonicalPortalLead, rawPayload: unknown, context: IngestionContext | Record<string, unknown> = {}) {
   // Backwards compatible with Housing's existing fifth `snapshot` argument.
-  const options: IngestionContext = "snapshot" in context || "connectionId" in context ? context as IngestionContext : { snapshot: context };
+  const options: IngestionContext = "snapshot" in context || "connectionId" in context || "snapshotMaxChars" in context ? context as IngestionContext : { snapshot: context };
   const rawPayloadHash = createHash("sha256").update(JSON.stringify(rawPayload)).digest("hex");
   // Preserve Housing's stored external IDs; connection-backed providers namespace
   // their event id so two authorized accounts cannot collide within a tenant.
@@ -40,7 +42,7 @@ export async function ingestPortalLead(organizationId: string, provider: Propert
   const deduped = [...new Map(candidates.map((candidate) => [candidate.id, candidate])).values()];
   const resolution = resolvePortalLead(deduped);
   const linkedLead = resolution === "MATCHED_EXISTING" ? deduped[0] : null;
-  const leadSnapshot = options.snapshot ? JSON.stringify(options.snapshot).slice(0, 4000) : null;
+  const leadSnapshot = options.snapshot ? JSON.stringify(options.snapshot).slice(0, options.snapshotMaxChars ?? DEFAULT_SNAPSHOT_MAX_CHARS) : null;
   const listingClient = (prisma as unknown as { portalListing?: { findMany: (args: unknown) => Promise<Array<{ id: string }>> } }).portalListing;
   const listings = input.externalListingId && listingClient
     ? await listingClient.findMany({ where: { organizationId, provider, externalListingId: input.externalListingId, ...(options.connectionId ? { connectionId: options.connectionId } : {}) }, select: { id: true }, take: 2 })
@@ -74,4 +76,19 @@ export async function ingestPortalLead(organizationId: string, provider: Propert
   }
 
   return { status: "NEW" as const, lead, event: { ...event, leadId: lead.id, ingestionStatus: "RECEIVED" } };
+}
+
+export type UnmappedPortalEventInput = { externalLeadId?: string; externalEventId: string; externalListingId?: string; receivedAt?: Date; message?: string; reason: string };
+
+/**
+ * Transport-valid delivery that cannot (yet) become a Lead: keep the event so
+ * nothing the portal sent is lost, flag it NEEDS_REVIEW for staff, and make
+ * retries idempotent. Never creates a Lead and never contacts anyone.
+ */
+export async function captureUnmappedPortalEvent(organizationId: string, provider: PropertyPortalProviderId, input: UnmappedPortalEventInput, rawPayload: unknown, snapshot: Record<string, unknown>, snapshotMaxChars = DEFAULT_SNAPSHOT_MAX_CHARS) {
+  const rawPayloadHash = createHash("sha256").update(JSON.stringify(rawPayload)).digest("hex");
+  const existing = await prisma.externalLeadEvent.findUnique({ where: { organizationId_provider_externalEventId: { organizationId, provider, externalEventId: input.externalEventId } } });
+  if (existing) return { status: "DUPLICATE" as const, event: existing };
+  const event = await prisma.externalLeadEvent.create({ data: { organizationId, provider, externalLeadId: input.externalLeadId ?? null, externalEventId: input.externalEventId, externalListingId: input.externalListingId ?? null, receivedAt: input.receivedAt ?? new Date(), rawPayloadHash, message: input.message?.slice(0, 2000) ?? null, leadSnapshot: JSON.stringify(snapshot).slice(0, snapshotMaxChars), ingestionStatus: "NEEDS_REVIEW", failureReason: input.reason } });
+  return { status: "CAPTURED" as const, event };
 }

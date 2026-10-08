@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { CustomerRequirement, CustomerRequirementInput } from "@/lib/demand-pool/types";
 import { parseLocalities } from "@/lib/demand-pool/format";
 import { allowedUnitsForListingType, fromINR, pickDefaultUnit, toINR, UNIT_LABELS, type MoneyUnit } from "@/lib/money";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 
 const RESIDENTIAL_TYPES = ["APARTMENT", "BUILDER_FLOOR", "INDEPENDENT_HOUSE", "VILLA", "STUDIO", "FARM_HOUSE", "PLOT", "PG", "OTHER"];
 const COMMERCIAL_TYPES = ["OFFICE", "SHOP", "SHOWROOM", "WAREHOUSE", "INDUSTRIAL", "COMMERCIAL_LAND", "CO_WORKING", "RESTAURANT_SPACE", "SCO", "OTHER_COMMERCIAL"];
@@ -146,7 +147,7 @@ export function RequirementForm({
               <option value="">Any</option>
               {[0, 1, 2, 3, 4, 5, 6].map((n) => (
                 <option key={n} value={n}>
-                  {n === 0 ? "Studio / 0" : `${n} BHK`}
+                  {residentialConfigurationLabel(n)}
                 </option>
               ))}
             </Select>

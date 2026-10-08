@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Heart, ThumbsDown, ExternalLink } from "lucide-react";
 import { formatINR } from "@/lib/utils";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 
 export interface PreferenceCard {
   propertyId: string;
@@ -112,7 +113,7 @@ function PreferenceGroup({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-zinc-900">{item.property.title}</p>
                 <p className="text-xs text-zinc-500">
-                  {item.property.area} · {item.property.bhk} BHK · {price}
+                  {item.property.area} · {residentialConfigurationLabel(item.property.bhk)} · {price}
                 </p>
                 <p className="text-[11px] text-zinc-400">
                   {liked ? "Liked" : "Not interested"} from: {item.catalogueTitle}

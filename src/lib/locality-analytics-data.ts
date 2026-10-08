@@ -31,7 +31,9 @@ async function computeLocalityAnalytics(organizationId: string): Promise<Localit
   const [leadsByLocation, propertiesByArea, propertiesByBhk, propertiesAll, soldProperties] = await Promise.all([
     prisma.lead.groupBy({ by: ["preferredLocation"], _count: { _all: true }, _avg: { maxBudget: true }, where: { organizationId } }),
     prisma.property.groupBy({ by: ["area"], _count: { _all: true }, where: { organizationId, status: { in: ["AVAILABLE", "RESERVED"] } } }),
-    prisma.property.groupBy({ by: ["bhk"], _count: { _all: true }, where: { organizationId, status: { in: ["AVAILABLE", "RESERVED"] } } }),
+    // Residential only: commercial inventory stores bhk = 0 by design and
+    // would otherwise show up as a misleading "0 BHK" bucket.
+    prisma.property.groupBy({ by: ["bhk"], _count: { _all: true }, where: { organizationId, assetClass: "RESIDENTIAL", status: { in: ["AVAILABLE", "RESERVED"] } } }),
     prisma.property.findMany({ where: { organizationId }, select: { listingType: true, monthlyRent: true, salePrice: true } }),
     prisma.property.findMany({
       where: { organizationId, status: { in: ["SOLD", "RENTED"] } },
