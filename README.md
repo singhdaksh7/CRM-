@@ -2,6 +2,12 @@
 
 A working CRM and property inventory platform for a Delhi real-estate brokerage: manage inventory, capture and match leads, share properties over WhatsApp, assign visits, track follow-ups, and monitor the business from an admin dashboard.
 
+## Developer Onboarding
+
+**New developer? Start here: [docs/onboarding/README.md](docs/onboarding/README.md).** It covers what the CRM does, the architecture, a step-by-step macOS setup (Docker Postgres/Redis, demo data, first login), environment variables, testing, the development workflow, and the production-safety rules.
+
+> The sections below are the original Phase 1-2 notes and are partly out of date (for example, the database is now PostgreSQL, not SQLite). Where they disagree with `docs/onboarding/` or the code, trust the code.
+
 ## Tech Stack
 
 - **Next.js 16** (App Router) + **TypeScript**
