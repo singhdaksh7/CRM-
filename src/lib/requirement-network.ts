@@ -1,4 +1,5 @@
 import type { Lead } from "@prisma/client";
+import { residentialConfigurationLabel } from "./property-categories";
 
 type SanitizableRequirement = Pick<
   Lead,
@@ -37,7 +38,7 @@ export function requirementMessage(snapshot: ReturnType<typeof sanitizeRequireme
   const commercial = snapshot.assetClass === "COMMERCIAL";
   return [
     commercial ? "COMMERCIAL PROPERTY REQUIREMENT" : "PROPERTY REQUIREMENT",
-    commercial ? snapshot.commercialPropertyType?.replace(/_/g, " ") ?? null : snapshot.bhk ? `${snapshot.bhk} BHK` : null,
+    commercial ? snapshot.commercialPropertyType?.replace(/_/g, " ") ?? null : snapshot.bhk != null ? residentialConfigurationLabel(snapshot.bhk) : null,
     commercial ? areaClause(snapshot.areaSqft) : null,
     snapshot.locality,
     `Budget ₹${snapshot.budget.min.toLocaleString("en-IN")}–₹${snapshot.budget.max.toLocaleString("en-IN")}`,

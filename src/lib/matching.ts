@@ -1,7 +1,7 @@
 import type { Property, Lead, OwnerVerificationStatus } from "@prisma/client";
 import { normalizeLocality, getNearbyLocalities, getLocalityCentroid } from "./locality";
 import { haversineDistanceMeters } from "./geo";
-import { propertyTypesEquivalent } from "./property-categories";
+import { propertyTypesEquivalent, residentialConfigurationLabel } from "./property-categories";
 
 /**
  * Property matching engine.
@@ -215,15 +215,15 @@ export function matchPropertyToLead(property: MatchableProperty, lead: Lead, max
   }
 
   // BHK match
-  if (lead.preferredBhk) {
+  if (lead.preferredBhk != null) {
     if (property.bhk === lead.preferredBhk) {
       score += WEIGHTS.bhk;
-      reasons.push({ label: "BHK", matched: true, detail: `${property.bhk} BHK matches requirement` });
+      reasons.push({ label: "BHK", matched: true, detail: `${residentialConfigurationLabel(property.bhk)} matches requirement` });
     } else if (Math.abs(property.bhk - lead.preferredBhk) === 1) {
       score += WEIGHTS.bhk * 0.5;
-      reasons.push({ label: "BHK", matched: true, detail: `${property.bhk} BHK is close to requested ${lead.preferredBhk} BHK` });
+      reasons.push({ label: "BHK", matched: true, detail: `${residentialConfigurationLabel(property.bhk)} is close to requested ${residentialConfigurationLabel(lead.preferredBhk)}` });
     } else {
-      reasons.push({ label: "BHK", matched: false, detail: `${property.bhk} BHK does not match requested ${lead.preferredBhk} BHK` });
+      reasons.push({ label: "BHK", matched: false, detail: `${residentialConfigurationLabel(property.bhk)} does not match requested ${residentialConfigurationLabel(lead.preferredBhk)}` });
     }
   } else {
     score += WEIGHTS.bhk;

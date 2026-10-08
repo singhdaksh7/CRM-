@@ -4,6 +4,7 @@ import { requireSession, handleApiError, ApiError } from "@/lib/api-auth";
 import { getOrganizationId } from "@/lib/organization";
 import { inboxAccessWhere, MESSAGE_PAGE_SIZE } from "@/lib/whatsapp-inbox";
 import { sendOutboundMessage } from "@/lib/whatsapp-messages";
+import { propertySpecSummary } from "@/lib/property-categories";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -33,10 +34,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       content = content || `Here is your property catalogue: ${catalogueUrl}`; messageType = "CATALOGUE";
     }
     if (kind === "property") {
-      const property = await prisma.property.findFirst({ where: { id: String(body.propertyId), organizationId, status: "AVAILABLE" }, select: { id: true, title: true, area: true, bhk: true, monthlyRent: true, salePrice: true } });
+      const property = await prisma.property.findFirst({ where: { id: String(body.propertyId), organizationId, status: "AVAILABLE" }, select: { id: true, title: true, area: true, bhk: true, assetClass: true, propertyType: true, monthlyRent: true, salePrice: true } });
       if (!property) throw new ApiError(404, "Available property not found");
       const url = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/p/${property.id}`;
-      content = `${property.title} · ${property.area}${property.bhk ? ` · ${property.bhk} BHK` : ""}\n${url}`;
+      content = `${property.title} · ${property.area} · ${propertySpecSummary(property)}\n${url}`;
     }
     const idempotencyKey = req.headers.get("idempotency-key") ?? undefined;
     const result = await sendOutboundMessage({ leadId: conversation.leadId, conversationId: conversation.id, sentByUserId: session.user.id, content, messageType, templateName: body.templateName, catalogueUrl, idempotencyKey, metadata: { explicitEmployeeAction: true, ...(kind === "property" ? { propertyId: body.propertyId } : {}) } });

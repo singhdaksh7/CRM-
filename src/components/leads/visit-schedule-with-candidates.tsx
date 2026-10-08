@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, Input, Field } from "@/components/ui/form";
 import { formatINR, enumToLabel } from "@/lib/utils";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import { Heart, Search } from "lucide-react";
 
 type Candidate = {
@@ -230,7 +231,7 @@ function CandidateGroup({
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-zinc-900">{c.title}</p>
               <p className="text-xs text-zinc-500">
-                {c.location} · {c.bhk} BHK · {price}
+                {c.location} · {residentialConfigurationLabel(c.bhk)} · {price}
               </p>
               <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10px] font-semibold">
                 {badge && c.source === "liked" && (

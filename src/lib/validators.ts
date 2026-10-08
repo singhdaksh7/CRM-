@@ -472,7 +472,7 @@ export const changePasswordSchema = z.object({
 export const assignmentRuleSchema = z.object({
   name: z.string().min(2),
   strategy: z.enum(["ROUND_ROBIN", "LOWEST_WORKLOAD", "LOCATION_BASED", "SPECIALITY", "MANUAL_ONLY"]),
-  source: z.enum(["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL"]).optional().nullable(),
+  source: z.enum(["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "OLX", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL"]).optional().nullable(),
   requirementType: z.enum(["RENT", "BUY"]).optional().nullable(),
   locality: z.string().optional().nullable(),
   employeeId: z.string().optional().nullable(),

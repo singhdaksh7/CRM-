@@ -8,7 +8,7 @@ import { createDownloadUrl, isStorageConfigured } from "@/lib/storage";
 import { PUBLIC_PROPERTY_SELECT } from "@/lib/public-property-select";
 import { Building, MapPin, BedDouble, Bath, Ruler, Phone, CalendarCheck, FileText, Briefcase } from "lucide-react";
 import { catalogueSpecChips } from "@/lib/catalogue-specs";
-import { propertyTypeLabel } from "@/lib/property-categories";
+import { propertyTypeLabel, residentialConfigurationLabel } from "@/lib/property-categories";
 
 /** Public, unauthenticated property page for WhatsApp sharing. See public-property-select.ts for the data-boundary privacy contract. */
 export default async function PublicPropertyPage({ params }: { params: Promise<{ id: string }> }) {
@@ -127,7 +127,7 @@ export default async function PublicPropertyPage({ params }: { params: Promise<{
               ))
             ) : (
               <>
-                <span className="flex items-center gap-1.5"><BedDouble className="h-4 w-4" /> {property.bhk} BHK</span>
+                <span className="flex items-center gap-1.5"><BedDouble className="h-4 w-4" /> {residentialConfigurationLabel(property.bhk)}</span>
                 <span className="flex items-center gap-1.5"><Bath className="h-4 w-4" /> {property.bathrooms} Bathrooms</span>
                 <span className="flex items-center gap-1.5"><Ruler className="h-4 w-4" /> {property.builtUpAreaSqft} sqft</span>
               </>

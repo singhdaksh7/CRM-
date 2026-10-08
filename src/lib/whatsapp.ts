@@ -1,5 +1,6 @@
 import type { Property } from "@prisma/client";
 import { formatINR } from "./utils";
+import { residentialConfigurationLabel } from "./property-categories";
 
 /**
  * WhatsApp integration adapter.
@@ -62,6 +63,7 @@ export function getWhatsAppAdapter(): WhatsAppAdapter {
 export function buildPropertyShareMessage(params: {
   clientName: string;
   bhk?: number | null;
+  assetClass?: string | null;
   location: string;
   budget: string;
   properties: Property[];
@@ -69,13 +71,14 @@ export function buildPropertyShareMessage(params: {
   baseUrl: string;
 }): string {
   const { clientName, bhk, location, budget, properties, baseUrl } = params;
+  const bhkLabel = params.assetClass !== "COMMERCIAL" && bhk != null ? residentialConfigurationLabel(bhk) : null;
   const brokerageCompanyName = params.brokerageCompanyName ?? "KP Properties";
 
   const lines: string[] = [];
   lines.push(`Hello ${clientName},`);
   lines.push("");
   lines.push(
-    `Based on your requirement for a ${bhk ? bhk + " BHK" : ""} property in ${location} within a budget of ${budget}, we have shortlisted the following options:`
+    `Based on your requirement for a ${bhkLabel ? `${bhkLabel} ` : ""}property in ${location} within a budget of ${budget}, we have shortlisted the following options:`
   );
   lines.push("");
   properties.forEach((p, i) => {

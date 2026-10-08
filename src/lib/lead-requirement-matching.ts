@@ -1,5 +1,6 @@
 import type { AssetClass, FurnishingStatus, ListingType, PropertyStatus, PropertyType, TransactionType } from "@prisma/client";
 import { propertyTypesEquivalent } from "./property-categories";
+import { residentialConfigurationLabel } from "./property-categories";
 
 export type RequirementPreferenceValue = "REQUIRED" | "PREFERRED" | "NO_PREFERENCE";
 
@@ -116,7 +117,7 @@ export function matchPropertyToRequirement<T extends RequirementMatchablePropert
   }
   if (requirement.bhkValues.length) {
     score += 16;
-    reasons.push({ label: "BHK", matched: true, detail: `${property.bhk} BHK is selected in this requirement` });
+    reasons.push({ label: "BHK", matched: true, detail: `${residentialConfigurationLabel(property.bhk)} is selected in this requirement` });
   }
   if (requirement.furnishingPreference) {
     if (property.furnishing === requirement.furnishingPreference) {

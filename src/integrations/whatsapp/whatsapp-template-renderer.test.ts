@@ -137,6 +137,18 @@ describe("renderCatalogueMessage", () => {
     expect(msg).not.toContain("undefined");
   });
 
+  it("renders 1 RK for the stored residential zero configuration", () => {
+    const msg = renderCatalogueMessage({ lead: lead({ preferredBhk: 0 }), properties: fiveMatchingProperties(), catalogueUrl: "https://x" });
+    expect(msg).toContain("suitable 1 RK rental properties");
+    expect(msg).toContain("🏠 Property type: 1 RK Flat");
+  });
+
+  it("never renders 1 RK for a commercial lead even when legacy data has bhk zero", () => {
+    const msg = renderCatalogueMessage({ lead: lead({ assetClass: "COMMERCIAL", preferredBhk: 0 }), properties: [entry({ property: property({ assetClass: "COMMERCIAL", propertyType: "SHOP", bhk: 0 }) })], catalogueUrl: "https://x" });
+    expect(msg).not.toContain("1 RK");
+    expect(msg).not.toContain("0 BHK");
+  });
+
   it("still shows a Property type line with just the type when BHK is unset", () => {
     const msg = renderCatalogueMessage({ lead: lead({ preferredBhk: null }), properties: fiveMatchingProperties(), catalogueUrl: "https://x" });
     expect(msg).toContain("🏠 Property type: Flat");

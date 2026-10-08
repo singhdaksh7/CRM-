@@ -14,7 +14,7 @@ import {
   UNIT_LABELS,
   type MoneyUnit,
 } from "@/lib/money";
-import { propertyTypeLabel, propertyTypeOptionsForCategory } from "@/lib/property-categories";
+import { propertyTypeLabel, propertyTypeOptionsForCategory, residentialConfigurationLabel } from "@/lib/property-categories";
 
 type Locality = { id: string; name: string };
 type Requirement = {
@@ -284,7 +284,7 @@ export function LeadRequirementsPanel({ leadId }: { leadId: string }) {
           <p className="mt-1 text-xs text-[#52525B]">
             {r.assetClass === "COMMERCIAL"
               ? `Commercial · ${r.propertyType ? propertyTypeLabel(r.propertyType) : "Any type"}`
-              : r.bhkValues.map((x) => `${x.bhk} BHK`).join(" · ") || "Any BHK"}{" "}
+              : r.bhkValues.map((x) => residentialConfigurationLabel(x.bhk)).join(" · ") || "Any configuration"}{" "}
             · Lift {r.liftPreference.replaceAll("_", " ")} · Parking{" "}
             {r.parkingPreference.replaceAll("_", " ")}
           </p>
@@ -383,10 +383,10 @@ export function LeadRequirementsPanel({ leadId }: { leadId: string }) {
               BHK
             </p>
             <div className="flex flex-wrap gap-3">
-              {[1, 2, 3, 4, 5].map((bhk) => (
+              {[0, 1, 2, 3, 4, 5].map((bhk) => (
                 <Checkbox
                   key={bhk}
-                  label={`${bhk}${bhk === 5 ? "+" : ""}`}
+                  label={`${residentialConfigurationLabel(bhk)}${bhk === 5 ? "+" : ""}`}
                   checked={form.bhks.includes(bhk)}
                   onChange={() => toggleBhk(bhk)}
                 />

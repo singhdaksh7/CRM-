@@ -79,6 +79,27 @@ describe("listAvailablePropertiesPage", () => {
     expect(args.where.status).toBeUndefined();
   });
 
+  it("applies BHK zero and positive values without dropping 1 RK", async () => {
+    await listAvailablePropertiesPage({ organizationId: "org1", assetClass: "RESIDENTIAL", bhk: 0 });
+    expect(propertyFindMany.mock.calls[0][0].where).toMatchObject({ assetClass: "RESIDENTIAL", bhk: 0 });
+
+    await listAvailablePropertiesPage({ organizationId: "org1", assetClass: "RESIDENTIAL", bhk: 1 });
+    expect(propertyFindMany.mock.calls[1][0].where).toMatchObject({ assetClass: "RESIDENTIAL", bhk: 1 });
+  });
+
+  it("listing query and count where fragment use identical BHK/asset-class filtering", async () => {
+    const { resolvePropertyListBhkFilter, propertyListBhkWhere } = await import("./property-list-filters");
+    for (const [bhk, assetClass] of [["0", undefined], ["1", "RESIDENTIAL"], ["2", undefined], ["abc", undefined], [undefined, undefined], ["0", "COMMERCIAL"]] as const) {
+      propertyFindMany.mockClear();
+      const resolved = resolvePropertyListBhkFilter({ bhk, assetClass });
+      await listAvailablePropertiesPage({ organizationId: "org1", ...resolved });
+      const listWhere = propertyFindMany.mock.calls[0][0].where;
+      const countWhere = propertyListBhkWhere(resolved);
+      expect(listWhere.bhk).toBe((countWhere as { bhk?: number }).bhk);
+      expect(listWhere.assetClass).toBe((countWhere as { assetClass?: string }).assetClass);
+    }
+  });
+
   it("applies cursor for See More pagination", async () => {
     const cursor = encodePropertyListCursor({ createdAt: new Date("2026-01-10T00:00:00.000Z"), id: "p9" });
     await listAvailablePropertiesPage({ organizationId: "org1", cursor });

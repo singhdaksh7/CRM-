@@ -107,5 +107,14 @@ export function propertyTypeFilterValues(type: string): string[] {
 export function propertySpecSummary(property: { assetClass?: string | null; propertyType: string; bhk: number }): string {
   if (property.assetClass === "COMMERCIAL" || isCommercialPropertyType(property.propertyType)) return propertyTypeLabel(property.propertyType);
   if (property.propertyType === "PLOT") return "Plot";
-  return `${property.bhk} BHK`;
+  return residentialConfigurationLabel(property.bhk);
+}
+
+/**
+ * Residential configuration labels use the existing numeric convention: 0 is
+ * the non-bedroom residential configuration (1 RK), while commercial rows
+ * are distinguished by assetClass and never reach this formatter.
+ */
+export function residentialConfigurationLabel(bhk: number): string {
+  return bhk === 0 ? "1 RK" : `${bhk} BHK`;
 }

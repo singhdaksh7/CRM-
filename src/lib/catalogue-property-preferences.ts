@@ -20,6 +20,8 @@ const PREFERENCE_PROPERTY_SELECT = {
   area: true,
   city: true,
   listingType: true,
+  assetClass: true,
+  propertyType: true,
   monthlyRent: true,
   salePrice: true,
   bhk: true,
@@ -202,6 +204,8 @@ export interface PreferencePropertyCard {
     area: string;
     city: string;
     listingType: string;
+    assetClass: string;
+    propertyType: string;
     monthlyRent: number | null;
     salePrice: number | null;
     bhk: number;

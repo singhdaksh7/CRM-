@@ -1,8 +1,14 @@
 import { prisma } from "./prisma";
 import { cached } from "./cache";
 import { matchPropertiesToLead } from "./matching";
+import { residentialConfigurationLabel } from "./property-categories";
 
 const ACTIVE_LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "PROPERTIES_SHARED", "VISIT_SCHEDULED", "VISIT_COMPLETED", "NEGOTIATION"] as const;
+
+/** Formats the nullable residential configuration used by the demand chart. */
+export function phase5BhkLabel(preferredBhk: number | null | undefined): string {
+  return preferredBhk == null ? "Any" : residentialConfigurationLabel(preferredBhk);
+}
 
 export async function getPhase5Analytics(organizationId: string) {
   return cached(`phase5:analytics:${organizationId}`, 45, () => compute(organizationId));
@@ -36,5 +42,5 @@ async function compute(organizationId: string) {
   const budgetBands = [{ name: "Under ₹25k", min: 0, max: 25000 }, { name: "₹25k–₹50k", min: 25000, max: 50000 }, { name: "Above ₹50k", min: 50000, max: Infinity }].map(b => ({ name: b.name, value: leads.filter(l => l.requirementType === "RENT" && l.maxBudget >= b.min && l.maxBudget < b.max).length }));
   const closed = won + lost; const avgNegotiationDays = closedDeals.length ? closedDeals.reduce((sum, d) => sum + ((d.closedAt!.getTime() - d.createdAt.getTime()) / 86400000), 0) / closedDeals.length : 0;
   const directCount = await prisma.deal.count({ where: { organizationId, property: { inventorySource: "DIRECT" } } }); const indirectCount = await prisma.deal.count({ where: { organizationId, property: { inventorySource: "INDIRECT" } } });
-  return { demand: { byLocality: localities.map(l => ({ name: l.preferredLocation, value: l._count._all })), byBhk: bhk.map(b => ({ name: b.preferredBhk ? `${b.preferredBhk} BHK` : "Any", value: b._count._all })), byBudget: budgetBands, rentVsSale: transaction.map(t => ({ name: t.requirementType, value: t._count._all })), zeroInventory, avgFirstMatchDays: Math.round(avgFirstMatchDays * 10) / 10, demandSupplyGap }, negotiation: { activeNegotiations, agreementPending, staleNegotiations, won, lost, winLossRatio: closed ? Math.round((won / closed) * 1000) / 10 : 0, avgNegotiationDays: Math.round(avgNegotiationDays * 10) / 10, expectedBrokeragePipeline: pipeline._sum.expectedBrokerageAmount ?? 0, directCount, indirectCount, statusCounts: sourceSplit } };
+  return { demand: { byLocality: localities.map(l => ({ name: l.preferredLocation, value: l._count._all })), byBhk: bhk.map(b => ({ name: phase5BhkLabel(b.preferredBhk), value: b._count._all })), byBudget: budgetBands, rentVsSale: transaction.map(t => ({ name: t.requirementType, value: t._count._all })), zeroInventory, avgFirstMatchDays: Math.round(avgFirstMatchDays * 10) / 10, demandSupplyGap }, negotiation: { activeNegotiations, agreementPending, staleNegotiations, won, lost, winLossRatio: closed ? Math.round((won / closed) * 1000) / 10 : 0, avgNegotiationDays: Math.round(avgNegotiationDays * 10) / 10, expectedBrokeragePipeline: pipeline._sum.expectedBrokerageAmount ?? 0, directCount, indirectCount, statusCounts: sourceSplit } };
 }

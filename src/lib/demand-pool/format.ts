@@ -1,4 +1,5 @@
 import { formatINR, timeAgo } from "@/lib/utils";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import type {
   CustomerRequirement,
   DemandMatchReason,
@@ -77,7 +78,9 @@ export function summarizeRequirement(requirement: Pick<
     return `${subtype} ${requirement.transactionType} · ${locality} · ${budget}`;
   }
 
-  const bhk = requirement.bhk != null ? `${requirement.bhk}BHK` : "Residential";
+  // Preserve the existing compact `3BHK` wording while making the stored
+  // zero configuration readable as 1 RK.
+  const bhk = requirement.bhk != null ? residentialConfigurationLabel(requirement.bhk).replace(/^(\d+) BHK$/, "$1BHK") : "Residential";
   return `${bhk} ${requirement.transactionType} · ${locality} · ${budget}`;
 }
 

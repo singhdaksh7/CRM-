@@ -53,7 +53,7 @@ export function LeadFilters({ employees }: { employees: Pick<User, "id" | "name"
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Listing Source</label>
             <Select defaultValue={sp.get("source") ?? ""} onChange={(e) => update("source", e.target.value)} className="w-full text-xs font-semibold">
               <option value="">All Sources</option>
-              {["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL"].map((s) => (
+              {["ACRES_99", "MAGICBRICKS", "HOUSING_COM", "OLX", "WEBSITE", "WHATSAPP", "PHONE_CALL", "REFERRAL", "WALK_IN", "MANUAL"].map((s) => (
                 <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
               ))}
             </Select>

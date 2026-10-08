@@ -450,7 +450,7 @@ export async function getLeadSuggestions(leadId: string, canManage: boolean): Pr
   ]);
 
   const matches = matchPropertiesToLead(availableProperties, lead, 0.2);
-  const requirementComplete = Boolean(lead.preferredBhk) && Boolean(lead.furnishingPref) && lead.maxBudget > lead.minBudget;
+  const requirementComplete = lead.preferredBhk != null && Boolean(lead.furnishingPref) && lead.maxBudget > lead.minBudget;
 
   return computeLeadSuggestions({
     leadId: lead.id,

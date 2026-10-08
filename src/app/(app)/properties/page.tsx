@@ -14,6 +14,7 @@ import {
   listAvailablePropertiesPage,
 } from "@/lib/property-list-query";
 import { propertyTypeFilterValues } from "@/lib/property-categories";
+import { propertyListBhkWhere, resolvePropertyListBhkFilter } from "@/lib/property-list-filters";
 import { Plus, Upload, History } from "lucide-react";
 import Link from "next/link";
 import type { Prisma, PropertyStatus } from "@prisma/client";
@@ -28,7 +29,8 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
 
   const statusFilter: PropertyStatus | null =
     sp.status === "ALL" ? null : ((sp.status as PropertyStatus | undefined) ?? "AVAILABLE");
-  const hasCustomFilters = Boolean(sp.q || sp.listingType || sp.assetClass || sp.propertyType || sp.area || sp.bhk || sp.furnishing || sp.possessionStatus || sp.liftAvailable || sp.parkFacing || (sp.status && sp.status !== "AVAILABLE") || sp.sort);
+  const { bhk, assetClass } = resolvePropertyListBhkFilter({ bhk: sp.bhk, assetClass: sp.assetClass });
+  const hasCustomFilters = Boolean(sp.q || sp.listingType || assetClass || sp.propertyType || sp.area || bhk !== null || sp.furnishing || sp.possessionStatus || sp.liftAvailable || sp.parkFacing || (sp.status && sp.status !== "AVAILABLE") || sp.sort);
 
   const listResult = await withTiming("propertiesPageQuery", "/properties", () =>
     listAvailablePropertiesPage({
@@ -38,10 +40,10 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
       status: statusFilter === null ? null : statusFilter,
       q: sp.q,
       listingType: sp.listingType,
-      assetClass: sp.assetClass,
+      assetClass,
       propertyType: sp.propertyType,
       area: sp.area,
-      bhk: sp.bhk ? Number(sp.bhk) : null,
+      bhk,
       furnishing: sp.furnishing,
       possessionStatus: sp.possessionStatus,
       liftAvailable: sp.liftAvailable ? sp.liftAvailable === "true" : null,
@@ -64,10 +66,9 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
     ];
   }
   if (sp.listingType) where.listingType = sp.listingType as never;
-  if (sp.assetClass) where.assetClass = sp.assetClass as never;
   if (sp.propertyType) where.propertyType = { in: propertyTypeFilterValues(sp.propertyType) as never };
   if (sp.area) where.area = sp.area;
-  if (sp.bhk) where.bhk = Number(sp.bhk);
+  Object.assign(where, propertyListBhkWhere({ bhk, assetClass }));
   if (sp.furnishing) where.furnishing = sp.furnishing as never;
   if (sp.possessionStatus) where.possessionStatus = sp.possessionStatus as never;
   if (sp.liftAvailable) where.liftAvailable = sp.liftAvailable === "true";

@@ -283,6 +283,12 @@ export function deriveSheetContext(sheetName: string, inSheetTitle?: string): Sh
   const result: SheetContext = {};
 
   const bhkMatch = combined.match(/(\d)\s*BHK/);
+  if (/\b1\s*RK\b/.test(combined)) {
+    result.assetClass = "RESIDENTIAL";
+    result.bhk = 0;
+    result.listingType = /\bLEASE\b|\bRENT\b/.test(combined) ? "RENT" : "SALE";
+    return result;
+  }
   if (bhkMatch) {
     result.assetClass = "RESIDENTIAL";
     result.bhk = Number(bhkMatch[1]);
@@ -369,7 +375,10 @@ export function applyImportFallbackDefaults(data: Record<string, unknown>, issue
   }
   if (!valuePresent(next.title)) {
     const parts: string[] = [];
-    if (valuePresent(next.bhk) && Number(next.bhk) > 0) parts.push(`${next.bhk} BHK`);
+    if (valuePresent(next.bhk) && next.assetClass !== "COMMERCIAL") {
+      const bhk = Number(next.bhk);
+      parts.push(bhk === 0 ? "1 RK" : `${bhk} BHK`);
+    }
     else if (typeof next.propertyType === "string" && next.propertyType !== RESIDENTIAL_PROPERTY_TYPE_FALLBACK && next.propertyType !== COMMERCIAL_PROPERTY_TYPE_FALLBACK) {
       parts.push(next.propertyType.replace(/_/g, " "));
     } else {
@@ -497,11 +506,16 @@ export function normalizeMappedRow(raw: Record<string, unknown>, mapping: Record
 
   for (const field of ["parkingAvailable", "liftAvailable", "parkFacing"]) convert(field, parseBoolean, "Use Yes/Y/Available or No/N");
   // A dedicated BHK column (seen on the real workbook's LEASE sheet) can hold
-  // "1BHK"/"2 BHK" rather than a bare number - strip the unit before the
+  // "1 RK"/"1BHK"/"2 BHK" rather than a bare number - normalize the
+  // existing 1 RK (zero-bedroom) representation before the generic
   // generic whole-number check below, same value either way.
   if (valuePresent(data.bhk)) {
-    const bhkMatch = String(data.bhk).trim().match(/^(\d+)\s*BHK$/i);
-    if (bhkMatch) data.bhk = bhkMatch[1];
+    const bhkText = String(data.bhk).trim();
+    if (/^1\s*RK$/i.test(bhkText)) data.bhk = 0;
+    else {
+      const bhkMatch = bhkText.match(/^(\d+)\s*BHK$/i);
+      if (bhkMatch) data.bhk = bhkMatch[1];
+    }
   }
   for (const field of ["bhk", "bathrooms", "workstations", "cabins", "leaseTermMonths", "lockInPeriodMonths"]) convert(field, (v) => /^\d+$/.test(String(v).trim()) ? Number(v) : null, "Enter a whole number");
 

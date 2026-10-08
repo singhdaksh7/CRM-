@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { LocalityCombobox } from "@/components/properties/locality-combobox";
-import { propertyTypeLabel, propertyTypeOptionsForCategory } from "@/lib/property-categories";
+import { propertyTypeLabel, propertyTypeOptionsForCategory, residentialConfigurationLabel } from "@/lib/property-categories";
 
 export function PropertyFilters({ view }: { view: "table" | "card" }) {
   const router = useRouter();
@@ -125,8 +125,8 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">BHK</label>
             <Select defaultValue={sp.get("bhk") ?? ""} onChange={(e) => update("bhk", e.target.value)} className="w-full text-xs font-semibold">
               <option value="">All BHK</option>
-              {[1, 2, 3, 4, 5].map((b) => (
-                <option key={b} value={b}>{b} BHK</option>
+              {[0, 1, 2, 3, 4, 5].map((b) => (
+                <option key={b} value={b}>{residentialConfigurationLabel(b)}</option>
               ))}
             </Select>
           </div>}

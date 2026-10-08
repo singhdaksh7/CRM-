@@ -8,7 +8,7 @@ import { Badge, PROPERTY_STATUS_TONE } from "@/components/ui/badge";
 import { formatINR, enumToLabel } from "@/lib/utils";
 import { Search, Plus, ImageOff } from "lucide-react";
 import { LocalityCombobox } from "@/components/properties/locality-combobox";
-import { propertySpecSummary } from "@/lib/property-categories";
+import { propertySpecSummary, residentialConfigurationLabel } from "@/lib/property-categories";
 
 export interface PickerProperty {
   id: string;
@@ -127,7 +127,7 @@ export function PropertyPickerDialog({
                       <Badge tone={PROPERTY_STATUS_TONE[p.status] ?? "slate"} className="shrink-0">{enumToLabel(p.status)}</Badge>
                     </div>
                     <p className="truncate text-xs text-zinc-500">
-                      {p.propertyCode} &middot; {p.area} &middot; {p.propertyType ? propertySpecSummary({ assetClass: p.assetClass, propertyType: p.propertyType, bhk: p.bhk }) : `${p.bhk} BHK`}{p.assetClass === "COMMERCIAL" ? null : <> &middot; {enumToLabel(p.furnishing)}</>} &middot; {price}
+                      {p.propertyCode} &middot; {p.area} &middot; {p.propertyType ? propertySpecSummary({ assetClass: p.assetClass, propertyType: p.propertyType, bhk: p.bhk }) : p.assetClass === "COMMERCIAL" ? "Commercial property" : residentialConfigurationLabel(p.bhk)}{p.assetClass === "COMMERCIAL" ? null : <> &middot; {enumToLabel(p.furnishing)}</>} &middot; {price}
                     </p>
                   </div>
                   <button

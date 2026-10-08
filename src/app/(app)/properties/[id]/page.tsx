@@ -16,6 +16,7 @@ import { getPropertyHealth, getPropertySuggestions, getInventoryFreshness } from
 import { MapPin, Home, Phone, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getOrganizationId } from "@/lib/organization";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import { PROPERTY_PORTAL_PROVIDERS, propertyPortalRegistry } from "@/integrations/property-portals/registry";
 import { portalPayloadPreview } from "@/integrations/property-portals/listing-lifecycle";
 import { DistributionPanel, type ProviderRow } from "@/components/property-portals/distribution-panel";
@@ -177,7 +178,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <Detail label="Lift / Goods lift" value={`${property.liftAvailable ? "Yes" : "No"} / ${property.goodsLiftAvailable ? "Yes" : "No"}`} />
                 <Detail label="Available From" value={formatDate(property.availableFrom)} />
               </> : <>
-                <Detail label="BHK" value={`${property.bhk} BHK`} /><Detail label="Bathrooms" value={property.bathrooms} /><Detail label="Balconies" value={property.balconies} /><Detail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} /><Detail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} /><Detail label="Age" value={formatPropertyAgeRange(property.propertyAgeMinYears, property.propertyAgeMaxYears)} /><Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} /><Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} /><Detail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} /><Detail label="Parking" value={parkingTypeLabel(property.hasOpenParking, property.hasStiltParking)} /><Detail label="Tenant Preference" value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} /><Detail label="Available From" value={formatDate(property.availableFrom)} />
+                <Detail label="Configuration" value={residentialConfigurationLabel(property.bhk)} /><Detail label="Bathrooms" value={property.bathrooms} /><Detail label="Balconies" value={property.balconies} /><Detail label="Furnishing" value={property.furnishing ? enumToLabel(property.furnishing) : "-"} /><Detail label="Floor" value={property.floorNumber ? `${property.floorNumber} of ${property.totalFloors ?? "-"}` : "-"} /><Detail label="Age" value={formatPropertyAgeRange(property.propertyAgeMinYears, property.propertyAgeMaxYears)} /><Detail label="Built-up Area" value={`${property.builtUpAreaSqft} sqft`} /><Detail label="Carpet Area" value={property.carpetAreaSqft ? `${property.carpetAreaSqft} sqft` : "-"} /><Detail label="Facing" value={property.facing ? enumToLabel(property.facing) : "-"} /><Detail label="Parking" value={parkingTypeLabel(property.hasOpenParking, property.hasStiltParking)} /><Detail label="Tenant Preference" value={property.tenantPreference ? enumToLabel(property.tenantPreference) : "Any"} /><Detail label="Available From" value={formatDate(property.availableFrom)} />
               </>}
             </div>
           </div>

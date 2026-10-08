@@ -28,6 +28,18 @@ describe("demand pool requirement formatting", () => {
     expect(summary).toContain("Rajouri Garden");
   });
 
+  it("renders the stored residential zero configuration as 1 RK", () => {
+    expect(summarizeRequirement({
+      assetClass: "RESIDENTIAL",
+      transactionType: "RENT",
+      bhk: 0,
+      commercialPropertyType: null,
+      preferredLocalities: JSON.stringify(["Janakpuri"]),
+      minBudget: 20000,
+      maxBudget: 30000,
+    })).toContain("1 RK");
+  });
+
   it("summarizes commercial requirements without BHK", () => {
     const summary = summarizeRequirement({
       assetClass: "COMMERCIAL",

@@ -245,6 +245,10 @@ describe("requirement summary", () => {
     expect(withoutNote).not.toContain("Needs covered parking");
     expect(withNote.startsWith(withoutNote)).toBe(true);
   });
+
+  it("renders the stored zero configuration as 1 RK", () => {
+    expect(buildRequirementSummary({ ...lead, preferredBhk: 0 })).toContain("1 RK");
+  });
 });
 
 /**

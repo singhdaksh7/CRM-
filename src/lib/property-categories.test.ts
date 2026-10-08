@@ -79,6 +79,8 @@ describe("property-categories - legacy aliases", () => {
 
   it("never renders '0 BHK' for commercial inventory", () => {
     expect(propertySpecSummary({ assetClass: "COMMERCIAL", propertyType: "SHOP", bhk: 0 })).toBe("Shop");
+    expect(propertySpecSummary({ assetClass: "COMMERCIAL", propertyType: "OFFICE", bhk: 0 })).not.toBe("1 RK");
+    expect(propertySpecSummary({ assetClass: "RESIDENTIAL", propertyType: "APARTMENT", bhk: 0 })).toBe("1 RK");
     expect(propertySpecSummary({ assetClass: "RESIDENTIAL", propertyType: "APARTMENT", bhk: 2 })).toBe("2 BHK");
   });
 });

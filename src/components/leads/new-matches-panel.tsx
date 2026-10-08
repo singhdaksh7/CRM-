@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatINR } from "@/lib/utils";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import { Badge } from "@/components/ui/badge";
 
 type Recommendation = {
@@ -162,7 +163,7 @@ export function NewMatchesPanel({
                     <Badge tone="blue">{r.score}% Match</Badge>
                   </div>
                   <p className="text-xs text-[#52525B] mt-0.5">
-                    {p.bhk} BHK &middot; {p.area} &middot;{" "}
+                    {residentialConfigurationLabel(p.bhk)} &middot; {p.area} &middot;{" "}
                     <span className="font-semibold text-[#09090B]">
                       {formatINR(price, { compact: true })}
                     </span>

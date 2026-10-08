@@ -1,7 +1,7 @@
 import type { Property, CustomerRequirement, Lead } from "@prisma/client";
 import { normalizeLocality, getNearbyLocalities } from "./locality";
 import type { LocationMatchKind } from "./matching";
-import { propertyTypesEquivalent } from "./property-categories";
+import { propertyTypesEquivalent, residentialConfigurationLabel } from "./property-categories";
 
 /**
  * Two-way demand-pool matching engine: Property <-> {CustomerRequirement,
@@ -306,12 +306,12 @@ export function scoreDemandCandidate(property: Property, requirement: Normalized
       reasons.push({ label: "BHK", matched: true, detail: "No specific BHK preference" });
     } else if (property.bhk === requirement.bhk) {
       score += WEIGHTS.typeFit;
-      reasons.push({ label: "BHK", matched: true, detail: `${property.bhk} BHK exact match` });
+      reasons.push({ label: "BHK", matched: true, detail: `${residentialConfigurationLabel(property.bhk)} exact match` });
     } else if (Math.abs(property.bhk - requirement.bhk) === 1) {
       score += WEIGHTS.typeFit * 0.5;
-      reasons.push({ label: "BHK", matched: true, detail: `${property.bhk} BHK is close to requested ${requirement.bhk} BHK` });
+      reasons.push({ label: "BHK", matched: true, detail: `${residentialConfigurationLabel(property.bhk)} is close to requested ${residentialConfigurationLabel(requirement.bhk)}` });
     } else {
-      reasons.push({ label: "BHK", matched: false, detail: `${property.bhk} BHK does not match requested ${requirement.bhk} BHK` });
+      reasons.push({ label: "BHK", matched: false, detail: `${residentialConfigurationLabel(property.bhk)} does not match requested ${residentialConfigurationLabel(requirement.bhk)}` });
     }
 
     if (requirement.furnishing && property.furnishing) {

@@ -53,6 +53,12 @@ describe("findNearbyProperties", () => {
     await findNearbyProperties({ organizationId: "org42", center: CENTER, radiusMeters: 1000 });
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: "org42" }) }));
   });
+
+  it("keeps zero as a valid 1 RK configuration filter", async () => {
+    findMany.mockResolvedValue([]);
+    await findNearbyProperties({ organizationId: "org1", center: CENTER, radiusMeters: 1000, bhk: 0 });
+    expect(findMany.mock.calls[0][0].where.bhk).toBe(0);
+  });
 });
 
 describe("isAllowedRadius", () => {

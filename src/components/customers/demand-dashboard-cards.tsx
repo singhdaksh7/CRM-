@@ -5,6 +5,7 @@ import Link from "next/link";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { demandPoolApi } from "@/lib/demand-pool/api";
 import type { DemandAnalyticsRow, DemandPoolDashboardStats } from "@/lib/demand-pool/types";
+import { residentialConfigurationLabel } from "@/lib/property-categories";
 import { Users, ListChecks, Home, Building2, KeyRound, Landmark, PhoneOff, Sparkles, Target } from "lucide-react";
 
 export function DemandPoolDashboardCards() {
@@ -78,7 +79,7 @@ export function DemandAnalyticsPanel() {
               <tr key={`${row.locality}-${index}`} className="border-t border-zinc-100">
                 <td className="py-2 pr-3 font-medium text-zinc-900">{row.locality}</td>
                 <td className="py-2 pr-3 text-zinc-500">
-                  {row.assetClass === "RESIDENTIAL" && row.bhk != null ? `${row.bhk} BHK ` : ""}
+                  {row.assetClass === "RESIDENTIAL" && row.bhk != null ? `${residentialConfigurationLabel(row.bhk)} ` : ""}
                   {row.commercialSubtype ? `${row.commercialSubtype.replace(/_/g, " ")} ` : ""}
                   {row.transactionType}
                   {row.budgetBand ? ` · ${row.budgetBand}` : ""}

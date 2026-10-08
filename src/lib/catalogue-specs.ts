@@ -5,7 +5,7 @@
  * graph, which must never reach the client bundle.
  */
 
-import { propertyTypeLabel } from "./property-categories";
+import { propertyTypeLabel, residentialConfigurationLabel } from "./property-categories";
 
 export interface CatalogueSpecSource {
   assetClass: string;
@@ -39,7 +39,7 @@ export function catalogueSpecChips(property: CatalogueSpecSource): CatalogueSpec
     return chips;
   }
   return [
-    { kind: "bhk", label: `${property.bhk} BHK` },
+    { kind: "bhk", label: residentialConfigurationLabel(property.bhk) },
     { kind: "bath", label: `${property.bathrooms} Bath` },
     { kind: "area", label: `${property.builtUpAreaSqft} sqft` },
   ];

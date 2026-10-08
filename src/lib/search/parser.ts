@@ -1,5 +1,6 @@
 import { tokenize } from "./tokenizer";
 import { listKnownLocalities } from "../locality";
+import { residentialConfigurationLabel } from "../property-categories";
 import type { ParsedFilterChip, ParsedQuery, SearchEntityType } from "./search-types";
 
 /**
@@ -113,14 +114,22 @@ export function parseSearchQuery(raw: string): ParsedQuery {
     chips.push({ key: "date", label: "Overdue" });
   }
 
-  // "2 bhk" / "2bhk"
-  const bhkMatch = lowerRaw.match(/(\d+)\s*bhk/);
-  if (bhkMatch) {
+  // "1 rk" / "1rk" is stored as the existing zero-bedroom residential
+  // configuration; all other configurations retain their numeric BHK value.
+  const rkMatch = lowerRaw.match(/\b1\s*rk\b/);
+  const bhkMatch = !rkMatch && lowerRaw.match(/(\d+)\s*bhk/);
+  if (rkMatch) {
+    bhk = 0;
+    tokens.forEach((t, i) => {
+      if (!consumed.has(i) && (t.lower === "1" || t.lower === "1rk" || t.lower === "rk")) consumed.add(i);
+    });
+    chips.push({ key: "bhk", label: residentialConfigurationLabel(bhk) });
+  } else if (bhkMatch) {
     bhk = Number(bhkMatch[1]);
     tokens.forEach((t, i) => {
       if (!consumed.has(i) && (t.lower === bhkMatch[1] || t.lower === `${bhkMatch[1]}bhk` || t.lower === "bhk")) consumed.add(i);
     });
-    chips.push({ key: "bhk", label: `${bhk} BHK` });
+    chips.push({ key: "bhk", label: residentialConfigurationLabel(bhk) });
   }
 
   // "under 35000" / "below 35k" / "less than 1.2l"; "above 20000" / "over 20k"
