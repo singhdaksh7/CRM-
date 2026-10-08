@@ -11,7 +11,8 @@ import { getOrganizationId } from "@/lib/organization";
 import { logger } from "@/lib/logger";
 import { assignedToSelect } from "@/lib/user-select";
 import { isLeadAccessibleToUser } from "@/lib/lead-access";
-import { completeActiveVisitForLeadStatusChange } from "@/lib/visits";
+import { completeActiveVisitForLeadStatusChange, hasCompletableVisitForLead } from "@/lib/visits";
+import { VISIT_REQUIRED_CODE, VISIT_REQUIRED_MESSAGE, VISIT_REQUIRED_TITLE } from "@/lib/visit-required";
 
 const REQUIREMENT_FIELDS = ["preferredLocation", "minBudget", "maxBudget", "preferredBhk", "requirementType", "moveInDate"] as const;
 
@@ -56,6 +57,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const body = await req.json();
     const data = leadSchema.partial().parse(body);
+
+    // Visit Completed must be backed by a visit. With an active visit the change
+    // goes through (and that visit is completed below); with none it is refused
+    // BEFORE any write so a stale UI or API client cannot create a Visit Completed
+    // lead with no visit. The UI answers by collecting the visit via
+    // POST /api/leads/[id]/completed-visit, which creates it and moves the lead atomically.
+    if (data.status === "VISIT_COMPLETED" && existing.status !== "VISIT_COMPLETED") {
+      if (!(await hasCompletableVisitForLead(id, organizationId))) {
+        return NextResponse.json(
+          { code: VISIT_REQUIRED_CODE, requiresVisit: true, title: VISIT_REQUIRED_TITLE, error: VISIT_REQUIRED_MESSAGE },
+          { status: 409 }
+        );
+      }
+    }
 
     // Feature 3 (daily-ops hardening): moving a lead to a lost/not-interested
     // terminal status requires a reason, mirroring Deal's CLOSED_LOST

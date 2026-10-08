@@ -39,11 +39,17 @@ export function PropertyPickerDialog({
   onClose,
   onSelect,
   excludeIds,
+  title = "Add More Properties",
+  description = "Search the full inventory to manually add a property to this shortlist.",
+  actionLabel = "Add",
 }: {
   open: boolean;
   onClose: () => void;
   onSelect: (property: PickerProperty) => void;
   excludeIds: Set<string>;
+  title?: string;
+  description?: string;
+  actionLabel?: string;
 }) {
   const [query, setQuery] = useState("");
   const [locality, setLocality] = useState("");
@@ -81,7 +87,7 @@ export function PropertyPickerDialog({
   }, [open]);
 
   return (
-    <Dialog open={open} onClose={onClose} title="Add More Properties" description="Search the full inventory to manually add a property to this shortlist." sheet wide>
+    <Dialog open={open} onClose={onClose} title={title} description={description} sheet wide>
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr]">
           <div className="relative">
@@ -136,7 +142,7 @@ export function PropertyPickerDialog({
                     onClick={() => onSelect(p)}
                     className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400"
                   >
-                    <Plus className="h-3.5 w-3.5" /> {alreadyAdded ? "Added" : "Add"}
+                    <Plus className="h-3.5 w-3.5" /> {alreadyAdded ? "Added" : actionLabel}
                   </button>
                 </div>
               );

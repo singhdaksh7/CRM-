@@ -178,6 +178,15 @@ export function visitRoleScopeWhere(organizationId: string, user: { id: string; 
 }
 
 /**
+ * Visits -> Completed. Membership is the visit status alone: a COMPLETED visit
+ * must be listed whatever its completedAt, visit date or assignee are (a lead
+ * status change can complete a visit that never had a completedAt stamp).
+ */
+export function completedVisitsWhere(organizationId: string, user: { id: string; role: Role }): Prisma.VisitWhereInput {
+  return { ...visitRoleScopeWhere(organizationId, user), status: "COMPLETED" };
+}
+
+/**
  * Past scheduled visits whose outcome has not been captured yet. This is the
  * operational counterpart of the existing missed-visit rule: a no-show is
  * already an outcome/status, while a SCHEDULED visit after its appointment

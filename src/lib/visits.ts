@@ -42,6 +42,8 @@ import {
   visitOutcomeFromRating,
 } from "./visit-progress";
 import { assignedToSelect } from "./user-select";
+import { enumToLabel } from "./utils";
+export { VISIT_REQUIRED_CODE, VISIT_REQUIRED_MESSAGE, VISIT_REQUIRED_TITLE } from "./visit-required";
 import type { Prisma, Role, VisitPropertyStatus, VisitStatus } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -71,6 +73,7 @@ export {
   completedTodayWhere,
   visitRoleScopeWhere,
   needsVisitOutcomeWhere,
+  completedVisitsWhere,
 } from "./visit-progress";
 export type { InterestLabel, VisitProgress } from "./visit-progress";
 
@@ -139,6 +142,106 @@ export async function completeActiveVisitForLeadStatusChange(params: {
     newValues: { event: "visit_completed_from_lead_status", status: "COMPLETED", completedAt },
   });
   return updated;
+}
+
+/** True when the lead has an active visit that a manual Visit Completed status change can complete. */
+export async function hasCompletableVisitForLead(leadId: string, organizationId: string): Promise<boolean> {
+  const visit = await prisma.visit.findFirst({
+    where: { leadId, organizationId, status: { in: MANUALLY_COMPLETABLE_VISIT_STATUSES } },
+    select: { id: true },
+  });
+  return visit !== null;
+}
+
+export interface LogCompletedVisitInput {
+  organizationId: string;
+  leadId: string;
+  actorId: string;
+  propertyId: string;
+  assignedToId: string;
+  /** Calendar day of the visit as YYYY-MM-DD (IST), same convention as POST /api/visits. */
+  visitDate: string;
+  /** HH:mm (IST). */
+  visitTime: string;
+  notes?: string | null;
+}
+
+/**
+ * Corrective flow for a lead that has no visit to complete: records the visit
+ * that already happened as one COMPLETED Visit (plus its VisitProperty row)
+ * and moves the lead to VISIT_COMPLETED in the SAME transaction, so the lead
+ * can never end up Visit Completed without the visit. Every referenced row
+ * (lead, property, assignee) must belong to the caller's organization.
+ *
+ * Deliberately internal-only: no notification, WhatsApp, email, webhook,
+ * property timeline event or property write.
+ */
+export async function logCompletedVisitForLead(input: LogCompletedVisitInput) {
+  if (!input.propertyId) throw new ApiError(400, "Select the property that was visited");
+  if (!input.assignedToId) throw new ApiError(400, "Select the employee who took the visit");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.visitDate) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.visitTime)) {
+    throw new ApiError(400, "Enter a valid visit date and time");
+  }
+  const visitedAt = new Date(`${input.visitDate}T${input.visitTime}:00+05:30`);
+  if (Number.isNaN(visitedAt.getTime())) throw new ApiError(400, "Enter a valid visit date and time");
+  if (visitedAt.getTime() > Date.now()) throw new ApiError(400, "A completed visit cannot be in the future");
+
+  await assertEligibleVisitAssignee(input.assignedToId, input.organizationId);
+
+  const lead = await prisma.lead.findFirst({ where: { id: input.leadId, organizationId: input.organizationId }, select: { id: true, status: true } });
+  if (!lead) throw new ApiError(404, "Lead not found");
+  const property = await prisma.property.findFirst({ where: { id: input.propertyId, organizationId: input.organizationId }, select: { id: true, title: true } });
+  if (!property) throw new ApiError(400, "Property could not be found");
+  if (await hasCompletableVisitForLead(input.leadId, input.organizationId)) {
+    throw new ApiError(409, "This lead already has an active visit. Change the lead status to complete it instead of logging a new visit.");
+  }
+
+  const notes = input.notes?.trim() || null;
+  const visit = await prisma.$transaction(async (tx) => {
+    const created = await tx.visit.create({
+      data: {
+        organizationId: input.organizationId,
+        leadId: input.leadId,
+        propertyId: property.id,
+        assignedToId: input.assignedToId,
+        createdById: input.actorId,
+        visitDate: new Date(input.visitDate),
+        visitTime: input.visitTime,
+        status: "COMPLETED",
+        completedAt: visitedAt,
+        employeeNotes: notes,
+        properties: { create: [{ organizationId: input.organizationId, propertyId: property.id, sequence: 0 }] },
+      },
+    });
+    await tx.lead.update({ where: { id: input.leadId }, data: { status: "VISIT_COMPLETED" } });
+    return created;
+  });
+
+  if (lead.status !== "VISIT_COMPLETED") {
+    await logActivity({
+      leadId: input.leadId,
+      type: "STATUS_CHANGED",
+      actorId: input.actorId,
+      description: `Status changed from ${enumToLabel(lead.status)} to Visit Completed`,
+    });
+  }
+  await logActivity({
+    leadId: input.leadId,
+    type: "VISIT_COMPLETED",
+    actorId: input.actorId,
+    description: `Completed visit logged manually - ${property.title}.`,
+    metadata: { visitId: visit.id, event: "completed_visit_logged_manually", propertyId: property.id },
+  });
+  await recordAudit({
+    userId: input.actorId,
+    organizationId: input.organizationId,
+    action: "CREATE",
+    entityType: "Visit",
+    entityId: visit.id,
+    newValues: { event: "completed_visit_logged_manually", status: "COMPLETED", completedAt: visitedAt, propertyId: property.id, assignedToId: input.assignedToId, leadStatusFrom: lead.status },
+  });
+  await recalculateLeadScore(input.leadId, "VISIT_COMPLETED");
+  return visit;
 }
 
 /**

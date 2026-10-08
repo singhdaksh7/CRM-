@@ -23,6 +23,8 @@ import { ClientPreferencesPanel, type PreferenceCard, type CatalogueResponseSumm
 import { VisitScheduleWithCandidates } from "./visit-schedule-with-candidates";
 import { HUMAN_FOLLOWUP_TYPES, DEFAULT_FOLLOWUP_TYPE } from "@/lib/follow-up-types";
 import { LeadRequirementsPanel } from "./lead-requirements-panel";
+import { LogCompletedVisitDialog } from "./log-completed-visit-dialog";
+import { VISIT_REQUIRED_CODE } from "@/lib/visit-required";
 
 /** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
 type UserSummary = Pick<User, "id" | "name">;
@@ -257,6 +259,7 @@ export function LeadWorkspace({
           onTabAction={(t) => setTab(t as LeadTab)}
           clientPreferences={clientPreferences}
           catalogueSummaries={catalogueSummaries}
+          visitAssignees={visitAssignees}
         />
       )}
       {tab === "matches" && (
@@ -469,6 +472,7 @@ function OverviewTab({
   onTabAction,
   clientPreferences,
   catalogueSummaries,
+  visitAssignees,
 }: {
   lead: LeadWithRelations;
   employees: UserSummary[];
@@ -478,6 +482,7 @@ function OverviewTab({
   onTabAction: (target: string) => void;
   clientPreferences?: { liked: PreferenceCard[]; notInterested: PreferenceCard[] };
   catalogueSummaries?: CatalogueResponseSummary[];
+  visitAssignees: VisitAssigneeSummary[];
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(lead.status);
@@ -493,6 +498,9 @@ function OverviewTab({
   const [pendingLostStatus, setPendingLostStatus] = useState<string | null>(null);
   const [lostReasonCategory, setLostReasonCategory] = useState(LOST_REASON_CATEGORIES[0]);
   const [lostReasonDetail, setLostReasonDetail] = useState("");
+  // Visit Completed needs a visit behind it. When the API answers VISIT_REQUIRED the dropdown snaps back to the
+  // lead's real status and this dialog collects the completed visit (created + lead moved atomically server-side).
+  const [visitDialogOpen, setVisitDialogOpen] = useState(false);
 
   async function updateField(field: "status" | "priority", value: string) {
     setSaving(true);
@@ -506,7 +514,13 @@ function OverviewTab({
       toast.success(`Lead ${field} updated`);
       router.refresh();
     } else {
-      toast.error(`Failed to update ${field}`);
+      const err = await res.json().catch(() => ({}));
+      if (field === "status") setStatus(lead.status);
+      if (field === "status" && err.code === VISIT_REQUIRED_CODE) {
+        setVisitDialogOpen(true);
+        return;
+      }
+      toast.error(err.error ?? `Failed to update ${field}`);
     }
   }
 
@@ -722,6 +736,19 @@ function OverviewTab({
                 ))}
               </Select>
             </Field>
+            {lead.status === "VISIT_COMPLETED" && lead.visits.length === 0 && (
+              <div className="space-y-2 rounded-xl border border-[#FFE0B2] bg-[#FFF7E8] p-3" data-testid="no-visit-on-record">
+                <p className="text-xs font-semibold text-[#8A5A00]">No visit on record for this Visit Completed lead.</p>
+                <Button type="button" variant="secondary" onClick={() => setVisitDialogOpen(true)}>Log completed visit</Button>
+              </div>
+            )}
+            <LogCompletedVisitDialog
+              open={visitDialogOpen}
+              onClose={() => setVisitDialogOpen(false)}
+              leadId={lead.id}
+              assignees={visitAssignees}
+              defaultAssigneeId={lead.assignedToId}
+            />
             {pendingLostStatus && (
               <div className="space-y-3 rounded-xl border border-[#FFC7C9] bg-[#FFECEC] p-3">
                 <p className="text-xs font-semibold text-[#E5484D]">A reason is required to mark this lead {enumToLabel(pendingLostStatus)}.</p>

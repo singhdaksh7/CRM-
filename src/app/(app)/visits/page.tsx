@@ -10,7 +10,7 @@ import { Pagination, DEFAULT_PAGE_SIZE, parsePage } from "@/components/ui/pagina
 import { formatDate, enumToLabel } from "@/lib/utils";
 import { withTiming } from "@/lib/perf";
 import { getOrganizationId } from "@/lib/organization";
-import { computeVisitProgress, needsVisitOutcomeWhere, todaysVisitsWhere, upcomingVisitsWhere, visitRoleScopeWhere } from "@/lib/visits";
+import { completedVisitsWhere, computeVisitProgress, needsVisitOutcomeWhere, todaysVisitsWhere, upcomingVisitsWhere, visitRoleScopeWhere } from "@/lib/visits";
 import { assignedToSelect } from "@/lib/user-select";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
@@ -23,6 +23,7 @@ const TABS = [
   { key: "today", label: "Today" },
   { key: "upcoming", label: "Upcoming" },
   { key: "needs-outcome", label: "Needs Outcome" },
+  { key: "completed", label: "Completed" },
   { key: "all", label: "All Visits" },
   { key: "employee", label: "Employee-wise" },
 ];
@@ -43,10 +44,11 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
   if (tab === "today") where = todaysVisitsWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined);
   else if (tab === "upcoming") where = upcomingVisitsWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined);
   else if (tab === "needs-outcome") where = needsVisitOutcomeWhere(organizationId, now, user.role === "FIELD_EXECUTIVE" ? user.id : undefined);
+  else if (tab === "completed") where = completedVisitsWhere(organizationId, user);
 
   if (tab === "employee" && sp.employeeId && canManage) where.assignedToId = sp.employeeId;
 
-  const isAllTab = tab === "all";
+  const isAllTab = tab === "all" || tab === "completed";
   const isNeedsOutcomeTab = tab === "needs-outcome";
 
   const [visits, totalCount, needsOutcomeCount, leads, properties, employees] = await withTiming("visitsPageQuery", "/visits", () =>
@@ -141,7 +143,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       </div>
 
       {visits.length === 0 ? (
-        <EmptyState title={isNeedsOutcomeTab ? "No visits need an outcome" : "No visits found"} description={isNeedsOutcomeTab ? "" : tab === "upcoming" ? "Nothing scheduled beyond today." : "Schedule a visit to get started."} />
+        <EmptyState title={isNeedsOutcomeTab ? "No visits need an outcome" : "No visits found"} description={isNeedsOutcomeTab ? "" : tab === "completed" ? "No completed visits yet." : tab === "upcoming" ? "Nothing scheduled beyond today." : "Schedule a visit to get started."} />
       ) : tab === "employee" ? (
         <div className="space-y-4">
           {[...grouped.entries()].map(([name, vs]) => (

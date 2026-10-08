@@ -225,7 +225,12 @@ async function main() {
       // (the legacy SharedPropertyLog audit trail), NOT catalogueShares - a
       // catalogue only counts as "shared" once actually sent. WHATSAPP_PROVIDER
       // is MOCK in .env.qa, so this never reaches a real WhatsApp API.
-      await admin.request("POST", `/api/leads/${leadId}/catalogues/${share.id}/send`);
+      try {
+        await admin.request("POST", `/api/leads/${leadId}/catalogues/${share.id}/send`);
+      } catch (e) {
+        // Local QA has no Meta WhatsApp config (send route 503s); that lead's "already shared" state is simply not seeded.
+        console.log(`[seed-qa-workflow] catalogue send skipped (no WhatsApp config): ${(e as Error).message.slice(0, 80)}`);
+      }
       console.log(`[seed-qa-workflow] sent catalogue (mock WhatsApp) for likedNoVisit lead`);
     }
     const existingPref = await prisma.cataloguePropertyPreference.findFirst({ where: { leadId, propertyId: propertyIds.A } });

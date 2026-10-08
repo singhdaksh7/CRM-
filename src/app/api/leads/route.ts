@@ -1,3 +1,4 @@
+import { VISIT_REQUIRED_CODE, VISIT_REQUIRED_MESSAGE, VISIT_REQUIRED_TITLE } from "@/lib/visit-required";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, handleApiError } from "@/lib/api-auth";
@@ -78,6 +79,10 @@ export async function POST(req: NextRequest) {
     const session = await requireSession(["ADMIN", "DATA_MANAGER"]);
     const body = await req.json();
     const data = leadSchema.parse(body);
+    // A brand-new lead cannot already have a completed visit: refuse rather than create an inconsistent Visit Completed lead.
+    if (data.status === "VISIT_COMPLETED") {
+      return NextResponse.json({ code: VISIT_REQUIRED_CODE, requiresVisit: true, title: VISIT_REQUIRED_TITLE, error: VISIT_REQUIRED_MESSAGE }, { status: 409 });
+    }
     const organizationId = getOrganizationId(session.user);
     const count = await prisma.lead.count({ where: { organizationId } });
 
