@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
-import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { InstallStoreInit } from "@/components/pwa/install-store-init";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,6 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "KP Properties",
+  applicationName: "KP Properties CRM",
   description: "Real-estate broker CRM & property inventory management",
   // Phase 4, Objective 14 - PWA. iOS Safari doesn't honor the manifest's
   // display:standalone on its own, hence the explicit apple-* tags.
@@ -46,7 +47,7 @@ export default function RootLayout({
           {children}
           <Toaster richColors position="top-right" />
           <ServiceWorkerRegister />
-          <InstallPrompt />
+          <InstallStoreInit />
         </AuthSessionProvider>
       </body>
     </html>

@@ -62,9 +62,10 @@ export const NAV_ITEMS = [
  * Pages every signed-in employee may reach regardless of role, even though a
  * prefix match against NAV_ITEMS would say otherwise. /settings is an
  * ADMIN-only nav entry, but /settings/security is each employee's own
- * password page - a Field Executive has to be able to open it.
+ * password page - a Field Executive has to be able to open it. Likewise
+ * /settings/install is the "Install KP CRM" guide every employee needs.
  */
-export const SELF_SERVICE_PATHS = ["/settings/security"];
+export const SELF_SERVICE_PATHS = ["/settings/security", "/settings/install"];
 
 export function canAccess(role: Role, href: string): boolean {
   if (SELF_SERVICE_PATHS.some((path) => href === path || href.startsWith(`${path}/`))) return true;

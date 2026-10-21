@@ -17,7 +17,7 @@
 // keys, no PushSubscription persistence exist yet - do not add a `push`
 // listener until that backend work lands.
 
-const CACHE_NAME = "broker-crm-shell-v1";
+const CACHE_NAME = "broker-crm-shell-v2";
 const SHELL_URLS = ["/offline.html", "/manifest.webmanifest"];
 
 // --- install ---------------------------------------------------------------
@@ -42,6 +42,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (request.method !== "GET") return; // never intercept mutations
+  if (url.origin !== self.location.origin) return; // same-origin only
 
   // API routes: always network, never cached (matches the existing
   // Cache-Control: no-store on /api/:path* in next.config.ts).

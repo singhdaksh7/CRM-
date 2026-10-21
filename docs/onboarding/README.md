@@ -56,6 +56,7 @@ Leads · Properties (residential + commercial) · Lead requirements · Property 
 | 7 | [ROLES_AND_PERMISSIONS.md](ROLES_AND_PERMISSIONS.md) | know who can see and do what |
 | 8 | [INTEGRATIONS.md](INTEGRATIONS.md) | WhatsApp, 99acres, maps, storage, Redis |
 | 9 | [TESTING.md](TESTING.md) | run unit and Playwright tests |
+| 10 | [PWA.md](PWA.md) | installable app, service worker, install page |
 | 10 | [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md) | branch, migrate, review, merge |
 | 11 | [DEPLOYMENT_OVERVIEW.md](DEPLOYMENT_OVERVIEW.md) | how production is deployed (no credentials) |
 | 12 | [PRODUCTION_SAFETY.md](PRODUCTION_SAFETY.md) | the rules that protect real customer data |

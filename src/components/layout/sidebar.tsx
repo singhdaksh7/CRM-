@@ -25,6 +25,7 @@ import {
   BookOpen,
   Plug,
   LogOut,
+  Smartphone,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -246,6 +247,19 @@ export function Sidebar({
 
       {/* User Account / Footer */}
       <div className="shrink-0 border-t border-[#1F1F23] p-3">
+        <Link
+          href="/settings/install"
+          onClick={onNavigate}
+          title={collapsed ? "Install KP CRM" : undefined}
+          aria-label="Install KP CRM"
+          className={cn(
+            "mb-2 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+            pathname.startsWith("/settings/install") ? "bg-white text-[#0A0A0A] font-semibold" : "text-[#A1A1AA] hover:bg-[#18181B] hover:text-white"
+          )}
+        >
+          <Smartphone className="h-4 w-4 shrink-0" />
+          {!collapsed && <span className="truncate">Install KP CRM</span>}
+        </Link>
         {collapsed ? (
           <div className="flex flex-col items-center gap-2">
             <div

@@ -47,7 +47,8 @@ Status reflects what the code and repository documents show; "Live" means the mo
 | Property issues queue / availability reports | Implemented | `(app)/admin/property-issues` | |
 | Settings / system config | Live | `(app)/settings` | Admin |
 | Backups (metadata + restore validation) | Partial | `api/backups` | Real backups are done by host cron + scripts, not by the app |
-| PWA / offline shell | Implemented | `public/sw.js`, `app/manifest.ts` | |
+| PWA / offline shell | Implemented | `public/sw.js`, `app/manifest.ts` | Static assets only, no offline data. See PWA.md |
+| Install KP CRM page + banner | Implemented | `settings/install`, `components/pwa/` | Native prompt on Chromium, Share-menu steps on iOS |
 | Email notifications | Not implemented | n/a | `SMTP_*` unused |
 | Customers / "Demand Pool" | Retired | `lib/retired-demand-pool.ts` | `/customers` → `/leads`; APIs return 410; legacy tables remain |
 | Demo seed | Implemented | `scripts/seed-demo.ts` | Local only |
