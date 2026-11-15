@@ -15,7 +15,7 @@ git push -u origin feature/property-pagination
 # open a Pull Request into main
 ```
 
-PR -> CI green -> review (1 approval) -> merge -> **Deploy production** workflow -> approval -> backup -> deploy.
+PR -> CI green -> merge -> **Deploy production** workflow (automatic) -> backup -> deploy.
 Delete the branch after merge (GitHub does this automatically if "Automatically delete head branches" is on).
 
 ## 2. CI (`.github/workflows/ci.yml`)
@@ -42,10 +42,10 @@ Failing CI means the PR is not mergeable (branch protection requires `validate`,
 
 ## 4. Deployment (`.github/workflows/deploy.yml`)
 
-Trigger: CI completed successfully on a **push to `main`** (i.e. after a merge), or a manual `workflow_dispatch`. Feature/PR branches and failed CI never deploy.
+Trigger: CI completed successfully on a **push to `main`** (i.e. after a merge). A manual `workflow_dispatch` exists for emergency/recovery only and passes through the same gates. Feature/PR branches and failed CI never deploy.
 
 1. `resolve`: SHA must be on `main`, and `validate`, `repo-safety`, `db-migration-safety` must be green for exactly that SHA. A stale (non-tip) SHA is skipped.
-2. `deploy` waits for **approval of the `vps-production` environment** (required reviewer; only branch `main` may deploy).
+2. `deploy` runs **automatically** in the `vps-production` environment (no human approval; only branch `main` may deploy). The safety gates are the required CI checks, the SHA/main verification, the migration gate, the verified backup, health checks and automatic app rollback.
 3. It SSHes to the VPS and runs `deploy/scripts/release.sh <sha>` (via a forced command, section 8). The script always runs the helper scripts from the target commit.
 
 `release.sh` steps (any failure before the swap leaves production untouched):
@@ -113,10 +113,10 @@ The same locks, backup, gates and rollback apply. Do not use `docker compose up`
 The production `.env.production` stays on the server (`/opt/kp-crm/env/`, chmod 600) and is never read by or copied to GitHub. No application secrets are stored in GitHub for deployment.
 
 ### Environment `vps-production`
-Required reviewer (manual approval before every deploy), deployment branches limited to `main`. (The pre-existing `Production`/`Preview` environments belong to the Vercel integration and are unused by this workflow.)
+No required reviewers (deploys are automatic after green CI on `main`); deployment branches limited to `main`; holds the deploy secrets. (The pre-existing `Production`/`Preview` environments belong to the Vercel integration and are unused by this workflow.)
 
 ### Branch protection on `main`
-Pull request required; 1 approval; required checks `validate`, `repo-safety`, `db-migration-safety` (branch must be up to date); conversation resolution; no force pushes; no deletion. If this was not applied by API, set the same in Settings -> Branches -> Add rule. Optional hardening: "Do not allow bypassing" (enforce for admins), "Require review from Code Owners" (`.github/CODEOWNERS` covers `.github/`, `deploy/`, `prisma/`, Dockerfile, compose files).
+Pull request required; 0 required approvals; required checks `validate`, `repo-safety`, `db-migration-safety` (branch must be up to date); conversation resolution; no force pushes; no deletion. If this was not applied by API, set the same in Settings -> Branches -> Add rule. Optional hardening: "Do not allow bypassing" (enforce for admins), "Require review from Code Owners" (`.github/CODEOWNERS` covers `.github/`, `deploy/`, `prisma/`, Dockerfile, compose files).
 
 ## 10. Production safety rules (summary)
 
