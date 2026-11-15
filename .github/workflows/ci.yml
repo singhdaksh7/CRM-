@@ -1,23 +1,82 @@
 name: CI
 
+# Runs on every feature-branch push and on every PR into main (and on main itself,
+# which is what the production deploy workflow waits for).
 on:
   pull_request:
-    branches: [main, master]
+    branches: [main]
   push:
-    branches: [main, master]
+    branches: ["**"]
 
-# Cancel superseded runs on the same branch/PR to save CI minutes.
+permissions:
+  contents: read
+
+# Cancel superseded runs on feature branches/PRs; never cancel a run on main
+# (a cancelled main run would silently skip that commit's deployment).
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  build-and-test:
-    name: Install, validate, typecheck, lint, test, build
+  # ---------------------------------------------------------------------------
+  # Fast static checks: secrets, dumps, committed env, dangerous deploy config,
+  # commands that must never run against production.
+  # ---------------------------------------------------------------------------
+  repo-safety:
+    name: repo-safety
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Security / config scan
+        run: bash .github/scripts/repo-safety.sh
 
-    # A real Postgres service so prisma validate/generate/migrate run against
-    # the actual target database, not just parse the schema file offline.
+  # ---------------------------------------------------------------------------
+  # Prisma schema / migration change detection + destructive-SQL gate.
+  # Never connects to any database.
+  # ---------------------------------------------------------------------------
+  db-migration-safety:
+    name: db-migration-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determine comparison base
+        id: base
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            before="${{ github.event.before }}"
+            if [ -n "$before" ] && [ "$before" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$before^{commit}" 2>/dev/null; then
+              base="$before"
+            else
+              git fetch --no-tags origin main
+              base=$(git merge-base origin/main HEAD)
+            fi
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "Comparing $base..HEAD"
+      - name: Migration safety review
+        id: mig
+        run: python3 deploy/scripts/migration-safety.py --base "${{ steps.base.outputs.base }}" --head HEAD | tee migration-report.txt
+      - name: Summary
+        if: always()
+        run: |
+          { echo '### Database change review'; echo '```'; cat migration-report.txt 2>/dev/null || echo "no report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Install, typecheck, lint, tests, build.
+  # ---------------------------------------------------------------------------
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Real Postgres service so prisma migrate deploy replays the tracked chain.
     services:
       postgres:
         image: postgres:16-alpine
@@ -44,11 +103,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22" # matches the production Dockerfile (node:22-slim)
           cache: "npm"
 
       - name: Install dependencies
@@ -60,24 +121,23 @@ jobs:
       - name: Prisma generate
         run: npx prisma generate
 
-      # Historical schema prerequisite: SavedViewEntityType/saved_views/
-      # properties.tags were shipped to production via a manual SQL file
-      # (prisma/manual-migrations/2026-08-05-phase2-saved-views-and-tags.sql)
-      # and were never captured as a tracked Prisma migration. Production
-      # already has this type from that manual run; a fresh CI database
-      # does not. The Demand Pool migration (20260819120000_demand_pool_
-      # matching) is the first tracked migration to depend on part of that
-      # drift (`ALTER TYPE "SavedViewEntityType" ADD VALUE ...`), so we
-      # create just that one prerequisite type here before replaying the
-      # tracked chain - see prisma/ci/legacy-schema-bootstrap.sql for the
-      # full rationale and why the rest of that historical file (the
-      # saved_views table itself) is deliberately NOT included. This never
-      # writes to _prisma_migrations and only ever targets this job's own
-      # ephemeral postgres service (DATABASE_URL above is hardcoded to
-      # localhost) - it can never reach production.
+      - name: Diff integrity (whitespace errors / conflict markers)
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
+          else
+            git fetch --no-tags origin main
+            git diff --check "$(git merge-base origin/main HEAD)...HEAD" || true
+            git diff --check
+          fi
+
+      # Historical schema prerequisite: SavedViewEntityType was shipped to
+      # production via a manual SQL file and never captured as a tracked
+      # migration. A fresh CI database needs just that type before replaying
+      # the tracked chain (see prisma/ci/legacy-schema-bootstrap.sql). This only
+      # ever targets this job's own ephemeral service on localhost.
       - name: Bootstrap legacy manually-shipped schema (CI database only)
-        # libpq/psql doesn't understand Prisma's `?schema=` query parameter,
-        # so strip it before handing the URL to psql.
         run: psql "${DATABASE_URL%%\?*}" -v ON_ERROR_STOP=1 -f prisma/ci/legacy-schema-bootstrap.sql
 
       - name: Apply migrations to CI database
@@ -87,19 +147,22 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint
-        run: npx eslint .
+        run: npm run lint
 
-      - name: Unit tests
-        run: npx vitest run
+      - name: Tests
+        run: npm test
 
-      - name: Production build (Webpack)
-        run: npm run build -- --webpack
+      - name: Production build
+        run: npm run build
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: next-build
-          path: .next
-          retention-days: 7
-          if-no-files-found: error
-          include-hidden-files: true
+  # Single aggregate result - handy as the one required check if preferred.
+  ci-passed:
+    name: ci-passed
+    if: always()
+    needs: [repo-safety, db-migration-safety, validate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all jobs green
+        run: |
+          echo '${{ toJSON(needs) }}' | grep -q '"result": "\(failure\|cancelled\|skipped\)"' && { echo "a required job did not succeed"; exit 1; }
+          echo "all CI jobs succeeded"

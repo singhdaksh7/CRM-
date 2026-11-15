@@ -1,0 +1,9 @@
+# Extended-regex patterns that must NEVER be run by CI/CD or deploy scripts against production.
+# Consumed by deploy/scripts/release.sh (runtime guard) and .github/scripts/repo-safety.sh (static scan).
+# This file is excluded from the static scan because it names the commands.
+prisma[[:space:]]+migrate[[:space:]]+reset
+prisma[[:space:]]+db[[:space:]]+push
+prisma[[:space:]]+migrate[[:space:]]+dev
+npm[[:space:]]+run[[:space:]]+(db:seed|db:reset|seed:demo|seed:remove|handover:)
+tsx[[:space:]]+(prisma/seed|scripts/seed-demo|scripts/remove-demo|scripts/handover)
+DROP[[:space:]]+(DATABASE|SCHEMA)
