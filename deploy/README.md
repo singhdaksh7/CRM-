@@ -23,6 +23,8 @@ sha256sum -c file.dump.sha256
 Never run `prisma migrate reset`, `db push`, seeds, or `handover:*` scripts against production data.
 
 ## Update / redeploy
+> Routine deploys are automated (merge to `main` -> approval -> `release.sh`). See `docs/CI_CD.md`. The manual steps below are the legacy path.
+
 `git -C /opt/kp-crm/repo pull --ff-only` -> `./backup.sh` -> `deploy.sh build` -> `deploy.sh migrate-status` ->
 `deploy.sh up`. NEXT_PUBLIC_* and the R2 CSP origins are baked at build time, so any hostname or
 R2 bucket change needs a rebuild.

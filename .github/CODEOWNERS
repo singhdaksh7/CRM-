@@ -1,0 +1,7 @@
+# Changes to deployment, CI, DB schema and migrations need review from the owner.
+# Enable "Require review from Code Owners" in the main branch protection.
+/.github/            @singhdaksh7
+/deploy/             @singhdaksh7
+/prisma/             @singhdaksh7
+/Dockerfile          @singhdaksh7
+/docker-compose*.yml @singhdaksh7

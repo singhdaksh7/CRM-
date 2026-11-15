@@ -1,0 +1,128 @@
+name: Deploy production
+
+# Production deploys happen ONLY for a commit on `main` whose CI succeeded
+# (after the PR was merged), and then only after a human approves the
+# `vps-production` environment. Feature/PR branches can never reach this workflow's
+# deploy job: the workflow_run trigger is filtered to push events on main, and
+# the resolve job re-verifies the SHA and its CI check results independently.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit SHA on main to deploy (blank = current tip of main)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run: preflight + migration gate + baseline only; changes nothing"
+        required: false
+        type: boolean
+        default: false
+      allow_reviewed_migration:
+        description: "I have read the destructive migration SQL, it carries a safety-reviewed marker, and I verified a backup exists"
+        required: false
+        type: boolean
+        default: false
+
+# One production deployment at a time. Never cancel an in-flight deploy;
+# a newer queued run replaces an older *pending* one (the newest main wins).
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  resolve:
+    name: Resolve and verify commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    outputs:
+      sha: ${{ steps.r.outputs.sha }}
+      deploy: ${{ steps.r.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - id: r
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          tip=$(git rev-parse origin/main)
+          if [ "$EVENT" = workflow_dispatch ]; then sha="${INPUT_SHA:-$tip}"; else sha="$RUN_SHA"; fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::'$sha' is not a full 40-char SHA"; exit 1; }
+          git cat-file -e "$sha^{commit}" || { echo "::error::$sha not found"; exit 1; }
+          git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$sha is not on main - refusing to deploy"; exit 1; }
+          # Every required CI check must have succeeded for exactly this commit.
+          for job in validate repo-safety db-migration-safety; do
+            res=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs?per_page=100" \
+                  --jq "[.check_runs[] | select(.name==\"$job\")] | sort_by(.completed_at) | last | .conclusion")
+            echo "check $job on ${sha:0:12}: ${res:-none}"
+            [ "$res" = success ] || { echo "::error::required check '$job' is not green for $sha"; exit 1; }
+          done
+          deploy=true
+          if [ "$EVENT" = workflow_run ] && [ "$sha" != "$tip" ]; then
+            echo "::notice::$sha is no longer the tip of main ($tip); a newer commit will be deployed by its own run. Skipping."
+            deploy=false
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"; echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+          { echo "### Production deploy target"; echo "- commit: \`$sha\`"; echo "- trigger: $EVENT"; echo "- deploy: $deploy"; } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to production VPS
+    needs: resolve
+    if: needs.resolve.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Required reviewers on this environment = the manual approval gate.
+    environment:
+      name: vps-production
+      url: https://crm.kpproperties.co.in
+    steps:
+      - name: Prepare SSH (secrets are masked by GitHub; never echoed)
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077; mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          for s in "$SSH_KEY"; do while IFS= read -r l; do [ -n "$l" ] && echo "::add-mask::$l"; done <<<"$s"; done
+
+      - name: Release (backup -> gates -> build -> deploy crm only -> health -> rollback on failure)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+          DRY: ${{ inputs.dry_run }}
+          ALLOW: ${{ inputs.allow_reviewed_migration }}
+        run: |
+          set -euo pipefail
+          flags=""
+          [ "$DRY" = true ] && flags="$flags --dry-run"
+          [ "$ALLOW" = true ] && flags="$flags --allow-reviewed-migration"
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=30 -o ServerAliveCountMax=40 \
+              -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" "release ${SHA}${flags}"
+
+      - name: Remove SSH material
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts
