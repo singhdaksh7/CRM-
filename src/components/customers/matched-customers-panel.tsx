@@ -23,6 +23,7 @@ import { MatchExplanation } from "./match-explanation";
 import { MatchTierBadge, MatchHistoryBadge } from "./badges";
 import { RecommendationPreviewModal } from "./recommendation-preview";
 import { BudgetRangeFilter } from "./budget-range-filter";
+import { matchesBudgetRange, NO_BUDGET_FILTER } from "./budget-range-logic";
 
 const DEFAULT_STRETCH = 0.2;
 
@@ -93,18 +94,8 @@ export function MatchedCustomersPanel({
         return false;
       }
 
-      // Budget Range Filter: Lead budget interval [leadMin, leadMax] overlaps user filter [filterMin, filterMax]
-      // Interval overlap rule: leadMax >= filterMin && leadMin <= filterMax
-      // If lead.minBudget is null/undefined, leadMin defaults to 0 (no lower bound).
-      const leadMin = r.requirement?.minBudget ?? 0;
-      const leadMax = r.requirement?.maxBudget ?? Infinity;
-
-      if (budgetRange.min !== null && leadMax < budgetRange.min) {
-        return false;
-      }
-      if (budgetRange.max !== null && leadMin > budgetRange.max) {
-        return false;
-      }
+      // Budget filter uses ONLY the applied range, against requirement.maxBudget.
+      if (!matchesBudgetRange(r.requirement, budgetRange)) return false;
 
       return true;
     });
@@ -194,7 +185,7 @@ export function MatchedCustomersPanel({
       <BudgetRangeFilter
         appliedRange={budgetRange}
         onApply={setBudgetRange}
-        onReset={() => setBudgetRange({ min: null, max: null })}
+        onRemove={() => setBudgetRange(NO_BUDGET_FILTER)}
         sliderMax={propertyPrice && propertyPrice > 0 ? Math.max(propertyPrice * 2, 50000000) : 50000000}
       />
 
