@@ -192,11 +192,22 @@ export function MatchedCustomersPanel({
 
       {/* Budget Range Filter Control */}
       <BudgetRangeFilter
-        minBudget={budgetRange.min}
-        maxBudget={budgetRange.max}
-        onChange={setBudgetRange}
+        appliedRange={budgetRange}
+        onApply={setBudgetRange}
+        onReset={() => setBudgetRange({ min: null, max: null })}
         sliderMax={propertyPrice && propertyPrice > 0 ? Math.max(propertyPrice * 2, 50000000) : 50000000}
       />
+
+      {/* Showing Count Indicator */}
+      {!loading && !error && (
+        <div className="flex items-center justify-between text-xs text-[#71717A] px-1">
+          <span>
+            {recommendations.length > 0
+              ? `Showing ${visible.length} of ${recommendations.length} matched leads`
+              : "0 Matching Leads"}
+          </span>
+        </div>
+      )}
 
       {loading && <LoadingState label="Loading matched customers..." />}
       {error && <ErrorState title="Matches unavailable" description={error} action={<Button onClick={() => void load()}>Retry</Button>} />}
