@@ -1,235 +1,149 @@
 import { describe, it, expect } from "vitest";
+import {
+  NO_BUDGET_FILTER,
+  filterByBudgetRange,
+  isDraftDirty,
+  validateBudgetRange,
+  isBudgetFilterActive,
+  type BudgetRange,
+} from "./budget-range-logic";
 
-describe("Matching Leads Budget Range Filter — Draft vs Applied & Validation", () => {
-  // Candidate leads with various budget intervals
-  const candidateA = { id: "c_a", tier: "EXACT", source: "LEAD", requirement: { minBudget: 8000000, maxBudget: 15000000 } }; // ₹80L - ₹1.5 Cr
-  const candidateB = { id: "c_b", tier: "EXACT", source: "CONTACT", requirement: { minBudget: 10000000, maxBudget: 30000000 } }; // ₹1 Cr - ₹3 Cr
-  const candidateC = { id: "c_c", tier: "STRONG", source: "LEAD", requirement: { minBudget: 25000000, maxBudget: 40000000 } }; // ₹2.5 Cr - ₹4 Cr
-  const candidateD = { id: "c_d", tier: "STRETCH", source: "LEAD", requirement: { minBudget: 50000000, maxBudget: 70000000 } }; // ₹5 Cr - ₹7 Cr
-  const candidateNullableMin = { id: "c_null_min", tier: "EXACT", source: "CONTACT", requirement: { minBudget: null, maxBudget: 20000000 } }; // up to ₹2 Cr
+const L = 100000;
+const CR = 10000000;
 
-  const candidates = [candidateA, candidateB, candidateC, candidateD, candidateNullableMin];
+const rows = [
+  { id: "a", requirement: { maxBudget: 2.25 * CR } },
+  { id: "b", requirement: { maxBudget: 2.5 * CR } },
+  { id: "c", requirement: { maxBudget: 4 * CR } },
+  { id: "d", requirement: { minBudget: 0, maxBudget: null } },
+  { id: "e", requirement: null },
+  { id: "f", requirement: { maxBudget: 30 * L } },
+];
 
-  // The interval-overlap filtering function matching matched-customers-panel.tsx
-  function filterCandidates(
-    list: typeof candidates,
-    appliedRange: { min: number | null; max: number | null },
-    otherFilters?: { tier?: string; source?: string }
-  ) {
-    return list.filter((r) => {
-      if (otherFilters?.tier && r.tier !== otherFilters.tier) return false;
-      if (otherFilters?.source && r.source !== otherFilters.source) return false;
-
-      const leadMin = r.requirement?.minBudget ?? 0;
-      const leadMax = r.requirement?.maxBudget ?? Infinity;
-
-      if (appliedRange.min !== null && leadMax < appliedRange.min) {
-        return false;
-      }
-      if (appliedRange.max !== null && leadMin > appliedRange.max) {
-        return false;
-      }
-      return true;
-    });
+// Mirrors the component's state model: visible rows use ONLY applied.
+class FilterState {
+  draft: BudgetRange = { ...NO_BUDGET_FILTER };
+  applied: BudgetRange = { ...NO_BUDGET_FILTER };
+  setDraft(r: Partial<BudgetRange>) { this.draft = { ...this.draft, ...r }; }
+  apply() {
+    if (validateBudgetRange(this.draft.min, this.draft.max)) return false;
+    this.applied = { ...this.draft };
+    return true;
   }
+  remove() { this.draft = { ...NO_BUDGET_FILTER }; this.applied = { ...NO_BUDGET_FILTER }; }
+  get visible() { return filterByBudgetRange(rows, this.applied); }
+  get count() { return `Showing ${this.visible.length} of ${rows.length} matched leads`; }
+  get status() { return isBudgetFilterActive(this.applied) ? "applied" : "none"; }
+  get changesNotApplied() { return isDraftDirty(this.draft, this.applied); }
+}
 
-  // Simulated component state machine for Draft vs Applied
-  class BudgetFilterState {
-    draftMin: number | null = null;
-    draftMax: number | null = null;
-    appliedMin: number | null = null;
-    appliedMax: number | null = null;
-    validationError: string | null = null;
-
-    validate(min: number | null, max: number | null): string | null {
-      if (min !== null && (Number.isNaN(min) || min < 0)) return "Min Budget cannot be negative";
-      if (max !== null && (Number.isNaN(max) || max < 0)) return "Max Budget cannot be negative";
-      if (min !== null && max !== null && min > max) return "Min Budget cannot exceed Max Budget";
-      return null;
-    }
-
-    setDraft(min: number | null, max: number | null) {
-      this.draftMin = min;
-      this.draftMax = max;
-      this.validationError = this.validate(min, max);
-    }
-
-    apply(): boolean {
-      const err = this.validate(this.draftMin, this.draftMax);
-      if (err) {
-        this.validationError = err;
-        return false;
-      }
-      this.appliedMin = this.draftMin;
-      this.appliedMax = this.draftMax;
-      this.validationError = null;
-      return true;
-    }
-
-    reset() {
-      this.draftMin = null;
-      this.draftMax = null;
-      this.appliedMin = null;
-      this.appliedMax = null;
-      this.validationError = null;
-    }
-
-    getAppliedRange() {
-      return { min: this.appliedMin, max: this.appliedMax };
-    }
-  }
-
-  it("1. editing draft values does NOT filter results until Apply clicked", () => {
-    const state = new BudgetFilterState();
-
-    // User types draft values: ₹42 Lakh to ₹2.63 Cr
-    state.setDraft(4200000, 26300000);
-
-    // Filter results using applied range
-    const visibleBeforeApply = filterCandidates(candidates, state.getAppliedRange());
-    expect(visibleBeforeApply.length).toBe(candidates.length); // All 5 still visible!
+describe("Budget range filter — manual Apply / Remove", () => {
+  it("1. changing draft Min does not change results", () => {
+    const s = new FilterState();
+    s.setDraft({ min: 50 * L });
+    expect(s.visible).toHaveLength(rows.length);
   });
 
-  it("2. clicking Apply Filter filters results", () => {
-    const state = new BudgetFilterState();
-    state.setDraft(4200000, 26300000);
-
-    // User clicks Apply
-    const applied = state.apply();
-    expect(applied).toBe(true);
-
-    const visibleAfterApply = filterCandidates(candidates, state.getAppliedRange());
-    const ids = visibleAfterApply.map((r) => r.id);
-    // candidateA (80L-1.5Cr) -> overlaps
-    // candidateB (1Cr-3Cr) -> overlaps
-    // candidateNullableMin (0-2Cr) -> overlaps
-    // candidateC (2.5Cr-4Cr) -> overlaps (2.5Cr <= 2.63Cr)
-    // candidateD (5Cr-7Cr) -> does not overlap
-    expect(ids).toContain("c_a");
-    expect(ids).toContain("c_b");
-    expect(ids).toContain("c_c");
-    expect(ids).toContain("c_null_min");
-    expect(ids).not.toContain("c_d");
-    expect(visibleAfterApply.length).toBe(4);
+  it("2. changing draft Max does not change results", () => {
+    const s = new FilterState();
+    s.setDraft({ max: 2.5 * CR });
+    expect(s.visible).toHaveLength(rows.length);
   });
 
-  it("3. correct overlap logic (leadMax >= appliedMin && leadMin <= appliedMax)", () => {
-    // Range ₹1 Cr - ₹3 Cr
-    const appliedRange = { min: 10000000, max: 30000000 };
-    const visible = filterCandidates(candidates, appliedRange);
-    const ids = visible.map((r) => r.id);
-    expect(ids).toContain("c_a"); // 80L-1.5Cr -> max 1.5Cr >= 1Cr
-    expect(ids).toContain("c_b"); // 1Cr-3Cr
-    expect(ids).toContain("c_c"); // 2.5Cr-4Cr -> min 2.5Cr <= 3Cr
-    expect(ids).toContain("c_null_min"); // 0-2Cr
-    expect(ids).not.toContain("c_d"); // 5Cr-7Cr -> min 5Cr > 3Cr
+  it("3. clicking Apply changes results", () => {
+    const s = new FilterState();
+    s.setDraft({ min: 50 * L, max: 2.5 * CR });
+    expect(s.apply()).toBe(true);
+    expect(s.visible.map((r) => r.id)).toEqual(["a", "b"]);
   });
 
-  it("4. non-overlapping leads hidden", () => {
-    // Range ₹5 Cr - ₹7 Cr
-    const appliedRange = { min: 50000000, max: 70000000 };
-    const visible = filterCandidates(candidates, appliedRange);
-    const ids = visible.map((r) => r.id);
-    expect(ids).toEqual(["c_d"]); // Only c_d
+  it("4. changing draft after Apply preserves old results", () => {
+    const s = new FilterState();
+    s.setDraft({ min: 50 * L, max: 2.5 * CR });
+    s.apply();
+    s.setDraft({ max: 3 * CR });
+    expect(s.visible.map((r) => r.id)).toEqual(["a", "b"]);
+    expect(s.changesNotApplied).toBe(true);
   });
 
-  it("5. exact boundary included", () => {
-    // Exactly ₹1.5 Cr min filter with no max
-    const appliedRange = { min: 15000000, max: null };
-    const visible = filterCandidates(candidates, appliedRange);
-    const ids = visible.map((r) => r.id);
-    expect(ids).toContain("c_a"); // max is 1.5 Cr, meets boundary
+  it("5. clicking Apply again uses the new draft", () => {
+    const s = new FilterState();
+    s.setDraft({ min: 50 * L, max: 2.5 * CR });
+    s.apply();
+    s.setDraft({ max: 4 * CR });
+    s.apply();
+    expect(s.visible.map((r) => r.id)).toEqual(["a", "b", "c"]);
+    expect(s.changesNotApplied).toBe(false);
   });
 
-  it("6. Reset restores all results", () => {
-    const state = new BudgetFilterState();
-    state.setDraft(50000000, 70000000);
-    state.apply();
-    expect(filterCandidates(candidates, state.getAppliedRange()).length).toBe(1);
-
-    // Reset clicked
-    state.reset();
-    expect(state.appliedMin).toBe(null);
-    expect(state.appliedMax).toBe(null);
-    expect(filterCandidates(candidates, state.getAppliedRange()).length).toBe(candidates.length);
+  it("6. Remove Filter restores all results and clears draft", () => {
+    const s = new FilterState();
+    s.setDraft({ min: 50 * L, max: 2.5 * CR });
+    s.apply();
+    s.remove();
+    expect(s.visible).toHaveLength(rows.length);
+    expect(s.draft).toEqual(NO_BUDGET_FILTER);
   });
 
-  it("7. visible count updates accurately", () => {
-    const totalCount = candidates.length;
-    let visible = filterCandidates(candidates, { min: null, max: null });
-    let countText = `Showing ${visible.length} of ${totalCount} matched leads`;
-    expect(countText).toBe("Showing 5 of 5 matched leads");
-
-    visible = filterCandidates(candidates, { min: 50000000, max: 70000000 });
-    countText = `Showing ${visible.length} of ${totalCount} matched leads`;
-    expect(countText).toBe("Showing 1 of 5 matched leads");
+  it("7. result count only changes on Apply/Remove", () => {
+    const s = new FilterState();
+    expect(s.count).toBe("Showing 6 of 6 matched leads");
+    s.setDraft({ min: 50 * L, max: 2.5 * CR });
+    expect(s.count).toBe("Showing 6 of 6 matched leads");
+    s.apply();
+    expect(s.count).toBe("Showing 2 of 6 matched leads");
+    s.setDraft({ max: 4 * CR });
+    expect(s.count).toBe("Showing 2 of 6 matched leads");
+    s.remove();
+    expect(s.count).toBe("Showing 6 of 6 matched leads");
   });
 
-  it("8. min > max blocked by validation and Apply prevented", () => {
-    const state = new BudgetFilterState();
-    state.setDraft(30000000, 10000000); // min 3 Cr > max 1 Cr
-    expect(state.validationError).toBe("Min Budget cannot exceed Max Budget");
-
-    const applied = state.apply();
-    expect(applied).toBe(false);
-    expect(state.appliedMin).toBe(null); // Never applied
+  it("8. status and 'Changes not applied' flag change correctly", () => {
+    const s = new FilterState();
+    expect(s.status).toBe("none");
+    expect(s.changesNotApplied).toBe(false);
+    s.setDraft({ min: 50 * L });
+    expect(s.status).toBe("none");
+    expect(s.changesNotApplied).toBe(true);
+    s.apply();
+    expect(s.status).toBe("applied");
+    expect(s.changesNotApplied).toBe(false);
+    s.remove();
+    expect(s.status).toBe("none");
   });
 
-  it("9. negative values blocked", () => {
-    const state = new BudgetFilterState();
-    state.setDraft(-500000, 10000000);
-    expect(state.validationError).toBe("Min Budget cannot be negative");
-    expect(state.apply()).toBe(false);
-
-    state.setDraft(10000000, -200000);
-    expect(state.validationError).toBe("Max Budget cannot be negative");
-    expect(state.apply()).toBe(false);
+  it("9. invalid draft cannot be applied", () => {
+    const s = new FilterState();
+    s.setDraft({ min: 3 * CR, max: 1 * CR });
+    expect(s.apply()).toBe(false);
+    expect(s.visible).toHaveLength(rows.length);
+    expect(validateBudgetRange(-1, null)).toMatch(/negative/);
+    expect(validateBudgetRange(null, Number.NaN)).toMatch(/negative/);
   });
 
-  it("10. applied filter composes correctly with existing tier/source filters", () => {
-    // Applied budget: ₹80 Lakh - ₹2 Cr
-    const appliedRange = { min: 8000000, max: 20000000 };
-
-    // With tier = EXACT
-    const exactMatches = filterCandidates(candidates, appliedRange, { tier: "EXACT" });
-    const exactIds = exactMatches.map((r) => r.id);
-    expect(exactIds).toContain("c_a"); // EXACT, within budget
-    expect(exactIds).toContain("c_b"); // EXACT, within budget
-    expect(exactIds).toContain("c_null_min"); // EXACT, within budget
-    expect(exactIds).not.toContain("c_c"); // STRONG -> filtered by tier
-
-    // With source = CONTACT
-    const contactMatches = filterCandidates(candidates, appliedRange, { source: "CONTACT" });
-    const contactIds = contactMatches.map((r) => r.id);
-    expect(contactIds).toContain("c_b");
-    expect(contactIds).toContain("c_null_min");
-    expect(contactIds).not.toContain("c_a"); // source = LEAD
+  it("10. ₹2.25/2.50/2.54 Cr visible, ₹4 Cr hidden for applied ₹0–₹2.54 Cr", () => {
+    const withBoundary = [...rows, { id: "g", requirement: { maxBudget: 2.54 * CR } }];
+    const ids = filterByBudgetRange(withBoundary, { min: 0, max: 2.54 * CR }).map((r) => r.id);
+    expect(ids).toEqual(expect.arrayContaining(["a", "b", "g"]));
+    expect(ids).not.toContain("c");
   });
 
-  it("11. modifying draft after Apply does not change results until Apply clicked again", () => {
-    const state = new BudgetFilterState();
-
-    // 1. Set draft and apply ₹5 Cr - ₹7 Cr
-    state.setDraft(50000000, 70000000);
-    state.apply();
-    expect(filterCandidates(candidates, state.getAppliedRange()).length).toBe(1);
-
-    // 2. User changes draft to ₹80L - ₹1.5 Cr without applying
-    state.setDraft(8000000, 15000000);
-
-    // Results still use previously applied filter!
-    expect(filterCandidates(candidates, state.getAppliedRange()).length).toBe(1);
-
-    // 3. User clicks Apply
-    state.apply();
-    expect(filterCandidates(candidates, state.getAppliedRange()).length).toBe(3); // c_a, c_b, c_null_min
+  it("11. missing budget hidden when an active filter is applied", () => {
+    const ids = filterByBudgetRange(rows, { min: null, max: 2.54 * CR }).map((r) => r.id);
+    expect(ids).not.toContain("d");
+    expect(ids).not.toContain("e");
+    expect(filterByBudgetRange(rows, NO_BUDGET_FILTER)).toHaveLength(rows.length);
   });
 
-  it("12. core matching order/scoring remains unchanged", () => {
-    // Original list order
-    const originalOrder = candidates.map((c) => c.id);
-    const appliedRange = { min: null, max: null };
-    const filtered = filterCandidates(candidates, appliedRange);
-    expect(filtered.map((c) => c.id)).toEqual(originalOrder);
+  it("12. core matching score/ranking order unchanged", () => {
+    const ranked = [
+      { id: "x", score: 90, requirement: { maxBudget: 3 * CR } },
+      { id: "y", score: 80, requirement: { maxBudget: 1 * CR } },
+      { id: "z", score: 70, requirement: { maxBudget: 2 * CR } },
+    ];
+    const out = filterByBudgetRange(ranked, { min: null, max: 2 * CR });
+    expect(out.map((r) => r.id)).toEqual(["y", "z"]);
+    expect(out.map((r) => r.score)).toEqual([80, 70]);
+    expect(filterByBudgetRange(ranked, NO_BUDGET_FILTER)).toEqual(ranked);
   });
 });
