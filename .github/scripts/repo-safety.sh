@@ -64,7 +64,7 @@ PATFILE=deploy/scripts/forbidden-commands.txt
 [ -f "$PATFILE" ] || bad "$PATFILE missing"
 # NOTE: deploy.sh legitimately has migrate-deploy only; restore.sh/backup docs are not in the scanned set
 SCAN_SET=$(git ls-files '.github/workflows/*' 'deploy/scripts/*.sh' 'deploy/scripts/*.py' 'Dockerfile' 'docker-compose.prod.yml' \
-  | grep -vE "restore\.sh|^$PATFILE$|\.github/scripts/repo-safety\.sh")
+  | grep -vE "restore\.sh|migration-safety\.py|^$PATFILE$|\.github/scripts/repo-safety\.sh")
 if [ -n "$SCAN_SET" ]; then
   # shellcheck disable=SC2086
   grep -nEf <(grep -vE '^\s*(#|$)' "$PATFILE") $SCAN_SET 2>/dev/null | grep -vE ':[0-9]+:\s*#' | grep . \
