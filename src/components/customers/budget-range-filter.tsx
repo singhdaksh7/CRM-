@@ -2,17 +2,16 @@
 
 import { useId, useState, useEffect } from "react";
 import { formatINR } from "@/lib/utils";
-import { RotateCcw, Filter, AlertCircle } from "lucide-react";
+import { XCircle, Filter, AlertCircle } from "lucide-react";
 
-export interface BudgetRange {
-  min: number | null;
-  max: number | null;
-}
+import { validateBudgetRange, isBudgetFilterActive, isDraftDirty, type BudgetRange } from "./budget-range-logic";
+
+export type { BudgetRange };
 
 export interface BudgetRangeFilterProps {
   appliedRange: BudgetRange;
   onApply: (range: BudgetRange) => void;
-  onReset: () => void;
+  onRemove: () => void;
   // Suggested bounds for quick slider track (default 0 to 5 Cr)
   sliderMax?: number;
 }
@@ -22,7 +21,7 @@ const DEFAULT_SLIDER_MAX = 50000000; // 5 Cr
 export function BudgetRangeFilter({
   appliedRange,
   onApply,
-  onReset,
+  onRemove,
   sliderMax = DEFAULT_SLIDER_MAX,
 }: BudgetRangeFilterProps) {
   const minInputId = useId();
@@ -44,18 +43,7 @@ export function BudgetRangeFilter({
   const currentSliderMin = draftMin ?? 0;
   const currentSliderMax = draftMax ?? sliderMax;
 
-  function validate(minVal: number | null, maxVal: number | null): string | null {
-    if (minVal !== null && (Number.isNaN(minVal) || minVal < 0)) {
-      return "Min Budget cannot be negative";
-    }
-    if (maxVal !== null && (Number.isNaN(maxVal) || maxVal < 0)) {
-      return "Max Budget cannot be negative";
-    }
-    if (minVal !== null && maxVal !== null && minVal > maxVal) {
-      return "Min Budget cannot exceed Max Budget";
-    }
-    return null;
-  }
+  const validate = validateBudgetRange;
 
   function handleMinSlider(val: number) {
     const validVal = Math.max(0, val);
@@ -105,16 +93,16 @@ export function BudgetRangeFilter({
     onApply({ min: draftMin, max: draftMax });
   }
 
-  function handleReset() {
+  function handleRemove() {
     setDraftMin(null);
     setDraftMax(null);
     setValidationError(null);
-    onReset();
+    onRemove();
   }
 
   // Status checks
-  const isApplied = appliedRange.min !== null || appliedRange.max !== null;
-  const isDraftDirty = draftMin !== appliedRange.min || draftMax !== appliedRange.max;
+  const isApplied = isBudgetFilterActive(appliedRange);
+  const dirty = isDraftDirty({ min: draftMin, max: draftMax }, appliedRange);
 
   // Status description text
   let statusText = "No budget filter applied";
@@ -132,7 +120,7 @@ export function BudgetRangeFilter({
           <span className="text-[11px] text-[#71717A] bg-white border border-[#E4E4E7] px-2 py-0.5 rounded-md">
             {statusText}
           </span>
-          {isDraftDirty && isApplied && (
+          {dirty && (
             <span className="text-[11px] font-medium text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
               Changes not applied
             </span>
@@ -140,13 +128,13 @@ export function BudgetRangeFilter({
         </div>
 
         <div className="flex items-center gap-2">
-          {(isApplied || draftMin !== null || draftMax !== null) && (
+          {isApplied && (
             <button
               type="button"
-              onClick={handleReset}
+              onClick={handleRemove}
               className="inline-flex items-center gap-1 rounded-md border border-[#E4E4E7] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#09090B] hover:bg-[#F4F4F5] transition-colors"
             >
-              <RotateCcw className="h-3 w-3" /> Reset
+              <XCircle className="h-3 w-3" /> Remove Filter
             </button>
           )}
 
