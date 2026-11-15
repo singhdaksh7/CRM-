@@ -164,9 +164,9 @@ describe("runHousingImport", () => {
     expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringContaining("[Housing Import]") }));
   });
 
-  it("never triggers assignment communication beyond the existing internal auto-assign pipeline", async () => {
+  it("leaves imported housing leads unassigned by default", async () => {
     await runHousingImport({ rows: [row()], columnMapping: COLUMN_MAPPING, fileName: "f.csv", actorId: "user-1", organizationId: ORG });
-    expect(autoAssignLead).toHaveBeenCalledTimes(1);
+    expect(autoAssignLead).not.toHaveBeenCalled();
   });
 
   it("does not create a second lead when the exact same row is imported twice (idempotent re-upload)", async () => {

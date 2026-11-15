@@ -288,20 +288,23 @@ describe("Demand Pool CustomerContact identity check", () => {
   });
 });
 
-describe("A6 - consistent lead assignment", () => {
-  it("runs the SAME assignment engine (autoAssignLead) as a manually-created lead for a Housing portal lead", async () => {
-    await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 25 });
-    expect(autoAssignLead).toHaveBeenCalledWith("lead-new", "org_default");
+describe("A6 - consistent lead assignment (now defaults to Unassigned)", () => {
+  it("leaves a Housing portal lead unassigned on creation", async () => {
+    const result = await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 25 });
+    expect(result.status).toBe("NEW");
+    expect(autoAssignLead).not.toHaveBeenCalled();
   });
 
-  it("also auto-assigns a 99acres portal lead", async () => {
-    await ingestPortalLead("org_default", "NINETY_NINE_ACRES", residentialRentEnquiry, { raw: 26 });
-    expect(autoAssignLead).toHaveBeenCalledWith("lead-new", "org_default");
+  it("leaves a 99acres portal lead unassigned", async () => {
+    const result = await ingestPortalLead("org_default", "NINETY_NINE_ACRES", residentialRentEnquiry, { raw: 26 });
+    expect(result.status).toBe("NEW");
+    expect(autoAssignLead).not.toHaveBeenCalled();
   });
 
-  it("also auto-assigns a MagicBricks portal lead", async () => {
-    await ingestPortalLead("org_default", "MAGICBRICKS", residentialRentEnquiry, { raw: 27 });
-    expect(autoAssignLead).toHaveBeenCalledWith("lead-new", "org_default");
+  it("leaves a MagicBricks portal lead unassigned", async () => {
+    const result = await ingestPortalLead("org_default", "MAGICBRICKS", residentialRentEnquiry, { raw: 27 });
+    expect(result.status).toBe("NEW");
+    expect(autoAssignLead).not.toHaveBeenCalled();
   });
 
   it("does not attempt assignment for a lead that matched an existing person (no new Lead row)", async () => {
@@ -323,15 +326,9 @@ describe("A6 - consistent lead assignment", () => {
     expect(autoAssignLead).not.toHaveBeenCalled();
   });
 
-  it("still returns the created lead even if auto-assignment throws (best-effort, never fails ingestion)", async () => {
-    autoAssignLead.mockRejectedValue(new Error("no eligible employees"));
-    const result = await ingestPortalLead("org_default", "HOUSING", residentialRentEnquiry, { raw: 31 });
+  it("preserves organization isolation during ingestion", async () => {
+    const result = await ingestPortalLead("org_other", "HOUSING", residentialRentEnquiry, { raw: 32 });
     expect(result.status).toBe("NEW");
-    expect(result.lead?.id).toBe("lead-new");
-  });
-
-  it("scopes assignment to the ingesting lead's own organization", async () => {
-    await ingestPortalLead("org_other", "HOUSING", residentialRentEnquiry, { raw: 32 });
-    expect(autoAssignLead).toHaveBeenCalledWith("lead-new", "org_other");
+    expect(autoAssignLead).not.toHaveBeenCalled();
   });
 });

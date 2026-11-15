@@ -22,6 +22,7 @@ import type { Role } from "@prisma/client";
 import { MatchExplanation } from "./match-explanation";
 import { MatchTierBadge, MatchHistoryBadge } from "./badges";
 import { RecommendationPreviewModal } from "./recommendation-preview";
+import { BudgetRangeFilter } from "./budget-range-filter";
 
 const DEFAULT_STRETCH = 0.2;
 
@@ -49,6 +50,7 @@ export function MatchedCustomersPanel({
   const [includeStretch, setIncludeStretch] = useState(false);
   const [whatsAppEligibleOnly, setWhatsAppEligibleOnly] = useState(false);
   const [notContactedRecently, setNotContactedRecently] = useState(false);
+  const [budgetRange, setBudgetRange] = useState<{ min: number | null; max: number | null }>({ min: null, max: null });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [previewOpen, setPreviewOpen] = useState(false);
   const [prepared, setPrepared] = useState<PrepareRecommendationResult | null>(null);
@@ -90,9 +92,23 @@ export function MatchedCustomersPanel({
       if (whatsAppEligibleOnly && isRecipientBlocked({ doNotContact: r.customerContact?.doNotContact, whatsAppOptOut: r.customerContact?.whatsAppOptOut })) {
         return false;
       }
+
+      // Budget Range Filter: Lead budget interval [leadMin, leadMax] overlaps user filter [filterMin, filterMax]
+      // Interval overlap rule: leadMax >= filterMin && leadMin <= filterMax
+      // If lead.minBudget is null/undefined, leadMin defaults to 0 (no lower bound).
+      const leadMin = r.requirement?.minBudget ?? 0;
+      const leadMax = r.requirement?.maxBudget ?? Infinity;
+
+      if (budgetRange.min !== null && leadMax < budgetRange.min) {
+        return false;
+      }
+      if (budgetRange.max !== null && leadMin > budgetRange.max) {
+        return false;
+      }
+
       return true;
     });
-  }, [recommendations, includeStretch, tier, whatsAppEligibleOnly]);
+  }, [recommendations, includeStretch, tier, whatsAppEligibleOnly, budgetRange]);
 
   function toggle(id: string, disabled: boolean) {
     if (disabled) return;
@@ -173,6 +189,14 @@ export function MatchedCustomersPanel({
         <Checkbox label="WhatsApp eligible" checked={whatsAppEligibleOnly} onChange={(e) => setWhatsAppEligibleOnly(e.target.checked)} />
         <Checkbox label="Not contacted recently" checked={notContactedRecently} onChange={(e) => setNotContactedRecently(e.target.checked)} />
       </div>
+
+      {/* Budget Range Filter Control */}
+      <BudgetRangeFilter
+        minBudget={budgetRange.min}
+        maxBudget={budgetRange.max}
+        onChange={setBudgetRange}
+        sliderMax={propertyPrice && propertyPrice > 0 ? Math.max(propertyPrice * 2, 50000000) : 50000000}
+      />
 
       {loading && <LoadingState label="Loading matched customers..." />}
       {error && <ErrorState title="Matches unavailable" description={error} action={<Button onClick={() => void load()}>Retry</Button>} />}

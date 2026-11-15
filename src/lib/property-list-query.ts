@@ -60,6 +60,9 @@ export function decodePropertyListCursor(raw: string | null | undefined): Proper
 export async function listAvailablePropertiesPage(params: {
   organizationId: string;
   take?: number;
+  skip?: number;
+  page?: number;
+  pageSize?: number;
   cursor?: string | null;
   /**
    * When omitted/undefined, defaults to AVAILABLE-only operational inventory.
@@ -81,7 +84,10 @@ export async function listAvailablePropertiesPage(params: {
   liftAvailable?: boolean | null;
   parkFacing?: boolean | null;
 }) {
-  const take = Math.min(Math.max(params.take ?? PROPERTY_LIST_INITIAL_TAKE, 1), 50);
+  const pageSize = params.pageSize ?? params.take ?? PROPERTY_LIST_INITIAL_TAKE;
+  const take = Math.min(Math.max(pageSize, 1), 50);
+  const page = params.page && params.page >= 1 ? Math.floor(params.page) : 1;
+  const skip = params.skip ?? (params.page ? (page - 1) * take : undefined);
   const cursor = decodePropertyListCursor(params.cursor);
 
   const where: Prisma.PropertyWhereInput = {
@@ -102,7 +108,9 @@ export async function listAvailablePropertiesPage(params: {
   if (params.listingType) where.listingType = params.listingType as never;
   if (params.assetClass) where.assetClass = params.assetClass as never;
   if (params.propertyType) where.propertyType = { in: propertyTypeFilterValues(params.propertyType) as never };
-  if (params.area) where.area = params.area;
+  if (params.area && params.area.trim()) {
+    where.area = { equals: params.area.trim(), mode: "insensitive" };
+  }
   if (params.bhk != null) where.bhk = params.bhk;
   if (params.furnishing) where.furnishing = params.furnishing as never;
   if (params.possessionStatus) where.possessionStatus = params.possessionStatus as never;
@@ -124,10 +132,11 @@ export async function listAvailablePropertiesPage(params: {
     where,
     select: PROPERTY_LIST_CARD_SELECT,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: take + 1,
+    take: skip !== undefined ? take : take + 1,
+    ...(skip !== undefined ? { skip } : {}),
   });
 
-  const hasMore = rows.length > take;
+  const hasMore = skip !== undefined ? false : rows.length > take;
   const properties = hasMore ? rows.slice(0, take) : rows;
   const nextCursor = hasMore && properties.length > 0 ? encodePropertyListCursor(properties[properties.length - 1]) : null;
 

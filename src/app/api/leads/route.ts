@@ -6,7 +6,6 @@ import { leadSchema } from "@/lib/validators";
 import { generateCode } from "@/lib/utils";
 import { logActivity } from "@/lib/activity";
 import { getOrganizationId } from "@/lib/organization";
-import { autoAssignLead } from "@/lib/assignment";
 import { recalculateLeadScore } from "@/lib/scoring";
 import { runMatchingForLead } from "@/lib/lead-matching";
 import { notifyRoles } from "@/lib/notifications";
@@ -117,8 +116,6 @@ export async function POST(req: NextRequest) {
 
     if (lead.assignedToId) {
       await logActivity({ leadId: lead.id, type: "LEAD_ASSIGNED", description: "Assigned during creation", actorId: session.user.id });
-    } else {
-      await autoAssignLead(lead.id, organizationId);
     }
 
     await recalculateLeadScore(lead.id, "LEAD_CREATED");

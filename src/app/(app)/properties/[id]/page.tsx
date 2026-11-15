@@ -38,7 +38,10 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const session = await auth();
   const organizationId = getOrganizationId(session!.user);
-  const property = await prisma.property.findFirst({ where: { id, organizationId }, include: { partner: true } });
+  const property = await prisma.property.findFirst({
+    where: { id, organizationId },
+    include: { partner: true, createdBy: { select: { id: true, name: true, role: true } } },
+  });
   if (!property) notFound();
   const canEditDistribution = ["ADMIN", "DATA_MANAGER"].includes(session!.user.role);
 
@@ -289,7 +292,16 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             </h3>
             <div className="space-y-2 text-xs text-[#52525B]">
               <Row label="Property Code" value={property.propertyCode} />
-              <Row label="Added on" value={formatDate(property.createdAt)} />
+              <Row label="Added by" value={property.createdBy?.name ?? "System / Not recorded"} />
+              <Row
+                label="Added on"
+                value={`${formatDate(property.createdAt)} at ${new Date(property.createdAt).toLocaleTimeString("en-IN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                  timeZone: "Asia/Kolkata",
+                })}`}
+              />
               <Row label="Last updated" value={formatDate(property.updatedAt)} />
             </div>
           </div>

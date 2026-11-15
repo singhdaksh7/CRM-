@@ -2,7 +2,6 @@ import { prisma } from "./prisma";
 import { generateCode } from "./utils";
 import { logActivity } from "./activity";
 import { getSystemOrganizationId } from "./organization";
-import { autoAssignLead } from "./assignment";
 import { recalculateLeadScore } from "./scoring";
 import { runMatchingForLead } from "./lead-matching";
 import { notifyRoles } from "./notifications";
@@ -54,7 +53,8 @@ export async function ingestWebhookLead(data: WebhookLeadInput, source: LeadSour
 
   await logActivity({ leadId: lead.id, type: "LEAD_RECEIVED", description: `Lead received via ${source.replace(/_/g, " ")} webhook` });
 
-  const assignment = await autoAssignLead(lead.id, organizationId);
+  // Change 2: Webhook leads default to unassigned (no automatic assignment)
+  const assignment = null;
   const score = await recalculateLeadScore(lead.id, "LEAD_CREATED");
 
   try {

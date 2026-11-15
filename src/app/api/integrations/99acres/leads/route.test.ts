@@ -224,9 +224,9 @@ describe("creating leads", () => {
     expect(snapshot.unmappedFields).toEqual(expect.arrayContaining(["brandNewField", "nested"]));
   });
 
-  it("makes the lead available to the normal CRM workflows (assignment, score, matching, notification)", async () => {
+  it("makes the lead available to the normal CRM workflows (unassigned, score, matching, notification)", async () => {
     await POST(makeRequest(normalLead));
-    expect(autoAssignLead).toHaveBeenCalledWith("lead_1", "org_default");
+    expect(autoAssignLead).not.toHaveBeenCalled();
     expect(recalculateLeadScore).toHaveBeenCalledWith("lead_1", "LEAD_CREATED");
     expect(runMatchingForLead).toHaveBeenCalledWith("lead_1", "created");
     expect(notifyRoles).toHaveBeenCalledWith(["ADMIN", "DATA_MANAGER"], expect.objectContaining({ leadId: "lead_1", type: "NEW_LEAD" }));

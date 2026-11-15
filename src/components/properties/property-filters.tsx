@@ -19,6 +19,9 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
     const params = new URLSearchParams(sp.toString());
     if (value) params.set(key, value);
     else params.delete(key);
+    // Reset page and cursor on any filter change, preserving pageSize
+    params.delete("page");
+    params.delete("cursor");
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -37,6 +40,8 @@ export function PropertyFilters({ view }: { view: "table" | "card" }) {
       params.delete("bhk");
       params.delete("furnishing");
     }
+    params.delete("page");
+    params.delete("cursor");
     router.push(`${pathname}?${params.toString()}`);
   }
 
