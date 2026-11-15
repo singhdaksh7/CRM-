@@ -30,6 +30,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Security / config scan
         run: bash .github/scripts/repo-safety.sh
+      - name: Self-test post-deploy branch cleanup logic (mock gh, no network)
+        run: bash .github/scripts/test-cleanup-merged-branch.sh
 
   # ---------------------------------------------------------------------------
   # Prisma schema / migration change detection + destructive-SQL gate.
