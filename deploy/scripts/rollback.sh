@@ -7,7 +7,7 @@
 # (additive migrations are designed for this). DB restore is manual: see docs/CI_CD.md.
 set -Eeuo pipefail
 . "$(dirname "$0")/lib.sh"; STEP=rollback
-[ "${1:-}" = list ] && { cat "$STATE/current.env" 2>/dev/null; echo ---; tail -20 "$STATE/history.log" 2>/dev/null; echo ---; docker images kp-crm --format '{{.Tag}}\t{{.CreatedSince}}\t{{.ID}}'; exit 0; }
+[ "${1:-}" = list ] && { cat "$STATE/current.env" 2>/dev/null || echo "(no current.env yet: no release has run)"; echo ---; tail -20 "$STATE/history.log" 2>/dev/null || echo "(no history yet)"; echo ---; docker images kp-crm --format '{{.Tag}}\t{{.CreatedSince}}\t{{.ID}}'; exit 0; }
 TAGN=${1:?usage: rollback.sh list | <image-tag> [source-sha]}; TAGN=${TAGN#kp-crm:}
 mkdir -p "$STATE"; exec 9>"$STATE/deploy.lock"; flock -n 9 || die "a deployment is running" 75
 docker image inspect "kp-crm:$TAGN" >/dev/null 2>&1 || die "image kp-crm:$TAGN not found (try: rollback.sh list)"

@@ -90,6 +90,7 @@ The same locks, backup, gates and rollback apply. Do not use `docker compose up`
 
 ## 8. One-time server setup
 
+0. If `/opt/kp-crm/repo` is a copied tree (no `.git`, possibly CRLF line endings) convert it first: back it up (`cp -a repo repo.prev-<name>`), then `git init -b main && git remote add origin <repo url> && git fetch origin main && git checkout -f --detach <sha>` (the running container is unaffected).
 1. As `deploy`: `git -C /opt/kp-crm/repo pull --ff-only` once, so `release.sh`, `ssh-entry.sh` and the other scripts exist on the server. `mkdir -p /opt/kp-crm/state /opt/kp-crm/backups/pre-deploy`.
 2. Create a dedicated key: `ssh-keygen -t ed25519 -f kp-crm-deploy -C github-actions-kp-crm`. In `~deploy/.ssh/authorized_keys` add:
    `command="/opt/kp-crm/repo/deploy/scripts/ssh-entry.sh",restrict ssh-ed25519 AAAA... github-actions-kp-crm`
