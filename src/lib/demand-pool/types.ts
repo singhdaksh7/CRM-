@@ -119,6 +119,8 @@ export interface PropertyRecommendation {
   status: RecommendationStatus;
   /** Present on GET /api/properties/[id]/matches responses only (annotated at read time, not stored). */
   matchHistoryStatus?: MatchHistoryStatus;
+  /** Numeric budget the matcher used (requirement for contacts, Lead for leads). Present on GET /api/properties/[id]/matches. */
+  budget?: { minBudget: number | null; maxBudget: number | null } | null;
   preparedAt: string | null;
   sentAt: string | null;
   channel: string | null;

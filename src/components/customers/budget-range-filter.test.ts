@@ -12,12 +12,12 @@ const L = 100000;
 const CR = 10000000;
 
 const rows = [
-  { id: "a", requirement: { maxBudget: 2.25 * CR } },
-  { id: "b", requirement: { maxBudget: 2.5 * CR } },
-  { id: "c", requirement: { maxBudget: 4 * CR } },
-  { id: "d", requirement: { minBudget: 0, maxBudget: null } },
-  { id: "e", requirement: null },
-  { id: "f", requirement: { maxBudget: 30 * L } },
+  { id: "a", budget: { maxBudget: 2.25 * CR } },
+  { id: "b", budget: { maxBudget: 2.5 * CR } },
+  { id: "c", budget: { maxBudget: 4 * CR } },
+  { id: "d", budget: { minBudget: null, maxBudget: null } },
+  { id: "e", budget: null },
+  { id: "f", budget: { maxBudget: 30 * L } },
 ];
 
 // Mirrors the component's state model: visible rows use ONLY applied.
@@ -122,7 +122,7 @@ describe("Budget range filter — manual Apply / Remove", () => {
   });
 
   it("10. ₹2.25/2.50/2.54 Cr visible, ₹4 Cr hidden for applied ₹0–₹2.54 Cr", () => {
-    const withBoundary = [...rows, { id: "g", requirement: { maxBudget: 2.54 * CR } }];
+    const withBoundary = [...rows, { id: "g", budget: { maxBudget: 2.54 * CR } }];
     const ids = filterByBudgetRange(withBoundary, { min: 0, max: 2.54 * CR }).map((r) => r.id);
     expect(ids).toEqual(expect.arrayContaining(["a", "b", "g"]));
     expect(ids).not.toContain("c");
@@ -137,9 +137,9 @@ describe("Budget range filter — manual Apply / Remove", () => {
 
   it("12. core matching score/ranking order unchanged", () => {
     const ranked = [
-      { id: "x", score: 90, requirement: { maxBudget: 3 * CR } },
-      { id: "y", score: 80, requirement: { maxBudget: 1 * CR } },
-      { id: "z", score: 70, requirement: { maxBudget: 2 * CR } },
+      { id: "x", score: 90, budget: { maxBudget: 3 * CR } },
+      { id: "y", score: 80, budget: { maxBudget: 1 * CR } },
+      { id: "z", score: 70, budget: { maxBudget: 2 * CR } },
     ];
     const out = filterByBudgetRange(ranked, { min: null, max: 2 * CR });
     expect(out.map((r) => r.id)).toEqual(["y", "z"]);
