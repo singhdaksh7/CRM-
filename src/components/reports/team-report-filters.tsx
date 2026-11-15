@@ -83,6 +83,8 @@ export function TeamReportFilters({
               <option value="yesterday">Yesterday</option>
               <option value="last7">Last 7 Days</option>
               <option value="last30">Last 30 Days</option>
+              <option value="thisMonth">This Month</option>
+              <option value="prevMonth">Previous Month</option>
               <option value="custom">Custom Range</option>
             </Select>
           </div>

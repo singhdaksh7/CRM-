@@ -9,7 +9,7 @@ import { Badge, FOLLOWUP_STATUS_TONE, VISIT_STATUS_TONE } from "@/components/ui/
 import { Select, Input, Textarea, Field } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDateTime, enumToLabel, timeAgo } from "@/lib/utils";
-import { ArrowRightLeft, Send, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText, CalendarPlus, ClipboardPenLine } from "lucide-react";
+import { ArrowRightLeft, Send, Plus, MessageSquare, Building2, User as UserIcon, CheckCircle2, Zap, Gauge, FileText, CalendarPlus, ClipboardPenLine, Trophy } from "lucide-react";
 import { ConversationPanel } from "@/components/whatsapp/conversation-panel";
 import { CataloguesTab } from "@/components/catalogues/catalogues-tab";
 import { EntityDocumentPanel } from "@/components/documents/entity-document-panel";
@@ -24,6 +24,7 @@ import { VisitScheduleWithCandidates } from "./visit-schedule-with-candidates";
 import { HUMAN_FOLLOWUP_TYPES, DEFAULT_FOLLOWUP_TYPE } from "@/lib/follow-up-types";
 import { LeadRequirementsPanel } from "./lead-requirements-panel";
 import { LogCompletedVisitDialog } from "./log-completed-visit-dialog";
+import { MarkDealClosedDialog } from "./mark-deal-closed-dialog";
 import { VISIT_REQUIRED_CODE } from "@/lib/visit-required";
 
 /** Matches src/lib/user-select.ts's assignedToSelect - only what this UI ever renders (name, plus id for keys/selection). */
@@ -228,12 +229,31 @@ export function LeadWorkspace({
     preselectedPropertyId || outcomeOverrideVisitId ? "visits" : "overview"
   );
   const [showInteraction, setShowInteraction] = useState(false);
+  const [dealClosedDialogOpen, setDealClosedDialogOpen] = useState(false);
   const canManage = role === "ADMIN" || role === "DATA_MANAGER";
 
   return (
     <div className="space-y-6">
-      <PrimaryActionsBar leadId={lead.id} phone={lead.phone} phones={lead.phones} onNavigate={setTab} onLogInteraction={() => setShowInteraction(true)} />
+      <PrimaryActionsBar
+        leadId={lead.id}
+        phone={lead.phone}
+        phones={lead.phones}
+        leadStatus={lead.status}
+        canManage={canManage}
+        onNavigate={setTab}
+        onLogInteraction={() => setShowInteraction(true)}
+        onMarkDealClosed={() => setDealClosedDialogOpen(true)}
+      />
       {showInteraction && <InteractionComposer leadId={lead.id} onClose={() => setShowInteraction(false)} />}
+      <MarkDealClosedDialog
+        open={dealClosedDialogOpen}
+        onClose={() => setDealClosedDialogOpen(false)}
+        leadId={lead.id}
+        leadClientName={lead.clientName}
+        leadOwnerName={lead.assignedTo?.name}
+        employees={employees}
+        defaultClosedById={lead.assignedToId}
+      />
 
       <div className="flex gap-1.5 overflow-x-auto rounded-xl border border-[#E4E4E7] bg-white p-1 text-sm shadow-2xs">
         {TABS.map((t) => (
@@ -380,14 +400,20 @@ function PrimaryActionsBar({
   leadId,
   phone,
   phones,
+  leadStatus,
+  canManage,
   onNavigate,
   onLogInteraction,
+  onMarkDealClosed,
 }: {
   leadId: string;
   phone: string;
   phones: { phone: string; label: string | null; type: string }[];
+  leadStatus: string;
+  canManage: boolean;
   onNavigate: (tab: LeadTab) => void;
   onLogInteraction: () => void;
+  onMarkDealClosed: () => void;
 }) {
   const phoneOptions: PhoneOption[] = [
     { label: "Primary", number: phone, isPrimary: true },
@@ -399,24 +425,36 @@ function PrimaryActionsBar({
   }
 
   return (
-    <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-[#E4E4E7] bg-white p-3 shadow-2xs">
-      <LeadPhonePicker phones={phoneOptions} action="call" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("more")} />
-      <LeadPhonePicker phones={phoneOptions} action="whatsapp" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("more")} />
-      <Button size="sm" variant="secondary" onClick={() => onNavigate("matches")}>
-        <Send className="h-4 w-4" /> Send Catalogue
-      </Button>
-      <Button size="sm" variant="secondary" onClick={() => onNavigate("followups")}>
-        <Plus className="h-4 w-4" /> Add Follow-up
-      </Button>
-      <Button size="sm" variant="secondary" onClick={onLogInteraction}>
-        <ClipboardPenLine className="h-4 w-4" /> Log Interaction
-      </Button>
-      <Button size="sm" variant="secondary" onClick={() => onNavigate("overview")}>
-        <FileText className="h-4 w-4" /> Add Note
-      </Button>
-      <Button size="sm" variant="secondary" onClick={() => onNavigate("visits")}>
-        <CalendarPlus className="h-4 w-4" /> Schedule Visit
-      </Button>
+    <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-[#E4E4E7] bg-white p-3 shadow-2xs items-center justify-between">
+      <div className="flex flex-wrap gap-2 items-center">
+        <LeadPhonePicker phones={phoneOptions} action="call" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("more")} />
+        <LeadPhonePicker phones={phoneOptions} action="whatsapp" onCall={logCall} onOpenWhatsAppPanel={() => onNavigate("more")} />
+        <Button size="sm" variant="secondary" onClick={() => onNavigate("matches")}>
+          <Send className="h-4 w-4" /> Send Catalogue
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => onNavigate("followups")}>
+          <Plus className="h-4 w-4" /> Add Follow-up
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onLogInteraction}>
+          <ClipboardPenLine className="h-4 w-4" /> Log Interaction
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => onNavigate("overview")}>
+          <FileText className="h-4 w-4" /> Add Note
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => onNavigate("visits")}>
+          <CalendarPlus className="h-4 w-4" /> Schedule Visit
+        </Button>
+      </div>
+
+      {canManage && leadStatus !== "CLOSED_WON" && (
+        <Button
+          size="sm"
+          onClick={onMarkDealClosed}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+        >
+          <Trophy className="h-4 w-4" /> Mark Deal Closed
+        </Button>
+      )}
     </div>
   );
 }
@@ -501,6 +539,7 @@ function OverviewTab({
   // Visit Completed needs a visit behind it. When the API answers VISIT_REQUIRED the dropdown snaps back to the
   // lead's real status and this dialog collects the completed visit (created + lead moved atomically server-side).
   const [visitDialogOpen, setVisitDialogOpen] = useState(false);
+  const [dealClosedDialogOpen, setDealClosedDialogOpen] = useState(false);
 
   async function updateField(field: "status" | "priority", value: string) {
     setSaving(true);
@@ -526,6 +565,10 @@ function OverviewTab({
 
   function onStatusChange(value: string) {
     setStatus(value);
+    if (value === "CLOSED_WON") {
+      setDealClosedDialogOpen(true);
+      return;
+    }
     if (LOST_TERMINAL_STATUSES.has(value)) {
       setPendingLostStatus(value);
       setLostReasonCategory(LOST_REASON_CATEGORIES[0]);
@@ -748,6 +791,21 @@ function OverviewTab({
               leadId={lead.id}
               assignees={visitAssignees}
               defaultAssigneeId={lead.assignedToId}
+            />
+            <MarkDealClosedDialog
+              open={dealClosedDialogOpen}
+              onClose={() => {
+                setDealClosedDialogOpen(false);
+                setStatus(lead.status);
+              }}
+              leadId={lead.id}
+              leadClientName={lead.clientName}
+              leadOwnerName={lead.assignedTo?.name}
+              employees={employees}
+              defaultClosedById={lead.assignedToId}
+              onSuccess={() => {
+                setStatus("CLOSED_WON");
+              }}
             />
             {pendingLostStatus && (
               <div className="space-y-3 rounded-xl border border-[#FFC7C9] bg-[#FFECEC] p-3">

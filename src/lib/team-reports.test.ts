@@ -5,10 +5,12 @@ const propertyCount = vi.fn();
 const visitCount = vi.fn();
 const followUpCount = vi.fn();
 const activityCount = vi.fn();
+const dealCount = vi.fn();
 const activityFindMany = vi.fn();
 const propertyFindMany = vi.fn();
 const visitFindMany = vi.fn();
 const followUpFindMany = vi.fn();
+const dealFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -29,6 +31,10 @@ vi.mock("@/lib/prisma", () => ({
       count: (...a: unknown[]) => activityCount(...a),
       findMany: (...a: unknown[]) => activityFindMany(...a),
     },
+    deal: {
+      count: (...a: unknown[]) => dealCount(...a),
+      findMany: (...a: unknown[]) => dealFindMany(...a),
+    },
   },
 }));
 
@@ -41,6 +47,7 @@ beforeEach(() => {
   visitCount.mockResolvedValue(7);
   followUpCount.mockResolvedValue(5);
   activityCount.mockResolvedValue(12);
+  dealCount.mockResolvedValue(3);
   activityFindMany.mockImplementation(async (args: { distinct?: string[] }) => {
     if (args?.distinct) return [{ leadId: "lead_1" }, { leadId: "lead_2" }];
     return [];
@@ -48,6 +55,7 @@ beforeEach(() => {
   propertyFindMany.mockResolvedValue([]);
   visitFindMany.mockResolvedValue([]);
   followUpFindMany.mockResolvedValue([]);
+  dealFindMany.mockResolvedValue([]);
 });
 
 describe("Change 3 — Team Reports & Date Range Attribution", () => {
@@ -104,6 +112,7 @@ describe("Change 3 — Team Reports & Date Range Attribution", () => {
     expect(data!.metrics.followUpsCompleted).toBe(5);
     expect(data!.metrics.activitiesLogged).toBe(12);
     expect(data!.metrics.leadsWorked).toBe(2);
+    expect(data!.metrics.dealsClosedCount).toBe(3);
 
     // Verify organization scoping on property count
     const propArgs = propertyCount.mock.calls[0][0];

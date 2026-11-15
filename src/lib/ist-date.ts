@@ -43,6 +43,15 @@ export function startOfIstMonth(now: Date = new Date()): Date {
   return new Date(istMonthStartAsUtc - IST_OFFSET_MS);
 }
 
+/** The instant just before the next IST month starts after `now`. */
+export function endOfIstMonth(now: Date = new Date()): Date {
+  const istMillis = now.getTime() + IST_OFFSET_MS;
+  const istDate = new Date(istMillis);
+  // Date.UTC with month + 1 and date 1 gives the first millisecond of the next month
+  const nextMonthStartAsUtc = Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth() + 1, 1);
+  return new Date(nextMonthStartAsUtc - IST_OFFSET_MS - 1);
+}
+
 /** "YYYY-MM" bucket key for an instant, keyed by its IST calendar month - used for grouping trend/monthly data consistently regardless of server timezone. */
 export function istMonthKey(d: Date): string {
   const istMillis = d.getTime() + IST_OFFSET_MS;
