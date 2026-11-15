@@ -23,7 +23,7 @@ import { MatchExplanation } from "./match-explanation";
 import { MatchTierBadge, MatchHistoryBadge } from "./badges";
 import { RecommendationPreviewModal } from "./recommendation-preview";
 import { BudgetRangeFilter } from "./budget-range-filter";
-import { matchesBudgetRange, NO_BUDGET_FILTER } from "./budget-range-logic";
+import { matchesBudgetRange, formatBudgetLabel, NO_BUDGET_FILTER } from "./budget-range-logic";
 
 const DEFAULT_STRETCH = 0.2;
 
@@ -95,7 +95,7 @@ export function MatchedCustomersPanel({
       }
 
       // Budget filter uses ONLY the applied range, against requirement.maxBudget.
-      if (!matchesBudgetRange(r.requirement, budgetRange)) return false;
+      if (!matchesBudgetRange(r.budget, budgetRange)) return false;
 
       return true;
     });
@@ -232,7 +232,7 @@ export function MatchedCustomersPanel({
                 whatsAppOptOut: row.customerContact?.whatsAppOptOut,
                 lastContactedAt: row.customerContact?.lastContactedAt ?? row.lead?.lastContactedAt,
               });
-              const budget = row.requirement?.maxBudget ?? null;
+              const budget = row.budget?.maxBudget ?? null;
               const stretch = budgetStretchDisplay({
                 customerBudget: budget,
                 propertyPrice,
@@ -273,7 +273,7 @@ export function MatchedCustomersPanel({
                         </p>
                       )}
                       <p className="text-xs text-[#71717A]">
-                        Budget {formatINR(budget, { compact: true })} · Localities {parseLocalities(row.requirement?.preferredLocalities).join(", ") || "—"} · Last contacted {lastContactedLabel(row.customerContact?.lastContactedAt ?? row.lead?.lastContactedAt)} · Last property sent {row.customerContact?.lastPropertySentAt ? lastContactedLabel(row.customerContact.lastPropertySentAt) : "—"}
+                        {formatBudgetLabel(row.budget, (n) => formatINR(n, { compact: true }))} · Localities {parseLocalities(row.requirement?.preferredLocalities).join(", ") || "—"} · Last contacted {lastContactedLabel(row.customerContact?.lastContactedAt ?? row.lead?.lastContactedAt)} · Last property sent {row.customerContact?.lastPropertySentAt ? lastContactedLabel(row.customerContact.lastPropertySentAt) : "—"}
                       </p>
                       {!stretch.withinThreshold && (
                         <p className="text-xs font-medium text-red-600">Budget stretch warning: {stretch.label}</p>

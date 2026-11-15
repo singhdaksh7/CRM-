@@ -25,20 +25,33 @@ export function isDraftDirty(draft: BudgetRange, applied: BudgetRange): boolean 
  * When a filter is active, leads with a missing budget are hidden. No range-overlap logic.
  */
 export function matchesBudgetRange(
-  requirement: { maxBudget?: number | null } | null | undefined,
+  budget: { maxBudget?: number | null } | null | undefined,
   applied: BudgetRange,
 ): boolean {
   if (!isBudgetFilterActive(applied)) return true;
-  const budget = requirement?.maxBudget;
-  if (budget === null || budget === undefined || Number.isNaN(budget)) return false;
-  if (applied.min !== null && budget < applied.min) return false;
-  if (applied.max !== null && budget > applied.max) return false;
+  const maxBudget = budget?.maxBudget;
+  if (maxBudget === null || maxBudget === undefined || Number.isNaN(maxBudget)) return false;
+  if (applied.min !== null && maxBudget < applied.min) return false;
+  if (applied.max !== null && maxBudget > applied.max) return false;
   return true;
 }
 
-export function filterByBudgetRange<T extends { requirement?: { maxBudget?: number | null } | null }>(
+export function filterByBudgetRange<T extends { budget?: { maxBudget?: number | null } | null }>(
   rows: T[],
   applied: BudgetRange,
 ): T[] {
-  return rows.filter((r) => matchesBudgetRange(r.requirement, applied));
+  return rows.filter((r) => matchesBudgetRange(r.budget, applied));
+}
+
+/** Card label from the structured budget. "Budget not specified" only when there is genuinely none. */
+export function formatBudgetLabel(
+  budget: { minBudget?: number | null; maxBudget?: number | null } | null | undefined,
+  fmt: (n: number) => string,
+): string {
+  const min = budget?.minBudget ?? null;
+  const max = budget?.maxBudget ?? null;
+  if (min !== null && max !== null) return `Budget ${fmt(min)} – ${fmt(max)}`;
+  if (max !== null) return `Budget up to ${fmt(max)}`;
+  if (min !== null) return `Budget from ${fmt(min)}`;
+  return "Budget not specified";
 }

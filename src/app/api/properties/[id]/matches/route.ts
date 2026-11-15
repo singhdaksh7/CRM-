@@ -6,6 +6,7 @@ import { recomputeMatchesForProperty } from "@/lib/demand-recommendations";
 import { getSystemConfig } from "@/lib/system-config";
 import { loadMatchHistory, matchHistoryStatusFor, matchHistorySortRank } from "@/lib/match-history";
 import { isLeadAccessibleToUser } from "@/lib/lead-access";
+import { resolveRecommendationBudget } from "@/lib/match-budget";
 
 // GET /api/properties/[id]/matches - MATCHED CUSTOMERS panel (rule 19):
 // unified CONTACT + LEAD candidates for this property, filterable by tier/
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       },
       include: {
         customerContact: { select: { id: true, name: true, phone: true, doNotContact: true, whatsAppOptOut: true, lastContactedAt: true, lastPropertySentAt: true } },
-        lead: { select: { id: true, clientName: true, phone: true, status: true, lastContactedAt: true, assignedToId: true } },
+        lead: { select: { id: true, clientName: true, phone: true, status: true, lastContactedAt: true, assignedToId: true, minBudget: true, maxBudget: true } },
         requirement: { select: { id: true, minBudget: true, maxBudget: true, preferredLocalities: true } },
       },
       orderBy: [{ tier: "asc" }, { score: "desc" }],
@@ -72,7 +73,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const history = await loadMatchHistory(organizationId, id, leadIds);
     const includeRejected = sp.get("includeRejected") === "true";
     const withHistory = contactRecencyFiltered
-      .map((r) => ({ ...r, matchHistoryStatus: matchHistoryStatusFor(r.leadId, history) }))
+      .map((r) => ({
+        ...r,
+        matchHistoryStatus: matchHistoryStatusFor(r.leadId, history),
+        // Structured numeric budget the matching engine scored with (lead-sourced rows have no requirement).
+        budget: resolveRecommendationBudget(r),
+      }))
       // REJECTED candidates are never presented as a normal fresh match by
       // default - never deleted, just excluded here unless explicitly asked
       // for (e.g. an audit/debug view), same convention as ?status=EXPIRED
