@@ -1,8 +1,9 @@
 name: Deploy production
 
 # Production deploys happen ONLY for a commit on `main` whose CI succeeded
-# (after the PR was merged), and then only after a human approves the
-# `vps-production` environment. Feature/PR branches can never reach this workflow's
+# (after the PR was merged) and start AUTOMATICALLY - the `vps-production`
+# environment has no required reviewer; it only restricts deploys to `main` and
+# holds the deploy secrets. Feature/PR branches can never reach this workflow's
 # deploy job: the workflow_run trigger is filtered to push events on main, and
 # the resolve job re-verifies the SHA and its CI check results independently.
 on:
@@ -10,6 +11,10 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  # EMERGENCY / RECOVERY ONLY (re-run a deploy of a main commit, or ship a
+  # human-reviewed destructive migration). Goes through the exact same `resolve`
+  # gates (SHA on main, required checks green for that SHA) and the same
+  # release.sh gates (preflight, migration safety, verified backup, health, rollback).
   workflow_dispatch:
     inputs:
       sha:
@@ -90,7 +95,8 @@ jobs:
     if: needs.resolve.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    # Required reviewers on this environment = the manual approval gate.
+    # No required reviewers: deploys run automatically once `resolve` passes.
+    # The environment restricts deployment branches to `main` and holds secrets.
     environment:
       name: vps-production
       url: https://crm.kpproperties.co.in
