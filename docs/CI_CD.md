@@ -120,3 +120,7 @@ Pull request required; 1 approval; required checks `validate`, `repo-safety`, `d
 ## 10. Production safety rules (summary)
 
 Never on production: wipe/recreate/reseed the DB, `migrate reset`, `db push`, demo seed, handover reset, editing customer rows to test, replacing the env file, restarting postgres/redis/traefik, deploying a feature or PR branch. Smoke checks are GET-only. Treat production data as immutable apart from normal business writes by staff.
+
+## Pipeline validation log
+
+- 2026-11-15: CI/CD activated on the VPS; deploy workflow dry run passed (docs-only PR used to validate required checks and branch protection).
