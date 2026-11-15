@@ -4,18 +4,26 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatINR, formatDate, formatDateTime, enumToLabel, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Calendar, CheckSquare, Activity as ActivityIcon, Users, ExternalLink } from "lucide-react";
+import { Building2, Calendar, CheckSquare, Activity as ActivityIcon, Users, ExternalLink, Trophy } from "lucide-react";
 import type { TeamReportData } from "@/lib/team-reports-data";
 
 export function TeamReportView({ data }: { data: TeamReportData }) {
-  const [tab, setTab] = useState<"overview" | "properties" | "visits" | "followups" | "activities">("overview");
+  const [tab, setTab] = useState<"overview" | "properties" | "visits" | "followups" | "activities" | "deals">("overview");
 
   const { member, metrics, details } = data;
 
   return (
     <div className="space-y-6">
       {/* Metrics Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+        <div className="rounded-xl border border-[#E4E4E7] bg-white p-4 shadow-2xs">
+          <div className="flex items-center gap-2 text-xs text-[#71717A] mb-1">
+            <Trophy className="h-4 w-4 text-emerald-600" />
+            <span>Deals Closed</span>
+          </div>
+          <p className="text-2xl font-bold text-emerald-700">{metrics.dealsClosedCount}</p>
+        </div>
+
         <div className="rounded-xl border border-[#E4E4E7] bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-2 text-xs text-[#71717A] mb-1">
             <Building2 className="h-4 w-4 text-blue-600" />
@@ -34,7 +42,7 @@ export function TeamReportView({ data }: { data: TeamReportData }) {
 
         <div className="rounded-xl border border-[#E4E4E7] bg-white p-4 shadow-2xs">
           <div className="flex items-center gap-2 text-xs text-[#71717A] mb-1">
-            <CheckSquare className="h-4 w-4 text-emerald-600" />
+            <CheckSquare className="h-4 w-4 text-teal-600" />
             <span>Follow-ups Done</span>
           </div>
           <p className="text-2xl font-bold text-[#09090B]">{metrics.followUpsCompleted}</p>
@@ -61,6 +69,7 @@ export function TeamReportView({ data }: { data: TeamReportData }) {
       <div className="flex flex-wrap gap-1.5 border-b border-[#E4E4E7] pb-3">
         {[
           { key: "overview", label: "Overview" },
+          { key: "deals", label: `Deals Closed (${details.dealsClosed.length})` },
           { key: "properties", label: `Properties Added (${details.properties.length})` },
           { key: "visits", label: `Visits (${details.visits.length})` },
           { key: "followups", label: `Follow-ups Completed (${details.followUps.length})` },
@@ -70,7 +79,7 @@ export function TeamReportView({ data }: { data: TeamReportData }) {
             key={t.key}
             onClick={() => setTab(t.key as typeof tab)}
             className={cn(
-              "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors",
+              "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer",
               tab === t.key
                 ? "bg-[#0A0A0A] text-white shadow-2xs"
                 : "text-[#52525B] hover:text-[#09090B] hover:bg-[#F4F4F5]"
@@ -96,8 +105,94 @@ export function TeamReportView({ data }: { data: TeamReportData }) {
           <div className="rounded-xl border border-[#E4E4E7] bg-white p-5 shadow-2xs space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#71717A]">Activity Summary</h3>
             <p className="text-xs text-[#52525B] leading-relaxed">
-              In this timeframe, <strong>{member.name}</strong> added {metrics.propertiesAdded} properties, executed {metrics.visitsCount} client visits, completed {metrics.followUpsCompleted} follow-up tasks, and interacted across {metrics.leadsWorked} unique leads.
+              In this timeframe, <strong>{member.name}</strong> closed {metrics.dealsClosedCount} deals, added {metrics.propertiesAdded} properties, executed {metrics.visitsCount} client visits, completed {metrics.followUpsCompleted} follow-up tasks, and interacted across {metrics.leadsWorked} unique leads.
             </p>
+          </div>
+        </div>
+      )}
+
+      {tab === "deals" && (
+        <div className="rounded-xl border border-[#E4E4E7] bg-white shadow-2xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-[#E4E4E7] text-xs">
+              <thead className="bg-[#FAFAFA] text-left font-semibold text-[#71717A] uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-3">Lead / Client</th>
+                  <th className="px-4 py-3">Property</th>
+                  <th className="px-4 py-3">Lead Owner</th>
+                  <th className="px-4 py-3">Deal Closed By</th>
+                  <th className="px-4 py-3">Marked Closed By</th>
+                  <th className="px-4 py-3">Closed Date</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E4E4E7] text-[#52525B]">
+                {details.dealsClosed.map((d) => (
+                  <tr key={d.id} className="hover:bg-[#FAFAFA]">
+                    <td className="px-4 py-3 font-medium text-[#09090B]">
+                      {d.lead ? (
+                        <>
+                          <div className="font-semibold">{d.lead.clientName}</div>
+                          <div className="text-[11px] font-mono text-[#71717A]">{d.lead.leadCode}</div>
+                        </>
+                      ) : (
+                        <span className="text-[#71717A]">Legacy / No Lead</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {d.property ? (
+                        <>
+                          <div className="font-medium text-[#09090B]">{d.property.title}</div>
+                          <div className="text-[11px] text-[#71717A]">{d.property.propertyCode} · {d.property.area}</div>
+                        </>
+                      ) : (
+                        <span className="text-[#71717A]">Direct / No Property</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-[#09090B]">{d.lead?.assignedTo?.name ?? "Unassigned"}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-emerald-700">{d.assignedTo?.name ?? "Unknown"}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>{d.createdBy?.name ?? "System"}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>{d.closedAt ? formatDate(d.closedAt) : "—"}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone="green">{d.stage === "CLOSED_WON" ? "Deal Won" : enumToLabel(d.status)}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {d.lead ? (
+                        <Link
+                          href={`/leads/${d.lead.id}`}
+                          className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+                        >
+                          View Lead <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/deals/${d.id}`}
+                          className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+                        >
+                          View Deal <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {details.dealsClosed.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-6 text-center text-[#71717A]">
+                      No deals closed by this member in the selected date range.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

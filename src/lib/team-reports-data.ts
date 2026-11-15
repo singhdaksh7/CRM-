@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
-import { startOfIstDay, endOfIstDay } from "./ist-date";
+import { startOfIstDay, endOfIstDay, startOfIstMonth, endOfIstMonth } from "./ist-date";
 
-export type TeamReportPeriod = "today" | "yesterday" | "last7" | "last30" | "custom";
+export type TeamReportPeriod = "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "prevMonth" | "custom";
 
 export interface TeamReportDateRange {
   from: Date;
@@ -45,6 +45,25 @@ export function resolveTeamReportDateRange(params: {
     };
   }
 
+  if (period === "thisMonth") {
+    return {
+      from: startOfIstMonth(now),
+      to: endOfIstMonth(now),
+      period: "thisMonth",
+    };
+  }
+
+  if (period === "prevMonth") {
+    // 1st of current IST month minus 1ms is in prev month
+    const startOfCurrentMonth = startOfIstMonth(now);
+    const prevMonthInstant = new Date(startOfCurrentMonth.getTime() - 1);
+    return {
+      from: startOfIstMonth(prevMonthInstant),
+      to: endOfIstMonth(prevMonthInstant),
+      period: "prevMonth",
+    };
+  }
+
   if (period === "custom" && params.from && params.to) {
     const fromDate = new Date(`${params.from}T00:00:00+05:30`);
     const toDate = new Date(`${params.to}T23:59:59.999+05:30`);
@@ -78,8 +97,20 @@ export interface TeamReportData {
     followUpsCompleted: number;
     activitiesLogged: number;
     leadsWorked: number;
+    dealsClosedCount: number;
   };
   details: {
+    dealsClosed: Array<{
+      id: string;
+      dealCode: string;
+      status: string;
+      stage: string;
+      closedAt: Date | null;
+      lead: { id: string; clientName: string; leadCode: string; assignedTo: { id: string; name: string } | null } | null;
+      property: { id: string; propertyCode: string; title: string; area: string } | null;
+      assignedTo: { id: string; name: string } | null; // Deal Closed By
+      createdBy: { id: string; name: string } | null;  // Marked Closed By
+    }>;
     properties: Array<{
       id: string;
       propertyCode: string;
@@ -137,6 +168,8 @@ export async function getTeamReportData(params: {
     followUpsCompletedCount,
     activitiesCount,
     distinctLeadsWorked,
+    dealsClosedCount,
+    dealsClosed,
     properties,
     visits,
     followUps,
@@ -185,6 +218,51 @@ export async function getTeamReportData(params: {
       },
       distinct: ["leadId"],
       select: { leadId: true },
+    }),
+    // Metric 6: Deals Closed count (Deal Closed By selected user, status WON, closedAt within range)
+    prisma.deal.count({
+      where: {
+        organizationId,
+        assignedToId: userId,
+        status: "WON",
+        closedAt: { gte: range.from, lte: range.to },
+      },
+    }),
+    // Drill-down 0: Deals Closed
+    prisma.deal.findMany({
+      where: {
+        organizationId,
+        assignedToId: userId,
+        status: "WON",
+        closedAt: { gte: range.from, lte: range.to },
+      },
+      select: {
+        id: true,
+        dealCode: true,
+        status: true,
+        stage: true,
+        closedAt: true,
+        lead: {
+          select: {
+            id: true,
+            clientName: true,
+            leadCode: true,
+            assignedTo: { select: { id: true, name: true } },
+          },
+        },
+        property: {
+          select: {
+            id: true,
+            propertyCode: true,
+            title: true,
+            area: true,
+          },
+        },
+        assignedTo: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+      },
+      orderBy: { closedAt: "desc" },
+      take: 100,
     }),
     // Drill-down 1: Properties
     prisma.property.findMany({
@@ -272,8 +350,10 @@ export async function getTeamReportData(params: {
       followUpsCompleted: followUpsCompletedCount,
       activitiesLogged: activitiesCount,
       leadsWorked: distinctLeadsWorked.length,
+      dealsClosedCount,
     },
     details: {
+      dealsClosed,
       properties: properties.map((p) => ({
         id: p.id,
         propertyCode: p.propertyCode,
