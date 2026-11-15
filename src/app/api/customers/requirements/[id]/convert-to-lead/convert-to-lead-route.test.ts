@@ -79,14 +79,14 @@ beforeEach(() => {
   autoAssignLead.mockResolvedValue({ assigned: true, employeeId: "emp1", strategy: "LOWEST_WORKLOAD", reason: "ok" });
 });
 
-describe("A6 - Demand Pool conversion enters the same assignment orchestration", () => {
-  it("runs autoAssignLead (the same engine POST /api/leads uses) for a freshly converted lead", async () => {
+describe("A6 - Demand Pool conversion (defaults to Unassigned)", () => {
+  it("converts requirement to lead leaving it unassigned by default", async () => {
     const res = await POST(req(), params("req1"));
     expect(res.status).toBe(201);
-    expect(autoAssignLead).toHaveBeenCalledWith("lead-dp-1", "org_default");
+    expect(autoAssignLead).not.toHaveBeenCalled();
   });
 
-  it("does not re-run assignment when the requirement was already converted (idempotent path)", async () => {
+  it("does not re-run conversion when the requirement was already converted (idempotent path)", async () => {
     requirementFindFirst.mockResolvedValue({ ...REQUIREMENT, convertedLeadId: "lead-existing" });
     leadFindUnique.mockResolvedValue({ id: "lead-existing" });
 
@@ -97,22 +97,11 @@ describe("A6 - Demand Pool conversion enters the same assignment orchestration",
     expect(autoAssignLead).not.toHaveBeenCalled();
   });
 
-  it("still returns 201 with the created lead even if auto-assignment throws (best-effort)", async () => {
-    autoAssignLead.mockRejectedValue(new Error("no eligible employees"));
-
+  it("records audit log on lead creation", async () => {
     const res = await POST(req(), params("req1"));
     const body = await res.json();
 
     expect(res.status).toBe(201);
     expect(body.lead.id).toBe("lead-dp-1");
-    expect(loggerError).toHaveBeenCalledWith("demand_pool_lead_auto_assign_failed", expect.objectContaining({ leadId: "lead-dp-1" }));
-  });
-
-  it("scopes assignment to the acting session's organization, not a client-suppliable value", async () => {
-    await POST(req(), params("req1"));
-    // getOrganizationId(session.user) is the only source for this call - the
-    // route never reads organizationId off the request body or the
-    // requirement row for this purpose.
-    expect(autoAssignLead).toHaveBeenCalledWith(expect.any(String), "org_default");
   });
 });

@@ -15,8 +15,8 @@ import {
 } from "@/lib/property-list-query";
 import { propertyTypeFilterValues } from "@/lib/property-categories";
 import { propertyListBhkWhere, resolvePropertyListBhkFilter } from "@/lib/property-list-filters";
+import { Pagination, parsePage, parsePageSize, PROPERTY_PAGE_SIZE_OPTIONS } from "@/components/ui/pagination";
 import { Plus, Upload, History } from "lucide-react";
-import Link from "next/link";
 import type { Prisma, PropertyStatus } from "@prisma/client";
 
 export default async function PropertiesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -32,26 +32,8 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   const { bhk, assetClass } = resolvePropertyListBhkFilter({ bhk: sp.bhk, assetClass: sp.assetClass });
   const hasCustomFilters = Boolean(sp.q || sp.listingType || assetClass || sp.propertyType || sp.area || bhk !== null || sp.furnishing || sp.possessionStatus || sp.liftAvailable || sp.parkFacing || (sp.status && sp.status !== "AVAILABLE") || sp.sort);
 
-  const listResult = await withTiming("propertiesPageQuery", "/properties", () =>
-    listAvailablePropertiesPage({
-      organizationId,
-      take: PROPERTY_LIST_INITIAL_TAKE,
-      cursor: sp.cursor,
-      status: statusFilter === null ? null : statusFilter,
-      q: sp.q,
-      listingType: sp.listingType,
-      assetClass,
-      propertyType: sp.propertyType,
-      area: sp.area,
-      bhk,
-      furnishing: sp.furnishing,
-      possessionStatus: sp.possessionStatus,
-      liftAvailable: sp.liftAvailable ? sp.liftAvailable === "true" : null,
-      parkFacing: sp.parkFacing ? sp.parkFacing === "true" : null,
-    })
-  );
-
-  const { properties, coverImageUrls, nextCursor, listedTimestampField } = listResult;
+  const pageSize = parsePageSize(sp.pageSize, PROPERTY_LIST_INITIAL_TAKE, PROPERTY_PAGE_SIZE_OPTIONS);
+  let page = parsePage(sp.page);
 
   const where: Prisma.PropertyWhereInput = {
     organizationId,
@@ -67,7 +49,9 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   }
   if (sp.listingType) where.listingType = sp.listingType as never;
   if (sp.propertyType) where.propertyType = { in: propertyTypeFilterValues(sp.propertyType) as never };
-  if (sp.area) where.area = sp.area;
+  if (sp.area && sp.area.trim()) {
+    where.area = { equals: sp.area.trim(), mode: "insensitive" };
+  }
   Object.assign(where, propertyListBhkWhere({ bhk, assetClass }));
   if (sp.furnishing) where.furnishing = sp.furnishing as never;
   if (sp.possessionStatus) where.possessionStatus = sp.possessionStatus as never;
@@ -75,15 +59,31 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   if (sp.parkFacing) where.parkFacing = sp.parkFacing === "true";
 
   const totalCount = await prisma.property.count({ where });
-
-  const seeMoreParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(sp)) {
-    if (key === "cursor" || value === undefined) continue;
-    seeMoreParams.set(key, value);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  if (page > totalPages) {
+    page = totalPages;
   }
-  if (!sp.status) seeMoreParams.set("status", "AVAILABLE");
-  if (nextCursor) seeMoreParams.set("cursor", nextCursor);
-  const seeMoreHref = nextCursor ? `/properties?${seeMoreParams.toString()}` : null;
+
+  const listResult = await withTiming("propertiesPageQuery", "/properties", () =>
+    listAvailablePropertiesPage({
+      organizationId,
+      page,
+      pageSize,
+      status: statusFilter === null ? null : statusFilter,
+      q: sp.q,
+      listingType: sp.listingType,
+      assetClass,
+      propertyType: sp.propertyType,
+      area: sp.area,
+      bhk,
+      furnishing: sp.furnishing,
+      possessionStatus: sp.possessionStatus,
+      liftAvailable: sp.liftAvailable ? sp.liftAvailable === "true" : null,
+      parkFacing: sp.parkFacing ? sp.parkFacing === "true" : null,
+    })
+  );
+
+  const { properties, coverImageUrls, listedTimestampField } = listResult;
 
   return (
     <div className="space-y-6">
@@ -127,16 +127,15 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
         <PropertiesTable properties={properties as never} canManage={canManage} />
       )}
 
-      {seeMoreHref && (
-        <div className="flex justify-center pt-2">
-          <Link
-            href={seeMoreHref}
-            className="inline-flex items-center rounded-lg border border-[#E4E4E7] bg-white px-4 py-2 text-xs font-semibold text-[#09090B] shadow-2xs hover:bg-[#F4F4F5] hover:border-[#D4D4D8] transition-colors"
-          >
-            See More
-          </Link>
-        </div>
-      )}
+      <Pagination
+        basePath="/properties"
+        currentParams={sp}
+        page={page}
+        pageSize={pageSize}
+        totalCount={totalCount}
+        showPageNumbers
+        pageSizeOptions={PROPERTY_PAGE_SIZE_OPTIONS}
+      />
     </div>
   );
 }
