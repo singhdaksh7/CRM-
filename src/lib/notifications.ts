@@ -304,7 +304,7 @@ async function notifyMissedVisits(organizationId: string, now: Date): Promise<Sw
 async function notifyPropertiesMissingPhotos(organizationId: string, now: Date): Promise<SweepRuleResult> {
   const cutoff = hoursAgo(now, 72);
   const properties = await prisma.property.findMany({
-    where: { organizationId, status: "AVAILABLE", images: "[]" },
+    where: { organizationId, status: "AVAILABLE", images: "[]", propertyImages: { none: { status: "ACTIVE", purpose: "IMAGE" } } },
     select: { id: true, title: true, propertyCode: true },
     take: SMART_SWEEP_LIMIT,
   });

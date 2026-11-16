@@ -3,6 +3,7 @@ import { cached } from "../cache";
 import { getSystemConfig } from "../system-config";
 import { buildHealthScore, daysBetween } from "./rule-engine";
 import type { HealthFactor, HealthLabel, HealthScoreResult } from "./types";
+import { countValidPropertyPhotos, hasPropertyCoverImage } from "../property-photo-count";
 import type { PropertyStatus, OwnerVerificationStatus } from "@prisma/client";
 
 /**
@@ -171,13 +172,10 @@ export async function getPropertyHealth(propertyId: string, organizationId: stri
     prisma.visit.findMany({ where: { propertyId, createdAt: { gte: since }, outcome: { not: null } }, select: { outcome: true } }),
   ]);
 
-  const images: string[] = (() => {
-    try {
-      return JSON.parse(property.images || "[]");
-    } catch {
-      return [];
-    }
-  })();
+  const photoRows = await prisma.propertyImage.findMany({
+    where: { propertyId, organizationId: property.organizationId, status: "ACTIVE", purpose: "IMAGE" },
+    select: { status: true, purpose: true, storageKey: true, isCover: true, createdAt: true },
+  });
 
   const hasPrice = property.listingType === "RENT" ? Boolean(property.monthlyRent && property.monthlyRent > 0) : Boolean(property.salePrice && property.salePrice > 0);
 
@@ -191,8 +189,8 @@ export async function getPropertyHealth(propertyId: string, organizationId: stri
     ownerVerificationStatus: property.owner?.verificationStatus ?? null,
     hasCompleteAddress: Boolean(property.address?.trim() && property.area?.trim() && property.city?.trim()),
     hasPrice,
-    imageCount: images.length,
-    hasCoverImage: Boolean(property.coverImage),
+    imageCount: countValidPropertyPhotos({ photoRows, legacyImages: property.images }),
+    hasCoverImage: hasPropertyCoverImage({ photoRows, legacyCoverImage: property.coverImage }),
     updatedAt: property.updatedAt,
     recentLeadMatchesCount: activeLeadCount,
     recentCatalogueShareCount,
@@ -201,9 +199,16 @@ export async function getPropertyHealth(propertyId: string, organizationId: stri
     pendingVerification: property.pendingVerification,
     daysSinceOwnerResponse: property.owner ? daysBetween(property.owner.updatedAt, now) : null,
     recentVisitOutcomeCount: { positive: positiveOutcomeCount, negative: negativeOutcomeCount },
-    photoUpdatedAt: property.imagesUpdatedAt,
+    photoUpdatedAt: latestDate(property.imagesUpdatedAt, ...photoRows.map((r) => r.createdAt)),
     daysSinceLastVerified: property.lastVerifiedAt ? daysBetween(property.lastVerifiedAt, now) : null,
   }, config.stalePropertyDays);
+}
+
+/** Latest non-null date; a fresh gallery upload must also refresh "photo updated" so it is never flagged stale. */
+function latestDate(...dates: (Date | null | undefined)[]): Date | null {
+  let best: Date | null = null;
+  for (const d of dates) if (d && (!best || d > best)) best = d;
+  return best;
 }
 
 const OVERVIEW_PROPERTY_LIMIT = 200;
@@ -232,7 +237,7 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
   const since = new Date();
   since.setDate(since.getDate() - RECENT_WINDOW_DAYS);
 
-  const [visitGroups, shareGroups, rejectionGroups, activeLeads, recentVisitOutcomes] = await Promise.all([
+  const [visitGroups, shareGroups, rejectionGroups, activeLeads, recentVisitOutcomes, photoRowsAll] = await Promise.all([
     prisma.visit.groupBy({ by: ["propertyId"], where: { propertyId: { in: propertyIds }, createdAt: { gte: since } }, _count: true }),
     prisma.catalogueShareProperty.groupBy({ by: ["propertyId"], where: { propertyId: { in: propertyIds }, createdAt: { gte: since } }, _count: true }),
     prisma.catalogueInteraction.groupBy({ by: ["propertyId"], where: { propertyId: { in: propertyIds }, type: "NOT_INTERESTED", createdAt: { gte: since } }, _count: true }),
@@ -242,7 +247,19 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
     }),
     // Phase 4 - one bulk query, bucketed in-memory below (never one query per property).
     prisma.visit.findMany({ where: { propertyId: { in: propertyIds }, createdAt: { gte: since }, outcome: { not: null } }, select: { propertyId: true, outcome: true } }),
+    // One bulk query for persisted gallery photos (never one query per property).
+    prisma.propertyImage.findMany({
+      where: { organizationId, propertyId: { in: propertyIds }, status: "ACTIVE", purpose: "IMAGE" },
+      select: { propertyId: true, status: true, purpose: true, storageKey: true, isCover: true, createdAt: true },
+    }),
   ]);
+
+  const photosByProperty = new Map<string, typeof photoRowsAll>();
+  for (const row of photoRowsAll) {
+    const list = photosByProperty.get(row.propertyId) ?? [];
+    list.push(row);
+    photosByProperty.set(row.propertyId, list);
+  }
 
   const visitByProperty = new Map(visitGroups.map((g) => [g.propertyId, g._count]));
   const shareByProperty = new Map(shareGroups.map((g) => [g.propertyId, g._count]));
@@ -266,13 +283,7 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
   const now = new Date();
   const counts = new Map<HealthLabel, number>();
   for (const property of properties) {
-    const images: string[] = (() => {
-      try {
-        return JSON.parse(property.images || "[]");
-      } catch {
-        return [];
-      }
-    })();
+    const photoRows = photosByProperty.get(property.id) ?? [];
     const hasPrice = property.listingType === "RENT" ? Boolean(property.monthlyRent && property.monthlyRent > 0) : Boolean(property.salePrice && property.salePrice > 0);
     const price = property.listingType === "RENT" ? property.monthlyRent ?? 0 : property.salePrice ?? 0;
     const key = `${property.area.toLowerCase()}|${property.listingType === "RENT" ? "RENT" : "BUY"}`;
@@ -284,8 +295,8 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
       ownerVerificationStatus: property.owner?.verificationStatus ?? null,
       hasCompleteAddress: Boolean(property.address?.trim() && property.area?.trim() && property.city?.trim()),
       hasPrice,
-      imageCount: images.length,
-      hasCoverImage: Boolean(property.coverImage),
+      imageCount: countValidPropertyPhotos({ photoRows, legacyImages: property.images }),
+      hasCoverImage: hasPropertyCoverImage({ photoRows, legacyCoverImage: property.coverImage }),
       updatedAt: property.updatedAt,
       recentLeadMatchesCount: matchingLeadCount,
       recentCatalogueShareCount: shareByProperty.get(property.id) ?? 0,
@@ -294,7 +305,7 @@ async function computePropertyHealthOverview(organizationId: string): Promise<{ 
       pendingVerification: property.pendingVerification,
       daysSinceOwnerResponse: property.owner ? daysBetween(property.owner.updatedAt, now) : null,
       recentVisitOutcomeCount: visitOutcomeByProperty.get(property.id) ?? { positive: 0, negative: 0 },
-      photoUpdatedAt: property.imagesUpdatedAt,
+      photoUpdatedAt: latestDate(property.imagesUpdatedAt, ...photoRows.map((r) => r.createdAt)),
       daysSinceLastVerified: property.lastVerifiedAt ? daysBetween(property.lastVerifiedAt, now) : null,
     }, config.stalePropertyDays);
     counts.set(result.label, (counts.get(result.label) ?? 0) + 1);
