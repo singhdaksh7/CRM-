@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Star, Trash2, ArrowUp, ArrowDown, Pencil, RefreshCw, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -22,6 +23,7 @@ interface GalleryImage {
 }
 
 export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }: { propertyId: string; propertyTitle: string; legacyCoverImage: string | null }) {
+  const router = useRouter();
   const { data: session } = useSession();
   const role = session?.user?.role;
   const canManage = role === "ADMIN" || role === "DATA_MANAGER";
@@ -46,6 +48,12 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
       .catch(() => setError("Could not load images."));
   }, [propertyId]);
 
+  /** After any gallery mutation: refetch the gallery AND re-run the server page so the Health/score panel reflects the new photo count. */
+  const reload = useCallback(() => {
+    load();
+    router.refresh();
+  }, [load, router]);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -60,7 +68,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
     setBusyId(null);
     if (res.ok) {
       toast.success("Thumbnail updated");
-      load();
+      reload();
     } else {
       toast.error("Could not update thumbnail");
     }
@@ -73,7 +81,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
     setBusyId(null);
     if (res.ok) {
       toast.success("Image removed");
-      load();
+      reload();
     } else {
       toast.error("Could not remove image");
     }
@@ -86,7 +94,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
     setCaptionDraftId(null);
     if (res.ok) {
       toast.success("Caption updated");
-      load();
+      reload();
     } else {
       toast.error("Could not update caption");
     }
@@ -118,7 +126,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
     setBusyId(null);
     if (res.ok) {
       toast.success("Image replaced");
-      load();
+      reload();
     } else {
       const body = await res.json().catch(() => ({}));
       toast.error(body.error ?? "Replacement failed - the original image was kept");
@@ -251,7 +259,7 @@ export function PropertyGallery({ propertyId, propertyTitle, legacyCoverImage }:
           </Button>
           {showUploader && (
             <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
-              <PropertyImageUploader propertyId={propertyId} onUploaded={load} />
+              <PropertyImageUploader propertyId={propertyId} onUploaded={reload} />
             </div>
           )}
         </div>

@@ -8,6 +8,7 @@ import { useStorageCapabilities } from "@/components/storage/use-storage-capabil
 import { StorageDisabledState } from "@/components/storage/storage-disabled-state";
 import { optimizePropertyImageFile } from "@/lib/client-image-optimize";
 import { describeDirectUploadFailure } from "@/lib/direct-upload-errors";
+import { friendlyUploadError, isNonRetryableUploadError, NOT_SUPPORTED_MESSAGE, TOO_LARGE_MESSAGE } from "@/lib/upload-error-messages";
 import { cn } from "@/lib/utils";
 
 type QueueStatus = "waiting" | "optimizing" | "authorizing" | "uploading" | "confirming" | "uploaded" | "failed" | "removed";
@@ -20,15 +21,6 @@ interface QueueItem {
   progress: number;
   error?: string;
   isCover: boolean;
-}
-
-function friendlyError(status: number | undefined, raw: string): string {
-  if (status === 413) return "The image is larger than the allowed limit.";
-  if (status === 415 || raw.toLowerCase().includes("mime") || raw.toLowerCase().includes("extension")) return "This file type is not supported.";
-  if (status === 400 && raw.toLowerCase().includes("signature")) return "The image could not be verified.";
-  if (status === 503) return "Storage is not configured.";
-  if (status === 410) return "Upload session expired. Please retry.";
-  return "Upload failed. Please try again.";
 }
 
 const DEFAULT_ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"];
@@ -48,8 +40,8 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
       const items: QueueItem[] = [];
       for (const file of Array.from(files)) {
         let error: string | undefined;
-        if (!allowedMimes.includes(file.type)) error = "This file type is not supported.";
-        else if (file.size > maxBytes * 2) error = "The image is larger than the allowed limit."; // allow larger originals; optimize will shrink
+        if (!allowedMimes.includes(file.type)) error = NOT_SUPPORTED_MESSAGE;
+        else if (file.size > maxBytes * 2) error = TOO_LARGE_MESSAGE; // allow larger originals; optimize will shrink
         items.push({
           id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2)}`,
           file,
@@ -70,13 +62,13 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
   }
 
   async function uploadItem(item: QueueItem) {
-    if (item.status === "failed" && item.error && (item.error.includes("not supported") || item.error.includes("larger than"))) return;
+    if (item.status === "failed" && isNonRetryableUploadError(item.error)) return;
     updateItem(item.id, { status: "optimizing", progress: 5, error: undefined });
 
     try {
       const optimized = await optimizePropertyImageFile(item.file);
       if (optimized.optimizedBytes > maxBytes) {
-        updateItem(item.id, { status: "failed", error: "The image is larger than the allowed limit." });
+        updateItem(item.id, { status: "failed", error: TOO_LARGE_MESSAGE });
         return;
       }
 
@@ -97,7 +89,7 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
 
       if (!authRes.ok) {
         const body = await authRes.json().catch(() => ({}));
-        updateItem(item.id, { status: "failed", error: friendlyError(authRes.status, body.error ?? "") });
+        updateItem(item.id, { status: "failed", error: friendlyUploadError(authRes.status, body) });
         return;
       }
 
@@ -113,7 +105,7 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
         const res = await fetch(`/api/properties/${propertyId}/images`, { method: "POST", body: form });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          updateItem(item.id, { status: "failed", error: friendlyError(res.status, body.error ?? "") });
+          updateItem(item.id, { status: "failed", error: friendlyUploadError(res.status, body) });
           return;
         }
         updateItem(item.id, { status: "uploaded", progress: 100 });
@@ -145,7 +137,7 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
       });
       if (!confirmRes.ok) {
         const body = await confirmRes.json().catch(() => ({}));
-        updateItem(item.id, { status: "failed", error: friendlyError(confirmRes.status, body.error ?? "") });
+        updateItem(item.id, { status: "failed", error: friendlyUploadError(confirmRes.status, body) });
         return;
       }
 
@@ -156,10 +148,20 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
     }
   }
 
-  function uploadAllWaiting() {
-    queue.filter((i) => i.status === "waiting").forEach((item) => {
-      void uploadItem(item);
-    });
+  // Sequential on purpose: concurrent confirms race on the "first image becomes
+  // cover" / sortOrder calculations, burst past the per-user rate limit
+  // (2 API calls per image) and decode many full-size bitmaps at once on phones.
+  const uploadingRef = useRef(false);
+  async function uploadAllWaiting() {
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
+    try {
+      for (const item of queue.filter((i) => i.status === "waiting")) {
+        await uploadItem(item);
+      }
+    } finally {
+      uploadingRef.current = false;
+    }
   }
 
   function removeItem(id: string) {
@@ -274,7 +276,7 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
                     {item.status === "uploaded" && <span className="font-semibold text-emerald-600">Uploaded</span>}
                     {item.status === "failed" && <span className="font-medium text-red-600">{item.error}</span>}
                   </p>
-                  {item.status === "failed" && !item.error?.includes("not supported") && !item.error?.includes("larger than") && (
+                  {item.status === "failed" && !isNonRetryableUploadError(item.error) && (
                     <button type="button" onClick={() => void uploadItem(item)} className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-zinc-900 hover:underline">
                       <RotateCcw className="h-3 w-3" /> Retry
                     </button>
@@ -284,7 +286,7 @@ export function PropertyImageUploader({ propertyId, onUploaded }: { propertyId: 
             ))}
           </ul>
           {waitingCount > 0 && (
-            <Button type="button" size="sm" onClick={uploadAllWaiting}>
+            <Button type="button" size="sm" onClick={() => void uploadAllWaiting()}>
               <ImageIcon className="h-3.5 w-3.5" /> Upload {waitingCount} image(s)
             </Button>
           )}

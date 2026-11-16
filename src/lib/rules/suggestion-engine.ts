@@ -1,6 +1,8 @@
 import { prisma } from "../prisma";
 import { matchPropertiesToLead } from "../matching";
 import { daysBetween } from "./rule-engine";
+import { firstDialablePhone } from "../phone-validation";
+import { countValidPropertyPhotos } from "../property-photo-count";
 import { detectFollowUpTrigger, recommendFollowUpTiming } from "./followup-recommendations";
 import type { Suggestion } from "./types";
 import type { LeadPriority, LeadStatus, PropertyStatus, VisitStatus, VisitOutcome, DealStage, DealStatus, OwnerVerificationStatus } from "@prisma/client";
@@ -17,14 +19,11 @@ import type { LeadPriority, LeadStatus, PropertyStatus, VisitStatus, VisitOutcom
 
 const NEGATIVE_TERMINAL_STATUSES: LeadStatus[] = ["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"];
 
-function isValidIndianPhone(phone: string): boolean {
-  const digits = phone.replace(/\D/g, "");
-  return digits.length === 10 || (digits.length === 12 && digits.startsWith("91"));
-}
 
 export interface LeadSuggestionInput {
   leadId: string;
   phone: string;
+  additionalPhones?: string[];
   status: LeadStatus;
   priority: LeadPriority;
   assignedToId: string | null;
@@ -46,7 +45,8 @@ export function computeLeadSuggestions(input: LeadSuggestionInput): Suggestion[]
   const suggestions: Suggestion[] = [];
 
   const daysSinceContact = input.lastContactedAt ? daysBetween(input.lastContactedAt, now) : null;
-  if (isValidIndianPhone(input.phone)) {
+  const dialPhone = firstDialablePhone([input.phone, ...(input.additionalPhones ?? [])]);
+  if (dialPhone) {
     if (daysSinceContact === null || daysSinceContact >= 3) {
       suggestions.push({
         id: `lead-${input.leadId}-call-client`,
@@ -55,7 +55,7 @@ export function computeLeadSuggestions(input: LeadSuggestionInput): Suggestion[]
         reason: daysSinceContact === null ? "This client has never been contacted." : `No contact recorded for ${daysSinceContact} days.`,
         actionLabel: "Call client",
         actionKind: "tel",
-        actionTarget: `tel:${input.phone}`,
+        actionTarget: `tel:${dialPhone}`,
       });
     }
   } else {
@@ -437,7 +437,7 @@ export function computeDealSuggestions(input: DealSuggestionInput): Suggestion[]
 // ---------------------------------------------------------------------------
 
 export async function getLeadSuggestions(leadId: string, canManage: boolean): Promise<Suggestion[]> {
-  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+  const lead = await prisma.lead.findUnique({ where: { id: leadId }, include: { phones: { select: { phone: true } } } });
   if (!lead) return [];
 
   const [availableProperties, pendingFollowUpCount, overdueFollowUpCount, scheduledVisitCount, catalogueSentCount, clientInterestCount] = await Promise.all([
@@ -455,6 +455,7 @@ export async function getLeadSuggestions(leadId: string, canManage: boolean): Pr
   return computeLeadSuggestions({
     leadId: lead.id,
     phone: lead.phone,
+    additionalPhones: lead.phones.map((p) => p.phone),
     status: lead.status,
     priority: lead.priority,
     assignedToId: lead.assignedToId,
@@ -492,19 +493,16 @@ export async function getPropertySuggestions(propertyId: string, organizationId:
     },
   });
 
-  const images: string[] = (() => {
-    try {
-      return JSON.parse(property.images || "[]");
-    } catch {
-      return [];
-    }
-  })();
+  const photoRows = await prisma.propertyImage.findMany({
+    where: { propertyId: property.id, organizationId: property.organizationId, status: "ACTIVE", purpose: "IMAGE" },
+    select: { status: true, purpose: true, storageKey: true, isCover: true },
+  });
   const hasPrice = property.listingType === "RENT" ? Boolean(property.monthlyRent && property.monthlyRent > 0) : Boolean(property.salePrice && property.salePrice > 0);
 
   return computePropertySuggestions({
     propertyId: property.id,
     status: property.status,
-    imageCount: images.length,
+    imageCount: countValidPropertyPhotos({ photoRows, legacyImages: property.images }),
     hasOwner: Boolean(property.ownerId || property.owner),
     ownerVerificationStatus: property.owner?.verificationStatus ?? null,
     hasCompleteAddress: Boolean(property.address?.trim() && property.area?.trim() && property.city?.trim()),

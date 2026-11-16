@@ -283,7 +283,7 @@ async function missedVisitRules(organizationId: string, userId: string | undefin
 
 async function propertiesWithoutImagesRules(organizationId: string): Promise<RuleResult[]> {
   const rows = await prisma.property.findMany({
-    where: { organizationId, status: "AVAILABLE", images: "[]" },
+    where: { organizationId, status: "AVAILABLE", images: "[]", propertyImages: { none: { status: "ACTIVE", purpose: "IMAGE" } } },
     select: { id: true, title: true, propertyCode: true },
     take: PER_RULE_LIMIT,
   });

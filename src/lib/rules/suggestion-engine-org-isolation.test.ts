@@ -45,6 +45,7 @@ const propertyAvailabilityReportFindFirst = vi.fn(async (..._args: unknown[]) =>
 vi.mock("../prisma", () => ({
   prisma: {
     property: { findFirst: (...a: unknown[]) => propertyFindFirst(...(a as [never])) },
+    propertyImage: { findMany: async () => [] },
     lead: { count: (...a: unknown[]) => leadCount(...(a as [never])) },
     visit: { count: (...a: unknown[]) => visitCount(...(a as [never])) },
     catalogueShare: { findFirst: (...a: unknown[]) => catalogueShareFindFirst(...(a as [never])) },
