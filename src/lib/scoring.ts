@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { matchPropertiesToLead } from "./matching";
 import { getSystemConfig } from "./system-config";
+import { hasValidIndianPhone } from "./phone-validation";
 import type { FurnishingStatus, LeadPriority, LeadSource, LeadStatus } from "@prisma/client";
 
 export interface ScoreFactor {
@@ -21,6 +22,8 @@ const PROGRESSED_STATUSES: LeadStatus[] = ["CONTACTED", "QUALIFIED", "PROPERTIES
 
 export interface ScoringInput {
   phone: string;
+  /** Structured LeadPhone numbers (alternates etc.) - any one valid number satisfies the phone criterion. */
+  additionalPhones?: string[];
   email: string | null;
   minBudget: number;
   maxBudget: number;
@@ -42,11 +45,6 @@ export interface ScoringInput {
   clientRequestedVisit: boolean;
 }
 
-function isValidIndianPhone(phone: string): boolean {
-  const digits = phone.replace(/\D/g, "");
-  return digits.length === 10 || (digits.length === 12 && digits.startsWith("91"));
-}
-
 function isValidEmail(email: string | null): boolean {
   if (!email) return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -61,7 +59,7 @@ function isValidEmail(email: string | null): boolean {
 export function computeLeadScore(input: ScoringInput, hotThreshold = 70): ScoreResult {
   const factors: ScoreFactor[] = [];
 
-  if (isValidIndianPhone(input.phone)) {
+  if (hasValidIndianPhone([input.phone, ...(input.additionalPhones ?? [])])) {
     factors.push({ label: "Phone number", delta: 10, reason: "Complete, valid phone number" });
   } else {
     factors.push({ label: "Phone number", delta: -40, reason: "Phone number looks invalid or incomplete" });
@@ -151,7 +149,7 @@ export function computeLeadScore(input: ScoringInput, hotThreshold = 70): ScoreR
 
 /** Orchestration: loads everything computeLeadScore needs from the DB, persists the result + history row. */
 export async function recalculateLeadScore(leadId: string, trigger: string): Promise<ScoreResult> {
-  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
+  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId }, include: { phones: { select: { phone: true } } } });
 
   const [config, availableProperties, visitCount, overdueFollowUpCount, inboundMessageCount, catalogueViewCount, propertyInterestCount, visitRequestCount] = await Promise.all([
     getSystemConfig(lead.organizationId),
@@ -176,6 +174,7 @@ export async function recalculateLeadScore(leadId: string, trigger: string): Pro
 
   const result = computeLeadScore({
     phone: lead.phone,
+    additionalPhones: lead.phones.map((p) => p.phone),
     email: lead.email,
     minBudget: lead.minBudget,
     maxBudget: lead.maxBudget,

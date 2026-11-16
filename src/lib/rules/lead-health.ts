@@ -2,6 +2,7 @@ import { prisma } from "../prisma";
 import { matchPropertiesToLead } from "../matching";
 import { cached } from "../cache";
 import { getSystemConfig } from "../system-config";
+import { hasValidIndianPhone } from "../phone-validation";
 import { buildHealthScore, daysBetween } from "./rule-engine";
 import type { HealthFactor, HealthLabel, HealthScoreResult } from "./types";
 import type { LeadStatus } from "@prisma/client";
@@ -18,6 +19,7 @@ export interface LeadHealthInput {
   status: LeadStatus;
   assignedToId: string | null;
   phone: string;
+  additionalPhones?: string[];
   preferredBhk: number | null;
   furnishingPref: string | null;
   minBudget: number;
@@ -43,10 +45,6 @@ export interface LeadHealthInput {
 
 const TERMINAL_STATUSES: LeadStatus[] = ["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"];
 
-function isValidIndianPhone(phone: string): boolean {
-  const digits = phone.replace(/\D/g, "");
-  return digits.length === 10 || (digits.length === 12 && digits.startsWith("91"));
-}
 
 /**
  * Pure, deterministic - no I/O, fully unit-testable.
@@ -65,7 +63,7 @@ export function computeLeadHealth(input: LeadHealthInput, staleLeadDays = 14): H
     factors.push({ label: "Requirement incomplete", delta: -8, detail: "Requirement is missing BHK, furnishing preference or a clear budget range" });
   }
 
-  if (isValidIndianPhone(input.phone)) {
+  if (hasValidIndianPhone([input.phone, ...(input.additionalPhones ?? [])])) {
     factors.push({ label: "Valid phone", delta: 4, detail: "Valid phone number on file" });
   } else {
     factors.push({ label: "Invalid phone", delta: -15, detail: "Phone number looks invalid or incomplete" });
@@ -154,7 +152,7 @@ export function computeLeadHealth(input: LeadHealthInput, staleLeadDays = 14): H
 
 /** Orchestration: loads what computeLeadHealth needs and returns the result. Read-only, org-scoped to the caller's organizationId. */
 export async function getLeadHealth(leadId: string, organizationId: string): Promise<HealthScoreResult | null> {
-  const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId } });
+  const lead = await prisma.lead.findFirst({ where: { id: leadId, organizationId }, include: { phones: { select: { phone: true } } } });
   if (!lead) return null;
 
   const [config, availableProperties, pendingFollowUpCount, overdueFollowUpCount, scheduledVisitCount, missedVisitCount, catalogueSentCount, catalogueViewedCount, clientInterestCount, failedWhatsAppCount, feedback] = await Promise.all([
@@ -178,6 +176,7 @@ export async function getLeadHealth(leadId: string, organizationId: string): Pro
     status: lead.status,
     assignedToId: lead.assignedToId,
     phone: lead.phone,
+    additionalPhones: lead.phones.map((p) => p.phone),
     preferredBhk: lead.preferredBhk,
     furnishingPref: lead.furnishingPref,
     minBudget: lead.minBudget,
@@ -223,7 +222,7 @@ async function computeLeadHealthOverview(organizationId: string, assignedToId?: 
       status: { notIn: ["CLOSED_WON", "CLOSED_LOST", "NOT_INTERESTED", "INVALID"] },
       ...(assignedToId ? { assignedToId } : {}),
     },
-    select: { id: true, status: true, assignedToId: true, phone: true, preferredBhk: true, furnishingPref: true, minBudget: true, maxBudget: true, createdAt: true, updatedAt: true, lastContactedAt: true },
+    select: { id: true, status: true, assignedToId: true, phone: true, preferredBhk: true, furnishingPref: true, minBudget: true, maxBudget: true, createdAt: true, updatedAt: true, lastContactedAt: true, phones: { select: { phone: true } } },
     take: OVERVIEW_LEAD_LIMIT,
   });
   if (leads.length === 0) return [];
@@ -299,6 +298,7 @@ async function computeLeadHealthOverview(organizationId: string, assignedToId?: 
       status: lead.status,
       assignedToId: lead.assignedToId,
       phone: lead.phone,
+      additionalPhones: lead.phones.map((p) => p.phone),
       preferredBhk: lead.preferredBhk,
       furnishingPref: lead.furnishingPref,
       minBudget: lead.minBudget,
