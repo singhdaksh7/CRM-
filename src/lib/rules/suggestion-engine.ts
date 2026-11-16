@@ -2,6 +2,7 @@ import { prisma } from "../prisma";
 import { matchPropertiesToLead } from "../matching";
 import { daysBetween } from "./rule-engine";
 import { firstDialablePhone } from "../phone-validation";
+import { countValidPropertyPhotos } from "../property-photo-count";
 import { detectFollowUpTrigger, recommendFollowUpTiming } from "./followup-recommendations";
 import type { Suggestion } from "./types";
 import type { LeadPriority, LeadStatus, PropertyStatus, VisitStatus, VisitOutcome, DealStage, DealStatus, OwnerVerificationStatus } from "@prisma/client";
@@ -492,19 +493,16 @@ export async function getPropertySuggestions(propertyId: string, organizationId:
     },
   });
 
-  const images: string[] = (() => {
-    try {
-      return JSON.parse(property.images || "[]");
-    } catch {
-      return [];
-    }
-  })();
+  const photoRows = await prisma.propertyImage.findMany({
+    where: { propertyId: property.id, organizationId: property.organizationId, status: "ACTIVE", purpose: "IMAGE" },
+    select: { status: true, purpose: true, storageKey: true, isCover: true },
+  });
   const hasPrice = property.listingType === "RENT" ? Boolean(property.monthlyRent && property.monthlyRent > 0) : Boolean(property.salePrice && property.salePrice > 0);
 
   return computePropertySuggestions({
     propertyId: property.id,
     status: property.status,
-    imageCount: images.length,
+    imageCount: countValidPropertyPhotos({ photoRows, legacyImages: property.images }),
     hasOwner: Boolean(property.ownerId || property.owner),
     ownerVerificationStatus: property.owner?.verificationStatus ?? null,
     hasCompleteAddress: Boolean(property.address?.trim() && property.area?.trim() && property.city?.trim()),
